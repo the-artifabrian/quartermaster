@@ -10,24 +10,25 @@ buildable folders: any file added there joins the app or the Share Extension
 target without touching the project file. Files in `Quartermaster/Shared/` join
 both.
 
-| File                                           | Role                                                                                      |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `QuartermasterApp.swift`                       | App entry, one SwiftUI scene, incoming links, page inbox                                  |
-| `ShellViewController.swift`                    | Web view, navigation and UI delegates, offline view hosting, appearance                   |
-| `ShellBridge.swift`                            | Page-to-shell messages, pull to refresh, launch timing (Shell bridge)                     |
-| `SafeArea.swift`                               | The screen's insets, handed to the page before its first paint                            |
-| `ShellConfig.swift`                            | Base URL, start path, user agent token, app-bound check, back swipe                       |
-| `LinkPolicy.swift`                             | Where a URL opens: web view, Safari sheet, or iOS; what is an app page                    |
-| `IncomingURL.swift`                            | Which page an incoming link opens                                                         |
-| `ShareIntent.swift`                            | A share waiting for its import page, and the script that hands it over                    |
-| `Shared/SharedLinkStore.swift`                 | The App Group handoff from the Share Extension: nonces, single use, expiry                |
-| `ResumeState.swift`                            | Which page a cold start reopens                                                           |
-| `QuickActions.swift`                           | Home Screen quick actions, app and scene delegates                                        |
-| `OfflineView.swift`                            | Native offline view with Retry                                                            |
-| `Info.plist`                                   | App-bound domains, base URL, URL scheme, quick actions, launch screen, permission strings |
-| `QuartermasterShare/ShareViewController.swift` | Share Extension: finds the shared link, opens the app                                     |
-| `QuartermasterShare/Info.plist`                | Share Extension activation rule                                                           |
-| `*.entitlements`                               | Associated Domains (app), and the `group.app.useqm.ios` App Group (both targets)          |
+| File                                           | Role                                                                                         |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `QuartermasterApp.swift`                       | App entry, one SwiftUI scene, incoming links, page inbox                                     |
+| `ShellViewController.swift`                    | Web view, navigation and UI delegates, offline view hosting, appearance                      |
+| `ShellBridge.swift`                            | Page-to-shell messages, pull to refresh, launch timing (Shell bridge)                        |
+| `SafeArea.swift`                               | The screen's insets, handed to the page before its first paint                               |
+| `ShellConfig.swift`                            | Base URL, start path, user agent token, app-bound check, back swipe                          |
+| `LinkPolicy.swift`                             | Where a URL opens: web view, Safari sheet, or iOS; what is an app page                       |
+| `IncomingURL.swift`                            | Which page an incoming link opens                                                            |
+| `ShareIntent.swift`                            | A share waiting for its import page, and the scripts that hand it over                       |
+| `Shared/ShareStore.swift`                      | The App Group handoff from the Share Extension: nonces, single use, expiry, screenshot files |
+| `ResumeState.swift`                            | Which page a cold start reopens                                                              |
+| `QuickActions.swift`                           | Home Screen quick actions, app and scene delegates                                           |
+| `OfflineView.swift`                            | Native offline view with Retry                                                               |
+| `Info.plist`                                   | App-bound domains, base URL, URL scheme, quick actions, launch screen, permission strings    |
+| `QuartermasterShare/ShareViewController.swift` | Share Extension: picks the shared link or screenshots, hands them to the app                 |
+| `QuartermasterShare/SharedImageEncoder.swift`  | Share Extension: re-encodes shared images as the JPEG the import takes                       |
+| `QuartermasterShare/Info.plist`                | Share Extension activation rule                                                              |
+| `*.entitlements`                               | Associated Domains (app), and the `group.app.useqm.ios` App Group (both targets)             |
 
 ## Open and run
 
@@ -213,10 +214,24 @@ one. With the app running, the scene delegate hands it over the same way.
 ## Share Extension
 
 `QuartermasterShare` (`app.useqm.ios.share`) appears in the share sheet for one
-shared item holding a web URL, or text with a URL in it. It takes the first
-http(s) link (a URL attachment first, then a link found in the text), hands it
-to the app (Share import, below) and closes. If there is no link it cancels. No
-network and no web view in the extension; the app does the fetch.
+shared item holding a web URL, text, or up to five images (the import's limit).
+One share carries one thing: a web URL attachment (Safari, a site's share
+button) wins, then images (Photos, the screenshot editor), then the first link
+found in shared text (Messages, Notes). A social app that shares a screenshot
+with a caption holding a link imports the screenshot, which is what the user
+picked. The extension hands the share to the app (Share import, below) and
+closes; with nothing usable it cancels. No network and no web view in the
+extension: the app fetches the link, and the page's image import reads the
+screenshots.
+
+Screenshots are re-encoded in the extension with ImageIO
+(`SharedImageEncoder.swift`), one at a time, decoding straight to the target
+size so a large photo never sits in memory at full size: JPEG at 0.88, at most
+1568 px on the long edge (the server's own resize in
+`recipe-extract-llm.server.ts`), and under 2 MB each, shrinking further if
+needed. PNG screenshots and HEIC photos come out as JPEG, which the import
+takes. If any image cannot be read the share cancels: a Recipe from some of the
+screenshots could be missing half its steps.
 
 Extensions have no supported way to open their app, so it calls
 `open(_:options:completionHandler:)` on the UIApplication at the end of its
@@ -226,50 +241,67 @@ same App Group handoff.
 
 ### Share import
 
-Sharing to Quartermaster is a deliberate act, so a share imports at once: the
-import page shows "Importing from …" and opens the Recipe, or shows the error on
-its URL tab with the link filled in. But anyone can open `/recipes/import?url=…`
-(a universal link from any site) or `quartermaster://import?url=…` (any app, or
-a site after Safari's prompt), and an import saves, so the page must be able to
-tell the app's own Share Extension from everyone else. Nothing a URL carries can
-do that, so the proof travels outside the URL:
+Sharing to Quartermaster is a deliberate act, so a share imports at once. A link
+shows "Importing from …" and opens the Recipe, or shows the error on the URL tab
+with the link filled in. Screenshots show "Reading your screenshots…" and open
+the Recipe, or show the error on the image tab with the screenshots still
+attached, so trying again is one tap on Extract with AI. Screenshots are read by
+the AI extraction, which is Pro; a free account gets "Screenshot import isn’t
+available on your account" and nothing is sent.
 
-1. **App Group nonce.** The extension writes the link with a timestamp to
-   `SharedLinks/<nonce>.json` in the `group.app.useqm.ios` App Group container,
-   under 128 random bits (`SecRandomCopyBytes`) as 32 hex characters, and opens
+But anyone can open `/recipes/import?url=…` (a universal link from any site) or
+`quartermaster://import?url=…` (any app, or a site after Safari's prompt), and
+an import saves, so the page must be able to tell the app's own Share Extension
+from everyone else. Nothing a URL carries can do that, so the proof travels
+outside the URL:
+
+1. **App Group nonce.** The extension writes the share to the
+   `group.app.useqm.ios` App Group container under 128 random bits
+   (`SecRandomCopyBytes`) as 32 hex characters: screenshots first, as
+   `Shares/<nonce>/1.jpg` … `n.jpg`, then the record `Shares/<nonce>.json` (the
+   link, or the number of screenshots, and a timestamp). Then it opens
    `quartermaster://import?share=<nonce>`. Only the app and its extension carry
    the App Group entitlement, so nobody else can write there, and a nonce cannot
    be guessed. Without the container (a build lacking the entitlement), or if
-   the write fails, it opens `quartermaster://import?url=…` instead, which waits
-   for a tap.
-2. **The app takes the nonce once.** It accepts a nonce of exactly 32 lowercase
-   hex characters whose file exists and is under 2 minutes old (5 seconds of
-   clock skew allowed), holding an http(s) link with a host. It deletes the file
+   the write fails, a link opens `quartermaster://import?url=…` instead, which
+   waits for a tap, and screenshots cancel.
+2. **The app takes the nonce once** (`Shared/ShareStore.swift`). It accepts a
+   nonce of exactly 32 lowercase hex characters whose record exists, is under 2
+   minutes old (5 seconds of clock skew allowed), and holds either an http(s)
+   link with a host or a count of 1 to 5 screenshots. It deletes the record
    before using it, and if the delete fails the share is not used, so a nonce
-   works once. Every read and write also prunes stale and stray files. An
-   expired share opens its import page waiting for a tap; an unknown, used or
-   malformed nonce opens the empty import page.
-3. **The shell hands the link to the page.** It loads
-   `/recipes/import?url=<link>` and keeps a `ShareIntent` (the link, for 5
-   minutes) in memory. Each time a document finishes loading, and each time
-   `webView.url` changes while nothing is loading (the page's own navigations,
-   such as the redirect after signing in), it checks that the page is the app's
-   import page offering that same link. If so it runs
-   `ShareIntent.deliveryScript` with `callAsyncJavaScript` in the page's content
-   world, the link passed as an argument rather than written into the source.
-   The script checks the page again, sets the global and dispatches the event
-   (Shell bridge, above), and returns true. The intent is cleared before the
-   script runs and comes back only if the script found another page. Any other
-   incoming link or quick action replaces it, so it never reaches a page the
-   user did not share into, and a cold start that reopens the import page
+   works once. Screenshot files are named by their count, never by the record,
+   and each must be a JPEG under 5 MB, checked by size before it is read; the
+   share's folder goes after the read. Every read and write also prunes stale
+   records, folders without a fresh record, and stray files. An expired link
+   opens its import page waiting for a tap; expired screenshots, or an unknown,
+   used or malformed nonce, open the plain import page.
+3. **The shell hands the share to the page.** For a link it loads
+   `/recipes/import?url=<link>`, for screenshots the plain `/recipes/import`,
+   and keeps a `ShareIntent` (the link or the screenshots, for 5 minutes) in
+   memory. Each time a document finishes loading, and each time `webView.url`
+   changes while nothing is loading (the page's own navigations, such as the
+   redirect after signing in), it checks that the page is that import page on
+   the app's host: offering the same link, or offering none for screenshots. If
+   so it runs `ShareIntent.linkScript` or `imagesScript` with
+   `callAsyncJavaScript` in the page's content world, with what was shared
+   passed as arguments (screenshots as base64) rather than written into the
+   source. The script checks the page again, sets the global and dispatches the
+   event (Shell bridge, above), and returns true. The intent is cleared before
+   the script runs and comes back only if the script found another page. Any
+   other incoming link or quick action replaces it, so it never reaches a page
+   the user did not share into, and a cold start that reopens the import page
    carries none.
 4. **The page imports only on a match.** In the shell, the import page reads
-   `window.__qmShareImport` at mount and on `qm:share-import`, deletes it
-   whatever it holds, and submits the offer's own Import form only when the
-   handed link equals its `?url=` and the offer is showing. Same POST, same
-   duplicate check: a link already in the Household shows "Already in your
-   Recipes" instead. Query string, hash and storage play no part, and outside
-   the shell nothing listens.
+   `window.__qmShareImport` at mount and on `qm:share-import`, and deletes it
+   whatever it holds. A link is imported only when it equals the page's `?url=`
+   and the offer is showing: the offer's own Import form is submitted, the same
+   POST and the same duplicate check, so a link already in the Household shows
+   "Already in your Recipes" instead. Screenshots (1 to 5 `File`s) are imported
+   only on the plain import page: they go onto the image form's file input and
+   that form is submitted, the same multipart POST, Pro check, limits and AI
+   extraction as picking them by hand. Query string, hash and storage play no
+   part, and outside the shell nothing listens.
 
 Checks by hand (#328, 2.2), on the Simulator and then a device:
 
@@ -281,13 +313,23 @@ Checks by hand (#328, 2.2), on the Simulator and then a device:
 3. A Recipe site's own share button (Web Share), Quartermaster: same result.
 4. A page that is not a Recipe: the import page shows its usual error on the URL
    tab, with the link filled in.
-5. Each of the above with the app killed first (cold start) and with it already
+5. A screenshot of a Recipe, from the screenshot editor's share button and from
+   Photos, on a Pro account: "Reading your screenshots…", then the Recipe. Then
+   three screenshots selected in Photos: one Recipe. Six selected: Quartermaster
+   is not offered. A HEIC photo of a cookbook page: imports.
+6. The same screenshot on a free account: "Screenshot import isn’t available on
+   your account", nothing saved, no mention of Pro.
+7. A screenshot with no Recipe in it: the error on the image tab, the screenshot
+   still attached; airplane mode during the import: "Couldn’t reach
+   Quartermaster", the screenshot still attached, and Extract with AI works once
+   back online.
+8. Each of the above with the app killed first (cold start) and with it already
    open, and once while logged out: after logging in, the import runs.
-6. `xcrun simctl openurl booted 'quartermaster://import?url=https%3A%2F%2Fexample.com%2Frecipe'`
+9. `xcrun simctl openurl booted 'quartermaster://import?url=https%3A%2F%2Fexample.com%2Frecipe'`
    still waits for the tap, and
    `xcrun simctl openurl booted 'quartermaster://import?share=00000000000000000000000000000000'`
-   opens the empty import page.
-7. Then retire the "Send to Quartermaster" Shortcut (#326, 0.6).
+   opens the plain import page.
+10. Then retire the "Send to Quartermaster" Shortcut (#326, 0.6).
 
 The App Groups capability registers with the App ID on the first archive with
 automatic signing (`-allowProvisioningUpdates`).

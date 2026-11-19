@@ -4,9 +4,9 @@ import Foundation
 ///
 /// Three kinds arrive:
 /// - `quartermaster://import?share=<nonce>`, from the app's own Share
-///   Extension. The link waits in the App Group under that nonce
-///   (`SharedLinkStore`); the shell opens the import page for it and hands
-///   the link to the page, which imports it at once.
+///   Extension. A link or screenshots wait in the App Group under that nonce
+///   (`ShareStore`); the shell opens the import page for them and hands them
+///   to the page, which imports them at once.
 /// - `quartermaster://import?url=<percent-encoded http(s) URL>`, from older
 ///   builds of the Share Extension or anything else that opens the scheme,
 ///   opens the Recipe import page with that URL, ready to import with one
@@ -52,19 +52,22 @@ enum IncomingURL {
         return .page(page)
     }
 
-    /// What a share's nonce opens. A fresh share opens its import page with
-    /// the link to hand over; an old one opens the same page waiting for a
-    /// tap; an unknown or used nonce opens the empty import page.
-    static func sharedImport(_ lookup: SharedLinkStore.Lookup, baseURL: URL) -> (page: URL, intent: ShareIntent?) {
-        let emptyImport = baseURL.appending(path: importPath)
+    /// What a share's nonce opens. A fresh link opens the import page
+    /// offering it, and fresh screenshots the plain import page, each with the
+    /// share to hand over. An old link opens its page waiting for a tap; old
+    /// screenshots, or an unknown or used nonce, open the plain import page.
+    static func sharedImport(_ lookup: ShareStore.Lookup, baseURL: URL) -> (page: URL, intent: ShareIntent?) {
+        let plainImport = baseURL.appending(path: importPath)
         switch lookup {
-        case .accepted(let link):
-            guard let page = importPage(for: link, baseURL: baseURL) else { return (emptyImport, nil) }
-            return (page, ShareIntent(link: link))
-        case .expired(let link):
-            return (importPage(for: link, baseURL: baseURL) ?? emptyImport, nil)
-        case .missing:
-            return (emptyImport, nil)
+        case .accepted(.link(let link)):
+            guard let page = importPage(for: link, baseURL: baseURL) else { return (plainImport, nil) }
+            return (page, ShareIntent(.link(link)))
+        case .accepted(.images(let images)):
+            return (plainImport, ShareIntent(.images(images)))
+        case .expired(let link?):
+            return (importPage(for: link, baseURL: baseURL) ?? plainImport, nil)
+        case .expired(nil), .missing:
+            return (plainImport, nil)
         }
     }
 

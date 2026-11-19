@@ -1,14 +1,22 @@
 import UIKit
 import UniformTypeIdentifiers
 
-/// Takes the link someone shares and opens it on the app's Recipe import page.
-/// The link goes into the App Group under a fresh nonce (`SharedLinkStore`)
-/// and the app opens through `quartermaster://import?share=<nonce>`, which
-/// tells it the share came from here, so it imports at once. Without the App
-/// Group it falls back to `quartermaster://import?url=<encoded link>`, which
-/// waits for a tap. The app's `IncomingURL` reads both; keep them in step.
+/// Takes the link or screenshots someone shares and opens them on the app's
+/// Recipe import page. They go into the App Group under a fresh nonce
+/// (`ShareStore`) and the app opens through
+/// `quartermaster://import?share=<nonce>`, which tells it the share came from
+/// here, so it imports at once. Without the App Group a link falls back to
+/// `quartermaster://import?url=<encoded link>`, which waits for a tap, and
+/// screenshots cancel. The app's `IncomingURL` reads both URLs; keep them in
+/// step.
 ///
-/// No network and no web view here: the app does the fetch.
+/// One share carries one thing: a URL attachment (Safari, a site's share
+/// button) wins, then images (Photos, the screenshot editor), then a link
+/// found in shared text (Messages, Notes). A social app that shares a
+/// screenshot with a caption holding a link imports the screenshot.
+///
+/// No network and no web view here: the app does the fetch, and the page's
+/// image import reads the screenshots.
 final class ShareViewController: UIViewController {
     private var started = false
 
@@ -36,12 +44,22 @@ final class ShareViewController: UIViewController {
 
     private func share() async {
         let items = extensionContext?.inputItems.compactMap { $0 as? NSExtensionItem } ?? []
-        guard let link = await Self.firstLink(in: items),
-              let appURL = Self.shareURL(for: link) ?? Self.importURL(for: link)
-        else {
+        let providers = items.flatMap { $0.attachments ?? [] }
+        let images = Self.imageProviders(in: providers)
+        let appURL: URL?
+        if let link = await Self.attachedLink(in: providers) {
+            appURL = Self.shareURL(for: link) ?? Self.importURL(for: link)
+        } else if !images.isEmpty {
+            appURL = await Self.shareURL(forImages: images)
+        } else if let link = await Self.linkInText(items: items, providers: providers) {
+            appURL = Self.shareURL(for: link) ?? Self.importURL(for: link)
+        } else {
+            appURL = nil
+        }
+        guard let appURL else {
             extensionContext?.cancelRequest(withError: NSError(
                 domain: "app.useqm.ios.share", code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "No link to import"]))
+                userInfo: [NSLocalizedDescriptionKey: "Nothing to import"]))
             return
         }
         await openApp(appURL)
@@ -50,11 +68,9 @@ final class ShareViewController: UIViewController {
 
     // MARK: Finding the link
 
-    /// A URL attachment first (Safari, a Recipe site's share button), then a
-    /// link inside shared text (Messages, Notes).
-    private static func firstLink(in items: [NSExtensionItem]) async -> URL? {
-        let providers = items.flatMap { $0.attachments ?? [] }
-
+    /// A web URL attachment (Safari, a Recipe site's share button). A file
+    /// URL, such as a photo's, is not one.
+    private static func attachedLink(in providers: [NSItemProvider]) async -> URL? {
         for provider in providers where provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
             let item = try? await provider.loadItem(forTypeIdentifier: UTType.url.identifier)
             let url = (item as? URL)
@@ -62,7 +78,11 @@ final class ShareViewController: UIViewController {
                 ?? (item as? String).flatMap(URL.init(string:))
             if let url, isWebLink(url) { return url }
         }
+        return nil
+    }
 
+    /// A link inside shared text (Messages, Notes).
+    private static func linkInText(items: [NSExtensionItem], providers: [NSItemProvider]) async -> URL? {
         var texts = items.compactMap { $0.attributedContentText?.string }
         for provider in providers where provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
             let item = try? await provider.loadItem(forTypeIdentifier: UTType.plainText.identifier)
@@ -98,8 +118,55 @@ final class ShareViewController: UIViewController {
     /// `quartermaster://import?share=<nonce>`, with the link stored under the
     /// nonce, or nil when the App Group is not there or the write failed.
     private static func shareURL(for link: URL) -> URL? {
-        guard let nonce = SharedLinkStore.inAppGroup()?.put(link.absoluteString) else { return nil }
-        return URL(string: "quartermaster://import?share=\(nonce)")
+        ShareStore.inAppGroup()?.put(link: link.absoluteString).flatMap(shareURL(nonce:))
+    }
+
+    private static func shareURL(nonce: String) -> URL? {
+        URL(string: "quartermaster://import?share=\(nonce)")
+    }
+
+    // MARK: Screenshots
+
+    /// Image attachments, at most as many as one import takes (the activation
+    /// rule already stops at that many).
+    private static func imageProviders(in providers: [NSItemProvider]) -> [NSItemProvider] {
+        Array(providers.filter { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) }
+            .prefix(ShareStore.maxImages))
+    }
+
+    /// `quartermaster://import?share=<nonce>` with the screenshots stored
+    /// under the nonce, or nil when one cannot be read or the App Group is not
+    /// there: a Recipe from some of the screenshots could be missing half its
+    /// steps, so it is all of them or none.
+    private static func shareURL(forImages providers: [NSItemProvider]) async -> URL? {
+        guard let store = ShareStore.inAppGroup() else { return nil }
+        var images: [Data] = []
+        // One at a time, to stay inside the extension's memory limit.
+        for provider in providers {
+            guard let image = await jpeg(from: provider) else { return nil }
+            images.append(image)
+        }
+        return store.put(images: images).flatMap(shareURL(nonce:))
+    }
+
+    /// The image as an importable JPEG. A file representation first, which
+    /// ImageIO decodes at the target size; then whatever the provider hands
+    /// over itself: a file URL, data, or a UIImage (the screenshot editor).
+    private static func jpeg(from provider: NSItemProvider) async -> Data? {
+        let fromFile: Data? = await withCheckedContinuation { continuation in
+            _ = provider.loadFileRepresentation(forTypeIdentifier: UTType.image.identifier) { url, _ in
+                // The file is gone once this returns, so it is read here.
+                continuation.resume(returning: url.flatMap(SharedImageEncoder.jpeg(fromFile:)))
+            }
+        }
+        if let fromFile { return fromFile }
+        let item = try? await provider.loadItem(forTypeIdentifier: UTType.image.identifier)
+        if let url = item as? URL, url.isFileURL { return SharedImageEncoder.jpeg(fromFile: url) }
+        if let data = item as? Data { return SharedImageEncoder.jpeg(fromData: data) }
+        if let image = item as? UIImage, let data = image.jpegData(compressionQuality: 1) {
+            return SharedImageEncoder.jpeg(fromData: data)
+        }
+        return nil
     }
 
     /// The fallback, which the app opens waiting for a tap.

@@ -24,7 +24,7 @@ struct QuartermasterApp: App {
                     case .page(let page):
                         Shell.inbox.deliver(page)
                     case .share(let nonce):
-                        let lookup = SharedLinkStore.inAppGroup()?.take(nonce) ?? .missing
+                        let lookup = ShareStore.inAppGroup()?.take(nonce) ?? .missing
                         let opened = IncomingURL.sharedImport(lookup, baseURL: baseURL)
                         Shell.inbox.deliver(opened.page, share: opened.intent)
                     case nil:

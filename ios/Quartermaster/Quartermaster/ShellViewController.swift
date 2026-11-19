@@ -298,7 +298,7 @@ final class ShellViewController: UIViewController {
         pendingShare = nil
         let generation = incomingGeneration
         webView.callAsyncJavaScript(
-            ShareIntent.deliveryScript, arguments: intent.arguments(baseURL: config.baseURL),
+            intent.script, arguments: intent.arguments(baseURL: config.baseURL),
             in: nil, in: .page
         ) { [weak self] result in
             guard let self else { return }

@@ -11,7 +11,11 @@ import { recipeNewNav } from '#app/utils/nav-back.ts'
 import { data, replace, type ShouldRevalidateFunctionArgs } from 'react-router'
 import { RECIPE_FORM_ID, RecipeForm } from '#app/components/recipe-form.tsx'
 import { prisma } from '#app/utils/db.server.ts'
-import { clientLeaves, type EditScreenDone } from '#app/utils/edit-screen.ts'
+import {
+	clientLeaves,
+	type EditScreenDone,
+	isEditScreenDone,
+} from '#app/utils/edit-screen.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	recipeMetadataOptions,
@@ -41,11 +45,14 @@ export const meta: Route.MetaFunction = () => {
 	return [{ title: 'New Recipe | Quartermaster' }]
 }
 
-// Offline the reload would fail and replace the form with an error.
+// A Save that went through leaves the form for the new page (edit-screen.tsx),
+// so there is nothing to reload it for.
 export function shouldRevalidate({
 	actionResult,
 	defaultShouldRevalidate,
 }: ShouldRevalidateFunctionArgs) {
+	if (isEditScreenDone(actionResult)) return false
+	// Offline the reload would fail and replace the form with an error.
 	if (isOfflineReply(actionResult)) return false
 	return defaultShouldRevalidate
 }

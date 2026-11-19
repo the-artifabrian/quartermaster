@@ -340,10 +340,10 @@ grids, illustrations, or congratulatory copy.
 - Respect `prefers-reduced-motion`; behavior must not depend on animation.
 - Haptics (iOS app only, `haptic()` in `app/utils/shell-bridge.ts`) follow the
   native control, once per tap, never on load or a refresh: `selection` for a
-  tab, a switch, a new segment, and ticking or unticking a Shopping item, an
-  ingredient or a step; `success` for Mark cooked, a Save the server took, and
-  an import; `medium` for a delete with Undo; `warning` when a confirm sheet
-  asks.
+  tab, a switch, a new segment, ticking or unticking a Shopping item, an
+  ingredient or a step, and unmarking cooked; `success` for Mark cooked, a Save
+  the server took, and an import; `medium` for a delete with Undo; `warning`
+  when a confirm sheet asks.
 - Keep visible focus, semantic landmarks, labelled icon buttons, and reachable
   reorder controls.
 - Hover is polish. Every action must work by tap and keyboard. Tooltips are for

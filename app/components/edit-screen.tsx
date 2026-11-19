@@ -121,16 +121,37 @@ export function DiscardChangesGuard({
 		if (form instanceof HTMLFormElement) loaded.current = formSnapshot(form)
 	}, [formId])
 
-	const blocker = useBlocker(({ currentLocation, nextLocation }) => {
-		if (leavingDone) return false
-		// A Save submits to the page itself.
-		if (currentLocation.pathname === nextLocation.pathname) return false
+	const changed = () => {
 		const form = document.getElementById(formId)
 		if (!(form instanceof HTMLFormElement) || loaded.current === null) {
 			return false
 		}
 		return formSnapshot(form) !== loaded.current
+	}
+
+	const blocker = useBlocker(({ currentLocation, nextLocation }) => {
+		if (leavingDone) return false
+		// A Save submits to the page itself.
+		if (currentLocation.pathname === nextLocation.pathname) return false
+		return changed()
 	})
+
+	// The router cannot hold a way out that leaves the document: a reload, a
+	// closed tab, or history back to an entry from before a reload. The
+	// browser asks there instead (desktop, Safari). The iOS app's WKWebView
+	// shows no such prompt, so there it leaves without asking.
+	useEffect(() => {
+		const onBeforeUnload = (event: BeforeUnloadEvent) => {
+			if (leavingDone || !changed()) return
+			event.preventDefault()
+			// Older browsers ask only when returnValue is set.
+			event.returnValue = ''
+		}
+		window.addEventListener('beforeunload', onBeforeUnload)
+		return () => window.removeEventListener('beforeunload', onBeforeUnload)
+		// `changed` reads the form and the baseline at the time of leaving.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [formId])
 
 	// Cancel marks its pop as the nav bar's Back before the router holds it.
 	const backButton = useRef(false)

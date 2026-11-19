@@ -12,6 +12,11 @@ import {
 	ClientLeavesField,
 	useLeaveEditScreen,
 } from '#app/components/edit-screen.tsx'
+import {
+	GoneItemBoundary,
+	goneItemMiddleware,
+} from '#app/components/gone-item.tsx'
+import { isOfflineReply, saveUnlessOffline } from '#app/utils/offline-save.ts'
 import { type NavBarHandle, useLockNavBar } from '#app/components/nav-bar.tsx'
 import {
 	MENU_FORM_ID,
@@ -43,6 +48,15 @@ import {
 } from '#app/utils/menu-validation.ts'
 import { type Route } from './+types/$menuId_.edit.ts'
 
+// Going back to this page once its item is gone opens /recipes/menus instead.
+export const clientMiddleware: Route.ClientMiddlewareFunction[] = [
+	goneItemMiddleware('/recipes/menus'),
+]
+
+export function ErrorBoundary() {
+	return <GoneItemBoundary list="/recipes/menus" />
+}
+
 export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
 	nav: ({ params }) => menuEditNav(params.menuId!),
@@ -55,11 +69,18 @@ export const meta: Route.MetaFunction = () => {
 
 // Done saving or deleting, the screen leaves by itself (edit-screen.tsx):
 // reloading it first would load a Menu that is gone, or about to be left.
+// A Save offline keeps the form and its edits (offline-save.ts).
+export async function clientAction(args: Route.ClientActionArgs) {
+	return saveUnlessOffline(args, MenuBuilderSchema)
+}
+
 export function shouldRevalidate({
 	actionResult,
 	defaultShouldRevalidate,
 }: ShouldRevalidateFunctionArgs) {
 	if (isEditScreenDone(actionResult)) return false
+	// Offline the reload would fail and replace the form with an error.
+	if (isOfflineReply(actionResult)) return false
 	return defaultShouldRevalidate
 }
 

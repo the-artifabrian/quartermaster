@@ -5,9 +5,10 @@ import {
 	type FileUpload,
 } from '@mjackson/form-data-parser'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { isOfflineReply, saveUnlessOffline } from '#app/utils/offline-save.ts'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { recipeNewNav } from '#app/utils/nav-back.ts'
-import { data, replace } from 'react-router'
+import { data, replace, type ShouldRevalidateFunctionArgs } from 'react-router'
 import { RECIPE_FORM_ID, RecipeForm } from '#app/components/recipe-form.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
@@ -37,6 +38,20 @@ export const handle: SEOHandle & NavBarHandle = {
 
 export const meta: Route.MetaFunction = () => {
 	return [{ title: 'New Recipe | Quartermaster' }]
+}
+
+// Offline the reload would fail and replace the form with an error.
+export function shouldRevalidate({
+	actionResult,
+	defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
+	if (isOfflineReply(actionResult)) return false
+	return defaultShouldRevalidate
+}
+
+// A Save offline keeps the form and its edits (offline-save.ts).
+export async function clientAction(args: Route.ClientActionArgs) {
+	return saveUnlessOffline(args, RecipeSchema)
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

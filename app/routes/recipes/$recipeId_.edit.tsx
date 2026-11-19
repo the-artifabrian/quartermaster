@@ -21,6 +21,7 @@ import {
 	GoneItemBoundary,
 	goneItemMiddleware,
 } from '#app/components/gone-item.tsx'
+import { isOfflineReply, saveUnlessOffline } from '#app/utils/offline-save.ts'
 import { type NavBarHandle, useLockNavBar } from '#app/components/nav-bar.tsx'
 import { RECIPE_FORM_ID, RecipeForm } from '#app/components/recipe-form.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -84,11 +85,18 @@ export const meta: Route.MetaFunction = () => {
 
 // Done saving or deleting, the screen leaves by itself (edit-screen.tsx):
 // reloading it first would load a Recipe that is gone, or about to be left.
+// A Save offline keeps the form and its edits (offline-save.ts).
+export async function clientAction(args: Route.ClientActionArgs) {
+	return saveUnlessOffline(args, RecipeSchema)
+}
+
 export function shouldRevalidate({
 	actionResult,
 	defaultShouldRevalidate,
 }: ShouldRevalidateFunctionArgs) {
 	if (isEditScreenDone(actionResult)) return false
+	// Offline the reload would fail and replace the form with an error.
+	if (isOfflineReply(actionResult)) return false
 	return defaultShouldRevalidate
 }
 

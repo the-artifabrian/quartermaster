@@ -2,6 +2,7 @@ import { type SubmissionResult } from '@conform-to/react'
 import { parseWithZod } from '@conform-to/zod/v4'
 import { toast } from 'sonner'
 import { type z } from 'zod'
+import { isNetworkFailure } from './network-failure.ts'
 
 export const OFFLINE_NOT_SAVED_MESSAGE =
 	'You’re offline, so nothing was saved. Your changes are still here.'
@@ -19,15 +20,6 @@ export function isOfflineReply(value: unknown): value is OfflineReply {
 		typeof value === 'object' &&
 		value !== null &&
 		(value as { offline?: unknown }).offline === true
-	)
-}
-
-function isOfflineFailure(error: unknown) {
-	if (typeof navigator !== 'undefined' && !navigator.onLine) return true
-	// Chromium says "Failed to fetch", Safari "Load failed".
-	return (
-		error instanceof TypeError &&
-		/fetch|network|load failed/i.test(error.message)
 	)
 }
 
@@ -49,7 +41,7 @@ export async function saveUnlessOffline(
 	try {
 		return await serverAction()
 	} catch (error) {
-		if (!isOfflineFailure(error)) throw error
+		if (!isNetworkFailure(error)) throw error
 		const formData = await copy.formData()
 		if (formData.get('intent') === 'delete') {
 			toast.error('You’re offline, so nothing was deleted.')

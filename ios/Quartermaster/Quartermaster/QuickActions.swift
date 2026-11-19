@@ -30,6 +30,18 @@ enum QuickAction: String {
 /// SwiftUI's `App` has no hook for quick actions, so the app installs a scene
 /// delegate for them.
 final class AppDelegate: NSObject, UIApplicationDelegate {
+    /// Clears out shares the Share Extension stored but nothing took (the app
+    /// did not open, or the share went stale). On the main thread and before
+    /// any incoming link, so it never races the app taking a fresh share; a
+    /// fresh one is kept.
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        ShareStore.inAppGroup()?.prune()
+        return true
+    }
+
     func application(
         _ application: UIApplication,
         configurationForConnecting session: UISceneSession,

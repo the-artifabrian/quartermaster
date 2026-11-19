@@ -193,6 +193,8 @@ export const ImportUrlSchema = z.object({
 export const MAX_RECIPE_IMAGE_SIZE = 1024 * 1024 * 3 // 3MB
 /** Each screenshot sent to a Recipe image import. */
 export const MAX_IMPORT_IMAGE_SIZE = 5 * 1024 * 1024
+/** Screenshots in one Recipe image import. */
+export const MAX_IMPORT_IMAGE_COUNT = 5
 
 /**
  * The Recipe form's reply when the upload parser stops at a photo over

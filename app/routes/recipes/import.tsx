@@ -1,8 +1,8 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { recipeImportNav } from '#app/utils/nav-back.ts'
-import { useState } from 'react'
-import { Form, Link, useActionData, useNavigation } from 'react-router'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { data, Form, Link, useActionData, useNavigation } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
@@ -16,7 +16,18 @@ import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { useFitFileInput } from '#app/utils/downscale-image.ts'
 import { findRecipeFromUrl } from '#app/utils/import-recipe-save.server.ts'
 import { importUrlFromSearch } from '#app/utils/import-url.ts'
-import { MAX_IMPORT_IMAGE_SIZE } from '#app/utils/recipe-validation.ts'
+import { isNetworkFailure } from '#app/utils/network-failure.ts'
+import {
+	MAX_IMPORT_IMAGE_COUNT,
+	MAX_IMPORT_IMAGE_SIZE,
+} from '#app/utils/recipe-validation.ts'
+import {
+	currentSharePage,
+	discardShareImport,
+	dropStaleShareImport,
+	SHARE_IMPORT_EVENT,
+	takeShareImport,
+} from '#app/utils/shell-bridge.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
 import { importAction } from './import-action.server.ts'
@@ -86,6 +97,97 @@ export async function action({ request }: Route.ActionArgs) {
 	return importAction(request)
 }
 
+const IMPORT_INTENTS = new Set([
+	'fetch',
+	'parse-text',
+	'extract-text',
+	'extract-image',
+])
+
+/**
+ * An import that got no answer (offline, a dropped connection, the app put
+ * away mid-import) comes back as that tab's error, so what was typed, picked
+ * or shared stays on the page. The server may still have saved it, so the
+ * message says to look first. A 503, so the loaders do not run again into the
+ * same dead connection. Anything else, a redirect included, goes on as before.
+ */
+export async function clientAction({
+	request,
+	serverAction,
+}: Route.ClientActionArgs) {
+	const intent = (await request.clone().formData()).get('intent')
+	try {
+		return await serverAction()
+	} catch (error) {
+		if (!isNetworkFailure(error) || typeof intent !== 'string') throw error
+		if (!IMPORT_INTENTS.has(intent)) throw error
+		return data(
+			{
+				intent: intent as
+					'fetch' | 'parse-text' | 'extract-text' | 'extract-image',
+				error:
+					'Couldn’t reach Quartermaster to confirm the import. Check your Recipes before you try again.',
+				existing: null,
+			},
+			{ status: 503 },
+		)
+	}
+}
+
+/**
+ * What the iOS app's own Share Extension shares imports at once, as if Import
+ * had been tapped: a link on the page that offers that link, screenshots on
+ * the plain import page. Only the shell can hand a share over (iOS README,
+ * "Share import"); a link from a site or another app, or a typed URL, still
+ * waits for the tap.
+ */
+function useShareImport({
+	enabled,
+	sharedUrl,
+	idle,
+	offerShowing,
+	importLink,
+	importImages,
+}: {
+	enabled: boolean
+	sharedUrl: string | null
+	/** No navigation or submission in flight. */
+	idle: boolean
+	/** The page offers its shared link ("Import this Recipe?"). */
+	offerShowing: boolean
+	importLink: () => void
+	importImages: (files: File[]) => void
+}) {
+	useEffect(() => {
+		if (!enabled) return
+		function take() {
+			// The router moves the URL before this page renders the new one;
+			// the effect runs again for that render.
+			if (importUrlFromSearch(window.location.search) !== sharedUrl) return
+			// A share handed to another page, or too long ago, never acts.
+			const where = currentSharePage()
+			dropStaleShareImport(where)
+			// A navigation in flight may still take the page away: the share
+			// waits, and the effect runs again once it settles. If the page
+			// goes, it goes with it (below).
+			if (!idle) return
+			const share = takeShareImport(MAX_IMPORT_IMAGE_COUNT, where)
+			if (!share) return
+			if (share.kind === 'link') {
+				if (share.url === sharedUrl && offerShowing) importLink()
+			} else if (sharedUrl === null) {
+				importImages(share.files)
+			}
+		}
+		take()
+		window.addEventListener(SHARE_IMPORT_EVENT, take)
+		return () => window.removeEventListener(SHARE_IMPORT_EVENT, take)
+	}, [enabled, sharedUrl, idle, offerShowing, importLink, importImages])
+
+	// A share handed over while this page was being left never outlives it.
+	useEffect(() => discardShareImport, [])
+}
+
 export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 	const { isProActive, sharedUrl, sharedExisting } = loaderData
 	const actionData = useActionData<typeof action>()
@@ -129,8 +231,55 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 	// The iOS app may not point at buying Pro (ADR 0001), so a free user there
 	// gets the free URL and text imports without the AI extraction that leads
 	// to Pro.
-	const hideAi = useIsNativeShell() && !isProActive
+	const isNativeShell = useIsNativeShell()
+	const hideAi = isNativeShell && !isProActive
 	const visibleTab = hideAi && activeTab === 'image' ? 'url' : activeTab
+
+	// A shared link goes through the offer's own form, and shared screenshots
+	// through the image form, each submitted as a tap would.
+	const offerForm = useRef<HTMLFormElement>(null)
+	const imageForm = useRef<HTMLFormElement>(null)
+	const imageInput = useRef<HTMLInputElement>(null)
+	const [sharedImages, setSharedImages] = useState<File[] | null>(null)
+	const [sharedImagesRefused, setSharedImagesRefused] = useState(false)
+	const importSharedLink = useCallback(
+		() => offerForm.current?.requestSubmit(),
+		[],
+	)
+	const importSharedImages = useCallback(
+		(files: File[]) => {
+			// Screenshots are read by the AI extraction, which is Pro; the server
+			// refuses it too.
+			if (!isProActive) {
+				setSharedImagesRefused(true)
+				return
+			}
+			setSharedImagesRefused(false)
+			setActiveTab('image')
+			setSharedImages(files)
+		},
+		[isProActive],
+	)
+	useShareImport({
+		enabled: isNativeShell,
+		sharedUrl,
+		idle: navigation.state === 'idle',
+		offerShowing: offerShared,
+		importLink: importSharedLink,
+		importImages: importSharedImages,
+	})
+	// The image form is there once its tab shows. The files stay on its input,
+	// so a failed import is one tap from trying again.
+	useEffect(() => {
+		const form = imageForm.current
+		const input = imageInput.current
+		if (!sharedImages || visibleTab !== 'image' || !form || !input) return
+		const transfer = new DataTransfer()
+		for (const file of sharedImages) transfer.items.add(file)
+		input.files = transfer.files
+		setSharedImages(null)
+		form.requestSubmit()
+	}, [sharedImages, visibleTab])
 
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
@@ -163,8 +312,10 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 
 			{/* A share sheet opens this page with ?url=…. An import saves, and any
 			    site can link here, so the link waits for a tap; it is never
-			    fetched on load. The tap posts to the bare path and replaces this
-			    history entry, so Back or a reload never offers it again. */}
+			    fetched on load. A share through the iOS app's own Share
+			    Extension submits it at once (useShareImport). The tap posts to
+			    the bare path and replaces this history entry, so Back or a
+			    reload never offers it again. */}
 			{offerShared ? (
 				<div className="bg-muted/40 mb-6 rounded-lg p-4">
 					<h2 className="font-medium">Import this Recipe?</h2>
@@ -172,7 +323,12 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 						{sharedUrl}
 					</p>
 					<div className="mt-3 flex flex-wrap gap-2">
-						<Form method="POST" action="/recipes/import" replace>
+						<Form
+							ref={offerForm}
+							method="POST"
+							action="/recipes/import"
+							replace
+						>
 							<input type="hidden" name="intent" value="fetch" />
 							<input type="hidden" name="url" value={sharedUrl} />
 							<Button type="submit" size="sm" className="px-4">
@@ -185,6 +341,17 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 							</Link>
 						</Button>
 					</div>
+				</div>
+			) : null}
+
+			{sharedImagesRefused && !progress ? (
+				<div role="status" className="bg-muted/40 mb-6 rounded-lg p-4">
+					<p className="font-medium">
+						Screenshot import isn’t available on your account
+					</p>
+					<p className="text-muted-foreground mt-1 text-sm">
+						Paste the Recipe’s link or text instead.
+					</p>
 				</div>
 			) : null}
 
@@ -310,6 +477,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 				{/* Image tab */}
 				{visibleTab === 'image' && (
 					<Form
+						ref={imageForm}
 						{...tabPanelProps('import', 'image')}
 						method="POST"
 						encType="multipart/form-data"
@@ -317,8 +485,11 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					>
 						<input type="hidden" name="intent" value="extract-image" />
 						<div className="space-y-2">
-							<Label htmlFor="image">Upload screenshots (up to 5)</Label>
+							<Label htmlFor="image">
+								Upload screenshots (up to {MAX_IMPORT_IMAGE_COUNT})
+							</Label>
 							<Input
+								ref={imageInput}
 								id="image"
 								name="image"
 								type="file"

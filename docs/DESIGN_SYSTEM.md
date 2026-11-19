@@ -126,9 +126,9 @@ each screen:
   “On”/“Off” pill.
 - Previous and next use chevrons, not arrows.
 - **Adding on a tab root** is one control (`TitleAddButton`): a round sage +,
-  44px, at the right end of the big serif title's row on Recipes, Staples and
-  Plan. Its label says what it adds (“New Recipe”, “Add Staple”, “Add Meal to
-  Thursday, Nov 19”). Shopping keeps its floating + instead.
+  44px, at the right end of the big serif title's row on Recipes, Menus, Staples
+  and Plan. Its label says what it adds (“New Recipe”, “New Menu”, “Add Staple”,
+  “Add Meal to Thursday, Nov 19”). Shopping keeps its floating + instead.
 
 ## Sheets and deleting
 

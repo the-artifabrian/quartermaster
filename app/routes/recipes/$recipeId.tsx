@@ -1,5 +1,9 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import {
+	GoneItemBoundary,
+	goneItemMiddleware,
+} from '#app/components/gone-item.tsx'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { recipeDetailNav } from '#app/utils/nav-back.ts'
 import { Img } from 'openimg/react'
@@ -78,6 +82,15 @@ import { getKeepAwakePreference, useWakeLock } from '#app/utils/wake-lock.ts'
 import { staleWhileRevalidate } from '#app/utils/loader-cache.ts'
 import { useStaleRevalidate } from '#app/utils/use-stale-revalidate.ts'
 import { type Route } from './+types/$recipeId.ts'
+
+// Going back to this page once its item is gone opens /recipes instead.
+export const clientMiddleware: Route.ClientMiddlewareFunction[] = [
+	goneItemMiddleware('/recipes'),
+]
+
+export function ErrorBoundary() {
+	return <GoneItemBoundary list="/recipes" />
+}
 
 export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,

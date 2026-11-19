@@ -28,7 +28,9 @@ Each action has one name wherever it is offered:
 - **Add to Plan** puts a Recipe or Menu on a day from its own page. **Add Meal**
   adds one from the Plan page.
 - **Add to Shopping** puts a Meal, an ingredient, or an item on Shopping.
-  **Update Shopping** refreshes a Meal already there.
+  **Update Shopping** refreshes a Meal already there. A Staple's row says
+  **Need** (then “On list”): the row is short, and the page is only about
+  Shopping.
 - **New Recipe** makes a Recipe, by **Import** or **Write a Recipe**.
 - **Share** shares a Recipe or Menu.
 - **Log in** and **Log out**.

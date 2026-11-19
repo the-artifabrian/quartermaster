@@ -313,18 +313,18 @@ placeholder.
 
 ### Staples
 
-- Use one compact searchable alphabetical list; no grouping. Each row has an Add
-  to Shopping button, and is deleted by a swipe left (a trash button with a
-  mouse). The + beside the title adds a Staple. The button's spoken name starts
-  with its visible words and then names the Staple (“Add to Shopping, Salt”), so
-  Voice Control can tap it by what it shows; Delete is “Delete Salt” and its
-  toast “Deleted Salt”.
+- Use one compact searchable alphabetical list; no grouping. Each row has a Need
+  button that puts it on Next shop, and is deleted by a swipe left (a trash
+  button with a mouse). The + beside the title adds a Staple. The button's
+  spoken name starts with its visible words and then names the Staple (“Need,
+  Salt”), so Voice Control can tap it by what it shows; Delete is “Delete Salt”
+  and its toast “Deleted Salt”.
 - Each row carries its own Add control, its own state and its own errors. A
   shopper is usually scrolled somewhere down a long list, so a banner at the top
   of the page is a message they will never see.
-- A Staple already waiting in Next shop reads “On list” in place of Add to
-  Shopping. Keep the control focusable and the row where it was; repeat the
-  result in a visually hidden live region for a screen reader.
+- A Staple already waiting in Next shop reads “On list” in place of Need. Keep
+  the control focusable and the row where it was; repeat the result in a
+  visually hidden live region for a screen reader.
 - No availability state, quantities, expiry dates, stock ledger, images, or
   category sections.
 

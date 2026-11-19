@@ -94,7 +94,7 @@ test('a large Staples list stays task-first and reachable on a phone', async ({
 	const applesRow = list.getByRole('listitem').filter({ hasText: 'Apples' })
 	for (const control of [
 		addButton,
-		applesRow.getByRole('button', { name: 'Add to Shopping, Apples' }),
+		applesRow.getByRole('button', { name: 'Need, Apples' }),
 		applesRow.getByRole('button', { name: 'Delete Apples' }),
 	]) {
 		const box = await control.boundingBox()

@@ -186,8 +186,8 @@ export type LeaveTarget =
  * After a Save, the saved page `to`. An edit screen opened from that page
  * pops back to it (it loads afresh), so neither the edit screen nor a second
  * copy of the page is left behind. Otherwise the page replaces the edit
- * screen. A new Recipe or Menu always replaces its form (the action's
- * `replace` redirect), so it does not come here.
+ * screen, as a new Recipe or Menu always does: its page was never behind
+ * the form.
  */
 export function resolveAfterSave({
 	idx,

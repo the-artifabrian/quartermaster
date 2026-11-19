@@ -10,10 +10,10 @@ import { navItems } from '#app/components/bottom-nav.tsx'
  * page the rule returns to (a Menu behind one of its Recipes, a Recipe behind
  * a linked Recipe), or a page outside the rule's tab that opened it (the Plan
  * behind tonight's Recipe), Back pops to it instead, so that page keeps its
- * filter and scroll position. Forms that led to the page (the edit form after
- * a save, the new-Recipe form after creating one) are stepped over on the
- * way. So are the other tabs' pages between a page the tab bar restored and
- * the stack it continues.
+ * filter and scroll position. Forms that led to the page are stepped over on
+ * the way (a hydrated edit screen leaves none behind, resolveAfterSave, but a
+ * Save without JavaScript redirects past one). So are the other tabs' pages
+ * between a page the tab bar restored and the stack it continues.
  *
  * The browser does not say what is behind the current entry, so the app keeps
  * its own log of the entries it has shown, by React Router's history index.

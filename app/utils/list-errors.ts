@@ -2,7 +2,7 @@ export type RowErrors = Record<string, string[]>
 
 /**
  * Splits a form's errors (Conform's `allErrors`, keyed by field name) for one
- * list field: the list's own errors ("Add at least one ingredient.") and each
+ * list field: the list's own errors ("Add at least one ingredient") and each
  * row's, by index and then by the row's field name (`''` for the whole row).
  */
 export function listErrors(

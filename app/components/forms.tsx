@@ -62,7 +62,8 @@ export function focusFirstError(form: HTMLElement | null) {
 		details.open = true
 	}
 	target.focus({ preventScroll: true })
-	target.scrollIntoView({ block: 'center' })
+	// Optional: jsdom has none.
+	target.scrollIntoView?.({ block: 'center' })
 	return true
 }
 

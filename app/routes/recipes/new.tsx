@@ -33,6 +33,7 @@ import {
 	ACCEPTED_RECIPE_IMAGE_TYPES,
 } from '#app/utils/recipe-validation.ts'
 import { uploadRecipeImage } from '#app/utils/storage.server.ts'
+import { writeTransaction } from '#app/utils/write-transaction.server.ts'
 import { type Route } from './+types/new.ts'
 
 export const handle: SEOHandle & NavBarHandle = {
@@ -177,7 +178,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 	let recipe: { id: string }
 	try {
-		recipe = await prisma.$transaction(async (tx) => {
+		recipe = await writeTransaction(prisma, async (tx) => {
 			const metadataValueIds = await resolveRecipeMetadataValueIds(
 				tx,
 				householdId,

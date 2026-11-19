@@ -59,6 +59,7 @@ import {
 	deleteRecipeImage,
 	uploadRecipeImage,
 } from '#app/utils/storage.server.ts'
+import { writeTransaction } from '#app/utils/write-transaction.server.ts'
 import { type Route } from './+types/$recipeId_.edit.ts'
 
 // Going back to this page once its item is gone opens /recipes instead.
@@ -320,7 +321,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 	// Classification identity resolves inside the same transaction, so a
 	// spoofed foreign-household value cannot partially change the Recipe.
 	try {
-		await prisma.$transaction(async (tx) => {
+		await writeTransaction(prisma, async (tx) => {
 			const metadataValueIds = await resolveRecipeMetadataValueIds(
 				tx,
 				householdId,

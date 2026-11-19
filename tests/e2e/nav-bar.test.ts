@@ -331,6 +331,51 @@ test.describe('in the iOS app', () => {
 	})
 })
 
+test.describe('on a sideways iPhone in the iOS app', () => {
+	test.use({
+		userAgent: SHELL_UA,
+		viewport: { width: 844, height: 390 },
+		hasTouch: true,
+	})
+
+	test('a Recipe keeps the bar and its Back, though the screen is desktop-wide', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createLongRecipe(user, 'Lentil soup')
+		await page.goto(`/recipes/${recipe.id}`)
+		// As wide as a desktop, but with a finger, not a mouse.
+		expect(
+			await page.evaluate(() => ({
+				wide: matchMedia('(width >= 48rem)').matches,
+				mouse: matchMedia('(pointer: fine)').matches,
+			})),
+		).toEqual({ wide: true, mouse: false })
+
+		const bar = page.locator('[data-nav-bar]')
+		const back = backButton(page, 'Recipes')
+		await expect(back).toBeVisible()
+		await expect(back).toHaveText('Recipes')
+		// Content clears the bar, not just the header row above it.
+		const barBottom = Math.round((await bar.boundingBox())!.y + 44)
+		await expect
+			.poll(() =>
+				page.evaluate(() =>
+					document.documentElement.style.getPropertyValue('--nav-bar-bottom'),
+				),
+			)
+			.toBe(`${barBottom}px`)
+
+		await hydrated(back)
+		await back.tap()
+		await expect(page).toHaveURL('/recipes')
+		await expect(
+			page.getByRole('heading', { level: 1, name: 'Recipes' }),
+		).toBeVisible()
+	})
+})
+
 test('Save in the nav bar saves the edit and returns to the Recipe', async ({
 	page,
 	login,
@@ -887,52 +932,57 @@ test('a toast on a pushed page opens below the bar', async ({
 	}
 })
 
-test('on desktop the header does the bar’s job: no Back bar on a Recipe or Settings, but an edit screen keeps Cancel and Save', async ({
-	page,
-	login,
-}) => {
-	const user = await login()
-	const recipe = await createLongRecipe(user, 'Lentil soup')
-	await page.setViewportSize({ width: 1280, height: 800 })
-	await page.goto(`/recipes/${recipe.id}`)
-	const header = page.getByRole('navigation', { name: 'Main' })
-	await expect(header.getByRole('link', { name: 'Recipes' })).toBeVisible()
-	await expect(page.locator('[data-nav-bar]')).toBeHidden()
+test.describe('on a desktop', () => {
+	// A mouse, not the file's touch screen: `desktop:` is wide and fine-pointed.
+	test.use({ hasTouch: false })
 
-	// With the bar hidden, content still clears the sticky header: the
-	// Ingredients column pins below it (its sticky top reads --nav-bar-bottom).
-	const offsets = await page.evaluate(() => {
-		const header = document.querySelector('[data-site-header]')!
-		const column = document.querySelector<HTMLElement>(
-			'#main-content [class*="lg:sticky"]',
-		)!
-		return {
-			headerBottom: header.getBoundingClientRect().bottom,
-			stickyTop: parseFloat(getComputedStyle(column).top),
-		}
+	test('on desktop the header does the bar’s job: no Back bar on a Recipe or Settings, but an edit screen keeps Cancel and Save', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createLongRecipe(user, 'Lentil soup')
+		await page.setViewportSize({ width: 1280, height: 800 })
+		await page.goto(`/recipes/${recipe.id}`)
+		const header = page.getByRole('navigation', { name: 'Main' })
+		await expect(header.getByRole('link', { name: 'Recipes' })).toBeVisible()
+		await expect(page.locator('[data-nav-bar]')).toBeHidden()
+
+		// With the bar hidden, content still clears the sticky header: the
+		// Ingredients column pins below it (its sticky top reads --nav-bar-bottom).
+		const offsets = await page.evaluate(() => {
+			const header = document.querySelector('[data-site-header]')!
+			const column = document.querySelector<HTMLElement>(
+				'#main-content [class*="lg:sticky"]',
+			)!
+			return {
+				headerBottom: header.getBoundingClientRect().bottom,
+				stickyTop: parseFloat(getComputedStyle(column).top),
+			}
+		})
+		expect(offsets.headerBottom).toBeGreaterThan(40)
+		expect(offsets.stickyTop).toBeGreaterThanOrEqual(offsets.headerBottom)
+
+		const avatar = page.getByRole('link', { name: 'Settings', exact: true })
+		await hydrated(avatar)
+		await avatar.click()
+		await expect(page).toHaveURL('/settings/profile')
+		await expect(page.locator('[data-nav-bar]')).toBeHidden()
+		// The browser's Back still returns to the Recipe it came from.
+		await page.goBack()
+		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+
+		await page.goto(`/recipes/${recipe.id}/edit`)
+		const bar = page.locator('[data-nav-bar]')
+		await expect(bar).toBeVisible()
+		await expect(bar.getByRole('link', { name: 'Cancel' })).toBeVisible()
+		await expect(bar.getByRole('button', { name: 'Save' })).toBeVisible()
+
+		// A phone keeps the bar on the Recipe.
+		await page.setViewportSize({ width: 390, height: 844 })
+		await page.goto(`/recipes/${recipe.id}`)
+		await expect(backButton(page, 'Recipes')).toBeVisible()
 	})
-	expect(offsets.headerBottom).toBeGreaterThan(40)
-	expect(offsets.stickyTop).toBeGreaterThanOrEqual(offsets.headerBottom)
-
-	const avatar = page.getByRole('link', { name: 'Settings', exact: true })
-	await hydrated(avatar)
-	await avatar.click()
-	await expect(page).toHaveURL('/settings/profile')
-	await expect(page.locator('[data-nav-bar]')).toBeHidden()
-	// The browser's Back still returns to the Recipe it came from.
-	await page.goBack()
-	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
-
-	await page.goto(`/recipes/${recipe.id}/edit`)
-	const bar = page.locator('[data-nav-bar]')
-	await expect(bar).toBeVisible()
-	await expect(bar.getByRole('link', { name: 'Cancel' })).toBeVisible()
-	await expect(bar.getByRole('button', { name: 'Save' })).toBeVisible()
-
-	// A phone keeps the bar on the Recipe.
-	await page.setViewportSize({ width: 390, height: 844 })
-	await page.goto(`/recipes/${recipe.id}`)
-	await expect(backButton(page, 'Recipes')).toBeVisible()
 })
 
 test('Import has no Cancel of its own; the bar goes back', async ({

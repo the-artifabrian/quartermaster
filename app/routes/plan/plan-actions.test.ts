@@ -4,11 +4,17 @@ import { describe, expect, test, vi } from 'vitest'
 vi.mock('#app/utils/household-events.server.ts', () => ({
 	emitHouseholdEvent: vi.fn(),
 }))
+import { type Prisma } from '#app/generated/prisma/client.ts'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
 import { servingWallTime } from '#app/utils/serving-time.ts'
 import { createUser } from '#tests/db-utils.ts'
+import {
+	createWalDatabase,
+	settlesWithin,
+	writeFromAnotherConnection,
+} from '#tests/sqlite-concurrency.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { action, loader } from './index.tsx'
 import { createPlanAction } from './plan-action.server.ts'
@@ -331,6 +337,112 @@ describe('moving a Meal through Edit details', () => {
 				label: 'lunch',
 				completed: true,
 			})
+		},
+	)
+
+	test.each([
+		['within its week', '2026-02-04'],
+		['to another week', '2026-02-13'],
+	])(
+		'a move %s saves when another connection writes between its read and its write',
+		async (_, date) => {
+			await using database = await createWalDatabase()
+			const { db: wal, url } = database
+			const user = await wal.user.create({ data: createUser() })
+			const household = await wal.household.create({
+				data: {
+					name: 'Test Household',
+					members: { create: { userId: user.id, role: 'owner' } },
+				},
+			})
+			const planUser = { userId: user.id, householdId: household.id }
+			const request = (fields: Record<string, string>) =>
+				new Request(`${BASE_URL}/plan`, {
+					method: 'POST',
+					body: new URLSearchParams(fields),
+				})
+			await createPlanAction(
+				wal,
+				async () => planUser,
+			)({
+				request: request({
+					intent: 'addTextMeal',
+					date: '2026-02-02',
+					text: 'Leftovers',
+				}),
+			})
+			const meal = await wal.meal.findFirstOrThrow({
+				where: { mealPlan: { householdId: household.id } },
+			})
+
+			// Another process renames the Household just after the move reads the
+			// Meal and before it writes. The move waits briefly for that write.
+			let other: ReturnType<typeof writeFromAnotherConnection> | undefined
+			async function writeAfterFirstMealRead() {
+				if (other) return
+				other = writeFromAnotherConnection(
+					url,
+					'UPDATE "Household" SET "name" = ? WHERE "id" = ?',
+					['Renamed elsewhere', household.id],
+				)
+				await other.executing
+				await settlesWithin(other.committed, 300)
+			}
+			function pauseAfterMealRead(tx: Prisma.TransactionClient) {
+				const meal = new Proxy(tx.meal, {
+					get(target, key) {
+						const value = Reflect.get(target, key)
+						if (key !== 'findFirst') return value
+						return async (...args: Parameters<typeof target.findFirst>) => {
+							const found = await target.findFirst(...args)
+							await writeAfterFirstMealRead()
+							return found
+						}
+					},
+				})
+				return new Proxy(tx, {
+					get: (target, key) =>
+						key === 'meal' ? meal : Reflect.get(target, key),
+				})
+			}
+			const db = new Proxy(wal, {
+				get(target, key) {
+					if (key !== '$transaction') {
+						const value = Reflect.get(target, key)
+						return typeof value === 'function' ? value.bind(target) : value
+					}
+					return (work: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+						target.$transaction((tx) => work(pauseAfterMealRead(tx)))
+				},
+			})
+
+			const response = await createPlanAction(
+				db,
+				async () => planUser,
+			)({
+				request: request({
+					intent: 'updateMealDetails',
+					mealId: meal.id,
+					date,
+					label: 'dinner',
+				}),
+			})
+
+			expect(response).toBeInstanceOf(Response)
+			expect(other).toBeDefined()
+			await other!.committed
+			expect(
+				await wal.meal.findUniqueOrThrow({
+					where: { id: meal.id },
+					select: { date: true, label: true },
+				}),
+			).toEqual({ date: new Date(date), label: 'dinner' })
+			expect(
+				await wal.household.findUniqueOrThrow({
+					where: { id: household.id },
+					select: { name: true },
+				}),
+			).toEqual({ name: 'Renamed elsewhere' })
 		},
 	)
 

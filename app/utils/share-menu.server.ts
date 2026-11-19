@@ -6,6 +6,7 @@ import { menuTitleKey } from './menu-validation.ts'
 import { ensureRecipeMetadataValues } from './recipe-metadata.server.ts'
 import { deleteRecipeImageUnlessShared } from './recipe-image.server.ts'
 import { copyRecipeImage } from './storage.server.ts'
+import { writeTransaction } from './write-transaction.server.ts'
 
 export const sharedRecipeSelect = {
 	id: true,
@@ -141,7 +142,7 @@ export async function saveSharedMenu({
 					),
 				)
 		}
-		const result = await prisma.$transaction(async (tx) => {
+		const result = await writeTransaction(prisma, async (tx) => {
 			// Concurrent Save requests serialize here; the unique key is the
 			// durable backstop. A repeat never refreshes the recipient's edits.
 			const member = await tx.householdMember.findUnique({

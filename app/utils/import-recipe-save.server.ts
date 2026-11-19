@@ -7,6 +7,7 @@ import {
 } from './import-recipe-types.ts'
 import { RECIPE_IMPORTED } from './posthog-events.ts'
 import { captureServerEvent } from './posthog.server.ts'
+import { writeTransaction } from './write-transaction.server.ts'
 
 export type ImportIntent =
 	'fetch' | 'parse-text' | 'extract-text' | 'extract-image'
@@ -84,7 +85,7 @@ export async function saveImportedRecipe(
 			const existing = await findRecipeFromUrl(householdId, recipe.sourceUrl)
 			if (existing) return alreadyImported(intent, existing)
 		}
-		created = await prisma.$transaction(async (tx) => {
+		created = await writeTransaction(prisma, async (tx) => {
 			// Suggested classifications are ids this household had when the
 			// extraction ran; one deleted since then is skipped, not an error.
 			const values = recipe.metadataValueIds.length

@@ -191,9 +191,9 @@ function useTitleUnderBar(barRef: React.RefObject<HTMLElement | null>) {
 		const observe = () => {
 			observer?.disconnect()
 			// rootMargin takes pixels only: the bar's bottom edge, status bar
-			// included in the iOS app. From md a page that is not an edit screen
-			// hides the bar, and the sticky header above it is what content
-			// must clear.
+			// included in the iOS app. On a desktop a page that is not an edit
+			// screen hides the bar, and the sticky header above it is what
+			// content must clear.
 			const edge = bar.getClientRects().length > 0 ? bar : bar.parentElement
 			const barBottom = Math.max(
 				0,
@@ -344,12 +344,13 @@ export function NavBar({ rule, form, loaded = true }: NavBarConfig) {
 			ref={barRef}
 			data-nav-bar=""
 			// The sides keep room for "‹ Shopping" and Save, so the title stays
-			// centred on the bar and truncates before it reaches them. From md the
-			// header's own tab links (and the browser's Back) do the bar's job, so
-			// only an edit screen keeps it, for Cancel and Save.
+			// centred on the bar and truncates before it reaches them. On a desktop
+			// (wide, with a mouse) the header's own tab links and the browser's
+			// Back do the bar's job, so only an edit screen keeps it, for Cancel
+			// and Save. A sideways iPhone is as wide but has no browser Back.
 			className={cn(
 				'container grid h-11 grid-cols-[minmax(6.5rem,1fr)_minmax(0,auto)_minmax(6.5rem,1fr)] items-center gap-2 print:hidden',
-				!editing && 'md:hidden',
+				!editing && 'desktop:hidden',
 			)}
 		>
 			<div className="flex min-w-0 justify-start">

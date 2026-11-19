@@ -9,6 +9,7 @@ import {
 	takeBackButtonPop,
 	VIA_TAB_BAR,
 } from '#app/utils/nav-direction.ts'
+import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { useLockNavBar } from './nav-bar.tsx'
 import { ConfirmSheet } from './ui/confirm-sheet.tsx'
 
@@ -46,6 +47,7 @@ let leavingDone = false
 export function useLeaveEditScreen() {
 	const navigate = useNavigate()
 	const location = useLocation()
+	const isNativeShell = useIsNativeShell()
 	const [leaving, setLeaving] = useState(false)
 	// Cancel or Save tapped while it leaves would go back twice or post again.
 	useLockNavBar(leaving)
@@ -58,8 +60,14 @@ export function useLeaveEditScreen() {
 	const leave = (target: LeaveTarget) => {
 		leavingDone = true
 		setLeaving(true)
+		// Slides back in the iOS app; elsewhere it opens at once, as a push does
+		// (PushLink).
 		const replace = (to: string, state: object = BACK_TO_LIST) =>
-			navigate(to, { replace: true, state, viewTransition: true })
+			navigate(to, {
+				replace: true,
+				state,
+				viewTransition: isNativeShell || undefined,
+			})
 		if (target.type === 'replace') {
 			// An edit screen the tab bar restored hands the restore on to the
 			// page that takes its place, as Cancel does.

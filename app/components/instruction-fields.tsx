@@ -9,7 +9,7 @@ import { useId } from 'react'
 import { useSortableList } from '#app/hooks/use-sortable-list.ts'
 import { type RowErrors } from '#app/utils/list-errors.ts'
 import { cn } from '#app/utils/misc.tsx'
-import { ErrorList } from './forms.tsx'
+import { ErrorList, withoutRemoveOffer } from './forms.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Textarea } from './ui/textarea.tsx'
@@ -161,7 +161,9 @@ function SortableInstructionRow({
 		isDragging,
 	} = useSortable({ id: sortKey })
 	const errorId = `${useId()}-errors`
-	const messages = errors ? Object.values(errors).flat() : []
+	const messages = (errors ? Object.values(errors).flat() : []).map(
+		(message) => (canRemove ? message : withoutRemoveOffer(message)),
+	)
 
 	const style = {
 		transform: CSS.Transform.toString(transform),

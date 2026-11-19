@@ -43,6 +43,14 @@ export function ErrorList({
 	)
 }
 
+/**
+ * A row error offers to remove the row ("Name this ingredient, or remove
+ * it"); the only row cannot be removed, so it says just what to do.
+ */
+export function withoutRemoveOffer(message: string) {
+	return message.replace(/, or remove it$/, '')
+}
+
 const ERROR_TARGETS =
 	'[aria-invalid="true"]:not([type="hidden"]), [data-error-target]'
 

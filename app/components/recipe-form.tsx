@@ -546,7 +546,11 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 						? `${recipe.metadataValueIds.length} selected`
 						: 'Optional'
 				}
-				errors={form.allErrors.recipeMetadata}
+				errors={Object.entries(form.allErrors).flatMap(([name, errors]) =>
+					name === 'recipeMetadata' || name.startsWith('recipeMetadata.')
+						? errors
+						: [],
+				)}
 			>
 				<RecipeMetadataFields
 					options={metadataOptions}

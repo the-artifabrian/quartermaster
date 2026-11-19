@@ -14,7 +14,7 @@ import {
 	HEADING_NAME_REQUIRED_MESSAGE,
 	INGREDIENT_NAME_REQUIRED_MESSAGE,
 } from '#app/utils/recipe-validation.ts'
-import { ErrorList } from './forms.tsx'
+import { ErrorList, withoutRemoveOffer } from './forms.tsx'
 import { BottomSheet, opensAsSheet } from './ui/bottom-sheet.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
@@ -47,14 +47,18 @@ type IngredientFieldsProps = {
 
 const ROW_FIELDS = ['name', 'amount', 'unit', 'notes'] as const
 
-/** A row's messages, its fields' in the order they show. */
-function rowMessages(errors: RowErrors | undefined) {
+/**
+ * A row's messages, its fields' in the order they show. The only row cannot
+ * be removed, so its messages do not offer to.
+ */
+function rowMessages(errors: RowErrors | undefined, canRemove = true) {
 	if (!errors) return []
 	const known: string[] = ROW_FIELDS.flatMap((field) => errors[field] ?? [])
 	const other = Object.entries(errors)
 		.filter(([field]) => !(ROW_FIELDS as readonly string[]).includes(field))
 		.flatMap(([, messages]) => messages)
-	return [...known, ...other]
+	const messages = [...known, ...other]
+	return canRemove ? messages : messages.map(withoutRemoveOffer)
 }
 
 /** Marks a row's field invalid and points it at the row's messages. */
@@ -502,7 +506,7 @@ function SortableIngredientRow({
 						value={ingredient.notes ?? ''}
 						onChange={(e) => onUpdate('notes', e.target.value)}
 					/>
-					<ErrorList id={errorId} errors={rowMessages(errors)} />
+					<ErrorList id={errorId} errors={rowMessages(errors, canRemove)} />
 					{allowRecipeLinks && (
 						<RecipeLinkPicker
 							linkedRecipeId={ingredient.linkedRecipeId}
@@ -748,10 +752,19 @@ function SortableHeadingRow({
 	const id = useId()
 	const errorId = `${id}-errors`
 	// The save schema says "ingredient" for any row; this one is a heading.
-	const messages = rowMessages(errors).map((message) =>
-		message === INGREDIENT_NAME_REQUIRED_MESSAGE
-			? HEADING_NAME_REQUIRED_MESSAGE
-			: message,
+	const messages = rowMessages(
+		errors &&
+			Object.fromEntries(
+				Object.entries(errors).map(([field, list]) => [
+					field,
+					list.map((message) =>
+						message === INGREDIENT_NAME_REQUIRED_MESSAGE
+							? HEADING_NAME_REQUIRED_MESSAGE
+							: message,
+					),
+				]),
+			),
+		canRemove,
 	)
 	const {
 		attributes,

@@ -58,13 +58,25 @@ export const DEFAULT_RECIPE_METADATA_VALUE_CREATE =
 	}))
 
 const customValuesSchema = z.object({
-	cuisine: z.array(RecipeMetadataNameSchema).max(20).default([]),
-	season: z.array(RecipeMetadataNameSchema).max(20).default([]),
-	course: z.array(RecipeMetadataNameSchema).max(20).default([]),
+	cuisine: z
+		.array(RecipeMetadataNameSchema)
+		.max(20, { message: 'Add up to 20 new cuisines at a time' })
+		.default([]),
+	season: z
+		.array(RecipeMetadataNameSchema)
+		.max(20, { message: 'Add up to 20 new seasons at a time' })
+		.default([]),
+	course: z
+		.array(RecipeMetadataNameSchema)
+		.max(20, { message: 'Add up to 20 new courses at a time' })
+		.default([]),
 })
 
 export const RecipeMetadataSelectionSchema = z.object({
-	selectedValueIds: z.array(z.string().min(1)).max(60).default([]),
+	selectedValueIds: z
+		.array(z.string().min(1))
+		.max(60, { message: 'Pick up to 60 classifications' })
+		.default([]),
 	newValues: customValuesSchema.default({
 		cuisine: [],
 		season: [],

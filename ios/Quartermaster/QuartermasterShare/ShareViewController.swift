@@ -42,28 +42,77 @@ final class ShareViewController: UIViewController {
         Task { await share() }
     }
 
+    /// The URL that opens the app, and the nonce of the share stored for it,
+    /// if one was.
+    private struct Handoff {
+        let url: URL
+        let nonce: String?
+    }
+
+    /// Why a share could not be handed over, as the alert says it.
+    private enum Failure {
+        case unreadableImage
+        case appUnavailable
+
+        var title: String {
+            switch self {
+            case .unreadableImage: return "Couldn’t read that image"
+            case .appUnavailable: return "Couldn’t open Quartermaster"
+            }
+        }
+
+        var message: String {
+            switch self {
+            case .unreadableImage:
+                return "Share a screenshot or photo. If it’s in iCloud, open it in Photos first."
+            case .appUnavailable:
+                return "Open Quartermaster and import it from there."
+            }
+        }
+    }
+
     private func share() async {
         let items = extensionContext?.inputItems.compactMap { $0 as? NSExtensionItem } ?? []
         let providers = items.flatMap { $0.attachments ?? [] }
         let images = Self.imageProviders(in: providers)
-        let appURL: URL?
-        if let link = await Self.attachedLink(in: providers) {
-            appURL = Self.shareURL(for: link) ?? Self.importURL(for: link)
-        } else if !images.isEmpty {
-            appURL = await Self.shareURL(forImages: images)
+        let attached = await Self.attachedLink(in: providers)
+        let handoff: Handoff
+        if SharePick.prefersImages(attachedLink: attached, imageCount: images.count) {
+            guard let store = ShareStore.inAppGroup() else { return fail(.appUnavailable) }
+            guard let jpegs = await Self.jpegs(from: images) else { return fail(.unreadableImage) }
+            guard let nonce = store.put(images: jpegs), let url = Self.shareURL(nonce: nonce) else {
+                return fail(.appUnavailable)
+            }
+            handoff = Handoff(url: url, nonce: nonce)
+        } else if let link = attached {
+            guard let linkHandoff = Self.handoff(for: link) else { return fail(.appUnavailable) }
+            handoff = linkHandoff
         } else if let link = await Self.linkInText(items: items, providers: providers) {
-            appURL = Self.shareURL(for: link) ?? Self.importURL(for: link)
+            guard let linkHandoff = Self.handoff(for: link) else { return fail(.appUnavailable) }
+            handoff = linkHandoff
         } else {
-            appURL = nil
-        }
-        guard let appURL else {
             extensionContext?.cancelRequest(withError: NSError(
                 domain: "app.useqm.ios.share", code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "Nothing to import"]))
             return
         }
-        await openApp(appURL)
+        guard await openApp(handoff.url) else {
+            // Nothing will take it, so it does not wait in the container.
+            if let nonce = handoff.nonce { ShareStore.inAppGroup()?.discard(nonce) }
+            return fail(.appUnavailable)
+        }
         extensionContext?.completeRequest(returningItems: nil)
+    }
+
+    /// Says what went wrong, then closes the share sheet.
+    private func fail(_ failure: Failure) {
+        let alert = UIAlertController(title: failure.title, message: failure.message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
+            self?.extensionContext?.cancelRequest(withError: NSError(
+                domain: "app.useqm.ios.share", code: 2,
+                userInfo: [NSLocalizedDescriptionKey: failure.title]))
+        })
+        present(alert, animated: true)
     }
 
     // MARK: Finding the link
@@ -116,9 +165,13 @@ final class ShareViewController: UIViewController {
         charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
 
     /// `quartermaster://import?share=<nonce>`, with the link stored under the
-    /// nonce, or nil when the App Group is not there or the write failed.
-    private static func shareURL(for link: URL) -> URL? {
-        ShareStore.inAppGroup()?.put(link: link.absoluteString).flatMap(shareURL(nonce:))
+    /// nonce; when the App Group is not there or the write failed,
+    /// `quartermaster://import?url=…`, which waits for a tap.
+    private static func handoff(for link: URL) -> Handoff? {
+        if let nonce = ShareStore.inAppGroup()?.put(link: link.absoluteString), let url = shareURL(nonce: nonce) {
+            return Handoff(url: url, nonce: nonce)
+        }
+        return importURL(for: link).map { Handoff(url: $0, nonce: nil) }
     }
 
     private static func shareURL(nonce: String) -> URL? {
@@ -134,39 +187,82 @@ final class ShareViewController: UIViewController {
             .prefix(ShareStore.maxImages))
     }
 
-    /// `quartermaster://import?share=<nonce>` with the screenshots stored
-    /// under the nonce, or nil when one cannot be read or the App Group is not
-    /// there: a Recipe from some of the screenshots could be missing half its
-    /// steps, so it is all of them or none.
-    private static func shareURL(forImages providers: [NSItemProvider]) async -> URL? {
-        guard let store = ShareStore.inAppGroup() else { return nil }
+    /// Each image as an importable JPEG, or nil when one cannot be read: a
+    /// Recipe from some of the screenshots could be missing half its steps,
+    /// so it is all of them or none. One at a time, to stay inside the
+    /// extension's memory limit.
+    private static func jpegs(from providers: [NSItemProvider]) async -> [Data]? {
         var images: [Data] = []
-        // One at a time, to stay inside the extension's memory limit.
         for provider in providers {
             guard let image = await jpeg(from: provider) else { return nil }
             images.append(image)
         }
-        return store.put(images: images).flatMap(shareURL(nonce:))
+        return images
     }
+
+    /// How long a provider may take to hand over an image: an iCloud photo
+    /// that is not on the phone downloads first, or never.
+    static let loadTimeout: TimeInterval = 20
 
     /// The image as an importable JPEG. A file representation first, which
     /// ImageIO decodes at the target size; then whatever the provider hands
     /// over itself: a file URL, data, or a UIImage (the screenshot editor).
+    /// Each is decoded in the provider's completion handler, off the main
+    /// thread, and each gives up after `loadTimeout`.
     private static func jpeg(from provider: NSItemProvider) async -> Data? {
-        let fromFile: Data? = await withCheckedContinuation { continuation in
-            _ = provider.loadFileRepresentation(forTypeIdentifier: UTType.image.identifier) { url, _ in
+        let fromFile: Data? = await withTimeout(loadTimeout) { finish in
+            let progress = provider.loadFileRepresentation(forTypeIdentifier: UTType.image.identifier) { url, _ in
                 // The file is gone once this returns, so it is read here.
-                continuation.resume(returning: url.flatMap(SharedImageEncoder.jpeg(fromFile:)))
+                finish(url.flatMap(SharedImageEncoder.jpeg(fromFile:)))
             }
+            return { progress.cancel() }
         }
         if let fromFile { return fromFile }
-        let item = try? await provider.loadItem(forTypeIdentifier: UTType.image.identifier)
-        if let url = item as? URL, url.isFileURL { return SharedImageEncoder.jpeg(fromFile: url) }
-        if let data = item as? Data { return SharedImageEncoder.jpeg(fromData: data) }
-        if let image = item as? UIImage, let data = image.jpegData(compressionQuality: 1) {
-            return SharedImageEncoder.jpeg(fromData: data)
+        return await withTimeout(loadTimeout) { finish in
+            provider.loadItem(forTypeIdentifier: UTType.image.identifier, options: nil) { item, _ in
+                switch item {
+                case let url as URL where url.isFileURL: finish(SharedImageEncoder.jpeg(fromFile: url))
+                case let data as Data: finish(SharedImageEncoder.jpeg(fromData: data))
+                case let image as UIImage: finish(jpeg(from: image))
+                default: finish(nil)
+                }
+            }
+            return {}
         }
-        return nil
+    }
+
+    /// A UIImage the provider already decoded: drawn upright at the target
+    /// size, never encoded at full size first.
+    private static func jpeg(from image: UIImage) -> Data? {
+        let width = Int((image.size.width * image.scale).rounded())
+        let height = Int((image.size.height * image.scale).rounded())
+        return SharedImageEncoder.jpeg(width: width, height: height) { targetWidth, targetHeight in
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            format.opaque = true
+            let size = CGSize(width: targetWidth, height: targetHeight)
+            return UIGraphicsImageRenderer(size: size, format: format).image { context in
+                UIColor.white.setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+                image.draw(in: CGRect(origin: .zero, size: size))
+            }.cgImage
+        }
+    }
+
+    /// Runs `start`, which calls `finish` once with its result and returns a
+    /// way to cancel; after `seconds` the result is nil and `start` is
+    /// cancelled. Whichever comes first wins.
+    private static func withTimeout<T>(
+        _ seconds: TimeInterval,
+        _ start: (_ finish: @escaping (T?) -> Void) -> () -> Void
+    ) async -> T? {
+        await withCheckedContinuation { (continuation: CheckedContinuation<T?, Never>) in
+            let once = ResumeOnce(continuation)
+            let cancel = start { once.resume($0) }
+            DispatchQueue.global().asyncAfter(deadline: .now() + seconds) {
+                if once.resume(nil) { cancel() }
+            }
+        }
     }
 
     /// The fallback, which the app opens waiting for a tap.
@@ -204,5 +300,26 @@ final class ShareViewController: UIViewController {
             responder = current.next
         }
         return await extensionContext?.open(url) ?? false
+    }
+}
+
+/// Resumes a continuation once, from whichever thread gets there first.
+private final class ResumeOnce<T>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<T, Never>?
+
+    init(_ continuation: CheckedContinuation<T, Never>) {
+        self.continuation = continuation
+    }
+
+    /// True when this call resumed it.
+    @discardableResult
+    func resume(_ value: T) -> Bool {
+        lock.lock()
+        let pending = continuation
+        continuation = nil
+        lock.unlock()
+        pending?.resume(returning: value)
+        return pending != nil
     }
 }

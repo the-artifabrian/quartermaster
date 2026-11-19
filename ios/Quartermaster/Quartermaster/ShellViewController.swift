@@ -136,9 +136,9 @@ final class ShellViewController: UIViewController {
         #endif
         self.webView = webView
         refresh = PageRefresh(webView: webView)
-        urlObservation = webView.observe(\.url) { [weak self] webView, _ in
-            guard !webView.isLoading else { return }
-            self?.deliverPendingShare()
+        // KVO calls back outside the main actor's knowledge; hop to it.
+        urlObservation = webView.observe(\.url) { [weak self] _, _ in
+            Task { @MainActor [weak self] in self?.urlChanged() }
         }
         view = webView
     }
@@ -281,6 +281,13 @@ final class ShellViewController: UIViewController {
         incomingGeneration += 1
         pendingShare = share
         shareAwaitsDocument = share != nil
+    }
+
+    /// A document load moves `webView.url` before its document is there; the
+    /// page's own navigations move it while nothing is loading.
+    private func urlChanged() {
+        guard !webView.isLoading else { return }
+        deliverPendingShare()
     }
 
     /// Hands the pending share to the page once the page is its import page,

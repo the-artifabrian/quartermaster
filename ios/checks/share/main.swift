@@ -7,10 +7,11 @@
 //   xcrun swiftc -o /tmp/share-checks Shared/ShareStore.swift \
 //     Quartermaster/ShareIntent.swift Quartermaster/IncomingURL.swift \
 //     Quartermaster/LinkPolicy.swift QuartermasterShare/SharedImageEncoder.swift \
-//     ../checks/share/main.swift
+//     QuartermasterShare/SharePick.swift ../checks/share/main.swift
 //   /tmp/share-checks QuartermasterShare/Info.plist
 
 import CoreGraphics
+import CoreText
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
@@ -88,6 +89,22 @@ check(!names().contains(n5), "tampered share removed")
 let n6 = store.put(images: [img1], now: now)!
 try! JSONEncoder().encode(ShareStore.Entry(images: 2, sharedAt: now.timeIntervalSince1970)).write(to: dir.appending(path: "\(n6).json"))
 check(store.take(n6, now: now.addingTimeInterval(1)) == .missing, "missing image file refused")
+// An oversized screenshot is refused by its size, never read
+var reads: [String] = []
+var watched = ShareStore(directory: dir)
+watched.readFile = { url in reads.append(url.lastPathComponent); return try? Data(contentsOf: url) }
+let n7 = watched.put(images: [img1, img2], now: now)!
+let oversized = Data([0xFF, 0xD8, 0xFF]) + Data(count: ShareStore.maxImageBytes)
+try! oversized.write(to: dir.appending(path: "\(n7)/2.jpg"))
+check(watched.take(n7, now: now.addingTimeInterval(1)) == .missing, "oversized screenshot refuses the share")
+check(reads == ["1.jpg"], "oversized screenshot never read (read: \(reads))")
+// Discarding a share the app never took
+let n8 = store.put(images: [img1], now: now)!
+store.discard(n8)
+check(!names().contains(n8) && !names().contains("\(n8).json"), "discard removes record and folder")
+store.discard("../..")
+check(FileManager.default.fileExists(atPath: dir.path(percentEncoded: false)), "discard ignores a non-nonce")
+
 // Pruning
 let stale = store.put(images: [img1], now: now)!
 try! "junk".write(to: dir.appending(path: "notes.txt"), atomically: true, encoding: .utf8)
@@ -196,6 +213,61 @@ let tmp = FileManager.default.temporaryDirectory.appending(path: "shot-\(UUID().
 try! screenshot.write(to: tmp)
 check(SharedImageEncoder.jpeg(fromFile: tmp).map(ShareStore.isImportableJPEG) == true, "file representation encodes")
 try? FileManager.default.removeItem(at: tmp)
+
+// Encoder limits, read from the header before decoding
+check(SharedImageEncoder.fits(width: 8064, height: 6048, type: "public.heic"), "48 MP HEIC fits")
+check(!SharedImageEncoder.fits(width: 12000, height: 9000, type: "public.jpeg"), "108 MP JPEG refused")
+check(SharedImageEncoder.fits(width: 1179, height: 2556, type: "public.png"), "screenshot PNG fits")
+check(!SharedImageEncoder.fits(width: 4100, height: 4100, type: "public.png"), "17 MP PNG refused")
+check(!SharedImageEncoder.fits(width: 8064, height: 6048, type: "com.adobe.raw-image"), "48 MP RAW refused")
+check(!SharedImageEncoder.fits(width: Int.max, height: 2, type: "public.jpeg"), "overflowing size refused")
+check(!SharedImageEncoder.fits(width: 0, height: 10, type: "public.png"), "empty size refused")
+let hugePNG = encode(makeImage(width: 4100, height: 4100), type: .png)
+check(SharedImageEncoder.jpeg(fromData: hugePNG) == nil, "17 MP PNG never decoded")
+check(SharedImageEncoder.jpeg(fromData: Data(count: SharedImageEncoder.maxSourceBytes + 1)) == nil, "data over 64 MB refused")
+// An image already in memory is drawn at the target size, never at full size
+var drawn: [(Int, Int)] = []
+let fromMemory = SharedImageEncoder.jpeg(width: 4032, height: 3024) { w, h in
+    drawn.append((w, h)); return makeImage(width: w, height: h)
+}
+check(fromMemory.map(ShareStore.isImportableJPEG) == true && drawn.first.map { $0 == (1568, 1176) } == true,
+      "in-memory image drawn at 1568 on the long edge (\(drawn))")
+
+// The payload for five text screenshots, handed to the page as base64
+func textScreenshot(seed: Int) -> CGImage {
+    let width = 1179, height = 2556
+    let ctx = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                        space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+    ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+    ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    let font = CTFontCreateWithName("Helvetica" as CFString, 42, nil)
+    let words = ["2 cups flour", "1 tsp salt", "Whisk the eggs", "and sugar until", "pale, then fold", "in the butter.", "Bake 25 min at", "180°C until golden."]
+    var y = height - 120
+    var line = seed
+    while y > 80 {
+        let text = (0..<3).map { words[($0 + line) % words.count] }.joined(separator: " · ")
+        let attributed = NSAttributedString(string: text, attributes: [kCTFontAttributeName as NSAttributedString.Key: font])
+        ctx.textPosition = CGPoint(x: 60, y: y)
+        CTLineDraw(CTLineCreateWithAttributedString(attributed), ctx)
+        y -= 64; line += 1
+    }
+    return ctx.makeImage()!
+}
+let payload = (0..<5).compactMap { SharedImageEncoder.jpeg(fromData: encode(textScreenshot(seed: $0), type: .png)) }
+let base64Bytes = payload.reduce(0) { $0 + $1.base64EncodedString().utf8.count }
+print("info five text screenshots: \(payload.map { $0.count / 1024 }) KB each, \(base64Bytes / 1024) KB as base64")
+check(payload.count == 5 && base64Bytes < 4 * 1024 * 1024, "five text screenshots stay under 4 MB of base64")
+
+// Which kind a share imports
+let pageLink = URL(string: "https://example.com/recipes/chickpea-lunch")!
+let imageLink = URL(string: "https://cdn.example.com/photos/IMG_0001.JPG?w=1200")!
+check(!SharePick.prefersImages(attachedLink: pageLink, imageCount: 1), "pick: a page URL with an image imports the URL")
+check(SharePick.prefersImages(attachedLink: imageLink, imageCount: 1), "pick: an image's own URL with the image imports the image")
+check(SharePick.prefersImages(attachedLink: nil, imageCount: 3), "pick: images alone import")
+check(!SharePick.prefersImages(attachedLink: imageLink, imageCount: 0), "pick: an image URL with no image imports the URL")
+check(!SharePick.prefersImages(attachedLink: nil, imageCount: 0), "pick: nothing picks no images")
+check(SharePick.looksLikeImageFile(URL(string: "https://example.com/a/b.webp")!), "pick: .webp is an image file")
+check(!SharePick.looksLikeImageFile(URL(string: "https://example.com/recipe.html")!), "pick: .html is not")
 
 // Activation rule, read from the extension's Info.plist
 let plistURL = URL(fileURLWithPath: CommandLine.arguments[1])

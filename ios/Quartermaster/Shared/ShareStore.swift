@@ -56,6 +56,9 @@ struct ShareStore {
     }
 
     let directory: URL
+    /// Reads a screenshot file. Replaceable so the checks can see which files
+    /// get read.
+    var readFile: (URL) -> Data? = { try? Data(contentsOf: $0) }
 
     /// The store in the App Group container, or nil when the container is not
     /// there (a build without the App Groups entitlement).
@@ -188,13 +191,21 @@ struct ShareStore {
                     let size = (try? FileManager.default.attributesOfItem(atPath: file.path(percentEncoded: false)))?[.size]
                         as? Int,
                     size <= Self.maxImageBytes,
-                    let image = try? Data(contentsOf: file),
+                    let image = readFile(file),
                     Self.isImportableJPEG(image)
                 else { return .missing }
                 images.append(image)
             }
             return .accepted(.images(images))
         }
+    }
+
+    /// Removes a share the extension stored but could not hand over (the app
+    /// did not open), so it does not wait in the container.
+    func discard(_ nonce: String) {
+        guard Self.isNonce(nonce) else { return }
+        try? FileManager.default.removeItem(at: record(for: nonce))
+        try? FileManager.default.removeItem(at: imageFolder(for: nonce))
     }
 
     /// Removes everything that is not part of a fresh share: old records,

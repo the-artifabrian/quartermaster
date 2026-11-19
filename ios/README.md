@@ -27,6 +27,7 @@ both.
 | `Info.plist`                                   | App-bound domains, base URL, URL scheme, quick actions, launch screen, permission strings    |
 | `QuartermasterShare/ShareViewController.swift` | Share Extension: picks the shared link or screenshots, hands them to the app                 |
 | `QuartermasterShare/SharedImageEncoder.swift`  | Share Extension: re-encodes shared images as the JPEG the import takes                       |
+| `QuartermasterShare/SharePick.swift`           | Share Extension: whether a share imports its link or its images                              |
 | `QuartermasterShare/Info.plist`                | Share Extension activation rule                                                              |
 | `*.entitlements`                               | Associated Domains (app), and the `group.app.useqm.ios` App Group (both targets)             |
 
@@ -215,14 +216,15 @@ one. With the app running, the scene delegate hands it over the same way.
 
 `QuartermasterShare` (`app.useqm.ios.share`) appears in the share sheet for one
 shared item holding a web URL, text, or up to five images (the import's limit).
-One share carries one thing: a web URL attachment (Safari, a site's share
-button) wins, then images (Photos, the screenshot editor), then the first link
-found in shared text (Messages, Notes). A social app that shares a screenshot
-with a caption holding a link imports the screenshot, which is what the user
-picked. The extension hands the share to the app (Share import, below) and
-closes; with nothing usable it cancels. No network and no web view in the
-extension: the app fetches the link, and the page's image import reads the
-screenshots.
+One share carries one thing (`SharePick.swift`): a web URL attachment (Safari, a
+site's share button) wins, then images (Photos, the screenshot editor), then the
+first link found in shared text (Messages, Notes). Images win over a URL that is
+the image's own address (its path ends in an image extension), which sharing an
+image from Safari can attach. A social app that shares a screenshot with a
+caption holding a link imports the screenshot, which is what the user picked.
+The extension hands the share to the app (Share import, below) and closes; with
+nothing usable it cancels. No network and no web view in the extension: the app
+fetches the link, and the page's image import reads the screenshots.
 
 Screenshots are re-encoded in the extension with ImageIO
 (`SharedImageEncoder.swift`), one at a time, decoding straight to the target
@@ -230,8 +232,18 @@ size so a large photo never sits in memory at full size: JPEG at 0.88, at most
 1568 px on the long edge (the server's own resize in
 `recipe-extract-llm.server.ts`), and under 2 MB each, shrinking further if
 needed. PNG screenshots and HEIC photos come out as JPEG, which the import
-takes. If any image cannot be read the share cancels: a Recipe from some of the
-screenshots could be missing half its steps.
+takes. Five text screenshots come to about 370 KB each, 2.4 MB as base64 on
+their way into the page. Before decoding, the extension reads each image's size
+from its header and refuses one it cannot afford: over 64 MB, over 64 MP for
+JPEG and HEIC (which decode at a fraction of their size), or over 16 MP for
+anything decoded in full (PNG, RAW). An image the provider already decoded (a
+UIImage) is drawn at the target size, never encoded at full size. Decoding runs
+in the providers' completion handlers, off the main thread, and a provider gets
+20 seconds (an iCloud photo not on the phone may never arrive). If any image
+cannot be read, the extension says "Couldn’t read that image" and closes: a
+Recipe from some of the screenshots could be missing half its steps. If the app
+does not open, it says "Couldn’t open Quartermaster" and removes the share it
+stored.
 
 Extensions have no supported way to open their app, so it calls
 `open(_:options:completionHandler:)` on the UIApplication at the end of its
@@ -272,10 +284,11 @@ outside the URL:
    before using it, and if the delete fails the share is not used, so a nonce
    works once. Screenshot files are named by their count, never by the record,
    and each must be a JPEG under 5 MB, checked by size before it is read; the
-   share's folder goes after the read. Every read and write also prunes stale
-   records, folders without a fresh record, and stray files. An expired link
-   opens its import page waiting for a tap; expired screenshots, or an unknown,
-   used or malformed nonce, open the plain import page.
+   share's folder goes after the read. Every read and write, and each app
+   launch, also prunes stale records, folders without a fresh record, and stray
+   files. An expired link opens its import page waiting for a tap; expired
+   screenshots, or an unknown, used or malformed nonce, open the plain import
+   page.
 3. **The shell hands the share to the page.** For a link it loads
    `/recipes/import?url=<link>`, for screenshots the plain `/recipes/import`,
    and keeps a `ShareIntent` (the link or the screenshots, for 5 minutes) in
@@ -305,10 +318,10 @@ outside the URL:
 
 There is no Xcode test target. `ios/checks/share/main.swift` checks the pure
 parts (nonces, single use, expiry, pruning, screenshot files, page matching,
-image re-encoding) and evaluates the activation rule against sample shares; it
-compiles with those sources and runs on the Mac, with the command at its top.
-`tests/e2e/share-import.test.ts` runs `linkScript` and `imagesScript` as read
-from `ShareIntent.swift`.
+image re-encoding and its limits, which kind a share imports) and evaluates the
+activation rule against sample shares; it compiles with those sources and runs
+on the Mac, with the command at its top. `tests/e2e/share-import.test.ts` runs
+`linkScript` and `imagesScript` as read from `ShareIntent.swift`.
 
 Checks by hand (#328, 2.2), on the Simulator and then a device:
 

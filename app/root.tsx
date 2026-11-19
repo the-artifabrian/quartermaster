@@ -460,12 +460,12 @@ function App() {
 					data-chrome={chrome}
 				>
 					{isNativeShell ? (
-						// Content scrolls under the status bar behind the same frosted
+						// Content scrolls under the status bar behind the same opaque
 						// background as the bottom tab bar.
 						<div
 							aria-hidden="true"
 							data-status-bar-backdrop=""
-							className="bg-card/95 pointer-events-none fixed inset-x-0 top-0 z-50 h-(--safe-top) backdrop-blur-sm print:hidden"
+							className="bg-card pointer-events-none fixed inset-x-0 top-0 z-50 h-(--safe-top) print:hidden"
 						/>
 					) : null}
 					<header
@@ -477,7 +477,7 @@ function App() {
 							'border-border/50 z-40 border-b',
 							navBar
 								? 'bg-card sticky top-0'
-								: 'bg-card/80 backdrop-blur-sm md:sticky md:top-0',
+								: 'bg-card md:sticky md:top-0',
 						)}
 					>
 						<nav

@@ -50,23 +50,27 @@ final class ShareViewController: UIViewController {
     }
 
     /// Why a share could not be handed over, as the alert says it.
-    private enum Failure {
+    private enum Failure: Error {
         case unreadableImage
+        case imageTooLarge
+        case imageNotArrived
         case appUnavailable
 
         var title: String {
             switch self {
             case .unreadableImage: return "Couldn’t read that image"
+            case .imageTooLarge: return "That image is too large to read"
+            case .imageNotArrived: return "Couldn’t get that image"
             case .appUnavailable: return "Couldn’t open Quartermaster"
             }
         }
 
         var message: String {
             switch self {
-            case .unreadableImage:
-                return "Share a screenshot or photo. If it’s in iCloud, open it in Photos first."
-            case .appUnavailable:
-                return "Open Quartermaster and import it from there."
+            case .unreadableImage: return "Share a screenshot or a photo."
+            case .imageTooLarge: return "Share a smaller screenshot, or one screen of it at a time."
+            case .imageNotArrived: return "If it’s in iCloud, open it in Photos first, then share it again."
+            case .appUnavailable: return "Open Quartermaster and import it from there."
             }
         }
     }
@@ -79,7 +83,11 @@ final class ShareViewController: UIViewController {
         let handoff: Handoff
         if SharePick.prefersImages(attachedLink: attached, imageCount: images.count) {
             guard let store = ShareStore.inAppGroup() else { return fail(.appUnavailable) }
-            guard let jpegs = await Self.jpegs(from: images) else { return fail(.unreadableImage) }
+            let jpegs: [Data]
+            switch await Self.jpegs(from: images, deadline: Date().addingTimeInterval(Self.imageDeadline)) {
+            case .success(let encoded): jpegs = encoded
+            case .failure(let failure): return fail(failure)
+            }
             guard let nonce = store.put(images: jpegs), let url = Self.shareURL(nonce: nonce) else {
                 return fail(.appUnavailable)
             }
@@ -187,56 +195,77 @@ final class ShareViewController: UIViewController {
             .prefix(ShareStore.maxImages))
     }
 
-    /// Each image as an importable JPEG, or nil when one cannot be read: a
+    /// Each image as an importable JPEG, or why one could not be had: a
     /// Recipe from some of the screenshots could be missing half its steps,
     /// so it is all of them or none. One at a time, to stay inside the
-    /// extension's memory limit.
-    private static func jpegs(from providers: [NSItemProvider]) async -> [Data]? {
+    /// extension's memory limit, and all before `deadline`.
+    private static func jpegs(from providers: [NSItemProvider], deadline: Date) async -> Result<[Data], Failure> {
         var images: [Data] = []
         for provider in providers {
-            guard let image = await jpeg(from: provider) else { return nil }
-            images.append(image)
+            switch await jpeg(from: provider, deadline: deadline) {
+            case .image(let image): images.append(image)
+            case .unreadable: return .failure(.unreadableImage)
+            case .tooLarge: return .failure(.imageTooLarge)
+            case .timedOut: return .failure(.imageNotArrived)
+            }
         }
-        return images
+        return .success(images)
     }
 
-    /// How long a provider may take to hand over an image: an iCloud photo
-    /// that is not on the phone downloads first, or never.
-    static let loadTimeout: TimeInterval = 20
+    /// How long all of a share's images may take to arrive and be encoded: an
+    /// iCloud photo that is not on the phone downloads first, or never.
+    static let imageDeadline: TimeInterval = 25
+
+    private enum Loaded {
+        case image(Data)
+        case unreadable
+        case tooLarge
+        case timedOut
+
+        init(_ outcome: SharedImageEncoder.Outcome) {
+            switch outcome {
+            case .jpeg(let data): self = .image(data)
+            case .tooLarge: self = .tooLarge
+            case .unreadable: self = .unreadable
+            }
+        }
+    }
 
     /// The image as an importable JPEG. A file representation first, which
-    /// ImageIO decodes at the target size; then whatever the provider hands
-    /// over itself: a file URL, data, or a UIImage (the screenshot editor).
-    /// Each is decoded in the provider's completion handler, off the main
-    /// thread, and each gives up after `loadTimeout`.
-    private static func jpeg(from provider: NSItemProvider) async -> Data? {
-        let fromFile: Data? = await withTimeout(loadTimeout) { finish in
+    /// ImageIO decodes at the target size; when the provider has no file,
+    /// whatever it hands over itself: a file URL, data, or a UIImage (the
+    /// screenshot editor). Each is decoded in the provider's completion
+    /// handler, off the main thread. A file representation still loading at
+    /// the deadline is cancelled and the share gives up, rather than asking
+    /// again and restarting an iCloud download.
+    private static func jpeg(from provider: NSItemProvider, deadline: Date) async -> Loaded {
+        let fromFile: Loaded? = await withDeadline(deadline, timedOut: .timedOut) { finish in
             let progress = provider.loadFileRepresentation(forTypeIdentifier: UTType.image.identifier) { url, _ in
                 // The file is gone once this returns, so it is read here.
-                finish(url.flatMap(SharedImageEncoder.jpeg(fromFile:)))
+                finish(url.map { Loaded(SharedImageEncoder.encode(fileAt: $0)) })
             }
             return { progress.cancel() }
         }
         if let fromFile { return fromFile }
-        return await withTimeout(loadTimeout) { finish in
+        return await withDeadline(deadline, timedOut: .timedOut) { finish in
             provider.loadItem(forTypeIdentifier: UTType.image.identifier, options: nil) { item, _ in
                 switch item {
-                case let url as URL where url.isFileURL: finish(SharedImageEncoder.jpeg(fromFile: url))
-                case let data as Data: finish(SharedImageEncoder.jpeg(fromData: data))
-                case let image as UIImage: finish(jpeg(from: image))
-                default: finish(nil)
+                case let url as URL where url.isFileURL: finish(Loaded(SharedImageEncoder.encode(fileAt: url)))
+                case let data as Data: finish(Loaded(SharedImageEncoder.encode(data: data)))
+                case let image as UIImage: finish(Loaded(encode(image)))
+                default: finish(.unreadable)
                 }
             }
             return {}
-        }
+        } ?? .unreadable
     }
 
     /// A UIImage the provider already decoded: drawn upright at the target
     /// size, never encoded at full size first.
-    private static func jpeg(from image: UIImage) -> Data? {
+    private static func encode(_ image: UIImage) -> SharedImageEncoder.Outcome {
         let width = Int((image.size.width * image.scale).rounded())
         let height = Int((image.size.height * image.scale).rounded())
-        return SharedImageEncoder.jpeg(width: width, height: height) { targetWidth, targetHeight in
+        return SharedImageEncoder.encode(width: width, height: height) { targetWidth, targetHeight in
             let format = UIGraphicsImageRendererFormat()
             format.scale = 1
             format.opaque = true
@@ -249,18 +278,21 @@ final class ShareViewController: UIViewController {
         }
     }
 
-    /// Runs `start`, which calls `finish` once with its result and returns a
-    /// way to cancel; after `seconds` the result is nil and `start` is
-    /// cancelled. Whichever comes first wins.
-    private static func withTimeout<T>(
-        _ seconds: TimeInterval,
+    /// Runs `start`, which calls `finish` once with its result (nil for
+    /// nothing to give) and returns a way to cancel. At `deadline` the result
+    /// is `timedOut` and `start` is cancelled. Whichever comes first wins.
+    private static func withDeadline<T>(
+        _ deadline: Date,
+        timedOut: T,
         _ start: (_ finish: @escaping (T?) -> Void) -> () -> Void
     ) async -> T? {
-        await withCheckedContinuation { (continuation: CheckedContinuation<T?, Never>) in
+        let remaining = deadline.timeIntervalSinceNow
+        guard remaining > 0 else { return timedOut }
+        return await withCheckedContinuation { (continuation: CheckedContinuation<T?, Never>) in
             let once = ResumeOnce(continuation)
             let cancel = start { once.resume($0) }
-            DispatchQueue.global().asyncAfter(deadline: .now() + seconds) {
-                if once.resume(nil) { cancel() }
+            DispatchQueue.global().asyncAfter(deadline: .now() + remaining) {
+                if once.resume(timedOut) { cancel() }
             }
         }
     }

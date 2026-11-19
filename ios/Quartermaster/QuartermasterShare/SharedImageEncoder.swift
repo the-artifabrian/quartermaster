@@ -39,62 +39,74 @@ enum SharedImageEncoder {
         return pixels.partialValue <= limit
     }
 
-    /// Reads the size from the file's header, without decoding it.
-    static func fits(_ source: CGImageSource) -> Bool {
-        guard
-            CGImageSourceGetCount(source) > 0,
-            let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-            let width = properties[kCGImagePropertyPixelWidth] as? Int,
-            let height = properties[kCGImagePropertyPixelHeight] as? Int
-        else { return false }
-        return fits(width: width, height: height, type: CGImageSourceGetType(source) as String?)
+    /// What became of one image.
+    enum Outcome: Equatable {
+        case jpeg(Data)
+        /// Too big to decode within the extension's memory, or to fit the
+        /// budget even at the smallest size.
+        case tooLarge
+        /// Not an image ImageIO can read.
+        case unreadable
+
+        var data: Data? {
+            if case .jpeg(let data) = self { return data }
+            return nil
+        }
     }
 
-    /// A JPEG of the image at `source`'s first frame, upright, at most
-    /// `maxEdge` on its longest side and `byteBudget` in size, or nil when it
-    /// cannot be decoded or will not fit.
-    static func jpeg(from source: CGImageSource) -> Data? {
-        guard fits(source) else { return nil }
+    /// The image a multi-image file shows (HEIC can hold several), its size
+    /// read from the header without decoding it.
+    static func encode(_ source: CGImageSource) -> Outcome {
+        guard CGImageSourceGetCount(source) > 0 else { return .unreadable }
+        let index = CGImageSourceGetPrimaryImageIndex(source)
+        guard
+            let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any],
+            let width = properties[kCGImagePropertyPixelWidth] as? Int,
+            let height = properties[kCGImagePropertyPixelHeight] as? Int
+        else { return .unreadable }
+        guard fits(width: width, height: height, type: CGImageSourceGetType(source) as String?) else {
+            return .tooLarge
+        }
         for step in shrinkSteps {
             let edge = max(1, Int((Double(maxEdge) * step).rounded()))
             let encoded: Data? = autoreleasepool {
+                // Decoded straight to `edge` (JPEG and HEIC at a reduced
+                // scale), never at full size, and not kept once encoded.
                 let options: [CFString: Any] = [
                     kCGImageSourceCreateThumbnailFromImageAlways: true,
                     kCGImageSourceCreateThumbnailWithTransform: true,
                     kCGImageSourceShouldCacheImmediately: true,
                     kCGImageSourceThumbnailMaxPixelSize: edge,
                 ]
-                guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+                guard let image = CGImageSourceCreateThumbnailAtIndex(source, index, options as CFDictionary) else {
                     return nil
                 }
                 return encode(image)
             }
-            guard let encoded else { return nil }
-            if encoded.count <= byteBudget { return encoded }
+            guard let encoded else { return .unreadable }
+            if encoded.count <= byteBudget { return .jpeg(encoded) }
         }
-        return nil
+        return .tooLarge
     }
 
-    static func jpeg(fromFile url: URL) -> Data? {
-        guard
-            let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize,
-            size <= maxSourceBytes
-        else { return nil }
+    static func encode(fileAt url: URL) -> Outcome {
+        guard let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize else { return .unreadable }
+        guard size <= maxSourceBytes else { return .tooLarge }
         let options = [kCGImageSourceShouldCache: false] as CFDictionary
-        return CGImageSourceCreateWithURL(url as CFURL, options).flatMap(jpeg(from:))
+        return CGImageSourceCreateWithURL(url as CFURL, options).map(encode) ?? .unreadable
     }
 
-    static func jpeg(fromData data: Data) -> Data? {
-        guard data.count <= maxSourceBytes else { return nil }
+    static func encode(data: Data) -> Outcome {
+        guard data.count <= maxSourceBytes else { return .tooLarge }
         let options = [kCGImageSourceShouldCache: false] as CFDictionary
-        return CGImageSourceCreateWithData(data as CFData, options).flatMap(jpeg(from:))
+        return CGImageSourceCreateWithData(data as CFData, options).map(encode) ?? .unreadable
     }
 
-    /// Smallest first try that fits the budget, for an image already in
-    /// memory (a UIImage from the provider): `draw` renders it at the size
-    /// given, upright.
-    static func jpeg(width: Int, height: Int, draw: (_ width: Int, _ height: Int) -> CGImage?) -> Data? {
-        guard width > 0, height > 0 else { return nil }
+    /// An image already in memory (a UIImage from the provider): `draw`
+    /// renders it upright at the size given, so it is never encoded at full
+    /// size.
+    static func encode(width: Int, height: Int, draw: (_ width: Int, _ height: Int) -> CGImage?) -> Outcome {
+        guard width > 0, height > 0 else { return .unreadable }
         let longest = Double(max(width, height))
         for step in shrinkSteps {
             let scale = min(1, Double(maxEdge) * step / longest)
@@ -103,10 +115,10 @@ enum SharedImageEncoder {
             let encoded: Data? = autoreleasepool {
                 draw(targetWidth, targetHeight).flatMap(encode)
             }
-            guard let encoded else { return nil }
-            if encoded.count <= byteBudget { return encoded }
+            guard let encoded else { return .unreadable }
+            if encoded.count <= byteBudget { return .jpeg(encoded) }
         }
-        return nil
+        return .tooLarge
     }
 
     static func encode(_ image: CGImage) -> Data? {

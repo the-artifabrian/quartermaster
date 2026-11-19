@@ -194,24 +194,24 @@ func size(of jpeg: Data) -> (Int, Int) {
     return (p[kCGImagePropertyPixelWidth] as! Int, p[kCGImagePropertyPixelHeight] as! Int)
 }
 let screenshot = encode(makeImage(width: 1179, height: 2556), type: .png)
-let fromPNG = SharedImageEncoder.jpeg(fromData: screenshot)!
+let fromPNG = SharedImageEncoder.encode(data: screenshot).data!
 check(ShareStore.isImportableJPEG(fromPNG) && fromPNG.count <= SharedImageEncoder.byteBudget, "PNG screenshot becomes an importable JPEG within budget")
 let (w1, h1) = size(of: fromPNG)
 check(max(w1, h1) == 1568 && abs(Double(w1) / Double(h1) - 1179.0 / 2556.0) < 0.01, "screenshot scaled to a 1568 edge, aspect kept (\(w1)x\(h1))")
 let heic = encode(makeImage(width: 4032, height: 3024), type: .heic)
-let fromHEIC = SharedImageEncoder.jpeg(fromData: heic)
+let fromHEIC = SharedImageEncoder.encode(data: heic).data
 check(fromHEIC.map(ShareStore.isImportableJPEG) == true, "HEIC photo becomes an importable JPEG")
 if let fromHEIC { let (w, h) = size(of: fromHEIC); check(max(w, h) <= 1568, "HEIC scaled down (\(w)x\(h))") }
 let rotated = encode(makeImage(width: 400, height: 200), type: .jpeg, orientation: 6)
-let (w2, h2) = size(of: SharedImageEncoder.jpeg(fromData: rotated)!)
+let (w2, h2) = size(of: SharedImageEncoder.encode(data: rotated).data!)
 check(w2 == 200 && h2 == 400, "EXIF orientation applied (\(w2)x\(h2))")
 let small = encode(makeImage(width: 300, height: 600), type: .png)
-let (w3, h3) = size(of: SharedImageEncoder.jpeg(fromData: small)!)
+let (w3, h3) = size(of: SharedImageEncoder.encode(data: small).data!)
 check(w3 == 300 && h3 == 600, "small image not enlarged (\(w3)x\(h3))")
-check(SharedImageEncoder.jpeg(fromData: Data("not an image".utf8)) == nil, "garbage gives nil")
+check(SharedImageEncoder.encode(data: Data("not an image".utf8)).data == nil, "garbage gives nil")
 let tmp = FileManager.default.temporaryDirectory.appending(path: "shot-\(UUID().uuidString).png")
 try! screenshot.write(to: tmp)
-check(SharedImageEncoder.jpeg(fromFile: tmp).map(ShareStore.isImportableJPEG) == true, "file representation encodes")
+check(SharedImageEncoder.encode(fileAt: tmp).data.map(ShareStore.isImportableJPEG) == true, "file representation encodes")
 try? FileManager.default.removeItem(at: tmp)
 
 // Encoder limits, read from the header before decoding
@@ -223,14 +223,31 @@ check(!SharedImageEncoder.fits(width: 8064, height: 6048, type: "com.adobe.raw-i
 check(!SharedImageEncoder.fits(width: Int.max, height: 2, type: "public.jpeg"), "overflowing size refused")
 check(!SharedImageEncoder.fits(width: 0, height: 10, type: "public.png"), "empty size refused")
 let hugePNG = encode(makeImage(width: 4100, height: 4100), type: .png)
-check(SharedImageEncoder.jpeg(fromData: hugePNG) == nil, "17 MP PNG never decoded")
-check(SharedImageEncoder.jpeg(fromData: Data(count: SharedImageEncoder.maxSourceBytes + 1)) == nil, "data over 64 MB refused")
+check(SharedImageEncoder.encode(data: hugePNG) == .tooLarge, "17 MP PNG never decoded: too large")
+check(SharedImageEncoder.encode(data: Data(count: SharedImageEncoder.maxSourceBytes + 1)) == .tooLarge, "data over 64 MB: too large")
+check(SharedImageEncoder.encode(data: Data("not an image".utf8)) == .unreadable, "garbage: unreadable, not too large")
+// A HEIC holding two images: the one it shows is encoded
+do {
+    let data = NSMutableData()
+    let dest = CGImageDestinationCreateWithData(data, UTType.heic.identifier as CFString, 2, nil)!
+    CGImageDestinationAddImage(dest, makeImage(width: 320, height: 200), nil)
+    CGImageDestinationAddImage(dest, makeImage(width: 200, height: 320), nil)
+    CGImageDestinationSetProperties(dest, [kCGImagePropertyPrimaryImage: 1] as CFDictionary)
+    precondition(CGImageDestinationFinalize(dest))
+    let source = CGImageSourceCreateWithData(data, nil)!
+    if CGImageSourceGetPrimaryImageIndex(source) == 1 {
+        let (w, h) = size(of: SharedImageEncoder.encode(data: data as Data).data!)
+        check(w == 200 && h == 320, "multi-image HEIC: the primary image is encoded (\(w)x\(h))")
+    } else {
+        print("info this Mac wrote no primary image index; multi-image HEIC check skipped")
+    }
+}
 // An image already in memory is drawn at the target size, never at full size
 var drawn: [(Int, Int)] = []
-let fromMemory = SharedImageEncoder.jpeg(width: 4032, height: 3024) { w, h in
+let fromMemory = SharedImageEncoder.encode(width: 4032, height: 3024) { w, h in
     drawn.append((w, h)); return makeImage(width: w, height: h)
 }
-check(fromMemory.map(ShareStore.isImportableJPEG) == true && drawn.first.map { $0 == (1568, 1176) } == true,
+check(fromMemory.data.map(ShareStore.isImportableJPEG) == true && drawn.first.map { $0 == (1568, 1176) } == true,
       "in-memory image drawn at 1568 on the long edge (\(drawn))")
 
 // The payload for five text screenshots, handed to the page as base64
@@ -253,7 +270,7 @@ func textScreenshot(seed: Int) -> CGImage {
     }
     return ctx.makeImage()!
 }
-let payload = (0..<5).compactMap { SharedImageEncoder.jpeg(fromData: encode(textScreenshot(seed: $0), type: .png)) }
+let payload = (0..<5).compactMap { SharedImageEncoder.encode(data: encode(textScreenshot(seed: $0), type: .png)).data }
 let base64Bytes = payload.reduce(0) { $0 + $1.base64EncodedString().utf8.count }
 print("info five text screenshots: \(payload.map { $0.count / 1024 }) KB each, \(base64Bytes / 1024) KB as base64")
 check(payload.count == 5 && base64Bytes < 4 * 1024 * 1024, "five text screenshots stay under 4 MB of base64")

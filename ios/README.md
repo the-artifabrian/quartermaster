@@ -229,23 +229,32 @@ nothing usable it cancels. No network and no web view in the extension: the app
 fetches the link, and the page's image import reads the screenshots.
 
 Screenshots are re-encoded in the extension with ImageIO
-(`SharedImageEncoder.swift`), one at a time, decoding straight to the target
-size so a large photo never sits in memory at full size: JPEG at 0.88, at most
-1568 px on the long edge (the server's own resize in
-`recipe-extract-llm.server.ts`), and under 2 MB each, shrinking further if
-needed. PNG screenshots and HEIC photos come out as JPEG, which the import
-takes. Five text screenshots come to about 370 KB each, 2.4 MB as base64 on
-their way into the page. Before decoding, the extension reads each image's size
-from its header and refuses one it cannot afford: over 64 MB, over 64 MP for
-JPEG and HEIC (which decode at a fraction of their size), or over 16 MP for
-anything decoded in full (PNG, RAW). An image the provider already decoded (a
-UIImage) is drawn at the target size, never encoded at full size. Decoding runs
-in the providers' completion handlers, off the main thread, and a provider gets
-20 seconds (an iCloud photo not on the phone may never arrive). If any image
-cannot be read, the extension says "Couldn’t read that image" and closes: a
-Recipe from some of the screenshots could be missing half its steps. If the app
-does not open, it says "Couldn’t open Quartermaster" and removes the share it
-stored.
+(`SharedImageEncoder.swift`), one at a time: JPEG at 0.88, at most 1568 px on
+the long edge (the server's own resize in `recipe-extract-llm.server.ts`), and
+under 2 MB each, shrinking further if needed. PNG screenshots and HEIC photos
+come out as JPEG, which the import takes. Five text screenshots come to about
+370 KB each, 2.4 MB as base64 on their way into the page.
+
+- **Memory.** Each image is decoded with `CGImageSourceCreateThumbnailAtIndex`
+  straight to its target size (`kCGImageSourceThumbnailMaxPixelSize`), never at
+  full size, and only the image a multi-image HEIC shows
+  (`CGImageSourceGetPrimaryImageIndex`). On a Mac a 48 MP HEIC peaked at about
+  25 MB this way. Before decoding, the extension reads the size from the header
+  and refuses what it cannot afford: over 64 MB, over 64 MP for JPEG and HEIC
+  (decoded at a reduced scale), or over 16 MP for formats decoded in full (PNG,
+  RAW), such as a stitched long screenshot. An image the provider already
+  decoded (a UIImage) is drawn at the target size, never encoded at full size.
+  Decoding runs in the providers' completion handlers, off the main thread.
+- **Time.** All of a share's images get 25 seconds together, from when the
+  extension starts on them. A file representation still loading then (an iCloud
+  photo not on the phone) is cancelled and the share gives up; the extension
+  never asks the same provider again, which would restart the download.
+- **Failures.** All the images or none: a Recipe from some of the screenshots
+  could be missing half its steps. The extension says why and closes: "Couldn’t
+  read that image" (not an image it can read), "That image is too large to read"
+  (over the limits above), or "Couldn’t get that image" (the deadline; "If it’s
+  in iCloud, open it in Photos first"). If the app does not open, it says
+  "Couldn’t open Quartermaster" and removes the share it stored.
 
 Extensions have no supported way to open their app, so it calls
 `open(_:options:completionHandler:)` on the UIApplication at the end of its
@@ -342,7 +351,10 @@ Checks by hand (#328, 2.2), on the Simulator and then a device:
 5. A screenshot of a Recipe, from the screenshot editor's share button and from
    Photos, on a Pro account: "Reading your screenshots…", then the Recipe. Then
    three screenshots selected in Photos: one Recipe. Six selected: Quartermaster
-   is not offered. A HEIC photo of a cookbook page: imports.
+   is not offered. A HEIC photo of a cookbook page: imports. A 48 MP HEIF Max
+   photo: imports without the extension being killed. A photo only in iCloud:
+   "Couldn’t get that image" within about 25 seconds. A long stitched screenshot
+   saved as PNG: "That image is too large to read".
 6. The same screenshot on a free account: "Screenshot import isn’t available on
    your account", nothing saved, no mention of Pro.
 7. A screenshot with no Recipe in it: the error on the image tab, the screenshot

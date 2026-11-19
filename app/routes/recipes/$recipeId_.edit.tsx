@@ -6,15 +6,35 @@ import {
 	type FileUpload,
 } from '@mjackson/form-data-parser'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useState } from 'react'
-import { data, redirect, useFetcher } from 'react-router'
+import { useEffect, useState } from 'react'
+import {
+	data,
+	redirect,
+	type ShouldRevalidateFunctionArgs,
+	useFetcher,
+} from 'react-router'
+import {
+	ClientLeavesField,
+	useLeaveEditScreen,
+} from '#app/components/edit-screen.tsx'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { RECIPE_FORM_ID, RecipeForm } from '#app/components/recipe-form.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { ConfirmSheet } from '#app/components/ui/confirm-sheet.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
-import { recipeEditNav } from '#app/utils/nav-back.ts'
+import {
+	clientLeaves,
+	type EditScreenDone,
+	isEditScreenDone,
+} from '#app/utils/edit-screen.ts'
+import {
+	getHistoryLog,
+	recipeEditNav,
+	recipePages,
+	resolveAfterDelete,
+} from '#app/utils/nav-back.ts'
+import { historyIndex } from '#app/utils/nav-direction.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	recipeMetadataOptions,
@@ -44,6 +64,16 @@ export const handle: SEOHandle & NavBarHandle = {
 
 export const meta: Route.MetaFunction = () => {
 	return [{ title: 'Edit Recipe | Quartermaster' }]
+}
+
+// Done saving or deleting, the screen leaves by itself (edit-screen.tsx):
+// reloading it first would load a Recipe that is gone, or about to be left.
+export function shouldRevalidate({
+	actionResult,
+	defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
+	if (isEditScreenDone(actionResult)) return false
+	return defaultShouldRevalidate
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -176,6 +206,9 @@ export async function action({ request, params }: Route.ActionArgs) {
 		}
 
 		await prisma.recipe.delete({ where: { id: recipeId } })
+		if (clientLeaves(formData)) {
+			return data({ done: '/recipes' } satisfies EditScreenDone)
+		}
 		// Undo on a just-imported Recipe goes back to Import to try again.
 		if (formData.get('undo') === 'import') {
 			return redirectWithToast('/recipes/import', {
@@ -340,6 +373,9 @@ export async function action({ request, params }: Route.ActionArgs) {
 		}
 	}
 
+	if (clientLeaves(formData)) {
+		return data({ done: `/recipes/${recipeId}` } satisfies EditScreenDone)
+	}
 	return redirect(`/recipes/${recipeId}`)
 }
 
@@ -357,14 +393,32 @@ export default function EditRecipe({ loaderData }: Route.ComponentProps) {
 	)
 }
 
-function DeleteRecipe({ recipeId: _recipeId }: { recipeId: string }) {
+function DeleteRecipe({ recipeId }: { recipeId: string }) {
 	const [confirming, setConfirming] = useState(false)
 	const fetcher = useFetcher()
-	const isDeleting = fetcher.state !== 'idle'
+	const { leaving, leave } = useLeaveEditScreen()
+	const isDeleting = fetcher.state !== 'idle' || leaving
+
+	// Gone: back to the list, with none of the Recipe's pages behind it.
+	const done = isEditScreenDone(fetcher.data) ? fetcher.data.done : null
+	useEffect(() => {
+		if (!done) return
+		leave(
+			resolveAfterDelete({
+				idx: historyIndex(),
+				log: getHistoryLog(),
+				to: done,
+				gone: recipePages(recipeId),
+			}),
+		)
+		// Once per answer.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [fetcher.data])
 
 	return (
 		<fetcher.Form method="POST" id="delete-recipe">
 			<input type="hidden" name="intent" value="delete" />
+			<ClientLeavesField />
 			<Button
 				type="button"
 				variant="outline"

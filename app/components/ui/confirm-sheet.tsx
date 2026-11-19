@@ -14,6 +14,8 @@ import { StatusButton } from './status-button.tsx'
  * The red button submits the form whose id is `formId`, with its own
  * `name`/`value` as the submitter, the way a submit button inside that form
  * would. The form's React Router handler sees the same submission as before.
+ * A question that submits nothing (Discard Changes) passes `onConfirm`
+ * instead, and may name its Cancel for what it keeps ("Keep Editing").
  */
 export function ConfirmSheet({
 	open,
@@ -21,7 +23,9 @@ export function ConfirmSheet({
 	title,
 	description,
 	confirmLabel,
+	cancelLabel = 'Cancel',
 	formId,
+	onConfirm,
 	name,
 	value,
 	pending = false,
@@ -32,7 +36,10 @@ export function ConfirmSheet({
 	/** One line saying what is lost. */
 	description: string
 	confirmLabel: string
-	formId: string
+	cancelLabel?: string
+	formId?: string
+	/** Instead of a form to submit: what the red button does. */
+	onConfirm?: () => void
 	name?: string
 	value?: string
 	/** The submission is on its way: the red button spins and stays put. */
@@ -57,7 +64,8 @@ export function ConfirmSheet({
 		>
 			<div className="mt-3 flex flex-col gap-2">
 				<StatusButton
-					type="submit"
+					type={onConfirm ? 'button' : 'submit'}
+					onClick={onConfirm}
 					form={formId}
 					name={name}
 					value={value}
@@ -77,7 +85,7 @@ export function ConfirmSheet({
 					className="w-full"
 					onClick={onCancel}
 				>
-					Cancel
+					{cancelLabel}
 				</Button>
 			</div>
 		</BottomSheet>

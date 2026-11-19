@@ -2,7 +2,7 @@ import { parseWithZod } from '@conform-to/zod/v4'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { menuNewNav } from '#app/utils/nav-back.ts'
-import { data, redirect } from 'react-router'
+import { data, replace } from 'react-router'
 import { MENU_FORM_ID, MenuForm } from '#app/components/menu-form.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
@@ -55,7 +55,9 @@ export async function action({ request }: Route.ActionArgs) {
 			},
 			select: { id: true },
 		})
-		return redirect(`/recipes/menus/${menu.id}`)
+		// The new Menu takes the form's place: going back from it goes to the
+		// page before the form.
+		return replace(`/recipes/menus/${menu.id}`)
 	} catch (error) {
 		if (isUniqueConstraintError(error)) {
 			return data(

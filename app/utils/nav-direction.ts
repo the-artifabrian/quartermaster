@@ -40,6 +40,16 @@ let backButtonPop = false
 export function markBackButtonPop() {
 	backButtonPop = true
 }
+/**
+ * Clears the mark and says whether it was set. An edit screen that holds a
+ * pop back to ask first takes it, so a Keep Editing does not leave it for the
+ * next navigation, and puts it back on Discard.
+ */
+export function takeBackButtonPop() {
+	const marked = backButtonPop
+	backButtonPop = false
+	return marked
+}
 
 function markedDirection(state: unknown) {
 	if (typeof state !== 'object' || state === null) return null

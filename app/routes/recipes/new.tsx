@@ -7,7 +7,7 @@ import {
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { recipeNewNav } from '#app/utils/nav-back.ts'
-import { data, redirect } from 'react-router'
+import { data, replace } from 'react-router'
 import { RECIPE_FORM_ID, RecipeForm } from '#app/components/recipe-form.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
@@ -201,7 +201,9 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 	}
 
-	return redirect(`/recipes/${recipe.id}`)
+	// The new Recipe takes the form's place: going back from it goes to the
+	// page before the form.
+	return replace(`/recipes/${recipe.id}`)
 }
 
 export default function NewRecipe({ loaderData }: Route.ComponentProps) {

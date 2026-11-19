@@ -7,6 +7,7 @@ import {
 	type FormMetadata,
 } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
+import { useEffect } from 'react'
 import { Form, useActionData } from 'react-router'
 import {
 	RecipePicker,
@@ -22,13 +23,26 @@ import {
 	type MenuSectionInput,
 	type MenuShoppingLineInput,
 } from '#app/utils/menu-validation.ts'
+import { isEditScreenDone } from '#app/utils/edit-screen.ts'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
+import { getHistoryLog, resolveAfterSave } from '#app/utils/nav-back.ts'
+import { historyIndex } from '#app/utils/nav-direction.ts'
 import {
 	formatTargetYieldAmount,
 	getTypedYield,
 	scaleMultiplierToTargetYield,
 } from '#app/utils/target-yield.ts'
-import { ErrorList, Field, TextareaField } from './forms.tsx'
+import {
+	ClientLeavesField,
+	DiscardChangesGuard,
+	useLeaveEditScreen,
+} from './edit-screen.tsx'
+import {
+	ErrorList,
+	Field,
+	TextareaField,
+	useFocusErrorOnFailedSave,
+} from './forms.tsx'
 import { keepReturnFromSaving, useNavBarForm } from './nav-bar.tsx'
 import { Button } from './ui/button.tsx'
 import {
@@ -96,9 +110,11 @@ type MenuFormProps = {
 export const MENU_FORM_ID = 'menu-form'
 
 export function MenuForm({ menu, builder }: MenuFormProps) {
-	const actionData = useActionData<{
-		result: { error?: Record<string, string[]> }
-	}>()
+	const actionData = useActionData<
+		{ result: { error?: Record<string, string[]> } } | { done: string }
+	>()
+	const lastResult =
+		actionData && 'result' in actionData ? actionData.result : undefined
 
 	// One schema for both modes: `sections` is optional, so metadata-only
 	// create parses cleanly and the create action simply never reads sections.
@@ -106,9 +122,12 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 		// The nav bar's Save submits the form by this id (route handle).
 		id: MENU_FORM_ID,
 		constraint: getZodConstraint(MenuBuilderSchema),
-		lastResult: actionData?.result as any,
+		lastResult: lastResult as any,
 		onValidate({ formData }) {
-			return parseWithZod(formData, { schema: MenuBuilderSchema })
+			const submission = parseWithZod(formData, { schema: MenuBuilderSchema })
+			// A Save that found errors (not a blur's revalidation).
+			if (submission.status === 'error') focusErrorAfterRender()
+			return submission
 		},
 		defaultValue: {
 			title: menu?.title ?? '',
@@ -148,7 +167,23 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 		shouldRevalidate: 'onBlur',
 		shouldValidate: 'onSubmit',
 	})
-	useNavBarForm(MENU_FORM_ID)
+	const focusErrorAfterRender = useFocusErrorOnFailedSave(
+		MENU_FORM_ID,
+		lastResult,
+	)
+
+	// A Save that went through leaves as if the screen was dismissed.
+	const { leaving, leave } = useLeaveEditScreen()
+	const done = isEditScreenDone(actionData) ? actionData.done : null
+	useEffect(() => {
+		if (!done) return
+		leave(
+			resolveAfterSave({ idx: historyIndex(), log: getHistoryLog(), to: done }),
+		)
+		// Once per answer.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [actionData])
+	useNavBarForm(MENU_FORM_ID, { blocked: leaving })
 
 	return (
 		<Form
@@ -159,10 +194,19 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 			}
 			className="space-y-4"
 		>
+			<ClientLeavesField />
+			<DiscardChangesGuard
+				formId={MENU_FORM_ID}
+				description={
+					menu
+						? 'Your changes to this Menu won’t be saved.'
+						: 'This Menu won’t be saved.'
+				}
+			/>
 			{/* Form-level errors */}
 			{form.errors && form.errors.length > 0 && (
 				<div className="border-destructive bg-destructive/10 rounded-lg border p-4">
-					<ErrorList errors={form.errors} id={form.errorId} />
+					<ErrorList errors={form.errors} id={form.errorId} focusable />
 				</div>
 			)}
 
@@ -367,7 +411,11 @@ function MenuSectionsBuilder({
 	return (
 		<fieldset className="pt-2">
 			<legend className={sectionLabelClass}>Recipes</legend>
-			<ErrorList errors={fields.sections.errors} id={fields.sections.errorId} />
+			<ErrorList
+				errors={fields.sections.errors}
+				id={fields.sections.errorId}
+				focusable
+			/>
 			{sectionList.length > 1 ? (
 				<p className="text-muted-foreground mt-2 text-sm">
 					A section’s arrows move it as one block, cards and all. To move a
@@ -731,7 +779,12 @@ function MenuItemRow({
 				/>
 			</div>
 			{/* Separate lists so each input's aria-describedby resolves */}
-			<ErrorList errors={itemMeta.errors} id={itemMeta.errorId} />
+			<ErrorList errors={itemMeta.errors} id={itemMeta.errorId} focusable />
+			<ErrorList
+				errors={item.recipeId.errors}
+				id={item.recipeId.errorId}
+				focusable
+			/>
 			<ErrorList
 				errors={item.scaleMultiplier.errors}
 				id={item.scaleMultiplier.errorId}
@@ -897,10 +950,11 @@ function MenuNoteRow({
 					onMoveToSection={onMoveToSection}
 				/>
 			</div>
-			<ErrorList errors={itemMeta.errors} id={itemMeta.errorId} />
+			<ErrorList errors={itemMeta.errors} id={itemMeta.errorId} focusable />
 			<ErrorList
 				errors={item.shoppingLines.errors}
 				id={item.shoppingLines.errorId}
+				focusable
 			/>
 		</li>
 	)

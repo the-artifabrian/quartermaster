@@ -1,16 +1,30 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { Img } from 'openimg/react'
-import { useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Form, useActionData } from 'react-router'
-import { sectionLabelClass } from '#app/utils/misc.tsx'
 import { useFitFileInput } from '#app/utils/downscale-image.ts'
+import { isEditScreenDone } from '#app/utils/edit-screen.ts'
+import { listErrors } from '#app/utils/list-errors.ts'
+import { sectionLabelClass } from '#app/utils/misc.tsx'
+import { getHistoryLog, resolveAfterSave } from '#app/utils/nav-back.ts'
+import { historyIndex } from '#app/utils/nav-direction.ts'
 import {
 	MAX_RECIPE_IMAGE_SIZE,
 	RecipeSchema,
 } from '#app/utils/recipe-validation.ts'
 import { DurationHint } from './duration-hint.tsx'
-import { ErrorList, Field, TextareaField } from './forms.tsx'
+import {
+	ClientLeavesField,
+	DiscardChangesGuard,
+	useLeaveEditScreen,
+} from './edit-screen.tsx'
+import {
+	ErrorList,
+	Field,
+	TextareaField,
+	useFocusErrorOnFailedSave,
+} from './forms.tsx'
 import { keepReturnFromSaving, useNavBarForm } from './nav-bar.tsx'
 import {
 	IngredientFields,
@@ -62,14 +76,18 @@ function FormSection({
 	title,
 	summary,
 	defaultOpen,
+	errors,
 	children,
 }: {
 	title: string
 	summary?: string
 	defaultOpen?: boolean
+	/** The section's own errors (a list's), shown under its heading. */
+	errors?: string[]
 	children: React.ReactNode
 }) {
 	const [isOpen, setIsOpen] = useState(defaultOpen ?? false)
+	const errorId = useId()
 	return (
 		<details
 			open={isOpen}
@@ -87,7 +105,14 @@ function FormSection({
 					<span className="text-muted-foreground text-xs">{summary}</span>
 				)}
 			</summary>
-			<div className="pb-6">{children}</div>
+			<div className="pb-6">
+				{errors?.length ? (
+					<div className="pb-3">
+						<ErrorList id={errorId} errors={errors} focusable />
+					</div>
+				) : null}
+				{children}
+			</div>
 		</details>
 	)
 }
@@ -96,9 +121,11 @@ function FormSection({
 export const RECIPE_FORM_ID = 'recipe-form'
 
 export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
-	const actionData = useActionData<{
-		result: { error?: Record<string, string[]> }
-	}>()
+	const actionData = useActionData<
+		{ result: { error?: Record<string, string[]> } } | { done: string }
+	>()
+	const lastResult =
+		actionData && 'result' in actionData ? actionData.result : undefined
 	const isEditing = !!recipe
 
 	// An import can save a Recipe without ingredients or steps; editing it
@@ -134,18 +161,11 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 		// The nav bar's Save submits the form by this id (route handle).
 		id: RECIPE_FORM_ID,
 		constraint: getZodConstraint(RecipeSchema),
-		lastResult: actionData?.result as any,
-		onValidate({ form: formElement, formData }) {
+		lastResult: lastResult as any,
+		onValidate({ formData }) {
 			const submission = parseWithZod(formData, { schema: RecipeSchema })
-			// Reveal collapsed fields before Conform focuses the first error.
-			if (submission.status === 'error') {
-				for (const name of Object.keys(submission.error ?? {})) {
-					const field = formElement.elements.namedItem(name)
-					if (field instanceof HTMLElement) {
-						field.closest('details')?.setAttribute('open', '')
-					}
-				}
-			}
+			// A Save that found errors (not a blur's revalidation).
+			if (submission.status === 'error') focusErrorAfterRender()
 			return submission
 		},
 		defaultValue: {
@@ -161,6 +181,39 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 		shouldRevalidate: 'onBlur',
 		shouldValidate: 'onSubmit',
 	})
+	const focusErrorAfterRender = useFocusErrorOnFailedSave(
+		RECIPE_FORM_ID,
+		lastResult,
+	)
+	// The ingredients and steps submit through hidden inputs, by position.
+	// Their errors show at the rows they are about; a change to the rows after
+	// a failed Save checks them again, so an error goes once it is fixed and
+	// never moves to a row that took the place of a removed one.
+	const ingredientErrors = listErrors(form.allErrors, 'ingredients')
+	const instructionErrors = listErrors(form.allErrors, 'instructions')
+	const rowsHaveErrors =
+		ingredientErrors.list !== undefined ||
+		ingredientErrors.rows.length > 0 ||
+		instructionErrors.list !== undefined ||
+		instructionErrors.rows.length > 0
+	useEffect(() => {
+		if (rowsHaveErrors) form.validate()
+		// Only a change to the rows (or errors showing) checks them again.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [ingredients, instructions, rowsHaveErrors])
+
+	// A Save that went through leaves as if the screen was dismissed.
+	const { leaving, leave } = useLeaveEditScreen()
+	const done = isEditScreenDone(actionData) ? actionData.done : null
+	useEffect(() => {
+		if (!done) return
+		leave(
+			resolveAfterSave({ idx: historyIndex(), log: getHistoryLog(), to: done }),
+		)
+		// Once per answer.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [actionData])
+
 	const { key: yieldAmountKey, ...yieldAmountProps } = getInputProps(
 		fields.yieldAmount,
 		{ type: 'number' },
@@ -174,7 +227,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 	const { preparing: preparingPhoto, fit: fitPhoto } = useFitFileInput(
 		MAX_RECIPE_IMAGE_SIZE,
 	)
-	useNavBarForm(RECIPE_FORM_ID, { blocked: preparingPhoto })
+	useNavBarForm(RECIPE_FORM_ID, { blocked: preparingPhoto || leaving })
 	const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const input = e.currentTarget
 		// A later pick owns the preview.
@@ -197,13 +250,19 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 			onKeyDown={(event) => keepReturnFromSaving(event, { titleSaves: true })}
 			className="space-y-4"
 		>
+			<ClientLeavesField />
+			<DiscardChangesGuard
+				formId={RECIPE_FORM_ID}
+				description={
+					isEditing
+						? 'Your changes to this Recipe won’t be saved.'
+						: 'This Recipe won’t be saved.'
+				}
+			/>
 			{/* Form-level errors */}
 			{form.errors && form.errors.length > 0 && (
 				<div className="border-destructive bg-destructive/10 rounded-lg border p-4">
-					<h3 className="text-destructive mb-2 font-semibold">
-						Please fix the following errors:
-					</h3>
-					<ErrorList errors={form.errors} id={form.errorId} />
+					<ErrorList errors={form.errors} id={form.errorId} focusable />
 				</div>
 			)}
 
@@ -225,11 +284,13 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 					return `${count} ${count === 1 ? 'item' : 'items'}`
 				})()}
 				defaultOpen={isEditing || ingredients.length <= 1}
+				errors={ingredientErrors.list}
 			>
 				<IngredientFields
 					ingredients={ingredients}
 					onChange={setIngredients}
 					excludeRecipeId={recipe?.id}
+					rowErrors={ingredientErrors.rows}
 				/>
 				<div className="mt-6 space-y-2">
 					<p className="text-sm font-medium">This recipe makes</p>
@@ -334,10 +395,12 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 					return `${count} ${count === 1 ? 'step' : 'steps'}`
 				})()}
 				defaultOpen={isEditing || instructions.length <= 1}
+				errors={instructionErrors.list}
 			>
 				<InstructionFields
 					instructions={instructions}
 					onChange={setInstructions}
+					rowErrors={instructionErrors.rows}
 				/>
 			</FormSection>
 			{/* Hidden inputs for instructions */}
@@ -483,6 +546,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 						? `${recipe.metadataValueIds.length} selected`
 						: 'Optional'
 				}
+				errors={form.allErrors.recipeMetadata}
 			>
 				<RecipeMetadataFields
 					options={metadataOptions}

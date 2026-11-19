@@ -1,8 +1,17 @@
 import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useState } from 'react'
-import { data, redirect, useFetcher } from 'react-router'
+import { useEffect, useState } from 'react'
+import {
+	data,
+	redirect,
+	type ShouldRevalidateFunctionArgs,
+	useFetcher,
+} from 'react-router'
+import {
+	ClientLeavesField,
+	useLeaveEditScreen,
+} from '#app/components/edit-screen.tsx'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import {
 	MENU_FORM_ID,
@@ -13,7 +22,18 @@ import { Button } from '#app/components/ui/button.tsx'
 import { ConfirmSheet } from '#app/components/ui/confirm-sheet.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
-import { menuEditNav } from '#app/utils/nav-back.ts'
+import {
+	clientLeaves,
+	type EditScreenDone,
+	isEditScreenDone,
+} from '#app/utils/edit-screen.ts'
+import {
+	getHistoryLog,
+	menuEditNav,
+	menuPages,
+	resolveAfterDelete,
+} from '#app/utils/nav-back.ts'
+import { historyIndex } from '#app/utils/nav-direction.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	DUPLICATE_MENU_TITLE_MESSAGE,
@@ -31,6 +51,16 @@ export const handle: SEOHandle & NavBarHandle = {
 
 export const meta: Route.MetaFunction = () => {
 	return [{ title: 'Edit Menu | Quartermaster' }]
+}
+
+// Done saving or deleting, the screen leaves by itself (edit-screen.tsx):
+// reloading it first would load a Menu that is gone, or about to be left.
+export function shouldRevalidate({
+	actionResult,
+	defaultShouldRevalidate,
+}: ShouldRevalidateFunctionArgs) {
+	if (isEditScreenDone(actionResult)) return false
+	return defaultShouldRevalidate
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -143,6 +173,9 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	if (formData.get('intent') === 'delete') {
 		await prisma.menu.delete({ where: { id: menuId } })
+		if (clientLeaves(formData)) {
+			return data({ done: '/recipes/menus' } satisfies EditScreenDone)
+		}
 		return redirect('/recipes/menus')
 	}
 
@@ -380,6 +413,11 @@ export async function action({ request, params }: Route.ActionArgs) {
 				})
 			}
 		})
+		if (clientLeaves(formData)) {
+			return data({
+				done: `/recipes/menus/${menuId}`,
+			} satisfies EditScreenDone)
+		}
 		return redirect(`/recipes/menus/${menuId}`)
 	} catch (error) {
 		if (isUniqueConstraintError(error)) {
@@ -404,20 +442,38 @@ export default function EditMenu({ loaderData }: Route.ComponentProps) {
 			<h1 className="mb-6 font-serif text-2xl font-normal">Edit Menu</h1>
 			<MenuForm menu={menu} builder={{ sections, recipes }} />
 			<div className="mt-8 border-t pt-8">
-				<DeleteMenu />
+				<DeleteMenu menuId={menu.id} />
 			</div>
 		</div>
 	)
 }
 
-function DeleteMenu() {
+function DeleteMenu({ menuId }: { menuId: string }) {
 	const [confirming, setConfirming] = useState(false)
 	const fetcher = useFetcher()
-	const isDeleting = fetcher.state !== 'idle'
+	const { leaving, leave } = useLeaveEditScreen()
+	const isDeleting = fetcher.state !== 'idle' || leaving
+
+	// Gone: back to Menus, with none of the Menu's pages behind it.
+	const done = isEditScreenDone(fetcher.data) ? fetcher.data.done : null
+	useEffect(() => {
+		if (!done) return
+		leave(
+			resolveAfterDelete({
+				idx: historyIndex(),
+				log: getHistoryLog(),
+				to: done,
+				gone: menuPages(menuId),
+			}),
+		)
+		// Once per answer.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [fetcher.data])
 
 	return (
 		<fetcher.Form method="POST" id="delete-menu">
 			<input type="hidden" name="intent" value="delete" />
+			<ClientLeavesField />
 			<Button
 				type="button"
 				variant="outline"

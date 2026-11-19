@@ -125,6 +125,10 @@ each screen:
 - **Switch** is an iOS-style track and thumb for an on/off setting; never an
   “On”/“Off” pill.
 - Previous and next use chevrons, not arrows.
+- **Adding on a tab root** is one control (`TitleAddButton`): a round sage +,
+  44px, at the right end of the big serif title's row on Recipes, Staples and
+  Plan. Its label says what it adds (“New Recipe”, “Add Staple”, “Add Meal to
+  Thursday, Nov 19”). Shopping keeps its floating + instead.
 
 ## Sheets and deleting
 
@@ -144,7 +148,11 @@ each screen:
   item, Scale, From Staples, From Plan, Add to Plan and Link recipe open as
   sheets (`opensAsSheet`, read when they open). Wider screens keep their popover
   or inline panel.
-- A Delete in a menu or behind a swipe is red from the start.
+- A Delete in a menu or behind a swipe is red from the start. Shopping and
+  Staples rows swipe left to show theirs; the swipe locks to one axis, so a
+  vertical drag still scrolls. A Staple row with a mouse shows a trash button
+  instead; with a keyboard or VoiceOver its Delete is the next stop after Add,
+  and the row slides open while it has focus.
 - A delete that can be undone (a Meal, a Recipe in a Meal, a Shopping item,
   Clear checked, removing a Staple) happens at once with an Undo toast at the
   bottom, above the tab bar; every other toast stays at the top. A deleted row,
@@ -157,6 +165,9 @@ each screen:
   full-width red button, and Cancel under it, which has focus.
 
 ## Navigation
+
+The header, the status bar strip in the iOS app and the tab bar are opaque
+(`bg-card`) with no blur.
 
 Mobile has four tabs: Recipes, Staples, Plan, and Shopping. The active tab uses
 sage text and a medium-weight label. A small copper dot on the Shopping icon
@@ -193,14 +204,14 @@ under it, since there is no tab bar.
 
 ## Imagery
 
-Every Recipe slot shows either its photo or the deterministic warm-gradient
-monogram from `recipe-placeholder.ts`.
+A Recipe thumbnail shows either its photo or the deterministic warm-gradient
+monogram from `recipe-placeholder.ts`. Plan Meal rows are text-only on purpose
+and show no thumbnail (#178).
 
 Typical square thumbnail sizes:
 
 - 64px in Recipe rows
 - 56–64px in “Up next”
-- 44px in mobile Meal rows
 - 36–40px in pickers
 
 Recipe detail may use a full-bleed mobile hero and a side image on desktop.
@@ -255,6 +266,11 @@ placeholder.
 - Dense Menu snapshots may need progressive disclosure; do not solve density by
   adding more card chrome.
 - Labels and serving times are context, not automatic sort keys.
+- On a phone the title's + adds a Meal to the day showing, in the Add a Meal
+  sheet; the day itself has no Add Meal button. The desktop agenda keeps an Add
+  Meal in each day.
+- On a phone a Recipe's title link and its scale field share one line, the field
+  trailing, so each is a 44px target without the row growing.
 
 ### Shopping
 
@@ -268,14 +284,15 @@ placeholder.
 
 ### Staples
 
-- Use one compact searchable alphabetical list with direct Add and Remove
-  controls; no grouping.
+- Use one compact searchable alphabetical list; no grouping. Each row has an Add
+  to Shopping button, and is deleted by a swipe left (a trash button with a
+  mouse). The + beside the title adds a Staple.
 - Each row carries its own Add control, its own state and its own errors. A
   shopper is usually scrolled somewhere down a long list, so a banner at the top
   of the page is a message they will never see.
-- A Staple already waiting in Next shop reads “On list” in place of Add. Keep
-  the control focusable and the row where it was; repeat the result in a
-  visually hidden live region for a screen reader.
+- A Staple already waiting in Next shop reads “On list” in place of Add to
+  Shopping. Keep the control focusable and the row where it was; repeat the
+  result in a visually hidden live region for a screen reader.
 - No availability state, quantities, expiry dates, stock ledger, images, or
   category sections.
 

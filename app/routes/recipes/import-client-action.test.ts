@@ -50,13 +50,10 @@ test('a server error rebuilt as a TypeError still reaches the error page', async
 	).rejects.toBe(error)
 })
 
-test.each([
-	['Chromium', 'Failed to fetch'],
-	['Safari', 'Load failed'],
-	['Firefox', 'NetworkError when attempting to fetch resource.'],
-])(
-	'%s’s network failure is the tab’s error, says to check Recipes, and stops the reload',
-	async (_browser, message) => {
+// Which errors count as a network failure: network-failure.test.ts.
+test.each([['Failed to fetch'], ['Load failed']])(
+	'a network failure (“%s”) is the tab’s error, says to check Recipes, and stops the reload',
+	async (message) => {
 		const reply = (await clientAction(
 			args('extract-image', () => Promise.reject(new TypeError(message))),
 		)) as unknown as OfflineReply

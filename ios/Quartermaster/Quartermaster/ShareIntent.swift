@@ -40,7 +40,9 @@ struct ShareIntent: Equatable {
     /// Run with `callAsyncJavaScript` in the page's content world, with the
     /// arguments from `arguments(baseURL:)`. Each checks the page again, since
     /// a navigation can land between the shell's check and the script, then
-    /// sets `window.__qmShareImport` (read by a page that mounts later) and
+    /// sets `window.__qmShareImport` (read by a page that mounts later), with
+    /// the page it was handed to and a 60-second expiry so it cannot wait for
+    /// a later visit if the page is being left, and
     /// dispatches `qm:share-import` (heard by a page already up). True when it
     /// handed the share over. What was shared is an argument, never part of
     /// the source. `tests/e2e/share-import.test.ts` reads these literals from
@@ -56,7 +58,7 @@ struct ShareIntent: Equatable {
     static let linkScript = """
         if (location.origin !== origin || location.pathname !== path) return false
         if (new URLSearchParams(location.search).get('url') !== link) return false
-        window.__qmShareImport = { url: link }
+        window.__qmShareImport = { url: link, for: location.pathname + location.search, expiresAt: Date.now() + 60000 }
         window.dispatchEvent(new CustomEvent('qm:share-import', { detail: { url: link } }))
         return true
         """
@@ -70,7 +72,7 @@ struct ShareIntent: Equatable {
             for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
             return new File([bytes], image.name, { type: image.type })
         })
-        window.__qmShareImport = { files }
+        window.__qmShareImport = { files, for: location.pathname + location.search, expiresAt: Date.now() + 60000 }
         window.dispatchEvent(new CustomEvent('qm:share-import'))
         return true
         """

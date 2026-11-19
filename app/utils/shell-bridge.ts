@@ -167,17 +167,63 @@ export type ShareImport =
 	{ kind: 'link'; url: string } | { kind: 'images'; files: File[] }
 
 /**
- * The share the shell handed over, or null. Each delivery is read once: the
- * value is cleared whatever it holds, so a later visit to the same page waits
- * for a tap. Only the shell sets it; nothing in a URL or in storage reaches
- * it. Screenshots count only as 1 to `maxImages` files.
+ * Whether the share the shell handed over still belongs here: delivered for
+ * this page (`for`, the path and query it was handed to) and before its
+ * `expiresAt` (epoch ms). A share handed over while the page was being left
+ * must not wait for a later visit.
  */
-export function takeShareImport(maxImages: number): ShareImport | null {
+function isShareFor(value: unknown, where: string, now: number) {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		'for' in value &&
+		value.for === where &&
+		'expiresAt' in value &&
+		typeof value.expiresAt === 'number' &&
+		now <= value.expiresAt
+	)
+}
+
+/** The page the shell hands shares to: its path and query. */
+export function currentSharePage() {
+	return `${window.location.pathname}${window.location.search}`
+}
+
+/**
+ * Drops the handed-over share when it no longer belongs to `where`, or has
+ * expired. With nothing to drop, nothing happens.
+ */
+export function dropStaleShareImport(where: string, now = Date.now()) {
+	if (typeof window === 'undefined' || !('__qmShareImport' in window)) return
+	if (!isShareFor(window.__qmShareImport, where, now)) {
+		delete window.__qmShareImport
+	}
+}
+
+/** Drops the handed-over share, whatever it is: its page is going away. */
+export function discardShareImport() {
+	if (typeof window === 'undefined') return
+	delete window.__qmShareImport
+}
+
+/**
+ * The share the shell handed over to `where`, or null. Each delivery is read
+ * once: the value is cleared whatever it holds, so a later visit to the same
+ * page waits for a tap. Only the shell sets it; nothing in a URL or in storage
+ * reaches it. One handed to another page, or expired, counts as none.
+ * Screenshots count only as 1 to `maxImages` files.
+ */
+export function takeShareImport(
+	maxImages: number,
+	where: string,
+	now = Date.now(),
+): ShareImport | null {
 	if (typeof window === 'undefined' || !('__qmShareImport' in window)) {
 		return null
 	}
 	const value = window.__qmShareImport
 	delete window.__qmShareImport
+	if (!isShareFor(value, where, now)) return null
 	if (typeof value !== 'object' || value === null) return null
 	if ('url' in value && typeof value.url === 'string') {
 		return { kind: 'link', url: value.url }

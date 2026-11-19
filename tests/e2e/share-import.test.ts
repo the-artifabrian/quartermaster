@@ -106,6 +106,7 @@ async function offerReady(page: Page) {
 
 /** A client-side navigation, as an in-app link makes one. */
 async function navigateInApp(page: Page, to: string) {
+	await page.waitForFunction(() => '__reactRouterDataRouter' in window)
 	await page.evaluate(async (to) => {
 		const router = (
 			window as unknown as {
@@ -182,7 +183,11 @@ test('a share handed over before the page hydrated imports once it has', async (
 	const count = countFetches(page)
 	// The shell can finish its delivery before React has mounted the page.
 	await page.addInitScript((link) => {
-		window.__qmShareImport = { url: link }
+		window.__qmShareImport = {
+			url: link,
+			for: location.pathname + location.search,
+			expiresAt: Date.now() + 60_000,
+		}
 	}, sharedUrl)
 	await page.goto(importPage(sharedUrl))
 
@@ -209,7 +214,11 @@ test('a share for another link imports nothing and leaves the tap', async ({
 	expect(await deliverShare(page, E2E_RECIPE_URL)).toBe(false)
 	// And the page refuses one if it is handed over anyway.
 	await page.evaluate((link) => {
-		window.__qmShareImport = { url: link }
+		window.__qmShareImport = {
+			url: link,
+			for: location.pathname + location.search,
+			expiresAt: Date.now() + 60_000,
+		}
 		window.dispatchEvent(new CustomEvent('qm:share-import'))
 	}, E2E_RECIPE_URL)
 	await expect
@@ -381,7 +390,8 @@ test('the shell’s scripts refuse another origin and another page, so nothing i
 	).toBe(false)
 	await navigateInApp(page, importPage(sharedUrl))
 	await offerReady(page)
-	await page.goto('/recipes')
+	await navigateInApp(page, '/recipes')
+	await expect(page).toHaveURL(/\/recipes$/)
 	expect(
 		await runShellScript(page, 'imagesScript', {
 			images,
@@ -394,6 +404,131 @@ test('the shell’s scripts refuse another origin and another page, so nothing i
 	await settle(page)
 	await expect(offer(page)).toHaveCount(0)
 	expect(count).toEqual({ images: 0, links: 0 })
+	expect(await recipesIn(user.householdId)).toHaveLength(0)
+})
+
+/** Holds the GETs matching `pattern` until `release` is called. */
+async function holdLoads(page: Page, pattern: RegExp) {
+	let release = () => {}
+	const held = new Promise<void>((resolve) => (release = resolve))
+	await page.route(pattern, async (route) => {
+		if (route.request().method() === 'GET') await held
+		await route.continue()
+	})
+	return release
+}
+
+/** Starts an in-app navigation and waits until it is loading. */
+async function startNavigation(page: Page, to: string) {
+	await page.waitForFunction(() => '__reactRouterDataRouter' in window)
+	await page.evaluate((to) => {
+		const router = (
+			window as unknown as {
+				__reactRouterDataRouter: { navigate: (to: string) => Promise<void> }
+			}
+		).__reactRouterDataRouter
+		void router.navigate(to)
+	}, to)
+	await expect
+		.poll(() =>
+			page.evaluate(
+				() =>
+					(
+						window as unknown as {
+							__reactRouterDataRouter: {
+								state: { navigation: { state: string } }
+							}
+						}
+					).__reactRouterDataRouter.state.navigation.state,
+			),
+		)
+		.toBe('loading')
+}
+
+test('a link handed over while the page is being left imports nothing, then or on Back', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const count = countFetches(page)
+	await page.goto('/recipes')
+	await navigateInApp(page, importPage(sharedUrl))
+	await offerReady(page)
+	// A tab tapped just as the shared page loaded.
+	const release = await holdLoads(page, /\/recipes\.data/)
+	await startNavigation(page, '/recipes')
+
+	// The page is still the import page, so the shell's script hands it over.
+	expect(await deliverShare(page, sharedUrl)).toBe(true)
+	release()
+	await expect(page).toHaveURL(/\/recipes$/)
+	await settle(page)
+	expect(count.fetches).toBe(0)
+
+	await page.goBack()
+	await expect(page).toHaveURL(importPage(sharedUrl))
+	await offerReady(page)
+	await settle(page)
+	await expect(offer(page)).toBeVisible()
+	expect(count.fetches).toBe(0)
+	expect(await recipesIn(user.householdId)).toHaveLength(0)
+})
+
+test('screenshots handed over while the page is being left import nothing, then or on a later visit', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
+	const count = countImports(page)
+	await page.goto('/recipes/import')
+	await hydrated(importButton(page))
+	const release = await holdLoads(page, /\/recipes\.data/)
+	await startNavigation(page, '/recipes')
+
+	expect(await deliverScreenshots(page, await screenshots(1))).toBe(true)
+	release()
+	await expect(page).toHaveURL(/\/recipes$/)
+	await settle(page)
+	expect(count.images).toBe(0)
+
+	await navigateInApp(page, '/recipes/import')
+	await hydrated(importButton(page))
+	await settle(page)
+	expect(count.images).toBe(0)
+	expect(await recipesIn(user.householdId)).toHaveLength(0)
+})
+
+test('a handed-over share that has expired, or was handed to another page, imports nothing', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const count = countFetches(page)
+	// Set at document start, as a delivery before the page mounted would be.
+	await page.addInitScript(
+		({ link, otherPage }) => {
+			const where = location.pathname + location.search
+			window.__qmShareImport = where.includes('expired')
+				? { url: link, for: where, expiresAt: Date.now() - 1 }
+				: { url: link, for: otherPage, expiresAt: Date.now() + 60_000 }
+		},
+		{ link: sharedUrl, otherPage: '/recipes/import' },
+	)
+
+	// The page's own `?url=` is still the shared link; `case` only picks
+	// which stale share the init script sets.
+	for (const which of ['expired', 'elsewhere']) {
+		await page.goto(`${importPage(sharedUrl)}&case=${which}`)
+		await offerReady(page)
+		await settle(page)
+		await expect(offer(page)).toBeVisible()
+		expect(
+			await page.evaluate(() => '__qmShareImport' in window),
+			`${which}: the stale share is dropped`,
+		).toBe(false)
+	}
+	expect(count.fetches).toBe(0)
 	expect(await recipesIn(user.householdId)).toHaveLength(0)
 })
 
@@ -638,6 +773,8 @@ test.describe('shared screenshots', () => {
 				files: images.map(
 					(image) => new File([image.data], image.name, { type: image.type }),
 				),
+				for: location.pathname + location.search,
+				expiresAt: Date.now() + 60_000,
 			}
 			window.dispatchEvent(new CustomEvent('qm:share-import'))
 		}, images)

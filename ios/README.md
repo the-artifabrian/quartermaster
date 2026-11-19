@@ -137,10 +137,12 @@ message body is a string, and anything outside the values below is ignored.
   if nothing answers. While the offline view is up there is no pull, since that
   view has its own Retry.
 - **Share import.** For a share through the app's own Share Extension the shell
-  hands the link to the import page (Share import, below):
-  `window.__qmShareImport = { url }` and
-  `window.dispatchEvent(new CustomEvent('qm:share-import', { detail: { url } }))`.
-  The page reads the global when it mounts and on the event, and clears it.
+  hands it to the import page (Share import, below): it sets
+  `window.__qmShareImport` to `{ url }` for a link or `{ files }` (an array of
+  `File`) for screenshots, each with `for` (the page's path and query when it
+  was handed over) and `expiresAt` (epoch ms, 60 s on), then dispatches
+  `qm:share-import`. The page reads the global when it mounts and on the event,
+  and clears it.
 - **Launch timing.** The first document after launch gets a document-start
   script, main frame only: `window.__qmShell = { initAt, loadAt }`, both epoch
   milliseconds (`Date.now()` units). `initAt` is when the app started and
@@ -307,14 +309,18 @@ outside the URL:
    carries none.
 4. **The page imports only on a match.** In the shell, the import page reads
    `window.__qmShareImport` at mount and on `qm:share-import`, and deletes it
-   whatever it holds. A link is imported only when it equals the page's `?url=`
-   and the offer is showing: the offer's own Import form is submitted, the same
-   POST and the same duplicate check, so a link already in the Household shows
-   "Already in your Recipes" instead. Screenshots (1 to 5 `File`s) are imported
-   only on the plain import page: they go onto the image form's file input and
-   that form is submitted, the same multipart POST, Pro check, limits and AI
-   extraction as picking them by hand. Query string, hash and storage play no
-   part, and outside the shell nothing listens.
+   whatever it holds. One handed to another page (`for`), or past its
+   `expiresAt`, is dropped unread. While a navigation is in flight the page
+   waits, and if the import page goes away it takes the share with it, so a
+   share handed over just as the user tapped away never imports on a later visit
+   or Back. A link is imported only when it equals the page's `?url=` and the
+   offer is showing: the offer's own Import form is submitted, the same POST and
+   the same duplicate check, so a link already in the Household shows "Already
+   in your Recipes" instead. Screenshots (1 to 5 `File`s) are imported only on
+   the plain import page: they go onto the image form's file input and that form
+   is submitted, the same multipart POST, Pro check, limits and AI extraction as
+   picking them by hand. Query string, hash and storage play no part, and
+   outside the shell nothing listens.
 
 There is no Xcode test target. `ios/checks/share/main.swift` checks the pure
 parts (nonces, single use, expiry, pruning, screenshot files, page matching,

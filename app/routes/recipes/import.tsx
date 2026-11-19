@@ -16,11 +16,18 @@ import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { useFitFileInput } from '#app/utils/downscale-image.ts'
 import { findRecipeFromUrl } from '#app/utils/import-recipe-save.server.ts'
 import { importUrlFromSearch } from '#app/utils/import-url.ts'
+import { isNetworkFailure } from '#app/utils/network-failure.ts'
 import {
 	MAX_IMPORT_IMAGE_COUNT,
 	MAX_IMPORT_IMAGE_SIZE,
 } from '#app/utils/recipe-validation.ts'
-import { SHARE_IMPORT_EVENT, takeShareImport } from '#app/utils/shell-bridge.ts'
+import {
+	currentSharePage,
+	discardShareImport,
+	dropStaleShareImport,
+	SHARE_IMPORT_EVENT,
+	takeShareImport,
+} from '#app/utils/shell-bridge.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/import.ts'
 import { importAction } from './import-action.server.ts'
@@ -98,23 +105,6 @@ const IMPORT_INTENTS = new Set([
 ])
 
 /**
- * A fetch that never got an answer: each browser's own words for it, or any
- * TypeError while the browser says it is offline. A server error React Router
- * rebuilds as a TypeError is none of these.
- */
-function isNetworkFailure(error: unknown) {
-	if (!(error instanceof TypeError)) return false
-	if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-		return true
-	}
-	return (
-		error.message === 'Failed to fetch' || // Chromium
-		error.message === 'Load failed' || // Safari
-		error.message.startsWith('NetworkError when attempting to fetch') // Firefox
-	)
-}
-
-/**
  * An import that got no answer (offline, a dropped connection, the app put
  * away mid-import) comes back as that tab's error, so what was typed, picked
  * or shared stays on the page. The server may still have saved it, so the
@@ -171,12 +161,17 @@ function useShareImport({
 	useEffect(() => {
 		if (!enabled) return
 		function take() {
-			// The router moves the URL before this page renders the new one,
-			// and a navigation in flight may still change the page: either way
-			// the share waits, and the effect runs again once the page settles.
+			// The router moves the URL before this page renders the new one;
+			// the effect runs again for that render.
 			if (importUrlFromSearch(window.location.search) !== sharedUrl) return
+			// A share handed to another page, or too long ago, never acts.
+			const where = currentSharePage()
+			dropStaleShareImport(where)
+			// A navigation in flight may still take the page away: the share
+			// waits, and the effect runs again once it settles. If the page
+			// goes, it goes with it (below).
 			if (!idle) return
-			const share = takeShareImport(MAX_IMPORT_IMAGE_COUNT)
+			const share = takeShareImport(MAX_IMPORT_IMAGE_COUNT, where)
 			if (!share) return
 			if (share.kind === 'link') {
 				if (share.url === sharedUrl && offerShowing) importLink()
@@ -188,6 +183,9 @@ function useShareImport({
 		window.addEventListener(SHARE_IMPORT_EVENT, take)
 		return () => window.removeEventListener(SHARE_IMPORT_EVENT, take)
 	}, [enabled, sharedUrl, idle, offerShowing, importLink, importImages])
+
+	// A share handed over while this page was being left never outlives it.
+	useEffect(() => discardShareImport, [])
 }
 
 export default function ImportRecipe({ loaderData }: Route.ComponentProps) {

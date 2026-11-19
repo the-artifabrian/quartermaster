@@ -181,13 +181,20 @@ test.describe('in the iOS app', () => {
 		login,
 	}) => {
 		const messages = await recordBridgeMessages(page)
+		// Counts the view transitions that move the page. The router also starts
+		// one for a revalidation of a page a transition led to or from, which
+		// moves nothing (`none`, nav-direction.ts) and is not counted.
 		await page.addInitScript(() => {
 			const start = document.startViewTransition.bind(document)
 			Object.assign(window, { __viewTransitions: 0 })
 			document.startViewTransition = (...args) => {
 				const w = window as unknown as { __viewTransitions: number }
-				w.__viewTransitions++
-				return start(...args)
+				const transition = start(...args)
+				void transition.updateCallbackDone.then(() => {
+					if (document.documentElement.dataset.navDirection !== 'none')
+						w.__viewTransitions++
+				})
+				return transition
 			}
 		})
 		const viewTransitions = () =>
@@ -214,7 +221,7 @@ test.describe('in the iOS app', () => {
 		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 		// The URL changes before the router commits the new page.
 		await expect.poll(direction).toBe('forward')
-		expect(await viewTransitions()).toBe(1)
+		await expect.poll(viewTransitions).toBe(1)
 
 		await page.getByRole('link', { name: 'Edit Recipe' }).click()
 		await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)

@@ -18,6 +18,7 @@ import youngSerifFontUrl from './assets/fonts/young-serif-latin.woff2?url'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { BottomNav } from './components/bottom-nav.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
+import { useRefreshAfterTraversal } from './components/gone-item.tsx'
 import { HouseholdActivityNotifier } from './components/household-activity-notifier.tsx'
 import {
 	NavBar,
@@ -423,6 +424,7 @@ function App() {
 	useToast(data.toast)
 	useNavDirection()
 	useRecordHistory()
+	useRefreshAfterTraversal()
 	// Pushed pages (route handle `nav`) swap the brand header for a nav bar
 	// on phones; tab roots keep it. Only signed-in pages have one.
 	const navBarConfig = useNavBarConfig()

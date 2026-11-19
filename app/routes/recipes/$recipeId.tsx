@@ -1,9 +1,6 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import {
-	GoneItemBoundary,
-	goneItemMiddleware,
-} from '#app/components/gone-item.tsx'
+import { goneItemMiddleware } from '#app/components/gone-item.tsx'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { recipeDetailNav } from '#app/utils/nav-back.ts'
 import { Img } from 'openimg/react'
@@ -87,10 +84,6 @@ import { type Route } from './+types/$recipeId.ts'
 export const clientMiddleware: Route.ClientMiddlewareFunction[] = [
 	goneItemMiddleware('/recipes'),
 ]
-
-export function ErrorBoundary() {
-	return <GoneItemBoundary list="/recipes" />
-}
 
 export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,

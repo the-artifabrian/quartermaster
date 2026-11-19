@@ -17,10 +17,7 @@ import {
 	ClientLeavesField,
 	useLeaveEditScreen,
 } from '#app/components/edit-screen.tsx'
-import {
-	GoneItemBoundary,
-	goneItemMiddleware,
-} from '#app/components/gone-item.tsx'
+import { goneItemMiddleware } from '#app/components/gone-item.tsx'
 import { isOfflineReply, saveUnlessOffline } from '#app/utils/offline-save.ts'
 import { type NavBarHandle, useLockNavBar } from '#app/components/nav-bar.tsx'
 import { RECIPE_FORM_ID, RecipeForm } from '#app/components/recipe-form.tsx'
@@ -68,10 +65,6 @@ import { type Route } from './+types/$recipeId_.edit.ts'
 export const clientMiddleware: Route.ClientMiddlewareFunction[] = [
 	goneItemMiddleware('/recipes'),
 ]
-
-export function ErrorBoundary() {
-	return <GoneItemBoundary list="/recipes" />
-}
 
 export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,

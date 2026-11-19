@@ -4,6 +4,7 @@ import {
 	useLocation,
 	useNavigationType,
 } from 'react-router'
+import { noteCommit, notePopState } from './history-traversal.ts'
 
 /**
  * Which way a view transition moves the page. tailwind.css keys the
@@ -87,25 +88,6 @@ export function getNavDirection({
 	return markedDirection(from) === 'forward' ? 'back' : null
 }
 
-// The URL a history traversal (back or forward) is going to, until the
-// router commits it. The browser has already moved by then, so the router's
-// loaders for that URL run with the address bar showing it; a push loads
-// before it changes the address bar.
-let traversalTo: string | null = null
-
-/**
- * Whether the router is loading `url` because of a history traversal, not a
- * link, a redirect or a revalidation of the page being left.
- */
-export function isHistoryTraversalTo(url: URL) {
-	if (typeof window === 'undefined') return false
-	const target = url.pathname + url.search
-	return (
-		traversalTo === target &&
-		window.location.pathname + window.location.search === target
-	)
-}
-
 /** React Router numbers its history entries in `history.state.idx`. */
 export function historyIndex() {
 	if (typeof window === 'undefined') return null
@@ -122,7 +104,7 @@ export function useNavDirection() {
 
 	useEffect(() => {
 		const onPopState = (event: PopStateEvent) => {
-			traversalTo = window.location.pathname + window.location.search
+			notePopState(window.location.pathname + window.location.search)
 			popHadUATransition.current =
 				(event as PopStateEvent & { hasUAVisualTransition?: boolean })
 					.hasUAVisualTransition === true
@@ -135,7 +117,7 @@ export function useNavDirection() {
 	// transition resolves its update and starts the animation.
 	useLayoutEffect(() => {
 		// Committed: a later load of this URL is a revalidation.
-		traversalTo = null
+		noteCommit(location.pathname + location.search)
 		const left = previous.current
 		const idx = historyIndex()
 		previous.current = { state: location.state, idx }
@@ -160,5 +142,5 @@ export function useNavDirection() {
 		const root = document.documentElement
 		if (direction) root.dataset.navDirection = direction
 		else delete root.dataset.navDirection
-	}, [location.key, location.state, type])
+	}, [location.key, location.pathname, location.search, location.state, type])
 }

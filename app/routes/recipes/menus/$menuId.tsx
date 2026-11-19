@@ -1,10 +1,7 @@
 import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import {
-	GoneItemBoundary,
-	goneItemMiddleware,
-} from '#app/components/gone-item.tsx'
+import { goneItemMiddleware } from '#app/components/gone-item.tsx'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { menuDetailNav } from '#app/utils/nav-back.ts'
 import { useRef, useState } from 'react'
@@ -46,10 +43,6 @@ import { type Route } from './+types/$menuId.ts'
 export const clientMiddleware: Route.ClientMiddlewareFunction[] = [
 	goneItemMiddleware('/recipes/menus'),
 ]
-
-export function ErrorBoundary() {
-	return <GoneItemBoundary list="/recipes/menus" />
-}
 
 export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,

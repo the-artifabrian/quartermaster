@@ -715,6 +715,87 @@ test.describe('in the iOS app', () => {
 		).toBe('Lentil soup')
 	})
 
+	test('a sheet reopened while a push from it is still loading shows, and works on the landed Recipe', async ({
+		page,
+		login,
+	}) => {
+		await instrument(page)
+		const user = await login()
+		const longRecipe = (title: string, linkedRecipeId?: string) =>
+			prisma.recipe.create({
+				data: {
+					title,
+					userId: user.id,
+					householdId: user.householdId,
+					ingredients: {
+						create: Array.from({ length: 20 }, (_, order) => ({
+							name: order === 0 && linkedRecipeId ? 'stock' : `item ${order}`,
+							order,
+							linkedRecipeId: order === 0 ? linkedRecipeId : undefined,
+						})),
+					},
+					instructions: {
+						create: Array.from({ length: 10 }, (_, order) => ({
+							content: `Step ${order + 1}: stir and keep going a while.`,
+							order,
+						})),
+					},
+				},
+			})
+		const stock = await longRecipe('Vegetable stock')
+		const soup = await longRecipe('Lentil soup', stock.id)
+		// The linked Recipe is slow to load, so the push is still on its way
+		// when the sheet is opened again.
+		await page.route(
+			(url) => url.pathname === `/recipes/${stock.id}.data`,
+			async (route) => {
+				await new Promise((resolve) => setTimeout(resolve, 2000))
+				await route.continue()
+			},
+		)
+
+		await page.goto(`/recipes/${soup.id}`)
+		const pill = page.locator('[data-floating-ingredients]')
+		const sheet = page.getByRole('dialog', { name: 'Ingredients' })
+		await page
+			.getByRole('heading', { name: 'Instructions' })
+			.scrollIntoViewIfNeeded()
+		await hydrated(pill)
+		await pill.tap()
+		await expect(sheet).toBeVisible()
+		await expect(sheet).toHaveAttribute('data-state', 'open')
+
+		// The push hides the sheet; the pill opens it again 80ms later, inside
+		// the sheet's exit.
+		await page.evaluate(async () => {
+			const link = document.querySelector<HTMLAnchorElement>(
+				'[data-bottom-sheet] a[href^="/recipes/"]',
+			)!
+			link.click()
+			await new Promise((resolve) => setTimeout(resolve, 80))
+			document
+				.querySelector<HTMLButtonElement>('[data-floating-ingredients]')!
+				.click()
+		})
+		await expect(sheet).toHaveAttribute('data-state', 'open')
+		await expect(sheet).toBeVisible()
+		await expect(page.locator('[data-push-dismissed]')).toHaveCount(0)
+		await expect(sheet.getByRole('button', { name: 'Close' })).toBeFocused()
+
+		await expect(page).toHaveURL(`/recipes/${stock.id}`, { timeout: 10_000 })
+		await expect(heading(page, 'Vegetable stock')).toBeVisible()
+		await sheet.getByRole('button', { name: 'Close' }).tap()
+		await expect(sheet).toBeHidden()
+		await page
+			.getByRole('heading', { name: 'Instructions' })
+			.scrollIntoViewIfNeeded()
+		await pill.tap()
+		await expect(sheet).toBeVisible()
+		await expect(
+			sheet.getByRole('checkbox', { name: 'item 1', exact: true }),
+		).toBeVisible()
+	})
+
 	test('Delete slides back once, also when the list takes the gone Recipe’s place', async ({
 		page,
 		login,

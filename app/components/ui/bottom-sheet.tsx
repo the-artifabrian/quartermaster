@@ -144,6 +144,13 @@ function SheetFrame({
 		onDismiss: () => onCloseRef.current(),
 	})
 
+	// A push from inside the sheet hid it as it left (dismissSheetForPush). A
+	// reopen during that exit keeps this frame: it shows again, before it
+	// paints, and turns back up from where the exit had got to.
+	useLayoutEffect(() => {
+		if (open) rootRef.current?.removeAttribute('data-push-dismissed')
+	}, [open])
+
 	// Take focus on each open unless a child claimed it. A reopen during the
 	// exit keeps this instance, so it takes focus again and remembers where
 	// focus was then.

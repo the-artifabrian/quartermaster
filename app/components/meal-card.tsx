@@ -829,14 +829,14 @@ export function MealCard({
 									onSelect={() => deleteMeal(false)}
 								>
 									<Icon name="trash" size="sm" />
-									Delete Meal · keep Shopping
+									Delete · keep Shopping
 								</DropdownMenuItem>
 								<DropdownMenuItem
 									variant="destructive"
 									onSelect={() => deleteMeal(true)}
 								>
 									<Icon name="trash" size="sm" />
-									Delete Meal · remove generated amount
+									Delete · remove generated amount
 								</DropdownMenuItem>
 							</>
 						) : (
@@ -845,7 +845,7 @@ export function MealCard({
 								onSelect={() => deleteMeal(false)}
 							>
 								<Icon name="trash" size="sm" />
-								Delete Meal
+								Delete
 							</DropdownMenuItem>
 						)}
 					</DropdownMenuContent>
@@ -948,7 +948,7 @@ export function MealCard({
 								) : row.kind === 'recipe' ? (
 									<ItemRow
 										item={row.item}
-										// The last Recipe goes with its Meal: Delete Meal.
+										// The last Recipe goes with its Meal: Delete in its menu.
 										showRemove={
 											visibleItemCount > 1 || meal.noteItems.length > 0
 										}

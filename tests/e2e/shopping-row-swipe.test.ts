@@ -187,5 +187,7 @@ test('a swipe that starts on the row menu button leaves the menu shut', async ({
 	await eggs.getByText('eggs', { exact: true }).click()
 	await expect(eggs.getByRole('button', { name: 'Delete' })).toBeHidden()
 	await eggs.getByRole('button', { name: 'Item actions' }).tap()
-	await expect(page.getByRole('menuitem', { name: 'Edit item' })).toBeVisible()
+	await expect(
+		page.getByRole('menuitem', { name: 'Edit', exact: true }),
+	).toBeVisible()
 })

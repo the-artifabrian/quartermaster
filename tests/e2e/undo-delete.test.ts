@@ -91,7 +91,7 @@ const CLOSING = [
 
 async function deleteFromMenu(page: Page, name: string) {
 	await row(page, name).getByRole('button', { name: 'Item actions' }).click()
-	await page.getByRole('menuitem', { name: 'Delete item' }).click()
+	await page.getByRole('menuitem', { name: 'Delete', exact: true }).click()
 	// Its exit has run: a menu reopened while its last one is still leaving
 	// can close again at once (Radix), which is not what this tests.
 	await expect(page.getByRole('menu')).toHaveCount(0)
@@ -204,7 +204,10 @@ test('a delete made while the last Undo toast is leaving gets its own Undo', asy
 	await row(page, 'lemons')
 		.getByRole('button', { name: 'Item actions' })
 		.click()
-	const deleteLemons = page.getByRole('menuitem', { name: 'Delete item' })
+	const deleteLemons = page.getByRole('menuitem', {
+		name: 'Delete',
+		exact: true,
+	})
 	await expect(deleteLemons).toBeVisible()
 	await deleteLemons.evaluate(
 		(item) =>
@@ -477,7 +480,7 @@ const mealActions = (page: Page, name: string) =>
 
 async function deleteMealFromMenu(page: Page, name: string) {
 	await mealActions(page, name).click()
-	await page.getByRole('menuitem', { name: 'Delete Meal' }).click()
+	await page.getByRole('menuitem', { name: 'Delete', exact: true }).click()
 	await expect(page.getByRole('menu')).toHaveCount(0)
 }
 
@@ -504,7 +507,7 @@ test('a deleted Meal is deleted at once and collapses; Undo puts it back; the da
 		.first()
 
 	await soup.click()
-	const deleteMeal = page.getByRole('menuitem', { name: 'Delete Meal' })
+	const deleteMeal = page.getByRole('menuitem', { name: 'Delete', exact: true })
 	// Red from the start: no arming.
 	await expect(deleteMeal).toHaveCSS('color', 'rgb(184, 92, 74)')
 	await recordCollapses(page)
@@ -632,7 +635,7 @@ test('the first card showing loses the hairline above it', async ({
 	await expect.poll(lineAbove).toBe('rgba(0, 0, 0, 0)')
 })
 
-test('Delete Meal · remove generated amount takes its Shopping amounts; Undo brings them back', async ({
+test('Delete · remove generated amount takes its Shopping amounts; Undo brings them back', async ({
 	page,
 	login,
 }) => {
@@ -659,7 +662,7 @@ test('Delete Meal · remove generated amount takes its Shopping amounts; Undo br
 
 	await actions.click()
 	await page
-		.getByRole('menuitem', { name: 'Delete Meal · remove generated amount' })
+		.getByRole('menuitem', { name: 'Delete · remove generated amount' })
 		.click()
 	await expect(actions).toBeHidden()
 	await expect.poll(() => savedNames(user.householdId)).toEqual([])

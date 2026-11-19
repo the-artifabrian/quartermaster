@@ -452,7 +452,7 @@ export function ShoppingListItemCard({
 									}}
 								>
 									<Icon name="pencil-1" size="sm" />
-									Edit item
+									Edit
 								</DropdownMenuItem>
 								{item.source === 'manual' && display.combined && (
 									<DropdownMenuItem
@@ -469,7 +469,7 @@ export function ShoppingListItemCard({
 								<DropdownMenuSeparator />
 								<DropdownMenuItem variant="destructive" onSelect={deleteItem}>
 									<Icon name="trash" size="sm" />
-									Delete item
+									Delete
 								</DropdownMenuItem>
 							</>
 						)}

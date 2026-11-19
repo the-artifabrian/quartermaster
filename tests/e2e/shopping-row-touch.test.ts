@@ -128,7 +128,7 @@ test('a row menu near the bottom opens clear of the add button and tab bar', asy
 		probe.remove()
 		return color
 	})
-	await expect(deleteItem).toHaveText('Delete item')
+	await expect(deleteItem).toHaveText('Delete')
 	await expect(deleteItem).toHaveCSS('color', red)
 
 	await deleteItem.click()

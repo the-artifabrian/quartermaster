@@ -374,7 +374,7 @@ test('Edit item is a sheet with labelled fields; Save stores it and focus return
 	const row = page.getByRole('group', { name: 'foil shopping item' })
 	const actions = row.getByRole('button', { name: 'Item actions' })
 	await actions.tap()
-	await page.getByRole('menuitem', { name: 'Edit item' }).tap()
+	await page.getByRole('menuitem', { name: 'Edit', exact: true }).tap()
 	const sheet = page.getByRole('dialog', { name: 'Edit item' })
 	await expectBottomSheet(page, sheet)
 	// The row stays in the list under the sheet.
@@ -911,7 +911,7 @@ async function seedShopping(
 async function openEditItem(page: Page, name: string) {
 	const row = page.getByRole('group', { name: `${name} shopping item` })
 	await row.getByRole('button', { name: 'Item actions' }).tap()
-	await page.getByRole('menuitem', { name: 'Edit item' }).tap()
+	await page.getByRole('menuitem', { name: 'Edit', exact: true }).tap()
 	return page.getByRole('dialog', { name: 'Edit item' })
 }
 
@@ -930,7 +930,7 @@ test.describe('sheets while they come and go', () => {
 			.getByRole('group', { name: 'salt shopping item' })
 			.getByRole('button', { name: 'Item actions' })
 			.tap()
-		const editItem = page.getByRole('menuitem', { name: 'Edit item' })
+		const editItem = page.getByRole('menuitem', { name: 'Edit', exact: true })
 		await expect(editItem).toBeVisible()
 		// Past the leaving sheet's unmount, which once took focus back to foil.
 		await page.waitForTimeout(900)
@@ -964,7 +964,7 @@ test.describe('sheets while they come and go', () => {
 			trigger.y + trigger.height / 2,
 		)
 		await page
-			.getByRole('menuitem', { name: 'Edit item' })
+			.getByRole('menuitem', { name: 'Edit', exact: true })
 			.dispatchEvent('click')
 		await expect(sheet).toHaveAttribute('data-state', 'open')
 		await expect(sheet.getByRole('textbox', { name: 'Quantity' })).toHaveValue(

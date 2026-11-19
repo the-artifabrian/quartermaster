@@ -157,7 +157,7 @@ test('Shopping From Staples, From Plan and the item editor Save are thumb-sized'
 
 	const foil = page.getByRole('group', { name: 'Foil shopping item' })
 	await foil.getByRole('button', { name: 'Item actions' }).tap()
-	await page.getByRole('menuitem', { name: 'Edit item' }).tap()
+	await page.getByRole('menuitem', { name: 'Edit', exact: true }).tap()
 	await expectThumbTall(
 		page
 			.getByRole('dialog', { name: 'Edit item' })

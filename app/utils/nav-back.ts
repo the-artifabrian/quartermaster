@@ -210,7 +210,9 @@ export function resolveAfterSave({
  * back over them to the list when the list is right behind them. When
  * something else is (the Plan that opened the Recipe, a cold start, a reload),
  * it opens the list in the place of the first of them, so what was behind the
- * item stays behind the list. Entries the app never saw stay as they are.
+ * item stays behind the list. Entries the app never saw, or further back
+ * behind another page, stay; going back to one of them opens the list in its
+ * place (gone-item.tsx).
  */
 export function resolveAfterDelete({
 	idx,

@@ -541,6 +541,8 @@ test('Delete steps over every entry of the deleted Recipe directly behind', () =
 })
 
 test('Delete of a Recipe opened from the Plan puts the list where the Recipe was', () => {
+	// Older entries of the Recipe behind the Plan stay; going back to one opens
+	// the list in its place (gone-item.tsx).
 	expect(afterDelete(['/plan', '/recipes/r1', '/recipes/r1/edit'])).toEqual({
 		type: 'pop-replace',
 		delta: 1,
@@ -556,7 +558,7 @@ test('Delete of a cold-started Recipe puts the list where the Recipe was', () =>
 	})
 })
 
-test('Delete after a reload replaces the known Recipe entries, not unknown ones', () => {
+test('Delete after a reload replaces the known Recipe entries; unknown ones are left to going back (gone-item.tsx)', () => {
 	expect(afterDelete([null, '/recipes/r1', '/recipes/r1/edit'])).toEqual({
 		type: 'pop-replace',
 		delta: 1,

@@ -26,3 +26,7 @@ test('a data request for a path ending in a slash is that path', () => {
 test('a page whose own name ends in .data elsewhere in the path is left alone', () => {
 	expect(page('/recipes/my.data.recipe')).toBe('/recipes/my.data.recipe')
 })
+
+test("only React Router's empty index param goes; a page's own index values stay", () => {
+	expect(page('/recipes.data?index=&index=x')).toBe('/recipes?index=x')
+})

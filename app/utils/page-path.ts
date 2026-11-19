@@ -13,7 +13,8 @@ export function pagePathOf(url: URL) {
 		pathname = pathname.slice(0, -'.data'.length)
 	const params = new URLSearchParams(url.search)
 	params.delete('_routes')
-	if (params.get('index') === '') params.delete('index')
+	// Only the router's empty `index`; a page's own `index=x` stays.
+	params.delete('index', '')
 	const search = params.toString()
 	return `${pathname}${search ? `?${search}` : ''}`
 }

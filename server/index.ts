@@ -8,6 +8,7 @@ import getPort, { portNumbers } from 'get-port'
 import morgan from 'morgan'
 import { checkAnthropicModels } from '#app/utils/anthropic-model-check.server.ts'
 import { compressionMiddleware } from './compression.ts'
+import { httpsRedirect } from './https-redirect.ts'
 import { servePrecompressed } from './precompressed.ts'
 import { startEventLoopWatchdog } from './event-loop-watchdog.ts'
 import { startMemoryWatchdog } from './memory-watchdog.ts'
@@ -22,24 +23,10 @@ const BUILD_PATH = '../build/server/index.js'
 
 const app = express()
 
-const getHost = (req: { get: (key: string) => string | undefined }) =>
-	req.get('X-Forwarded-Host') ?? req.get('host') ?? ''
-
 // fly is our proxy
 app.set('trust proxy', true)
 
-// ensure HTTPS only (X-Forwarded-Proto comes from Fly)
-app.use((req, res, next) => {
-	if (req.method !== 'GET') return next()
-	const proto = req.get('X-Forwarded-Proto')
-	const host = getHost(req)
-	if (proto === 'http') {
-		res.set('X-Forwarded-Proto', 'https')
-		res.redirect(`https://${host}${req.originalUrl}`)
-		return
-	}
-	next()
-})
+app.use(httpsRedirect())
 
 // SSR requests grow the JSC heap ~1KB each and Bun never collects it on a
 // mostly-idle box, so traffic can creep the process into swap over weeks.
@@ -316,6 +303,10 @@ if (!portAvailable && !IS_DEV) {
 	console.log(`⚠️ Port ${desiredPort} is not available.`)
 	process.exit(1)
 }
+// Dev only, since production exits above. The default APP_ORIGIN is
+// localhost on PORT (app/utils/app-origin.server.ts), so emailed links and
+// passkeys follow the port actually bound.
+if (!portAvailable) process.env.PORT = String(portToUse)
 
 const server = app.listen(portToUse, () => {
 	if (!portAvailable) {

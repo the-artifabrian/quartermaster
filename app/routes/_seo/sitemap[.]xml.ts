@@ -1,5 +1,5 @@
 import { generateSitemap } from '@nasa-gcn/remix-seo'
-import { getDomainUrl } from '#app/utils/misc.tsx'
+import { getAppOrigin } from '#app/utils/app-origin.server.ts'
 import { type Route } from './+types/sitemap[.]xml.ts'
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -12,7 +12,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	// adapter (production build) in dev.
 	const serverBuild = await import('virtual:react-router/server-build')
 	return generateSitemap(request, serverBuild.routes, {
-		siteUrl: getDomainUrl(request),
+		siteUrl: getAppOrigin(),
 		headers: {
 			'Cache-Control': `public, max-age=${60 * 5}`,
 		},

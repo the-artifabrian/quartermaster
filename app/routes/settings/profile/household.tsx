@@ -19,6 +19,7 @@ import {
 	removeMember,
 	leaveHousehold,
 } from '#app/utils/household.server.ts'
+import { useRequestInfo } from '#app/utils/request-info.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { type Route } from './+types/household.ts'
 import { type SettingsPageHandle } from './_layout.tsx'
@@ -360,10 +361,11 @@ function useCopyInviteLink(token: string) {
 	const [copied, setCopied] = useState(false)
 	const [failedUrl, setFailedUrl] = useState<string | null>(null)
 	const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+	const { origin } = useRequestInfo()
 	useEffect(() => () => clearTimeout(timer.current), [])
 
 	async function copy() {
-		const url = `${window.location.origin}/household/join?token=${token}`
+		const url = `${origin}/household/join?token=${token}`
 		clearTimeout(timer.current)
 		try {
 			await navigator.clipboard.writeText(url)

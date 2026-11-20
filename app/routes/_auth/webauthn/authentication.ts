@@ -12,8 +12,8 @@ import {
 	passkeyCookie,
 } from './utils.server.ts'
 
-export async function loader({ request }: Route.LoaderArgs) {
-	const config = getWebAuthnConfig(request)
+export async function loader() {
+	const config = getWebAuthnConfig()
 	const options = await generateAuthenticationOptions({
 		rpID: config.rpID,
 		userVerification: 'preferred',
@@ -50,7 +50,7 @@ export async function action({ request }: Route.ActionArgs) {
 			throw new Error('Passkey not found')
 		}
 
-		const config = getWebAuthnConfig(request)
+		const config = getWebAuthnConfig()
 
 		const verification = await verifyAuthenticationResponse({
 			response: authResponse,

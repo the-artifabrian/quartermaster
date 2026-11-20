@@ -353,6 +353,28 @@ high-value AI path.
 - Full JSON import accepts older exports and restores durable household data.
 - LiteFS migration details and restore commands live in
   [RESTORE.md](./RESTORE.md).
+- Production requires the `APP_ORIGIN` secret (`https://useqm.app`).
+  `app/utils/env.server.ts` checks it with the rest of the environment before
+  migrations run. Outside production it defaults to `http://localhost:$PORT`.
+  Every absolute URL the app hands out comes from it, through `getAppOrigin()`
+  in `app/utils/app-origin.server.ts`, and none comes from the request, whose
+  `Host` and `X-Forwarded-*` headers the client controls. It is used for:
+  - emailed verification links (signup, password reset, change email);
+  - robots.txt and the sitemap;
+  - OG and JSON-LD URLs and share links, through the root loader's
+    `requestInfo.origin`;
+  - the Household invite link;
+  - the TOTP issuer shown in authenticator apps;
+  - the passkey relying party ID and origin;
+  - Stripe checkout and portal return URLs;
+  - the HTTP→HTTPS redirect;
+  - the referrer check that picks the page to return to after Google login.
+
+  Redirects within the site stay relative, so the browser keeps the host it used
+  (a LAN IP in dev, or the fly.dev host) and its cookies.
+
+- Set `APP_ORIGIN` as an unstaged Fly secret before the first deploy that
+  requires it, and confirm it reached the machine with `fly ssh console -C env`.
 
 Before a multi-machine deployment, all of these must be designed, wired, and
 tested together:
@@ -420,4 +442,4 @@ the images sent, or nothing found when the Household has a metadata value named
 first result, even `false`. To wait on async page state such as Cache Storage,
 use `expect.poll(() => page.evaluate(async () => …))`.
 
-_Updated 8 October 2026._
+_Updated 20 November 2026._

@@ -1,4 +1,5 @@
 import { redirect } from 'react-router'
+import { getAppOrigin } from '#app/utils/app-origin.server.ts'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createPortalSession } from '#app/utils/stripe.server.ts'
@@ -20,7 +21,7 @@ export async function action({ request }: Route.ActionArgs) {
 		return redirect('/upgrade')
 	}
 
-	const origin = new URL(request.url).origin
+	const origin = getAppOrigin()
 	const portalSession = await createPortalSession({
 		stripeCustomerId: subscription.stripeCustomerId,
 		returnUrl: `${origin}/upgrade`,

@@ -4,9 +4,9 @@ import { data } from 'react-router'
 import { z } from 'zod'
 import { handleVerification as handleChangeEmailVerification } from '#app/routes/settings/profile/change-email.server.tsx'
 import { twoFAVerificationType } from '#app/routes/settings/profile/two-factor/_layout.tsx'
+import { getAppOrigin } from '#app/utils/app-origin.server.ts'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { getDomainUrl } from '#app/utils/misc.tsx'
 import { pagePathOf } from '#app/utils/page-path.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { generateTOTP, verifyTOTP } from '#app/utils/totp.server.ts'
@@ -37,17 +37,15 @@ export type VerifyFunctionArgs = {
 }
 
 export function getRedirectToUrl({
-	request,
 	type,
 	target,
 	redirectTo,
 }: {
-	request: Request
 	type: VerificationTypes
 	target: string
 	redirectTo?: string
 }) {
-	const redirectToUrl = new URL(`${getDomainUrl(request)}/verify`)
+	const redirectToUrl = new URL(`${getAppOrigin()}/verify`)
 	redirectToUrl.searchParams.set(typeQueryParam, type)
 	redirectToUrl.searchParams.set(targetQueryParam, target)
 	if (redirectTo) {
@@ -56,18 +54,21 @@ export function getRedirectToUrl({
 	return redirectToUrl
 }
 
+function pathAndSearch(url: URL) {
+	return `${url.pathname}${url.search}`
+}
+
 export async function requireRecentVerification(request: Request) {
 	const userId = await requireUserId(request)
 	const shouldReverify = await shouldRequestTwoFA(request)
 	if (shouldReverify) {
 		const redirectUrl = getRedirectToUrl({
-			request,
 			target: userId,
 			type: twoFAVerificationType,
 			// A client navigation asks for the page's data; come back to the page.
 			redirectTo: pagePathOf(new URL(request.url)),
 		})
-		throw await redirectWithToast(redirectUrl.toString(), {
+		throw await redirectWithToast(pathAndSearch(redirectUrl), {
 			title: 'Please Reverify',
 			description: 'Please reverify your account before proceeding',
 		})
@@ -76,24 +77,23 @@ export async function requireRecentVerification(request: Request) {
 
 export async function prepareVerification({
 	period,
-	request,
 	type,
 	target,
 	redirectTo: destination,
 }: {
 	period: number
-	request: Request
 	type: VerificationTypes
 	target: string
 	redirectTo?: string
 }) {
 	const verifyUrl = getRedirectToUrl({
-		request,
 		type,
 		target,
 		redirectTo: destination,
 	})
-	const redirectTo = new URL(verifyUrl.toString())
+	// Where the browser goes next. Relative, so it stays on the host it used
+	// and keeps its cookies; only the emailed link needs APP_ORIGIN.
+	const redirectTo = pathAndSearch(verifyUrl)
 
 	const { otp, ...verificationConfig } = await generateTOTP({
 		algorithm: 'SHA-256',

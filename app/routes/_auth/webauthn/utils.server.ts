@@ -4,7 +4,7 @@ import {
 } from '@simplewebauthn/server'
 import { createCookie } from 'react-router'
 import { z } from 'zod'
-import { getDomainUrl } from '#app/utils/misc.tsx'
+import { getAppOrigin } from '#app/utils/app-origin.server.ts'
 
 export const passkeyCookie = createCookie('webauthn-challenge', {
 	path: '/',
@@ -78,8 +78,8 @@ export const PasskeyLoginBodySchema = z.object({
 	redirectTo: z.string().nullable(),
 })
 
-export function getWebAuthnConfig(request: Request) {
-	const url = new URL(getDomainUrl(request))
+export function getWebAuthnConfig() {
+	const url = new URL(getAppOrigin())
 
 	return {
 		rpName: url.hostname,

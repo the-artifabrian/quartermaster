@@ -269,10 +269,8 @@ describe('reverify window', () => {
 
 describe('change email', () => {
 	async function requestChange(userId: string) {
-		const request = new Request(`${BASE_URL}/settings/profile/change-email`)
 		const { otp } = await prepareVerification({
 			period: 10 * 60,
-			request,
 			target: userId,
 			type: 'change-email',
 		})
@@ -333,7 +331,7 @@ describe('change email', () => {
 		)
 
 		expect(outcome.status).toBe(302)
-		const location = new URL(outcome.location!)
+		const location = new URL(outcome.location!, BASE_URL)
 		expect(location.pathname).toBe('/verify')
 		expect(location.searchParams.get('type')).toBe('2fa')
 		expect(
@@ -364,7 +362,7 @@ describe('change email', () => {
 		const changeEmail = { code, type: 'change-email', target: user.id }
 
 		const sentToReverify = await submitVerify(changeEmail, cookie, search)
-		const reverifyUrl = new URL(sentToReverify.location!)
+		const reverifyUrl = new URL(sentToReverify.location!, BASE_URL)
 		cookie = applySetCookies(cookie, sentToReverify.setCookies)
 
 		const reverified = await submitVerify(

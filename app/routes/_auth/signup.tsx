@@ -63,7 +63,6 @@ export async function action({ request }: Route.ActionArgs) {
 	const { email } = submission.value
 	const { verifyUrl, redirectTo, otp } = await prepareVerification({
 		period: 10 * 60,
-		request,
 		type: 'onboarding',
 		target: email,
 		redirectTo: submission.value.redirectTo,
@@ -76,7 +75,7 @@ export async function action({ request }: Route.ActionArgs) {
 	})
 
 	if (response.status === 'success') {
-		return redirect(redirectTo.toString())
+		return redirect(redirectTo)
 	} else {
 		return data(
 			{

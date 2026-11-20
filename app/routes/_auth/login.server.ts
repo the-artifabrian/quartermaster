@@ -45,7 +45,6 @@ export async function handleNewSession(
 		verifySession.set(unverifiedSessionIdKey, session.id)
 		verifySession.set(rememberKey, remember)
 		const redirectUrl = getRedirectToUrl({
-			request,
 			type: twoFAVerificationType,
 			target: session.userId,
 			redirectTo,

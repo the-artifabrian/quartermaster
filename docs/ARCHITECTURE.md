@@ -107,9 +107,12 @@ Measured on macOS under Node and Bun with one libvips thread, one job at those
 limits held at most 45 MB over a bare process for the baseline JPEG and up to
 85 MB for the others. Two jobs at once added up, so every
 sharp job on a photo (the upload check, each resize, and the import's
-preparation) waits for one shared turn. A job gives up after 30 seconds of
+preparation) waits for one shared turn. When eight jobs are already waiting, the
+next is refused at once with the busy error. A job gives up after 30 seconds of
 waiting, or when its request is aborted, and sharp stops one that runs for 30
-seconds.
+seconds. Under Bun the request's abort signal doesn't fire when the visitor
+leaves (checked on 20 November 2026 by dropping image requests mid-resize), so
+in practice a job whose visitor left still waits its turn or its 30 seconds.
 
 The browser shrinks a picked photo to 2048 px on the long edge, as a JPEG, when
 it is over the 3 MB upload limit or has more than 8 million pixels, or 4 million

@@ -298,6 +298,40 @@ place a user sees Pro, search rather than trust a list:
 grep -rlw Pro app --include='*.tsx'
 ```
 
+**Rate limits.** Express limits requests per client address before React Router
+sees them, and nothing a client sends can choose its own bucket.
+`app/utils/client-address.server.ts` picks the address. Production traffic comes
+through Cloudflare, then Fly, so Fly's `fly-client-ip` is usually a Cloudflare
+edge. The visitor's own address, in `cf-connecting-ip`, counts only when the
+request carries our edge secret in `x-qm-edge` (see Deployment and recovery).
+The connecting address alone can't show that a request came through our zone.
+Without the secret the key is `fly-client-ip`. `req.ip`, which comes from
+`X-Forwarded-For`, is used only when no `fly-client-ip` arrives at all, as in
+local runs; an unreadable one goes to a single shared bucket. IPv4-mapped
+addresses count as IPv4, and IPv6 addresses count per /64.
+
+`server/rate-limit.ts` picks the limit from the path as the router resolves it
+(decoded, any case, dot segments resolved, `.data` dropped). Sign-in, sign-out,
+sign-up, codes, passkeys, Household invites, account settings and admin allow 10
+non-GET requests a minute. The paid AI routes (Recipe import, enhance,
+transcribe) allow 20 in their own bucket, other non-GET requests 100, and
+GETs 1000. Tests check that every listed path is a real route, and that every
+action under `_auth`, every other action that checks a password or code, takes
+an invite or sends an email, and every route that reaches a paid AI helper is on
+a strict tier.
+
+**Logs and analytics.** `redactUrl` in `app/utils/redact-url.ts` replaces the
+values of `code`, `token`, `target`, `session_id`, `otp`, `state` and similar
+query parameters, including inside `redirectTo`. These go through it:
+
+- the request log and the `server_error` event;
+- in the browser, every URL in a PostHog event's properties, the links
+  autocapture records, URLs in error messages, the network requests and page
+  addresses recorded for replays.
+
+Replay page content is not redacted. Log a user id, never an email address or
+token.
+
 ## Keeping loader data fresh
 
 Four layers can answer a navigation with data the server did not just produce.
@@ -416,6 +450,11 @@ high-value AI path.
 
 - Set `APP_ORIGIN` as an unstaged Fly secret before the first deploy that
   requires it, and confirm it reached the machine with `fly ssh console -C env`.
+- A Cloudflare Transform Rule (Modify Request Header) sets `x-qm-edge` on every
+  request to the zone, as a static value that overwrites anything a client sent.
+  The same value is the unstaged Fly secret `CF_EDGE_SECRET`. Both are in place.
+  To rotate, change the rule and the secret together. If the secret is missing,
+  the server warns at boot and rate limits key on `fly-client-ip`.
 
 Before a multi-machine deployment, all of these must be designed, wired, and
 tested together:

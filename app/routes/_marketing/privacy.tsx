@@ -37,7 +37,7 @@ export default function PrivacyRoute() {
 				Privacy Policy
 			</h1>
 			<p className="text-muted-foreground mt-2 text-sm">
-				Last updated: September 3, 2026
+				Last updated: November 20, 2026
 			</p>
 
 			<div className="mt-8 space-y-6 text-sm/6">
@@ -60,8 +60,10 @@ export default function PrivacyRoute() {
 					<p className="text-muted-foreground mt-2">
 						Your data is used solely to provide and improve the Quartermaster
 						service. We use PostHog for product analytics to understand how
-						features are used and to fix bugs. We do not sell your data or use
-						it for advertising.
+						features are used and to fix bugs. We use your IP address briefly to
+						limit how many requests can come from one place, which slows down
+						password guessing; we don't keep it with your account. We do not
+						sell your data or use it for advertising.
 					</p>
 				</section>
 

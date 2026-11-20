@@ -75,3 +75,134 @@ test('initializes the deferred SDK with the existing privacy and performance beh
 	})
 	expect(posthog.init).toHaveBeenCalledTimes(1)
 })
+
+test('URLs sent to PostHog lose their codes, tokens and email addresses', () => {
+	vi.clearAllMocks()
+	posthog.__loaded = false
+	initializePostHog({
+		apiKey: 'phc_test',
+		host: 'https://analytics.example.com',
+	})
+	const options = posthog.init.mock.calls[0]![1]
+	const beforeSend = options.before_send as (event: {
+		event: string
+		properties?: Record<string, unknown>
+		$set?: Record<string, unknown>
+		$set_once?: Record<string, unknown>
+	}) => { properties: Record<string, unknown> } & Record<string, unknown>
+
+	const sent = beforeSend({
+		event: '$pageview',
+		properties: {
+			$current_url:
+				'https://useqm.app/verify?type=onboarding&target=ada%40example.com&code=Q2W3E4',
+			$referrer: 'https://useqm.app/household/join?token=invite-abc',
+			$pathname: '/verify',
+			route_id: 'routes/_auth/verify',
+			count: 3,
+			$elements_chain:
+				'a.link:attr__class="link"attr__href="/signup?redirectTo=%2Fhousehold%2Fjoin%3Ftoken%3Dinvite-abc"href="/signup?redirectTo=%2Fhousehold%2Fjoin%3Ftoken%3Dinvite-abc"nth-child="2"text="Create an account"',
+			$elements: [
+				{
+					tag_name: 'a',
+					attr__href:
+						'/signup?redirectTo=%2Fhousehold%2Fjoin%3Ftoken%3Dinvite-abc',
+					$el_text: 'Create an account',
+				},
+			],
+			$web_vitals_LCP_event: {
+				name: 'LCP',
+				value: 1200,
+				$current_url: 'https://useqm.app/verify?code=Q2W3E4',
+			},
+		},
+		$set: { $current_url: 'https://useqm.app/household/join?token=invite-abc' },
+		$set_once: {
+			$initial_current_url: 'https://useqm.app/verify?code=Q2W3E4',
+		},
+	})
+	const text = JSON.stringify(sent)
+	expect(text).not.toMatch(/Q2W3E4|invite-abc|example\.com/)
+	expect(sent.properties.$pathname).toBe('/verify')
+	expect(sent.properties.route_id).toBe('routes/_auth/verify')
+	expect(sent.properties.count).toBe(3)
+	expect(sent.properties.$elements_chain).toContain('text="Create an account"')
+	expect(sent.properties.$elements_chain).toContain('href="/signup?redirectTo=')
+
+	const sessionRecording = options.session_recording as {
+		maskCapturedNetworkRequestFn: (request: {
+			name: string
+		}) => { name: string } | null
+	}
+	expect(
+		sessionRecording.maskCapturedNetworkRequestFn({
+			name: 'https://useqm.app/verify.data?code=Q2W3E4',
+		})?.name,
+	).toBe('https://useqm.app/verify.data?code=redacted')
+})
+
+test('error messages and replay page addresses lose their codes and tokens', () => {
+	vi.clearAllMocks()
+	posthog.__loaded = false
+	initializePostHog({
+		apiKey: 'phc_test',
+		host: 'https://analytics.example.com',
+	})
+	const options = posthog.init.mock.calls[0]![1]
+	const beforeSend = options.before_send as (event: {
+		event: string
+		properties: Record<string, unknown>
+	}) => { properties: Record<string, unknown> }
+
+	const exception = beforeSend({
+		event: '$exception',
+		properties: {
+			$exception_message:
+				'Failed to fetch https://useqm.app/verify.data?code=Q2W3E4&type=onboarding (and /household/join?token=invite-abc)',
+			$exception_list: [
+				{
+					type: 'TypeError',
+					value: 'Failed to fetch /verify?code=Q2W3E4',
+					stacktrace: {
+						frames: [{ filename: 'https://useqm.app/assets/root.js' }],
+					},
+				},
+			],
+		},
+	})
+	const exceptionText = JSON.stringify(exception)
+	expect(exceptionText).not.toMatch(/Q2W3E4|invite-abc/)
+	expect(exception.properties.$exception_message).toContain(
+		'Failed to fetch https://useqm.app/verify.data?code=redacted&type=onboarding',
+	)
+	expect(exceptionText).toContain('https://useqm.app/assets/root.js')
+
+	const snapshot = beforeSend({
+		event: '$snapshot',
+		properties: {
+			$snapshot_data: [
+				{
+					type: 4,
+					data: {
+						href: 'https://useqm.app/verify?target=ada%40example.com&code=Q2W3E4',
+						width: 390,
+					},
+				},
+				{
+					type: 5,
+					data: {
+						tag: '$pageview',
+						payload: {
+							href: 'https://useqm.app/household/join?token=invite-abc',
+						},
+					},
+				},
+				{ type: 2, data: 'compressed-full-snapshot', cv: '2024-10' },
+			],
+		},
+	})
+	const snapshotText = JSON.stringify(snapshot)
+	expect(snapshotText).not.toMatch(/Q2W3E4|invite-abc|example\.com/)
+	expect(snapshotText).toContain('compressed-full-snapshot')
+	expect(snapshotText).toContain('"width":390')
+})

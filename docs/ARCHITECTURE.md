@@ -113,10 +113,15 @@ never removes folders, so a resize being written isn't pulled out from under
 openimg. A folder or file it isn't allowed to read or delete is skipped and
 counted in the log line. A pruned resize is made again on its next view.
 
-Two gaps are known and accepted. A resize that is already being made when its
-photo is deleted can land in the cache after the delete has cleared it, and
-then stays until the prune removes it. And a browser or the service worker
-that already holds a deleted photo keeps showing it from its own cache.
+A resize that is already being made when its photo is deleted can land in the
+cache after the delete has cleared it. The cache is far under the prune limit
+in production (about half a megabyte), so the prune would never reach it. The
+delete therefore clears the photo's resizes again two minutes later, from an
+unref'd timer that logs a failure and moves on. Two gaps are known and
+accepted. A restart inside those two minutes loses the second clear, and a
+resize that lands then is served until the cache passes the limit. And a
+browser or the service worker that already holds a deleted photo keeps
+showing it from its own cache.
 
 ## Data model
 

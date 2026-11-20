@@ -54,14 +54,28 @@ async function deleteFromStorage(key: string) {
 	return true
 }
 
+// How long after a delete its resizes are cleared a second time. A resize
+// that was being made when the photo went can land in the cache after the
+// first clear; openimg finishes one in seconds.
+const LATE_RESIZE_SWEEP_MS = 2 * 60 * 1000
+
+function removeResizesOfDeletedPhoto(objectKey: string) {
+	return removeCachedResizes(objectKey).catch((error: unknown) => {
+		console.error('Failed to remove cached resizes of a deleted photo', error)
+	})
+}
+
 export async function deleteRecipeImage(objectKey: string) {
 	await deleteFromStorage(objectKey)
 	// The image route answers from its cache before it asks storage, so the
 	// cached resizes have to go too or the photo stays public.
 	if (isRecipeImageKey(objectKey)) {
-		await removeCachedResizes(objectKey).catch((error: unknown) => {
-			console.error('Failed to remove cached resizes of a deleted photo', error)
-		})
+		await removeResizesOfDeletedPhoto(objectKey)
+		// Best effort: a restart before it runs loses it. unref, so the timer
+		// never holds the process open.
+		setTimeout(() => {
+			void removeResizesOfDeletedPhoto(objectKey)
+		}, LATE_RESIZE_SWEEP_MS).unref?.()
 	}
 	return true
 }

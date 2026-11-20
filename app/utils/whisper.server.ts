@@ -57,14 +57,36 @@ type TranscribeResult = {
 	items: ParsedItem[]
 }
 
+/**
+ * A failed transcription. `refundable` says whether the caller should give
+ * back the daily use. It does when the failure is ours or Groq's and the user
+ * can't cause it: no key, a dropped connection, or Groq answering 401, 403,
+ * 404, 429 or 5xx. A timeout stays spent, since Groq may have finished after
+ * we stopped waiting. So does another 4xx, which is about the audio we sent,
+ * and anything after a 200.
+ */
+type TranscribeFailure = { error: string; refundable: boolean }
+
+/** 401, 403 and 404 mean our key or model is wrong; 5xx is Groq's own. */
+function isRefundableStatus(status: number) {
+	return status === 401 || status === 403 || status === 404 || status >= 500
+}
+
+const FAILED = 'Voice transcription failed. Please try again.'
+const NOT_UNDERSTOOD = "Couldn't understand the audio. Please try again."
+
 export async function transcribeAudio(
 	audioFile: FileUpload,
-): Promise<TranscribeResult | { error: string }> {
+): Promise<TranscribeResult | TranscribeFailure> {
 	const apiKey = process.env.GROQ_API_KEY
 	if (!apiKey) {
-		return { error: 'Voice input is not configured. Contact support.' }
+		return {
+			error: 'Voice input is not configured. Contact support.',
+			refundable: true,
+		}
 	}
 
+	let response: Response
 	try {
 		const formData = new FormData()
 		formData.append(
@@ -79,59 +101,70 @@ export async function transcribeAudio(
 			'Grocery shopping list dictation. Items include fruits, vegetables, meat, dairy, bread, eggs, rice, pasta, spices, snacks, beverages, and household supplies. Quantities like pounds, ounces, bags, boxes, cans, bottles, and dozen are common. Items may be in English, Romanian, or other languages.',
 		)
 
-		const response = await fetch(GROQ_API_URL, {
+		response = await fetch(GROQ_API_URL, {
 			method: 'POST',
 			headers: { Authorization: `Bearer ${apiKey}` },
 			body: formData,
 			signal: AbortSignal.timeout(TIMEOUT_MS),
 		})
-
-		if (!response.ok) {
-			console.error(
-				`Whisper transcription error: ${response.status} ${response.statusText}`,
-			)
-			if (response.status === 429) {
-				return {
-					error: 'Voice input hit a rate limit. Please wait a moment and try again.',
-				}
-			}
-			return {
-				error: 'Voice transcription failed. Please try again.',
-			}
-		}
-
-		const data = (await response.json()) as { text?: string }
-		const transcription = data.text?.trim() ?? ''
-
-		if (!transcription) {
-			return { error: "Couldn't understand the audio. Please try again." }
-		}
-
-		// Reject known Whisper hallucination artifacts — these appear when the
-		// model receives mostly silence or noise and "hallucinates" common
-		// YouTube/podcast phrases instead of real speech.
-		if (isWhisperHallucination(transcription)) {
-			return { error: "Couldn't understand the audio. Please try again." }
-		}
-
-		// parseSpeechItemsWithLLM returns:
-		//   ParsedItem[] (possibly empty) on success — empty means Haiku found no grocery items
-		//   null on API/parse failure — fall back to regex
-		const llmResult = await parseSpeechItemsWithLLM(transcription)
-		const items = llmResult ?? parseSpeechItems(transcription)
-
-		if (items.length === 0) {
-			return { error: "Couldn't understand the audio. Please try again." }
-		}
-
-		return { transcription, items }
 	} catch (error) {
 		console.error('Whisper transcription error:', error)
 		if (error instanceof DOMException && error.name === 'TimeoutError') {
-			return { error: 'Voice transcription timed out. Please try again.' }
+			return {
+				error: 'Voice transcription timed out. Please try again.',
+				refundable: false,
+			}
+		}
+		// No response arrived. Groq may still have had the request, but a user
+		// can't cause a dropped connection, so the use comes back.
+		return { error: FAILED, refundable: true }
+	}
+
+	if (!response.ok) {
+		console.error(
+			`Whisper transcription error: ${response.status} ${response.statusText}`,
+		)
+		if (response.status === 429) {
+			return {
+				error:
+					'Voice input hit a rate limit. Please wait a moment and try again.',
+				refundable: true,
+			}
 		}
 		return {
-			error: 'Voice transcription failed. Please try again.',
+			error: FAILED,
+			refundable: isRefundableStatus(response.status),
 		}
 	}
+
+	let transcription: string
+	try {
+		const data = (await response.json()) as { text?: string }
+		transcription = data.text?.trim() ?? ''
+	} catch (error) {
+		console.error('Whisper transcription error:', error)
+		return { error: FAILED, refundable: false }
+	}
+
+	if (!transcription) {
+		return { error: NOT_UNDERSTOOD, refundable: false }
+	}
+
+	// Whisper makes up stock YouTube and podcast phrases when it gets mostly
+	// silence or noise. Treat those as nothing heard.
+	if (isWhisperHallucination(transcription)) {
+		return { error: NOT_UNDERSTOOD, refundable: false }
+	}
+
+	// parseSpeechItemsWithLLM returns the items Haiku found (an empty list
+	// when it found none), or null when the call failed, and then the regex
+	// parser takes over.
+	const llmResult = await parseSpeechItemsWithLLM(transcription)
+	const items = llmResult ?? parseSpeechItems(transcription)
+
+	if (items.length === 0) {
+		return { error: NOT_UNDERSTOOD, refundable: false }
+	}
+
+	return { transcription, items }
 }

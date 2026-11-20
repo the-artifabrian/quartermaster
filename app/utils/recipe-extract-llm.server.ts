@@ -2,6 +2,7 @@ import { z } from 'zod'
 import {
 	ANTHROPIC_MODELS,
 	isAnthropicConfigured,
+	isRefundableFailure,
 	nullable,
 	parseAnthropicJson,
 	requestAnthropicJson,
@@ -433,12 +434,18 @@ export function parseExtractResponse(
 }
 
 /**
+ * A failed extraction. `refundable` is true when the caller should give back
+ * the daily use (see `isRefundableFailure`).
+ */
+export type ExtractionFailure = { error: string; refundable: boolean }
+
+/**
  * Extract a recipe from informal/unstructured text with the fast model.
  */
 export async function extractRecipeFromText(
 	rawText: string,
 	vocabulary: RecipeMetadataVocabulary = emptyRecipeMetadataGroups<string>(),
-): Promise<ExtractedRecipeFromLLM | { error: string }> {
+): Promise<ExtractedRecipeFromLLM | ExtractionFailure> {
 	const result = await requestAnthropicJson({
 		feature: 'recipe-extract-text',
 		model: ANTHROPIC_MODELS.fast,
@@ -453,7 +460,10 @@ export async function extractRecipeFromText(
 
 	return result.ok
 		? result.data
-		: { error: extractionError(result.failure, 'text') }
+		: {
+				error: extractionError(result.failure, 'text'),
+				refundable: isRefundableFailure(result.failure),
+			}
 }
 
 // Claude accepts up to 1568px on the long edge before it downsamples on its
@@ -489,9 +499,9 @@ async function prepareImage(
 export async function extractRecipeFromImages(
 	images: Array<{ base64: string; mediaType: string }>,
 	vocabulary: RecipeMetadataVocabulary = emptyRecipeMetadataGroups<string>(),
-): Promise<ExtractedRecipeFromLLM | { error: string }> {
+): Promise<ExtractedRecipeFromLLM | ExtractionFailure> {
 	if (images.length === 0) {
-		return { error: 'No images provided.' }
+		return { error: 'No images provided.', refundable: false }
 	}
 
 	for (const img of images) {
@@ -502,11 +512,15 @@ export async function extractRecipeFromImages(
 		) {
 			return {
 				error: 'Unsupported image format. Please use JPEG, PNG, or WebP.',
+				refundable: false,
 			}
 		}
 	}
 	if (!isAnthropicConfigured()) {
-		return { error: 'AI features are not configured. Contact support.' }
+		return {
+			error: 'AI features are not configured. Contact support.',
+			refundable: true,
+		}
 	}
 
 	const preparedImages: Array<{ data: string; media_type: string }> = []
@@ -519,6 +533,9 @@ export async function extractRecipeFromImages(
 		return {
 			error:
 				'Could not process the image(s). Please try different images or formats.',
+			// A broken upload is the user's to cause, and preparing it costs us
+			// CPU, so the use stays spent.
+			refundable: false,
 		}
 	}
 
@@ -551,7 +568,10 @@ export async function extractRecipeFromImages(
 
 	return result.ok
 		? result.data
-		: { error: extractionError(result.failure, 'image') }
+		: {
+				error: extractionError(result.failure, 'image'),
+				refundable: isRefundableFailure(result.failure),
+			}
 }
 
 function extractionError(
@@ -577,6 +597,8 @@ function extractionError(
 				? "Couldn't find a recipe in the provided text. Try including ingredients or instructions."
 				: "Couldn't find a recipe in the provided image(s). Make sure the image contains recipe text or ingredients."
 		case 'provider':
+		case 'network':
+		case 'refusal':
 			return 'Recipe extraction failed — the AI service returned an error. Please try again later.'
 	}
 }

@@ -106,9 +106,13 @@ deleting a section keeps its items. A RecipeMetadataAssignment joins one Recipe
 to one household classification value. A Shopping row's `horizon` puts it in
 Next shop or Later.
 
-`UsageEvent` records AI limits. New household data must be authorized by
-household membership, included in export/import when durable, and handled in
-sole-member household moves.
+`UsageEvent` records AI limits: one row per use of a paid AI feature, counted
+and written in one write transaction (`claimAiUsage`). A voice row covers the
+Whisper call and the parse that follows it. A row is deleted again when the
+call fails in a way the user can't cause, such as a provider outage.
+
+New household data must be authorized by household membership, included in
+export/import when durable, and handled in sole-member household moves.
 
 Recipes, the Shopping list and invites also point at the User who made them, and
 those keys cascade on user delete. `deleteAccount` in

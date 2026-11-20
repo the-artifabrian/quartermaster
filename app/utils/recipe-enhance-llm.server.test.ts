@@ -229,6 +229,7 @@ describe('enhanceRecipeMetadata', () => {
 		vi.stubEnv('ANTHROPIC_API_KEY', '')
 		await expect(enhanceRecipeMetadata(sampleInput)).resolves.toEqual({
 			error: expect.stringContaining('not configured'),
+			refundable: true,
 		})
 
 		vi.stubEnv('ANTHROPIC_API_KEY', 'test-key')
@@ -238,6 +239,7 @@ describe('enhanceRecipeMetadata', () => {
 		)
 		await expect(enhanceRecipeMetadata(sampleInput)).resolves.toEqual({
 			error: expect.stringContaining('rate limit'),
+			refundable: true,
 		})
 	})
 })

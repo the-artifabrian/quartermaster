@@ -63,7 +63,8 @@ export function RecipeScaleControl({
 		if (draft.trim() === displayedValue) return
 		if (draft === sentDraft.current) return
 		const parsed = ScaleMultiplierSchema.safeParse(draft)
-		if (!parsed.success) {
+		// "1.0" on a 1× Recipe saves nothing, so show the saved form again.
+		if (!parsed.success || parsed.data === scaleMultiplier) {
 			setDraft(displayedValue)
 			return
 		}
@@ -89,7 +90,7 @@ export function RecipeScaleControl({
 				// focuses the field). The field sits above that area, so a tap in
 				// it still places the caret.
 				compact &&
-					"bg-muted/70 focus-within:ring-ring/40 relative h-7 min-w-11 shrink-0 justify-center gap-0.5 rounded-md pr-2 pl-1.5 before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] focus-within:ring-2 md:before:hidden",
+					"bg-muted/70 focus-within:ring-ring/40 desktop:before:hidden relative h-7 min-w-11 shrink-0 justify-center gap-0.5 rounded-md pr-2 pl-1.5 before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] focus-within:ring-2",
 			)}
 		>
 			<span className="sr-only">Scale multiplier</span>
@@ -116,12 +117,19 @@ export function RecipeScaleControl({
 					'text-center tabular-nums',
 					compact
 						? cn(
-								'relative z-1 h-7 w-8 border-0 bg-transparent px-0 text-center text-xs focus-visible:ring-0 focus-visible:ring-offset-0 md:text-xs',
+								'relative z-1 h-7 border-0 bg-transparent px-0 text-center text-xs focus-visible:ring-0 focus-visible:ring-offset-0 md:text-xs',
 								// 1× is the usual; a scaled Recipe reads in ink.
 								draft.trim() === '1' && 'text-muted-foreground',
 							)
 						: 'h-11 w-20 px-2 text-base',
 				)}
+				// Sized to the value: a phone forces inputs to 16px, where a fixed
+				// width clipped "99.75". Digits are tabular, one ch each.
+				style={
+					compact
+						? { width: `calc(${Math.max(draft.length, 2)}ch + 2px)` }
+						: undefined
+				}
 			/>
 			<span
 				aria-hidden="true"

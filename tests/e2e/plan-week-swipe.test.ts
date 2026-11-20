@@ -101,10 +101,14 @@ test('swiping the Plan day strip turns the week; a short swipe does not', async 
 	expect(weekLoads).toEqual([])
 	await expect(page.getByText('Nov 16 – 22')).toBeVisible()
 
-	// A tap still picks a day. Friday, Nov 20 is named Today on that date.
-	const friday = strip.getByRole('button', {
-		name: /^Show (Friday|Today), Nov 20,/,
-	})
-	await friday.click()
-	await expect(friday).toHaveAttribute('aria-pressed', 'true')
+	// A tap still picks a day: one that isn't already picked, since the week
+	// that holds today opens on today.
+	const day = strip
+		.getByRole('button', { name: /^Show .*, Nov \d+,/, pressed: false })
+		.first()
+	const name = (await day.getAttribute('aria-label'))!
+	await day.click()
+	await expect(
+		strip.getByRole('button', { name, exact: true }),
+	).toHaveAttribute('aria-pressed', 'true')
 })

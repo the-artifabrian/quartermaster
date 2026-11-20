@@ -559,6 +559,9 @@ export function MealCard({
 		setAddingRecipe(false)
 	}
 	const [editingDetails, setEditingDetails] = useState(false)
+	// Where the inline panel opened. A save can add or remove the header line;
+	// moving the panel then would remount its form and lose the save's close.
+	const [detailsUnderHeader, setDetailsUnderHeader] = useState(false)
 	const [menuOpen, setMenuOpen] = useState(false)
 	const menuPointer = useRef<string | null>(null)
 
@@ -783,6 +786,7 @@ export function MealCard({
 				<DropdownMenuItem
 					onSelect={() => {
 						setDetailsInSheet(opensAsSheet())
+						setDetailsUnderHeader(hasHeader)
 						setDetailsOpens((count) => count + 1)
 						setEditingDetails(true)
 					}}
@@ -888,7 +892,7 @@ export function MealCard({
 			{/* Edit details: inline panel, or a sheet on a phone */}
 			{/* Edit details in place opens under the dots that opened it: under
 			    the header, or at the end of a Meal without one. */}
-			{hasHeader && detailsPanel}
+			{detailsUnderHeader && detailsPanel}
 			{detailsInSheet && (
 				<BottomSheet
 					open={editingDetails}
@@ -1031,7 +1035,7 @@ export function MealCard({
 					)}
 				</div>
 			)}
-			{!hasHeader && detailsPanel}
+			{!detailsUnderHeader && detailsPanel}
 		</div>
 	)
 }

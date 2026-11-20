@@ -1,5 +1,5 @@
 import { type Locator } from '@playwright/test'
-import { getWeekStart } from '#app/utils/date.ts'
+import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { expect, openShopping, test } from '#tests/playwright-utils.ts'
 
@@ -31,6 +31,11 @@ function todayUTC() {
 	return new Date(
 		Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
 	)
+}
+
+/** The seeded week, named: bare /plan picks its week by the UTC date. */
+function planWeek(today: Date) {
+	return `/plan?weekStart=${serializeDate(getWeekStart(today))}`
 }
 
 test('Plan rows share the page edges, and a Meal without a label has no empty header line', async ({
@@ -76,7 +81,7 @@ test('Plan rows share the page edges, and a Meal without a label has no empty he
 		},
 	})
 
-	await page.goto('/plan')
+	await page.goto(planWeek(today))
 	const mobile = page.getByTestId('mobile-plan')
 	const heading = await box(
 		page.getByRole('heading', { name: 'Plan', level: 1 }),
@@ -298,7 +303,7 @@ test.describe('a wide touch screen', () => {
 			},
 		})
 
-		await page.goto('/plan')
+		await page.goto(planWeek(today))
 		const agenda = page.getByTestId('desktop-plan')
 		expect(
 			await page.evaluate(() => matchMedia('(pointer: coarse)').matches),
@@ -325,5 +330,63 @@ test.describe('a wide touch screen', () => {
 			return { display: before.display, inset: before.top }
 		})
 		expect(hit.display).not.toBe('none')
+		// So does the scale field: 28px to the eye, 44px to the thumb.
+		const scale = await agenda
+			.getByRole('textbox', { name: 'Scale multiplier' })
+			.evaluate(
+				(input) => getComputedStyle(input.closest('label')!, '::before').height,
+			)
+		expect(parseFloat(scale)).toBeGreaterThanOrEqual(44)
+	})
+})
+
+test.describe('the desktop agenda', () => {
+	test.use({ viewport: { width: 1280, height: 900 }, hasTouch: false })
+
+	test('closes Edit details after a save that adds or removes the header line', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const soup = await prisma.recipe.create({
+			data: {
+				title: 'Miso Soup',
+				userId: user.id,
+				householdId: user.householdId,
+			},
+		})
+		const today = todayUTC()
+		await prisma.mealPlan.create({
+			data: {
+				householdId: user.householdId,
+				weekStart: getWeekStart(today),
+				meals: {
+					create: {
+						date: today,
+						order: 0,
+						recipeItems: {
+							create: { recipeId: soup.id, recipeTitle: soup.title, order: 0 },
+						},
+					},
+				},
+			},
+		})
+
+		await page.goto(planWeek(today))
+		const agenda = page.getByTestId('desktop-plan')
+		const label = agenda.getByLabel('Label')
+		for (const choice of ['dinner', '']) {
+			await agenda
+				.getByRole('button', { name: /^Meal actions for (Miso Soup|Dinner)$/ })
+				.click()
+			await page.getByRole('menuitem', { name: 'Edit details' }).click()
+			await label.selectOption(choice)
+			await agenda.getByRole('button', { name: 'Save' }).click()
+			await expect(label).toHaveCount(0)
+			const meal = await prisma.meal.findFirstOrThrow({
+				where: { mealPlan: { householdId: user.householdId } },
+			})
+			expect(meal.label).toBe(choice || null)
+		}
 	})
 })

@@ -1,4 +1,4 @@
-import { parseAmount, WRITTEN_NUMBER } from './fractions.ts'
+import { readYieldNumber, WRITTEN_NUMBER } from './fractions.ts'
 import {
 	APPLE_NOTES_LINK,
 	detectIngredientHeading,
@@ -72,11 +72,14 @@ function matchTypedYieldLine(line: string): {
 } | null {
 	const match = YIELD_LINE_HEAD.exec(line)
 	if (!match) return null
-	const written = yieldLineLabel(line.slice(match[0].length))
-	if (written === null) return null
 	// "Makes 1,000 cookies" could be 1 or 1000, so it gives no yield.
-	const amount = parseAmount(match[2]!)
-	if (amount === null || !Number.isFinite(amount) || amount <= 0) return null
+	const number = readYieldNumber(match[2]!)
+	if (!number) return null
+	const amount = number.value
+	if (!Number.isFinite(amount) || amount <= 0) return null
+	const numberEnd = match[0].length - match[2]!.length + number.length
+	const written = yieldLineLabel(line.slice(numberEnd))
+	if (written === null) return null
 	const prefix = match[1]!.toLowerCase()
 	const explicitLabel = written?.replace(/(?<![.;:,])[.;:,]+$/, '').trim()
 	if (explicitLabel && /^(?:[-–—]|to)\s*\d/i.test(explicitLabel)) return null

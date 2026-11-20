@@ -1,4 +1,4 @@
-import { parseAmount, WRITTEN_NUMBER } from './fractions.ts'
+import { readYieldNumber, WRITTEN_NUMBER } from './fractions.ts'
 import { type ExtractedRecipe } from './import-recipe-types.ts'
 import {
 	detectIngredientHeading,
@@ -136,11 +136,14 @@ function parseYieldEntry(value: unknown): {
 	const amountMatch = raw.match(YIELD_NUMBER)
 	if (!amountMatch || amountMatch.index == null) return null
 	// "1,000 cookies" could be 1 or 1000, so it gives no yield.
-	const amount = parseAmount(amountMatch[0])
-	if (amount === null || !Number.isFinite(amount) || amount <= 0) return null
+	const number = readYieldNumber(amountMatch[0])
+	if (!number || !Number.isFinite(number.value) || number.value <= 0) {
+		return null
+	}
+	const amount = number.value
 
 	const prefix = raw.slice(0, amountMatch.index).trim()
-	const rawSuffix = raw.slice(amountMatch.index + amountMatch[0].length)
+	const rawSuffix = raw.slice(amountMatch.index + number.length)
 	if (/^\s*(?:[-–—]|to)\s*\d/i.test(rawSuffix)) return null
 	const suffix = rawSuffix.replace(/^[\s:;,.\-–—]+/, '').trim()
 	const label = suffix || (/^serves?\b/i.test(prefix) ? 'servings' : '')

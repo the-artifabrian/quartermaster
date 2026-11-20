@@ -58,7 +58,22 @@ function spaceThousands(amount: string): number | null {
  * says what it means. Neither part lets two quantifiers take turns over the
  * same digits, so it stays linear.
  */
-export const WRITTEN_NUMBER = String.raw`\d{1,3}(?:[ \u00A0\u202F]\d{3})+(?:[.,]\d+)?(?![\d.,])|\d+(?:[.,]\d+)*`
+export const WRITTEN_NUMBER = String.raw`\d{1,3}(?:[ \u00A0\u202F]\d{3})+(?:[.,]\d+)?(?![\d.,\-–])|\d+(?:[.,]\d+)*`
+
+/**
+ * The value of a yield's number (a WRITTEN_NUMBER match) and how many of its
+ * characters it used. One group after a space that parseAmount can't read is
+ * a count before a size, as in "Makes 4 500 ml jars", so only the count is
+ * used. Null when the number has no single value ("1,000").
+ */
+export function readYieldNumber(
+	written: string,
+): { value: number; length: number } | null {
+	const value = parseAmount(written)
+	if (value !== null) return { value, length: written.length }
+	const count = /^(\d{1,3})[ \u00A0\u202F]\d{3}$/.exec(written)?.[1]
+	return count ? { value: Number(count), length: count.length } : null
+}
 
 /**
  * Parse a string amount into a number, or null when the whole string isn't

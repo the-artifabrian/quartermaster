@@ -5,6 +5,7 @@
 //   error before anything is saved: no new Recipe, nothing in storage, and an
 //   edit keeps its old photo and fields
 // - the refusal keeps what was typed, and shows next to any other field error
+// - a photo too big to decode gets a field error that says so
 // - a real photo the browser labels with another type is saved, under the
 //   type of its bytes (the form used to drop it without a word)
 // - an import screenshot over the limit gets an error, not a crash
@@ -15,7 +16,10 @@ import sharp from 'sharp'
 import { expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { UNUSABLE_PHOTO_MESSAGE } from '#app/utils/recipe-photo.server.ts'
+import {
+	MAX_DECODED_BYTES,
+	PHOTO_REFUSALS,
+} from '#app/utils/recipe-photo.server.ts'
 import { MAX_RECIPE_IMAGE_SIZE } from '#app/utils/recipe-validation.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
@@ -158,7 +162,7 @@ test('a new Recipe with a file that isn’t a photo gets a field error and saves
 		})),
 		params: {},
 	})
-	expect(photoError(result)).toEqual({ image: [UNUSABLE_PHOTO_MESSAGE] })
+	expect(photoError(result)).toEqual({ image: [PHOTO_REFUSALS.unusable] })
 	expect(
 		(
 			result as unknown as {
@@ -183,7 +187,7 @@ test('a refused photo shows next to the form’s other errors', async () => {
 		params: {},
 	})
 	const error = photoError(result)
-	expect(error.image).toEqual([UNUSABLE_PHOTO_MESSAGE])
+	expect(error.image).toEqual([PHOTO_REFUSALS.unusable])
 	expect(error.title).toBeDefined()
 })
 
@@ -205,7 +209,7 @@ test('editing a Recipe with a file that isn’t a photo keeps the Recipe and its
 		})),
 		params: { recipeId: recipe.id },
 	})
-	expect(photoError(result)).toEqual({ image: [UNUSABLE_PHOTO_MESSAGE] })
+	expect(photoError(result)).toEqual({ image: [PHOTO_REFUSALS.unusable] })
 	expect(
 		await prisma.recipe.findUniqueOrThrow({
 			where: { id: recipe.id },
@@ -216,6 +220,33 @@ test('editing a Recipe with a file that isn’t a photo keeps the Recipe and its
 		image: { objectKey: 'users/x/recipes/y/images/old.jpg' },
 	})
 	expect(await storedFiles(session.userId)).toEqual([])
+})
+
+test('a photo too big to decode gets a field error that says so', async () => {
+	const session = await setupUser()
+	const width = 4096
+	const png = await sharp({
+		create: {
+			width,
+			height: Math.floor(MAX_DECODED_BYTES / (width * 3)) + 1,
+			channels: 3,
+			background: '#c86b3c',
+		},
+		limitInputPixels: false,
+	})
+		.png()
+		.toBuffer()
+	const result = await newAction({
+		...(await multipart(session, '/recipes/new', {
+			...recipeFields,
+			image: new File([new Uint8Array(png)], 'scan.png', { type: 'image/png' }),
+		})),
+		params: {},
+	})
+	expect(photoError(result)).toEqual({ image: [PHOTO_REFUSALS['too-big']] })
+	expect(
+		await prisma.recipe.count({ where: { householdId: session.householdId } }),
+	).toBe(0)
 })
 
 test('a real photo the browser labels with another type is saved as its bytes say', async () => {

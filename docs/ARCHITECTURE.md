@@ -88,20 +88,33 @@ file name. A copy for a shared Recipe gets a new name of the same shape.
 An upload is checked before anything is saved, in
 `app/utils/recipe-photo.server.ts`, and storage takes only a photo that passed.
 The browser's type and the file name are ignored. The first bytes must be JPEG,
-PNG or WebP, the formats the form offers. sharp must then read the same format,
-with no more than 25 million pixels, and decode the whole file to a thumbnail,
-since a JPEG cut off partway still has a readable header. A file that fails gets
-"That file isn't a photo we can use. Choose a JPG, PNG or WebP." next to the
-photo field, and the Recipe isn't saved or changed.
+PNG or WebP, the formats the form offers. sharp must then read the same format
+from the header and decode the whole file to a thumbnail, since a JPEG cut off
+partway still has a readable header. A file that fails gets "We can't use that
+file. Choose a JPG, PNG or WebP." next to the photo field, and the Recipe isn't
+saved or changed. The form then takes the file off its input, so the next Save
+goes through without it. HEIC is refused by its first bytes. The prebuilt sharp
+can read a HEIC header but not decode it.
 
-The pixel cap clears a 24 MP phone photo. A photo over the 3 MB limit is shrunk
-in the browser to 2048 px on the long edge before it is sent, so only originals
-under 3 MB reach the check at full size. The cap comes from the image route's
-full-size copy. Measured locally, a rotated JPEG at the cap peaks around 310 MB
-there, and one of 60 million pixels around 650 MB, more than the production
-machine has. HEIC is refused: the prebuilt sharp reads its header but can't
-decode it. The form's file input lists only JPEG, PNG and WebP, and before this
-check the form dropped any other type without saving it, so no HEIC is stored.
+The production machine has 512 MB, one CPU, and about 90 to 165 MB free while
+the app runs, so the limit is on the memory a decode holds, not the file size.
+That is width × height × channels × bytes per sample from the header. A
+baseline JPEG may decode to 150 MB, which fits a 48 MP phone photo, because it
+shrinks while it loads. A plain PNG may decode to 100 MB, since it streams. A
+progressive JPEG, an interlaced PNG or a WebP decodes whole and may decode to
+32 MB. A photo over its limit gets "That photo is too big. Try a smaller one."
+Measured on macOS under Node and Bun with one libvips thread, one job at those
+limits held at most 45 MB over a bare process for the baseline JPEG and up to
+85 MB for the others. Two jobs at once added up, so every
+sharp job on a photo (the upload check, each resize, and the import's
+preparation) waits for one shared turn. A job gives up after 30 seconds of
+waiting, or when its request is aborted, and sharp stops one that runs for 30
+seconds.
+
+The browser shrinks a picked photo to 2048 px on the long edge, as a JPEG, when
+it is over the 3 MB upload limit or has more than 8 million pixels. The app
+never shows a photo larger than 2048 px, and any 8-bit photo the browser leaves
+alone fits every limit above.
 
 Pages show them through `/resources/images`, which resizes with openimg and
 caches each resize on disk. Share pages and link previews use it too, so it has
@@ -114,15 +127,17 @@ no login, and `app/utils/image-route.ts` sets what it accepts:
   and height from `IMG_SIZES`, so the page and the route use one list. An
   unlisted size gets the next listed size up instead of an error, so a page
   cached before a size changed still shows its photo. No size at all serves the
-  original, which the data export links to.
+  photo the data export links to: upright, at most 2048 px, and without the
+  stored bytes' metadata, which can hold where it was taken.
 - **Formats.** AVIF, WebP, or the original format. `fit` is `cover` or left
   out. Both mean the same crop, so they share one cached copy. A format needs a
   size: no page asks for a full-size AVIF or WebP.
-- **Pixels.** Its sharp pipeline has the upload's pixel cap, so a stored photo
-  that never passed the check gets an error before it is decoded.
+- **Decoding.** The route reads the stored photo's header first, so one over
+  the upload's limit gets an error before it is decoded. The decode then waits
+  for its turn like every other photo job.
 
-Per photo that is at most 21 resizes no larger than 1200×630, plus one
-full-size copy in the original format. Uploads are capped at 3 MB.
+Per photo that is at most 21 resizes no larger than 1200×630, plus one copy of
+at most 2048 px in the original format. Uploads are capped at 3 MB.
 
 The cache is `/data/images` in production, on the same volume as SQLite. It
 stays bounded in two ways. Deleting a photo also deletes its cached resizes,
@@ -507,6 +522,11 @@ and the parse that follows it. A call that fails in a way the user can't cause
 back. A timeout, other 4xx and anything after a 200 stay spent, so slow or bad
 input can't buy unlimited calls. The daily prune in
 `server/scheduled-maintenance.ts` deletes older rows.
+
+An image sent to the import gets the photo upload's checks: its first bytes,
+then its header against the same decoded-size limit, before a daily use is
+claimed. Preparing it for the model waits for the same turn as other photo
+jobs, and a use spent waiting too long comes back.
 
 The manual Recipe, Plan, and Shopping flows do not require API keys. AI quantity
 planning was removed after real-use feedback; Recipe import remains the proven

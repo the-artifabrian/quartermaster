@@ -13,7 +13,7 @@ import { RECIPE_FORM_ID, RecipeForm } from '#app/components/recipe-form.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import {
 	checkRecipePhoto,
-	UNUSABLE_PHOTO_MESSAGE,
+	PHOTO_REFUSALS,
 } from '#app/utils/recipe-photo.server.ts'
 import {
 	clientLeaves,
@@ -144,17 +144,20 @@ export async function action({ request }: Route.ActionArgs) {
 
 	// Checked before anything is saved, so a refused file leaves no Recipe
 	// behind.
-	const photo = imageFile ? await checkRecipePhoto(imageFile) : null
-	if (imageFile && !photo) {
+	const check = imageFile
+		? await checkRecipePhoto(imageFile, { signal: request.signal })
+		: null
+	if (check && !check.ok) {
 		return data(
 			{
 				result: submission.reply({
-					fieldErrors: { image: [UNUSABLE_PHOTO_MESSAGE] },
+					fieldErrors: { image: [PHOTO_REFUSALS[check.reason]] },
 				}),
 			},
 			{ status: 400 },
 		)
 	}
+	const photo = check?.photo
 
 	if (submission.status !== 'success') {
 		return data({ result: submission.reply() }, { status: 400 })

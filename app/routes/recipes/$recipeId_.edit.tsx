@@ -27,7 +27,7 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import {
 	checkRecipePhoto,
-	UNUSABLE_PHOTO_MESSAGE,
+	PHOTO_REFUSALS,
 } from '#app/utils/recipe-photo.server.ts'
 import {
 	clientLeaves,
@@ -285,17 +285,20 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	// Checked before anything is saved, so a refused file leaves the Recipe
 	// and its photo as they were.
-	const photo = imageFile ? await checkRecipePhoto(imageFile) : null
-	if (imageFile && !photo) {
+	const check = imageFile
+		? await checkRecipePhoto(imageFile, { signal: request.signal })
+		: null
+	if (check && !check.ok) {
 		return data(
 			{
 				result: submission.reply({
-					fieldErrors: { image: [UNUSABLE_PHOTO_MESSAGE] },
+					fieldErrors: { image: [PHOTO_REFUSALS[check.reason]] },
 				}),
 			},
 			{ status: 400 },
 		)
 	}
+	const photo = check?.photo
 
 	if (submission.status !== 'success') {
 		return data({ result: submission.reply() }, { status: 400 })

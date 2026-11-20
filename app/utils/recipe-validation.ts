@@ -193,6 +193,14 @@ export const ImportUrlSchema = z.object({
 export const MAX_RECIPE_IMAGE_SIZE = 1024 * 1024 * 3 // 3MB
 /** Each screenshot sent to a Recipe image import. */
 export const MAX_IMPORT_IMAGE_SIZE = 5 * 1024 * 1024
+/**
+ * The most pixels a picked photo may have before the browser shrinks it to
+ * 2048 px, however small the file. The app never shows a photo larger than
+ * that. The server refuses photos that cost too much to decode
+ * (recipe-photo.server.ts); at this many pixels any 8-bit photo is under
+ * every one of its limits.
+ */
+export const MAX_UNSHRUNK_PIXELS = 8_000_000
 /** Screenshots in one Recipe image import. */
 export const MAX_IMPORT_IMAGE_COUNT = 5
 

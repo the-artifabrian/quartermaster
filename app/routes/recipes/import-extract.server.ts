@@ -13,7 +13,6 @@ import { AI_FEATURE_USED } from '#app/utils/posthog-events.ts'
 import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import {
 	ALLOWED_IMAGE_MEDIA_TYPES,
-	MAX_SCREENSHOT_PIXELS,
 	extractRecipeFromImages,
 	extractRecipeFromText,
 	type RecipeMetadataVocabulary,
@@ -34,7 +33,10 @@ import {
 	MAX_IMPORT_IMAGE_SIZE,
 	MAX_RAW_TEXT_LENGTH,
 } from '#app/utils/recipe-validation.ts'
-import { sniffImageType } from '#app/utils/recipe-photo.server.ts'
+import {
+	isTooBigToDecode,
+	sniffImageType,
+} from '#app/utils/recipe-photo.server.ts'
 
 const DAILY_EXTRACT_LIMIT = 10
 export const MAX_IMAGE_SIZE = MAX_IMPORT_IMAGE_SIZE
@@ -81,14 +83,14 @@ function matchedValueIds(
 	)
 }
 
-async function hasTooManyPixels(buffer: ArrayBuffer) {
+/** Whether the image's header says it costs more to decode than a photo may. */
+async function isTooBigToRead(buffer: ArrayBuffer) {
 	const { default: sharp } = await import('sharp')
-	// No limit here: metadata reads only the header, and the check is below.
+	// The header alone, so no limit is needed to read it.
 	const metadata = await sharp(buffer, { limitInputPixels: false })
 		.metadata()
 		.catch(() => null)
-	if (!metadata) return false
-	return metadata.width * metadata.height > MAX_SCREENSHOT_PIXELS
+	return metadata !== null && isTooBigToDecode(metadata)
 }
 
 /**
@@ -164,17 +166,17 @@ export async function importWithAi(
 			) {
 				return importFailure(
 					intentKey,
-					'Invalid image file. Please upload JPEG, PNG, or WebP images.',
+					'We can’t use one of the images. Choose a JPG, PNG or WebP.',
 				)
 			}
 
-			// The header alone gives the size, so an oversized screenshot is
+			// The header alone gives the size, so an oversized image is
 			// refused before it spends a use or gets decoded. A header sharp
 			// can't read is left for the extraction to refuse, as before.
-			if (await hasTooManyPixels(buffer)) {
+			if (await isTooBigToRead(buffer)) {
 				return importFailure(
 					intentKey,
-					'One of the screenshots is too big to read. Try a smaller one.',
+					'One of the images is too big to read. Try a smaller one.',
 				)
 			}
 

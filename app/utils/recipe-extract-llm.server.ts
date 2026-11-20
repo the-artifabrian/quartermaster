@@ -24,6 +24,13 @@ import {
 	MAX_RECIPE_NOTES_LENGTH,
 	MAX_RECIPE_TITLE_LENGTH,
 } from './recipe-validation.ts'
+import {
+	isTooBigToDecode,
+	PHOTO_JOB_SECONDS,
+	PHOTO_SHARP_OPTIONS,
+	PhotoQueueTimeout,
+	withPhotoSlot,
+} from './recipe-photo.server.ts'
 import { CANONICAL_UNITS } from './unit-conversion.ts'
 
 // Long enough for the whole paste the box accepts and for a recipe that fills
@@ -473,33 +480,31 @@ export async function extractRecipeFromText(
 const IMAGE_MAX_DIMENSION = 1568
 const IMAGE_JPEG_QUALITY = 88
 
-/**
- * The most pixels a screenshot may have. A 5K display's screenshot is 14.7M
- * px. A phone's scrolling screenshot reaches the cap at about 1290×12,400 px,
- * well past the point where shrinking it to 1568 px keeps its text readable.
- * Measured locally with one libvips thread, as on the production machine's
- * one CPU, preparing a 16-bit RGBA PNG at the cap peaks around 170 MB.
- */
-export const MAX_SCREENSHOT_PIXELS = 16_000_000
-
 async function prepareImage(
 	imageBase64: string,
 ): Promise<{ data: string; media_type: string }> {
 	const { default: sharp } = await import('sharp')
 	const buf = Buffer.from(imageBase64, 'base64')
-	const optimized = await sharp(buf, {
-		limitInputPixels: MAX_SCREENSHOT_PIXELS,
-	})
-		// Auto-orient first: sharp drops the EXIF orientation tag on write but
-		// does not turn the pixels, so a photo shot in portrait would otherwise
-		// reach the model on its side, with every line of the recipe vertical.
-		.rotate()
-		.resize(IMAGE_MAX_DIMENSION, IMAGE_MAX_DIMENSION, {
-			fit: 'inside',
-			withoutEnlargement: true,
-		})
-		.jpeg({ quality: IMAGE_JPEG_QUALITY })
-		.toBuffer()
+	// The import checks this before a use is claimed; this keeps an image
+	// that got past it from being decoded.
+	const metadata = await sharp(buf, { limitInputPixels: false }).metadata()
+	if (isTooBigToDecode(metadata)) {
+		throw new Error('The image is over the decoded-size limit')
+	}
+	const optimized = await withPhotoSlot(() =>
+		sharp(buf, PHOTO_SHARP_OPTIONS)
+			.timeout({ seconds: PHOTO_JOB_SECONDS })
+			// Auto-orient first: sharp drops the EXIF orientation tag on write but
+			// does not turn the pixels, so a photo shot in portrait would otherwise
+			// reach the model on its side, with every line of the recipe vertical.
+			.rotate()
+			.resize(IMAGE_MAX_DIMENSION, IMAGE_MAX_DIMENSION, {
+				fit: 'inside',
+				withoutEnlargement: true,
+			})
+			.jpeg({ quality: IMAGE_JPEG_QUALITY })
+			.toBuffer(),
+	)
 	return { data: optimized.toString('base64'), media_type: 'image/jpeg' }
 }
 
@@ -540,6 +545,14 @@ export async function extractRecipeFromImages(
 			preparedImages.push(await prepareImage(img.base64))
 		}
 	} catch (error) {
+		if (error instanceof PhotoQueueTimeout) {
+			// Other photos held the server up; nothing about these images.
+			return {
+				error:
+					'Too many photos are being read right now. Try again in a minute.',
+				refundable: true,
+			}
+		}
 		console.error('Image preparation error:', error)
 		return {
 			error:

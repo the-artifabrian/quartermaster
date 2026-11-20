@@ -33,9 +33,9 @@ const solid = () =>
 async function checkedPhoto(name: string, type: string, bytes?: Buffer) {
 	const part = new Uint8Array(bytes ?? (await solid().png().toBuffer()))
 	const file = new File([part], name, { type })
-	const photo = await checkRecipePhoto(file)
-	if (!photo) throw new Error('The fixture photo should pass the check')
-	return photo
+	const result = await checkRecipePhoto(file)
+	if (!result.ok) throw new Error('The fixture photo should pass the check')
+	return result.photo
 }
 
 test.each([

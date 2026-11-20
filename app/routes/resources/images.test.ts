@@ -4,9 +4,12 @@
 // - a `src` naming another site must not make the server fetch it
 // - a stored object whose bytes aren't an image must answer with an error,
 //   not take the process down, and must keep doing so on a repeat
-// - a stored image with more pixels than an upload may have must answer with
-//   an error before it is decoded, in every format and with no size, since
-//   one got in before uploads were checked
+// - a stored image that costs more to decode than an upload may must answer
+//   with an error before it is decoded, in every format and with no size,
+//   since one may have been stored before uploads were checked
+// - a decode waits for its turn with every other photo job
+// - no size serves the photo upright, at most 2048 px, without the stored
+//   bytes' metadata: an upload's EXIF can hold where the photo was taken
 // - a valid stored image still serves, through the signed storage fetch
 //   production uses (its origin must match the allowlist), and its AVIF
 //   transform is cached under the source's own path
@@ -24,9 +27,9 @@
 //   copy
 // - a width or a height on its own is snapped too, so it can't make a
 //   full-size copy per number
-// - no size at all serves the original (the data export links to it), but a
-//   format with no size is refused, since nothing asks for a full-size
-//   re-encode
+// - no size at all serves the photo in its own format (the data export
+//   links to it), but a format with no size is refused, since nothing asks
+//   for one
 // - `fit=cover` (share links) and no fit (every <Img>) mean the same crop,
 //   so they share one cached copy; with no size, `fit=cover` makes no second
 //   full-size copy
@@ -50,7 +53,10 @@ import path from 'node:path'
 import { RouterContextProvider } from 'react-router'
 import sharp from 'sharp'
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { MAX_PHOTO_PIXELS } from '#app/utils/recipe-photo.server.ts'
+import {
+	MAX_DECODED_BYTES,
+	withPhotoSlot,
+} from '#app/utils/recipe-photo.server.ts'
 import { deleteRecipeImage } from '#app/utils/storage.server.ts'
 import '#tests/setup/mocks-setup.ts'
 import { loader } from './images.tsx'
@@ -187,45 +193,112 @@ test('answers with an error for a stored object that is not an image, every time
 	}
 })
 
+/** Bytes stored under a fresh key in the mock bucket, removed on dispose. */
+async function storedBytes(name: string, bytes: Buffer, extension = 'png') {
+	const objectKey = `users/image-route-${name}/recipes/r1/images/1732000000000-${name}.${extension}`
+	const uploads = './tests/fixtures/uploaded'
+	await mkdir(path.join(uploads, path.dirname(objectKey)), { recursive: true })
+	await writeFile(path.join(uploads, objectKey), bytes)
+	return {
+		objectKey,
+		async [Symbol.asyncDispose]() {
+			await clearCachedResizes(objectKey)
+			await rm(path.join(uploads, `users/image-route-${name}`), {
+				recursive: true,
+				force: true,
+			})
+		},
+	}
+}
+
 test.each([
 	['a resize', { w: '72', h: '72' }],
 	['a WebP resize', { w: '72', h: '72', format: 'webp' }],
 	['an AVIF resize', { w: '72', h: '72', format: 'avif' }],
 	['the original', {}],
 ])(
-	'answers with an error for %s of a stored image over the pixel cap',
+	'answers with an error for %s of a stored image over the decoded-size limit',
 	async (_, size) => {
-		const name = `over-cap-${Object.values(size).join('-') || 'original'}`
-		const objectKey = `users/image-route-${name}/recipes/r1/images/1732000000000-${name}.png`
-		const uploads = './tests/fixtures/uploaded'
-		await mkdir(path.join(uploads, path.dirname(objectKey)), {
-			recursive: true,
-		})
-		const edge = Math.floor(Math.sqrt(MAX_PHOTO_PIXELS))
-		await writeFile(
-			path.join(uploads, objectKey),
+		// An 8-bit RGB PNG one row over the limit, small on disk.
+		const width = 4096
+		const height = Math.floor(MAX_DECODED_BYTES / (width * 3)) + 1
+		await using photo = await storedBytes(
+			`over-limit-${Object.values(size).join('-') || 'original'}`,
 			await sharp({
-				create: {
-					width: edge,
-					height: edge + 1,
-					channels: 3,
-					background: '#c86b3c',
-				},
+				create: { width, height, channels: 3, background: '#c86b3c' },
+				limitInputPixels: false,
 			})
 				.png()
 				.toBuffer(),
 		)
-		try {
-			expect(await storedImage(objectKey, size)).toBeInstanceOf(Error)
-		} finally {
-			await clearCachedResizes(objectKey)
-			await rm(path.join(uploads, `users/image-route-${name}`), {
-				recursive: true,
-				force: true,
-			})
-		}
+		const result = await storedImage(photo.objectKey, size)
+		expect(result).toBeInstanceOf(Error)
+		expect(String((result as Error).cause)).toMatch(/decoded-size limit/)
 	},
 )
+
+test('waits for its turn with every other photo job', async () => {
+	await using photo = await storedBytes(
+		'queued',
+		await sharp({
+			create: { width: 40, height: 30, channels: 3, background: '#c86b3c' },
+		})
+			.png()
+			.toBuffer(),
+	)
+	let release!: () => void
+	const held = withPhotoSlot(
+		() => new Promise<void>((resolve) => (release = resolve)),
+	)
+	let settled = false
+	const pending = storedImage(photo.objectKey, {
+		w: '72',
+		h: '72',
+		format: 'webp',
+	}).then((result) => {
+		settled = true
+		return result
+	})
+	await new Promise((resolve) => setTimeout(resolve, 100))
+	expect(settled).toBe(false)
+	release()
+	await held
+	expect(status(await pending)).toBe(200)
+})
+
+test('serves no size upright, at most 2048 px, without the stored metadata', async () => {
+	// A portrait phone photo stored on its side, with its EXIF orientation
+	// and the place it was taken.
+	const jpeg = await sharp({
+		create: { width: 3000, height: 2000, channels: 3, background: '#c86b3c' },
+	})
+		.jpeg()
+		.withExif({
+			IFD0: { Make: 'Apple', Model: 'iPhone 15' },
+			IFD3: { GPSLatitudeRef: 'N', GPSLatitude: '44/1 25/1 0/1' },
+		})
+		.withMetadata({ orientation: 6 })
+		.toBuffer()
+	const stored = await sharp(jpeg).metadata()
+	expect(stored.exif).toBeDefined()
+	expect(jpeg.includes('iPhone 15')).toBe(true)
+	expect(stored.orientation).toBe(6)
+	await using photo = await storedBytes('exif', jpeg, 'jpg')
+
+	const response = await storedImage(photo.objectKey, {})
+	expect(status(response)).toBe(200)
+	const body = Buffer.from(await (response as Response).arrayBuffer())
+	const served = await sharp(body).metadata()
+	expect(served.exif).toBeUndefined()
+	expect(served.orientation).toBeUndefined()
+	expect(body.includes('iPhone 15')).toBe(false)
+	// Turned upright, then fit inside 2048 px.
+	expect({ width: served.width, height: served.height }).toEqual({
+		width: 1365,
+		height: 2048,
+	})
+	expect(served.format).toBe('jpeg')
+})
 
 // The AVIF pipeline is the route's own (a lower encoder effort), so the
 // cache must still file the result where openimg's default pipeline would:

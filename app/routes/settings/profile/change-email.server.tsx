@@ -5,6 +5,7 @@ import {
 	requireRecentVerification,
 	type VerifyFunctionArgs,
 } from '#app/routes/_auth/verify.server.ts'
+import { requireUserId } from '#app/utils/auth.server.ts'
 import { runInBackground } from '#app/utils/background.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
@@ -21,6 +22,15 @@ export async function handleVerification({
 		submission.status === 'success',
 		'Submission should be successful by now',
 	)
+	// The code was checked against `target`; it may only change the email of
+	// the user who is signed in.
+	const userId = await requireUserId(request)
+	if (submission.value.target !== userId) {
+		return data(
+			{ result: submission.reply({ fieldErrors: { code: ['Invalid code'] } }) },
+			{ status: 400 },
+		)
+	}
 
 	const verifySession = await verifySessionStorage.getSession(
 		request.headers.get('cookie'),
@@ -40,13 +50,18 @@ export async function handleVerification({
 	}
 	const preUpdateUser = await prisma.user.findFirstOrThrow({
 		select: { email: true },
-		where: { id: submission.value.target },
+		where: { id: userId },
 	})
-	const user = await prisma.user.update({
-		where: { id: submission.value.target },
-		select: { id: true, email: true, username: true },
-		data: { email: newEmail },
-	})
+	const [, user] = await prisma.$transaction([
+		prisma.verification.delete({
+			where: { target_type: { target: userId, type: 'change-email' } },
+		}),
+		prisma.user.update({
+			where: { id: userId },
+			select: { id: true, email: true, username: true },
+			data: { email: newEmail },
+		}),
+	])
 
 	runInBackground(
 		sendEmail({

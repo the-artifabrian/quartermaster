@@ -1,7 +1,11 @@
+import { invariant } from '@epic-web/invariant'
 import { faker } from '@faker-js/faker'
+import { type Page } from '@playwright/test'
 import { generateTOTP } from '#app/utils/totp.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { authSessionStorage } from '#app/utils/session.server.ts'
+import { readEmail } from '#tests/mocks/utils.ts'
+import { expect, test, waitFor } from '#tests/playwright-utils.ts'
 
 test('Users can add 2FA to their account and use it when logging in', async ({
 	page,
@@ -100,4 +104,81 @@ test('Reverifying from Settings lands on the page the user opened, not its data'
 	await expect(page).toHaveURL('/settings/profile/change-email')
 	await expect(page.getByRole('textbox', { name: 'New Email' })).toBeVisible()
 	await expect(page.getByText(user.email)).toBeVisible()
+})
+
+// Moves this browser's last 2FA verification back in time, as if it happened
+// `hoursAgo` hours ago.
+async function ageVerification(page: Page, hoursAgo: number) {
+	const cookies = await page.context().cookies()
+	const authCookie = cookies.find((cookie) => cookie.name === 'en_session')
+	invariant(authCookie, 'Not signed in')
+	const authSession = await authSessionStorage.getSession(
+		`en_session=${authCookie.value}`,
+	)
+	authSession.set('verified-time', Date.now() - hoursAgo * 60 * 60 * 1000)
+	const committed = await authSessionStorage.commitSession(authSession)
+	const value = committed.split(';')[0]!.slice('en_session='.length)
+	await page.context().addCookies([{ ...authCookie, value }])
+}
+
+test('A change of email survives a reverify in the middle', async ({
+	page,
+	navigate,
+	login,
+}) => {
+	const user = await login()
+	const { otp: _otp, ...totpConfig } = await generateTOTP()
+	// Verification rows aren't tied to the user, so the test removes its own.
+	await prisma.verification.create({
+		data: { ...totpConfig, type: '2fa', target: user.id },
+	})
+	try {
+		const enterTOTP = async () => {
+			await expect(page.getByText(/check your 2fa app/i)).toBeVisible()
+			await page
+				.getByRole('textbox', { name: /code/i })
+				.fill((await generateTOTP(totpConfig)).otp)
+			await page.getByRole('button', { name: /submit/i }).click()
+		}
+
+		await navigate('/settings/profile/change-email')
+		await enterTOTP()
+		await expect(page).toHaveURL('/settings/profile/change-email')
+
+		const newEmailAddress = faker.internet.email().toLowerCase()
+		await page
+			.getByRole('textbox', { name: /new email/i })
+			.fill(newEmailAddress)
+		await page.getByRole('button', { name: /send confirmation/i }).click()
+		await expect(page.getByText(/check your email/i)).toBeVisible()
+		const email = await waitFor(() => readEmail(newEmailAddress), {
+			errorMessage: 'Confirmation email was not sent',
+		})
+		const code = email.text.match(
+			/Here's your verification code: (?<code>[\d\w]+)/,
+		)?.groups?.code
+		invariant(code, 'Code not found in the email')
+
+		// The code arrives after this browser's verification has gone stale.
+		await ageVerification(page, 3)
+		await page.getByRole('textbox', { name: /code/i }).fill(code)
+		await page.getByRole('button', { name: /submit/i }).click()
+
+		await enterTOTP()
+		// Back on the email step, the same code still works.
+		await expect(page.getByText(/check your email/i)).toBeVisible()
+		await page.getByRole('textbox', { name: /code/i }).fill(code)
+		await page.getByRole('button', { name: /submit/i }).click()
+
+		await expect(page.getByText(/email changed/i)).toBeVisible()
+		await expect(page).toHaveURL('/settings/profile')
+		expect(
+			await prisma.user.findUniqueOrThrow({
+				where: { id: user.id },
+				select: { email: true },
+			}),
+		).toEqual({ email: newEmailAddress })
+	} finally {
+		await prisma.verification.deleteMany({ where: { target: user.id } })
+	}
 })

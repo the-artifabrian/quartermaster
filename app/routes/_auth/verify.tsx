@@ -35,7 +35,14 @@ export async function action({ request }: Route.ActionArgs) {
 	return validateRequest(request, formData)
 }
 
-export default function VerifyRoute({ actionData }: Route.ComponentProps) {
+export default function VerifyRoute(props: Route.ComponentProps) {
+	const [searchParams] = useSearchParams()
+	// One verification can send the user through another (a reverify) and back
+	// to this route; each step's form starts over with its own type and target.
+	return <VerifyStep key={searchParams.toString()} {...props} />
+}
+
+function VerifyStep({ actionData }: Route.ComponentProps) {
 	const [searchParams] = useSearchParams()
 	const isPending = useIsPending()
 	const parseWithZoddType = VerificationTypeSchema.safeParse(

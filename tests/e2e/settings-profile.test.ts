@@ -1,6 +1,9 @@
 import { invariant } from '@epic-web/invariant'
 import { faker } from '@faker-js/faker'
-import { verifyUserPassword } from '#app/utils/auth.server.ts'
+import {
+	getSessionExpirationDate,
+	verifyUserPassword,
+} from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { readEmail } from '#tests/mocks/utils.ts'
 import { expect, test, createUser, waitFor } from '#tests/playwright-utils.ts'
@@ -34,6 +37,11 @@ test('Users can update their password', async ({ page, navigate, login }) => {
 	const oldPassword = faker.internet.password()
 	const newPassword = faker.internet.password()
 	const user = await login({ password: oldPassword })
+	// The same user signed in on another device.
+	const otherDevice = await prisma.session.create({
+		data: { expirationDate: getSessionExpirationDate(), userId: user.id },
+		select: { id: true },
+	})
 	await navigate('/settings/profile')
 
 	await page.getByRole('link', { name: /^password$/i }).click()
@@ -49,6 +57,18 @@ test('Users can update their password', async ({ page, navigate, login }) => {
 	await page.getByRole('button', { name: /^change password/i }).click()
 
 	await expect(page).toHaveURL(`/settings/profile`)
+	// This device stays signed in; the other one is signed out.
+	await navigate('/settings/profile/password')
+	await expect(page).toHaveURL('/settings/profile/password')
+	await expect(
+		page.getByRole('textbox', { name: /^current password/i }),
+	).toBeVisible()
+	expect(
+		await prisma.session.findMany({
+			where: { userId: user.id },
+			select: { id: true },
+		}),
+	).toEqual([expect.not.objectContaining({ id: otherDevice.id })])
 
 	const { username } = user
 	expect(

@@ -5,12 +5,14 @@
 // - a stored object whose bytes aren't an image must answer with an error,
 //   not take the process down, and must keep doing so on a repeat
 // - an oversized width or height must be refused before sharp allocates it
-// - a valid stored image still serves, and its AVIF transform is cached
-//   under the source's own path
+// - a valid stored image still serves, through the signed storage fetch
+//   production uses (its origin must match the allowlist), and its AVIF
+//   transform is cached under the source's own path
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { RouterContextProvider } from 'react-router'
 import { afterEach, expect, test, vi } from 'vitest'
+import '#tests/setup/mocks-setup.ts'
 import { loader } from './images.tsx'
 
 const BASE_URL = 'https://useqm.app'
@@ -67,11 +69,7 @@ test('answers with an error for a stored object that is not an image, every time
 			const result = await storedImage('image-route-test/not-an-image.jpg', {
 				format: 'webp',
 			})
-			if (result instanceof Response) {
-				expect(result.status, `attempt ${attempt}`).toBeGreaterThanOrEqual(400)
-			} else {
-				expect(result, `attempt ${attempt}`).toBeInstanceOf(Error)
-			}
+			expect(result, `attempt ${attempt}`).toBeInstanceOf(Error)
 		}
 	} finally {
 		await rm(directory, { recursive: true, force: true })
@@ -79,10 +77,10 @@ test('answers with an error for a stored object that is not an image, every time
 })
 
 test.each([
-	['width', { w: '16000', h: '16' }],
-	['height', { w: '16', h: '16000' }],
-	['non-numeric width', { w: 'wide', h: '16' }],
-])('refuses an oversized %s', async (_, size) => {
+	['an oversized width', { w: '16000', h: '16' }],
+	['an oversized height', { w: '16', h: '16000' }],
+	['a non-numeric width', { w: 'wide', h: '16' }],
+])('refuses %s', async (_, size) => {
 	const response = await storedImage('notes/0.png', size)
 	expect(response).toBeInstanceOf(Response)
 	expect((response as Response).status).toBe(400)
@@ -119,4 +117,17 @@ test('serves an AVIF transform of a stored image and caches it under the source 
 		(file) => file.includes(path.join('notes', '0-png')) && file.endsWith('.avif'),
 	)
 	expect(cached).toHaveLength(1)
+})
+
+test('serves a stored image through the signed storage fetch', async () => {
+	vi.stubEnv('MOCKS', 'false')
+	const response = await request({
+		objectKey: 'notes/1.png',
+		w: '24',
+		h: '24',
+		format: 'webp',
+	})
+	expect(response).toBeInstanceOf(Response)
+	expect((response as Response).status).toBe(200)
+	expect((response as Response).headers.get('content-type')).toBe('image/webp')
 })

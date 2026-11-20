@@ -20,8 +20,10 @@ export function getImgSrc({
 	if (src.startsWith(optimizerEndpoint)) {
 		const [endpoint, query] = src.split('?')
 		const searchParams = new URLSearchParams(query)
-		searchParams.set('h', height.toString())
-		searchParams.set('w', width.toString())
+		// openimg derives a candidate's height from the aspect ratio, so it can
+		// be fractional; the image route takes whole pixels.
+		searchParams.set('h', Math.round(height).toString())
+		searchParams.set('w', Math.round(width).toString())
 		if (fit) {
 			searchParams.set('fit', fit)
 		}

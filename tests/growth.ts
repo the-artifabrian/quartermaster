@@ -31,16 +31,18 @@ export function bestMs(run: () => unknown, times: number) {
  * How much longer the input at SPREAD times the size takes. Both sides run
  * once first to warm up. Each side then repeats its run enough times to take
  * a few milliseconds, so timer resolution doesn't decide the ratio, and the
- * best of five counts. A large input past the backstop on its warm-up run
- * isn't timed again, so a regression fails fast instead of running for
- * minutes.
+ * best of five counts. The backstop applies to a warmed-up run. A large
+ * input whose warm-up run takes five times the backstop isn't timed again,
+ * so a regression fails fast instead of running for minutes.
  */
 export function growth(build: (size: number) => () => unknown) {
 	const small = build(1)
 	const large = build(SPREAD)
 	small()
-	if (elapsedMs(large, 1) >= BACKSTOP_MS)
+	// A warm-up run this slow is already a failure; skip the timed runs.
+	if (elapsedMs(large, 1) >= 5 * BACKSTOP_MS) {
 		return { ratio: Infinity, largeMs: Infinity }
+	}
 	const largeMs = elapsedMs(large, 1)
 	let times = 1
 	while (elapsedMs(small, times) < 5 && times < 1 << 16) times *= 2

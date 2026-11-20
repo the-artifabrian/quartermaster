@@ -121,7 +121,7 @@ const validatedSchema = schema.superRefine((env, ctx) => {
 			code: 'custom',
 			path: ['APP_ORIGIN'],
 			message:
-				'required in production — the origin for emailed links, robots.txt, passkeys and the HTTPS redirect, e.g. https://useqm.app',
+				'required in production. Emailed links, robots.txt, passkeys and the HTTPS redirect use it. Set it to the site origin, such as https://useqm.app',
 		})
 	}
 })

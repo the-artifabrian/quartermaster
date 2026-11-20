@@ -355,8 +355,8 @@ high-value AI path.
   (`app/utils/app-origin.ts`): emailed verification links, robots.txt and the
   sitemap, OG URLs, the passkey relying party, Stripe return URLs and the
   HTTP→HTTPS redirect. None comes from the request, whose `Host` and
-  `X-Forwarded-*` headers the client controls. Outside production it defaults
-  to `http://localhost:$PORT`.
+  `X-Forwarded-*` headers the client controls. Outside production it defaults to
+  `http://localhost:$PORT`.
 
 Before a multi-machine deployment, all of these must be designed, wired, and
 tested together:
@@ -424,4 +424,4 @@ the images sent, or nothing found when the Household has a metadata value named
 first result, even `false`. To wait on async page state such as Cache Storage,
 use `expect.poll(() => page.evaluate(async () => …))`.
 
-_Updated 8 October 2026._
+_Updated 20 November 2026._

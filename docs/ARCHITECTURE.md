@@ -517,8 +517,8 @@ high-value AI path.
   - the passkey relying party ID and origin;
   - Stripe checkout and portal return URLs;
   - the HTTP→HTTPS redirect, and the 301 from `www.` plus its host to it
-    (`server/https-redirect.ts`). Only GET and HEAD move, other hosts such as
-    fly.dev don't, and the healthcheck never does;
+    (`server/https-redirect.ts`). The 301 is for GET and HEAD on the www host
+    alone, so fly.dev and Fly's healthcheck are never redirected;
   - the referrer check that picks the page to return to after Google login.
 
   Redirects within the site stay relative, so the browser keeps the host it used
@@ -533,7 +533,8 @@ high-value AI path.
   the server warns at boot and rate limits key on `fly-client-ip`. If it is set
   but requests through Cloudflare stop carrying it, they key on `fly-client-ip`
   too, and the server logs a warning with their count at most once an hour,
-  without the header's value.
+  without the header's value. Only requests for APP_ORIGIN's host count, since
+  anyone can send Cloudflare's headers to the fly.dev host.
 
 Before a multi-machine deployment, all of these must be designed, wired, and
 tested together:

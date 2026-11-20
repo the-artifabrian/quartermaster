@@ -1,12 +1,7 @@
 import { type RequestHandler } from 'express'
-import { getAppOrigin } from '#app/utils/app-origin.server.ts'
+import { getAppOrigin, hostName } from '#app/utils/app-origin.server.ts'
 
 const HEALTHCHECK_PATH = '/resources/healthcheck'
-
-/** The Host header in lower case, without its port. */
-function requestHost(header: string | undefined) {
-	return (header ?? '').toLowerCase().replace(/:\d+$/, '')
-}
 
 /**
  * Two redirects, both to APP_ORIGIN's host, never the request's Host or
@@ -23,9 +18,12 @@ export function httpsRedirect(): RequestHandler {
 	return (req, res, next) => {
 		if (req.method !== 'GET' && req.method !== 'HEAD') return next()
 		if (req.path === HEALTHCHECK_PATH) return next()
+		// Only a path can follow the origin. A target in absolute form
+		// ("GET http://…") would make the Location the origin glued to it.
+		if (!req.originalUrl.startsWith('/')) return next()
 		if (process.env.NODE_ENV === 'production') {
 			const app = new URL(getAppOrigin())
-			if (requestHost(req.get('Host')) === `www.${app.hostname}`) {
+			if (hostName(req.get('Host')) === `www.${app.hostname}`) {
 				res.redirect(301, `${app.origin}${req.originalUrl}`)
 				return
 			}

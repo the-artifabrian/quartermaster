@@ -19,6 +19,10 @@ import { httpsRedirect } from './https-redirect.ts'
 // 9. A POST on www passes through, so a form submission isn't turned into a
 //    GET.
 // 10. Outside production nothing moves.
+// 11. A host with a trailing dot ("www.app.example.") is the same host.
+// 12. A request target that isn't a path (absolute form, or anything else
+//     that doesn't start with "/") never moves, so the Location can't be the
+//     origin glued to another URL.
 
 const APP_ORIGIN = 'https://app.example'
 
@@ -181,4 +185,31 @@ test('outside production www passes through', () => {
 			headers: { 'X-Forwarded-Proto': 'https', Host: 'www.app.example' },
 		}),
 	).toEqual(passedThrough)
+})
+
+test('www with a trailing dot moves to the app origin', () => {
+	expect(
+		run({
+			headers: { 'X-Forwarded-Proto': 'https', Host: 'www.app.example.' },
+		}),
+	).toMatchObject({
+		location: 'https://app.example/recipes?view=all',
+		status: 301,
+	})
+})
+
+test('a request target that is not a path never redirects', () => {
+	for (const url of [
+		'http://app.example/recipes',
+		'a.evil.com://x',
+		'https:evil.com',
+		'*',
+	]) {
+		for (const headers of [
+			{ 'X-Forwarded-Proto': 'https', Host: 'www.app.example' },
+			{ 'X-Forwarded-Proto': 'http', Host: 'app.example' },
+		]) {
+			expect(run({ url, headers })).toEqual(passedThrough)
+		}
+	}
 })

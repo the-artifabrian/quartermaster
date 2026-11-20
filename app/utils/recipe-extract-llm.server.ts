@@ -435,8 +435,7 @@ export function parseExtractResponse(
 
 /**
  * A failed extraction. `refundable` is true when the caller should give back
- * the daily use: see `isRefundableFailure`, and an image that could not be
- * prepared, which fails before any request goes out.
+ * the daily use (see `isRefundableFailure`).
  */
 export type ExtractionFailure = { error: string; refundable: boolean }
 
@@ -534,8 +533,9 @@ export async function extractRecipeFromImages(
 		return {
 			error:
 				'Could not process the image(s). Please try different images or formats.',
-			// Nothing was sent to the model, so there is nothing to pay for.
-			refundable: true,
+			// A broken upload is the user's to cause, and preparing it costs us
+			// CPU, so the use stays spent.
+			refundable: false,
 		}
 	}
 

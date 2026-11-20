@@ -19,8 +19,8 @@
  * 8. Text extraction times out: the use stays spent.
  * 9. The model refuses: the use stays spent.
  * 10. Screenshot import with a file that is not an image spends a use.
- * 11. An image that passes the byte check but can't be prepared fails before
- *     any request goes out: the use must come back.
+ * 11. An image that passes the byte check but can't be prepared: the user
+ *     can send these at will and each costs us CPU, so the use stays spent.
  * 12. Enhance on a Recipe that does not exist spends a use.
  * 13. Enhance on another household's Recipe spends a use.
  * 14. Enhance gets a 429: the use must come back.
@@ -384,7 +384,7 @@ describe('AI extraction', () => {
 	})
 })
 
-test('an image that can’t be prepared gives the use back', async () => {
+test('an image that can’t be prepared keeps the use spent', async () => {
 	using _anthropic = withEnv('ANTHROPIC_API_KEY', 'test-key')
 	consoleError.mockImplementation(() => {})
 	const session = await proUser()
@@ -412,7 +412,7 @@ test('an image that can’t be prepared gives the use back', async () => {
 		'Could not process the image(s). Please try different images or formats.',
 	)
 	expect(modelCalls).toBe(0)
-	expect(await uses(session.userId)).toBe(0)
+	expect(await uses(session.userId)).toBe(1)
 })
 
 describe('Recipe enhance', () => {

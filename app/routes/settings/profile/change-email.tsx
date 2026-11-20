@@ -87,7 +87,7 @@ export async function action({ request }: Route.ActionArgs) {
 	if (response.status === 'success') {
 		const verifySession = await verifySessionStorage.getSession()
 		verifySession.set(newEmailAddressSessionKey, submission.value.email)
-		return redirect(redirectTo.toString(), {
+		return redirect(redirectTo, {
 			headers: {
 				'set-cookie': await verifySessionStorage.commitSession(verifySession),
 			},

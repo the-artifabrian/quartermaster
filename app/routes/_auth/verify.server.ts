@@ -54,6 +54,10 @@ export function getRedirectToUrl({
 	return redirectToUrl
 }
 
+function pathAndSearch(url: URL) {
+	return `${url.pathname}${url.search}`
+}
+
 export async function requireRecentVerification(request: Request) {
 	const userId = await requireUserId(request)
 	const shouldReverify = await shouldRequestTwoFA(request)
@@ -64,7 +68,7 @@ export async function requireRecentVerification(request: Request) {
 			// A client navigation asks for the page's data; come back to the page.
 			redirectTo: pagePathOf(new URL(request.url)),
 		})
-		throw await redirectWithToast(redirectUrl.toString(), {
+		throw await redirectWithToast(pathAndSearch(redirectUrl), {
 			title: 'Please Reverify',
 			description: 'Please reverify your account before proceeding',
 		})
@@ -87,7 +91,9 @@ export async function prepareVerification({
 		target,
 		redirectTo: destination,
 	})
-	const redirectTo = new URL(verifyUrl.toString())
+	// Where the browser goes next. Relative, so it stays on the host it used
+	// and keeps its cookies; only the emailed link needs APP_ORIGIN.
+	const redirectTo = pathAndSearch(verifyUrl)
 
 	const { otp, ...verificationConfig } = await generateTOTP({
 		algorithm: 'SHA-256',

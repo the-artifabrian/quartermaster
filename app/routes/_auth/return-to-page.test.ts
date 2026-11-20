@@ -64,7 +64,9 @@ test('reverifying from a client navigation comes back to the page, not its data'
 		{ twoFA: true },
 	)
 	const response = await thrownResponse(requireRecentVerification(request))
-	expect(new URL(response.headers.get('location')!).pathname).toBe('/verify')
+	expect(new URL(response.headers.get('location')!, BASE_URL).pathname).toBe(
+		'/verify',
+	)
 	expect(redirectToOf(response)).toBe('/settings/profile/change-email')
 })
 

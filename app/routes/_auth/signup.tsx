@@ -75,7 +75,7 @@ export async function action({ request }: Route.ActionArgs) {
 	})
 
 	if (response.status === 'success') {
-		return redirect(redirectTo.toString())
+		return redirect(redirectTo)
 	} else {
 		return data(
 			{

@@ -39,6 +39,8 @@ export default defineConfig({
 		env: {
 			PORT,
 			NODE_ENV: 'test',
+			// `start:mocks` runs in production mode, which requires APP_ORIGIN.
+			APP_ORIGIN: `http://localhost:${PORT}`,
 			// A made-up Team ID so the apple-app-site-association file is served.
 			APPLE_TEAM_ID: 'ABCDE12345',
 			// Never the developer's real key: requests with this one get canned

@@ -74,7 +74,6 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 	const { otp, redirectTo, verifyUrl } = await prepareVerification({
 		period: 10 * 60,
-		request,
 		target: userId,
 		type: 'change-email',
 	})

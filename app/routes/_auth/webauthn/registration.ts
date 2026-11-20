@@ -4,7 +4,8 @@ import {
 } from '@simplewebauthn/server'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { getDomainUrl, getErrorMessage } from '#app/utils/misc.tsx'
+import { getAppOrigin } from '#app/utils/app-origin.ts'
+import { getErrorMessage } from '#app/utils/misc.tsx'
 import { type Route } from './+types/registration.ts'
 import {
 	PasskeyCookieSchema,
@@ -24,7 +25,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		select: { email: true, name: true, username: true },
 	})
 
-	const config = getWebAuthnConfig(request)
+	const config = getWebAuthnConfig()
 	const options = await generateRegistrationOptions({
 		rpName: config.rpName,
 		rpID: config.rpID,
@@ -77,9 +78,8 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 		const { challenge, userId: webauthnUserId } = parsedPasskeyCookieData.data
 
-		const domain = new URL(getDomainUrl(request)).hostname
-		const rpID = domain
-		const origin = getDomainUrl(request)
+		const origin = getAppOrigin()
+		const rpID = new URL(origin).hostname
 
 		const verification = await verifyRegistrationResponse({
 			response: data,

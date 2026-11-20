@@ -25,15 +25,15 @@ import { action } from './index.ts'
 
 const BASE_URL = 'https://useqm.app'
 
-function post(body?: Record<string, string>, referrer?: string) {
+async function post(body?: Record<string, string>, referrer?: string) {
+	// The referrer counts as the app's own page only on APP_ORIGIN.
+	vi.stubEnv('APP_ORIGIN', BASE_URL)
+	using _env = { [Symbol.dispose]: () => vi.unstubAllEnvs() }
 	const url = new URL(`${BASE_URL}/auth/google`)
-	return action({
+	return await action({
 		request: new Request(url, {
 			method: 'POST',
-			headers: {
-				'X-Forwarded-Proto': 'https',
-				...(referrer ? { referer: `${BASE_URL}${referrer}` } : {}),
-			},
+			headers: referrer ? { referer: `${BASE_URL}${referrer}` } : {},
 			...(body ? { body: new URLSearchParams(body) } : {}),
 		}),
 		params: { provider: 'google' },

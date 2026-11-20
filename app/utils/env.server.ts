@@ -4,12 +4,39 @@ import { z } from 'zod'
 // '' the same as unset before validating.
 const emptyAsUndefined = (value: unknown) => (value === '' ? undefined : value)
 
+// An exact http(s) origin: no path, query or trailing slash, which would turn
+// `${origin}/verify` into a different URL.
+function isBareOrigin(value: string) {
+	if (!URL.canParse(value)) return false
+	const url = new URL(value)
+	return (
+		(url.protocol === 'https:' || url.protocol === 'http:') &&
+		url.origin === value
+	)
+}
+
 const schema = z.object({
 	NODE_ENV: z.enum(['production', 'development', 'test'] as const),
 	DATABASE_PATH: z.string(),
 	DATABASE_URL: z.string(),
 	DATA_VOLUME_PATH: z.string().optional(),
 	SESSION_SECRET: z.string(),
+	// The origin every absolute URL is built from (app/utils/app-origin.ts):
+	// emailed verification links, robots.txt and the sitemap, OG URLs, the
+	// WebAuthn relying party, the HTTPS redirect. Never derived from the
+	// request, whose Host and X-Forwarded-* headers the client controls.
+	// Required in production (the refinement below); elsewhere it defaults to
+	// http://localhost:$PORT.
+	APP_ORIGIN: z.preprocess(
+		emptyAsUndefined,
+		z
+			.string()
+			.refine(
+				isBareOrigin,
+				'must be a bare origin such as https://useqm.app (http or https, no path or trailing slash)',
+			)
+			.optional(),
+	),
 	INTERNAL_COMMAND_TOKEN: z.string(),
 	// Everything that reads this compares === 'true' (index.ts,
 	// resources/images.tsx, the production guard below). Validating it here
@@ -87,6 +114,16 @@ const validatedSchema = schema.superRefine((env, ctx) => {
 				'required in production — without it every verification, password-reset and email-change email is dropped silently',
 		})
 	}
+	// No MOCKS exemption: production must never fall back to a default origin,
+	// and the Playwright server (production mode with mocks) sets its own.
+	if (env.NODE_ENV === 'production' && !env.APP_ORIGIN) {
+		ctx.addIssue({
+			code: 'custom',
+			path: ['APP_ORIGIN'],
+			message:
+				'required in production — the origin for emailed links, robots.txt, passkeys and the HTTPS redirect, e.g. https://useqm.app',
+		})
+	}
 })
 
 declare global {
@@ -95,8 +132,12 @@ declare global {
 	}
 }
 
+export function parseEnv(env: Record<string, string | undefined>) {
+	return validatedSchema.safeParse(env)
+}
+
 export function init() {
-	const parsed = validatedSchema.safeParse(process.env)
+	const parsed = parseEnv(process.env)
 
 	if (parsed.success === false) {
 		console.error(

@@ -349,6 +349,14 @@ high-value AI path.
 - Full JSON import accepts older exports and restores durable household data.
 - LiteFS migration details and restore commands live in
   [RESTORE.md](./RESTORE.md).
+- Production requires the `APP_ORIGIN` secret (`https://useqm.app`), checked
+  with the rest of the environment by `app/utils/env.server.ts` before
+  migrations run. Every absolute URL the app hands out comes from it
+  (`app/utils/app-origin.ts`): emailed verification links, robots.txt and the
+  sitemap, OG URLs, the passkey relying party, Stripe return URLs and the
+  HTTP→HTTPS redirect. None comes from the request, whose `Host` and
+  `X-Forwarded-*` headers the client controls. Outside production it defaults
+  to `http://localhost:$PORT`.
 
 Before a multi-machine deployment, all of these must be designed, wired, and
 tested together:

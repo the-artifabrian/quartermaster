@@ -48,7 +48,8 @@ import { ClientHintCheck, getHints } from './utils/client-hints.tsx'
 import { prisma } from './utils/db.server.ts'
 import { getEnv } from './utils/env.server.ts'
 import { pipeHeaders } from './utils/headers.server.ts'
-import { cn, combineHeaders, getDomainUrl, getImgSrc } from './utils/misc.tsx'
+import { getAppOrigin } from './utils/app-origin.ts'
+import { cn, combineHeaders, getImgSrc } from './utils/misc.tsx'
 import { isNativeShell } from './utils/native-shell.server.ts'
 import { useNavDirection } from './utils/nav-direction.ts'
 import { useNonce } from './utils/nonce-provider.ts'
@@ -207,7 +208,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			householdName,
 			requestInfo: {
 				hints: getHints(request),
-				origin: getDomainUrl(request),
+				origin: getAppOrigin(),
 				path: new URL(request.url).pathname,
 				isNativeShell: isNativeShell(request),
 				userPrefs: {

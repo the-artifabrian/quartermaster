@@ -9,7 +9,8 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { isCodeValid } from '#app/routes/_auth/verify.server.ts'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { getDomainUrl, useIsPending } from '#app/utils/misc.tsx'
+import { getAppOrigin } from '#app/utils/app-origin.ts'
+import { useIsPending } from '#app/utils/misc.tsx'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { getTOTPAuthUri } from '#app/utils/totp.server.ts'
 import { type SettingsPageHandle } from '../../profile/_layout.tsx'
@@ -55,7 +56,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		where: { id: userId },
 		select: { email: true },
 	})
-	const issuer = new URL(getDomainUrl(request)).host
+	const issuer = new URL(getAppOrigin()).host
 	const otpUri = getTOTPAuthUri({
 		...verification,
 		accountName: user.email,

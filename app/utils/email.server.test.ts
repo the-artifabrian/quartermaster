@@ -1,5 +1,5 @@
 import { HttpResponse, delay, http } from 'msw'
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { server } from '#tests/setup/mocks-setup.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { sendEmail } from './email.server.ts'
@@ -13,6 +13,12 @@ const message = {
 	html: '<p>otp</p>',
 	text: 'otp',
 }
+
+// Production boot also requires APP_ORIGIN; set it so these tests are only
+// about the email settings.
+beforeEach(() => {
+	vi.stubEnv('APP_ORIGIN', 'https://app.example')
+})
 
 afterEach(() => {
 	vi.unstubAllEnvs()

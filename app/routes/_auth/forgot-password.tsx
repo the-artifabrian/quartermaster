@@ -44,7 +44,6 @@ export async function action({ request }: Route.ActionArgs) {
 		try {
 			const { verifyUrl, otp } = await prepareVerification({
 				period: 10 * 60,
-				request,
 				type: 'reset-password',
 				target: usernameOrEmail,
 			})

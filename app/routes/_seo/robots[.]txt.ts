@@ -1,8 +1,7 @@
 import { generateRobotsTxt } from '@nasa-gcn/remix-seo'
-import { getDomainUrl } from '#app/utils/misc.tsx'
-import { type Route } from './+types/robots[.]txt.ts'
+import { getAppOrigin } from '#app/utils/app-origin.ts'
 
-export function loader({ request }: Route.LoaderArgs) {
+export function loader() {
 	return generateRobotsTxt([
 		{ type: 'disallow', value: '/settings' },
 		{ type: 'disallow', value: '/resources' },
@@ -13,6 +12,6 @@ export function loader({ request }: Route.LoaderArgs) {
 		{ type: 'disallow', value: '/inventory' },
 		{ type: 'disallow', value: '/plan' },
 		{ type: 'disallow', value: '/shopping' },
-		{ type: 'sitemap', value: `${getDomainUrl(request)}/sitemap.xml` },
+		{ type: 'sitemap', value: `${getAppOrigin()}/sitemap.xml` },
 	])
 }

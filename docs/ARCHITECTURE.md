@@ -465,7 +465,9 @@ high-value AI path.
   - the TOTP issuer shown in authenticator apps;
   - the passkey relying party ID and origin;
   - Stripe checkout and portal return URLs;
-  - the HTTP→HTTPS redirect;
+  - the HTTP→HTTPS redirect, and the 301 from `www.` plus its host to it
+    (`server/https-redirect.ts`). Only GET and HEAD move, other hosts such as
+    fly.dev don't, and the healthcheck never does;
   - the referrer check that picks the page to return to after Google login.
 
   Redirects within the site stay relative, so the browser keeps the host it used

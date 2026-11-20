@@ -32,7 +32,17 @@
 // Deleting a photo:
 // - its cached resizes go with it, so it stops being served, in mocks mode
 //   and through storage; another photo's resizes stay
-import { copyFile, mkdir, readdir, rm, writeFile } from 'node:fs/promises'
+// - a resize that was being made when the photo was deleted, and lands in
+//   the cache after that, goes a couple of minutes later. The cache is far
+//   under the prune limit in production, so nothing else would remove it.
+import {
+	copyFile,
+	mkdir,
+	readFile,
+	readdir,
+	rm,
+	writeFile,
+} from 'node:fs/promises'
 import path from 'node:path'
 import { RouterContextProvider } from 'react-router'
 import sharp from 'sharp'
@@ -377,5 +387,34 @@ describe('deleting a photo', () => {
 			status(await request({ objectKey: photo.objectKey, w: '72', h: '72' })),
 		).toBe(404)
 		expect(await cachedResizes(PHOTO)).toEqual(otherBefore)
+	})
+
+	test('a resize that lands after the delete goes a couple of minutes later', async () => {
+		await using photo = await uploadedPhoto('late')
+		vi.stubEnv('MOCKS', 'true')
+		const response = await request({
+			objectKey: photo.objectKey,
+			w: '72',
+			h: '72',
+		})
+		expect(status(response)).toBe(200)
+		await (response as Response).arrayBuffer()
+		const [resize] = await cachedResizes(photo.objectKey)
+		const bytes = await readFile(resize!)
+
+		vi.useFakeTimers({ toFake: ['setTimeout'] })
+		try {
+			await deleteRecipeImage(photo.objectKey)
+			expect(await cachedResizes(photo.objectKey)).toEqual([])
+			// The resize that was being made when the photo went lands now.
+			await writeFile(resize!, bytes)
+
+			await vi.advanceTimersByTimeAsync(3 * 60 * 1000)
+			await vi.waitFor(async () =>
+				expect(await cachedResizes(photo.objectKey)).toEqual([]),
+			)
+		} finally {
+			vi.useRealTimers()
+		}
 	})
 })

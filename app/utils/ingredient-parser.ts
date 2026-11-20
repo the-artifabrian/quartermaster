@@ -1,3 +1,4 @@
+import { parseAmount } from './fractions.ts'
 import {
 	MAX_INGREDIENT_AMOUNT_LENGTH,
 	MAX_INGREDIENT_NAME_LENGTH,
@@ -382,6 +383,46 @@ const LEADING_AMOUNT =
 const PACK_SIZE_AMOUNT =
 	/^(~?[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*\s*[x×]\s*\d(?:[\d.\/]|,(?=\d))*)(?:\s*([a-zA-Z]+\.?))?\s+(\S.*|[^\S\n\r\u2028\u2029])$/
 
+// An amount with spaces between thousands, as French sites write it ("1 000
+// g", "1 000,5 kg"), with a plain, no-break or narrow no-break space. Nothing
+// may follow it that would carry on the number.
+const SPACED_AMOUNT =
+	/^(~?)(\d{1,3}(?:[ \u00A0\u202F]\d{3})+(?:[.,]\d+)?)(?![\d\/.,\-–])/
+
+/**
+ * A container word at the start of a name. After an amount, a unit and one
+ * of these, the first number counts the containers: "2 400 g tins tomatoes"
+ * is two 400 g tins.
+ */
+export const CONTAINER_START =
+	/^(?:tins?|cans?|jars?|bars?|packs?|packets?|bottles?|cartons?|sachets?|tubs?)\b/i
+
+/**
+ * A line that starts with thousands split by spaces, parsed with the amount
+ * kept whole and spelled as the source wrote it. The groups stay together
+ * when a unit follows ("2 400 g tomatoes", "1 500 g flour"), even
+ * when parseAmount can't give the amount one value; it then stays as written
+ * and out of sums. With no unit they stay together only when they read as
+ * one number ("1 000 eggs"), so "6 100 calorie packs" is still six packs. A
+ * container after the unit keeps the first number a count of them, so "2 400
+ * g tins tomatoes" is two tins, as it read before. Null when the line doesn't
+ * start that way, or the groups don't stay.
+ */
+function parseSpacedAmountLine(line: string): ParsedIngredient | null {
+	const spaced = SPACED_AMOUNT.exec(line)
+	if (!spaced) return null
+	const [whole, about, number] = spaced
+	// The rest of the line is read as it would be after a plain "1".
+	const stand = `${about}1`
+	const parsed = parseCleanedLine(`${stand}${line.slice(whole.length)}`, {
+		spacedAmounts: false,
+	})
+	if (parsed?.amount !== stand) return null
+	if (!parsed.unit && parseAmount(number!) === null) return null
+	if (parsed.unit && CONTAINER_START.test(parsed.name)) return null
+	return { ...parsed, amount: `${about}${number}` }
+}
+
 /** The first MAX_INGREDIENT_LINE_LENGTH characters, never half an emoji. */
 function capLine(line: string): string {
 	if (line.length <= MAX_INGREDIENT_LINE_LENGTH) return line
@@ -416,7 +457,10 @@ export function parseIngredient(line: string): ParsedIngredient | null {
 		: parsed
 }
 
-function parseCleanedLine(line: string): ParsedIngredient | null {
+function parseCleanedLine(
+	line: string,
+	{ spacedAmounts = true }: { spacedAmounts?: boolean } = {},
+): ParsedIngredient | null {
 	let cleaned = line
 
 	// Strip redundant parens after commas: "beans, (trimmed)" → "beans, trimmed"
@@ -440,6 +484,11 @@ function parseCleanedLine(line: string): ParsedIngredient | null {
 	if (/\(approx/i.test(cleaned)) {
 		cleaned = cleaned.replace(/(?<!\s)\s*\(approx\.?\)/gi, '')
 		cleaned = cleaned.replace(/(?<!\s)\s*\(approximately\)/gi, '')
+	}
+
+	if (spacedAmounts) {
+		const spaced = parseSpacedAmountLine(cleaned)
+		if (spaced) return spaced
 	}
 
 	// Written-out numbers: "Two cloves garlic" → "2 cloves garlic"

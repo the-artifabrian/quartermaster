@@ -2,9 +2,10 @@
  * Parsing time on long input. Recipe import reads pages up to 5 MB and a
  * paste up to MAX_RAW_TEXT_LENGTH, so the patterns that read that text must
  * stay linear in its length. Each case times the same input at one size and
- * at four times that size: linear work takes about four times as long, while
- * quadratic work takes about sixteen. The ratio holds on a slow runner or
- * under coverage, where a fixed time limit would not.
+ * at sixteen times that size (tests/growth.ts): linear work takes about 16
+ * times as long, while quadratic work takes about 256 times. The ratio holds
+ * on a slow or busy runner or under coverage, where a fixed time limit would
+ * not.
  *
  * Ingredient lines are cut at MAX_INGREDIENT_LINE_LENGTH, so the cases that
  * check patterns inside one ingredient line grow the line below that cap.
@@ -27,6 +28,9 @@
  *   pack size and "juice of" patterns. The leading and embedded paren
  *   patterns read a name those have already matched, which holds no line
  *   separator, so the same part of theirs can't backtrack and has no case.
+ * - Ingredient lines that start with a long run of thousands split by
+ *   spaces, or with "1 000" and then a run of spaces, before a line
+ *   separator.
  * - Ingredient lines with a run of spaces in the name before a paren.
  * - Ingredient lines with runs of spaces before text that never ends in
  *   "(…)", "(approx.)" or "to taste", including lines that hold "(approx."
@@ -45,6 +49,13 @@
  *   as shortened, counting rows the save keeps rather than lines.
  */
 import { describe, expect, test } from 'vitest'
+import {
+	BACKSTOP_MS,
+	MAX_GROWTH,
+	SPREAD,
+	bestMs,
+	growth,
+} from '#tests/growth.ts'
 import { scaleAmount, scaleAmountKitchen } from './fractions.ts'
 import { fitImportedRecipe } from './import-recipe-fit.ts'
 import { type ExtractedRecipe } from './import-recipe-types.ts'
@@ -65,42 +76,6 @@ import {
 	MAX_RECIPE_INGREDIENTS,
 } from './recipe-validation.ts'
 
-// Linear work grows about 4× from one size to the next, quadratic about 16×.
-const MAX_GROWTH = 8
-// Only a backstop: a hang still fails here rather than at the test timeout.
-const BACKSTOP_MS = 1000
-
-function elapsedMs(run: () => unknown, times: number) {
-	const start = performance.now()
-	for (let i = 0; i < times; i++) run()
-	return performance.now() - start
-}
-
-/** The best of five, so a pause for garbage collection doesn't count. */
-function bestMs(run: () => unknown, times: number) {
-	let best = Infinity
-	for (let i = 0; i < 5; i++) best = Math.min(best, elapsedMs(run, times))
-	return best
-}
-
-/**
- * How much longer the input at four times the size takes. Each side repeats
- * its run enough times to take a few milliseconds, so timer resolution
- * doesn't decide the ratio.
- */
-function growth(build: (size: number) => () => unknown) {
-	const small = build(1)
-	const large = build(4)
-	small()
-	large()
-	let times = 1
-	while (elapsedMs(small, times) < 5 && times < 1 << 16) times *= 2
-	return {
-		ratio: bestMs(large, times) / bestMs(small, times),
-		largeMs: elapsedMs(large, 1),
-	}
-}
-
 function paste({
 	title = 'Soup',
 	description = [] as string[],
@@ -117,10 +92,10 @@ function paste({
 	].join('\n')
 }
 
-// A quarter of a paste, so the larger size is a whole one.
-const RUN = Math.floor((MAX_RAW_TEXT_LENGTH - 100) / 4)
-// A fifth of the line cap, so the larger size still fits under it.
-const LINE_RUN = Math.floor(MAX_INGREDIENT_LINE_LENGTH / 5)
+// A sixteenth of a paste, so the larger size is a whole one.
+const RUN = Math.floor((MAX_RAW_TEXT_LENGTH - 100) / SPREAD)
+// A twentieth of the line cap, so the larger size still fits under it.
+const LINE_RUN = Math.floor(MAX_INGREDIENT_LINE_LENGTH / (SPREAD * 1.25))
 
 const jsonLd = (fields: Record<string, unknown>) =>
 	extractRecipe(
@@ -128,21 +103,33 @@ const jsonLd = (fields: Record<string, unknown>) =>
 		'https://example.com/soup',
 	)
 
+// The cases that grow ingredient lines below the line cap start from a
+// short line, so the work that doesn't depend on its length (one parse per
+// line) is a large share of the small size. Linear code then grows only 4 to
+// 10 times, and quadratic code about 150 times, so these cases fail at
+// half the usual limit.
+const LINE_MAX_GROWTH = MAX_GROWTH / 2
+const lineCases = new WeakSet<(size: number) => () => unknown>()
+function lineCase(build: (size: number) => () => unknown) {
+	lineCases.add(build)
+	return build
+}
+
 /** 50 paste ingredient lines, each with `fill` repeated to the size. */
-const pasteLines =
-	(head: string, fill: string, tail: string) => (size: number) => {
+const pasteLines = (head: string, fill: string, tail: string) =>
+	lineCase((size: number) => {
 		const line = `- ${head}${fill.repeat((LINE_RUN * size) / fill.length)}${tail}`
 		const text = paste({ ingredients: Array(50).fill(line) })
 		return () => parseRecipeText(text)
-	}
+	})
 
 /** One JSON-LD line past the ingredient limit, each grown to the size. */
-const jsonLdLines =
-	(head: string, fill: string, tail: string) => (size: number) => {
+const jsonLdLines = (head: string, fill: string, tail: string) =>
+	lineCase((size: number) => {
 		const line = `${head}${fill.repeat((LINE_RUN * size) / fill.length)}${tail}`
 		const lines = Array(MAX_RECIPE_INGREDIENTS + 1).fill(line)
 		return () => jsonLd({ recipeIngredient: lines })
-	}
+	})
 
 const pasteOf =
 	(make: (run: string) => Parameters<typeof paste>[0]) =>
@@ -203,14 +190,14 @@ const cases: Case[] = [
 	[
 		'saved steps of digits shown with Metric on',
 		(size) => {
-			const step = `${'1'.repeat((MAX_INSTRUCTION_LENGTH * size) / 4)}x`
+			const step = `${'1'.repeat((MAX_INSTRUCTION_LENGTH * size) / SPREAD)}x`
 			return () => convertTemperatures(step)
 		},
 	],
 	[
 		'saved steps of spaces after a number shown with Metric on',
 		(size) => {
-			const step = `350${' '.repeat((MAX_INSTRUCTION_LENGTH * size) / 4)}x`
+			const step = `350${' '.repeat((MAX_INSTRUCTION_LENGTH * size) / SPREAD)}x`
 			return () => convertTemperatures(step)
 		},
 	],
@@ -233,6 +220,14 @@ const cases: Case[] = [
 		pasteLines('1 cup flour', ' ', 'x'),
 	],
 	['ingredient lines of spaces with no amount', pasteLines('salt', ' ', 'x')],
+	[
+		'ingredient lines of thousands split by spaces, before a line separator',
+		pasteLines('1', ' 000', ' g x\r)'),
+	],
+	[
+		'ingredient lines of thousands split by spaces, then spaces',
+		pasteLines('1 000', ' ', 'x\r)'),
+	],
 	[
 		'ingredient lines of spaces in the name before a paren',
 		pasteLines('1 cup a', ' ', 'x (b) c'),
@@ -274,14 +269,16 @@ const cases: Case[] = [
 			}
 		},
 		// An amount that long is never read, so its length adds nothing.
-		2.5,
+		4,
 	],
 ]
 
 describe('parsing stays linear on long input', () => {
-	test.each(cases)('%s', (_name, build, maxGrowth = MAX_GROWTH) => {
+	test.each(cases)('%s', (_name, build, maxGrowth) => {
 		const { ratio, largeMs } = growth(build)
-		expect(ratio).toBeLessThan(maxGrowth)
+		expect(ratio).toBeLessThan(
+			maxGrowth ?? (lineCases.has(build) ? LINE_MAX_GROWTH : MAX_GROWTH),
+		)
 		expect(largeMs).toBeLessThan(BACKSTOP_MS)
 	})
 

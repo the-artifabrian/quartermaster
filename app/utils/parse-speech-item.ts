@@ -1,3 +1,6 @@
+import { parseAmount } from './fractions.ts'
+import { CONTAINER_START } from './ingredient-parser.ts'
+
 export type ParsedItem = {
 	name: string
 	quantity: string
@@ -124,6 +127,17 @@ function normalizeUnit(unit: string): string {
 	return UNIT_ALIASES[unit.toLowerCase()] ?? unit
 }
 
+/**
+ * The text without the given characters at its end. A loop rather than a
+ * pattern like /[.,]+$/, which retries from every mark in a long run and so
+ * takes time that grows with the square of the run.
+ */
+function trimEndOf(text: string, marks: string) {
+	let end = text.length
+	while (end > 0 && marks.includes(text[end - 1]!)) end--
+	return text.slice(0, end)
+}
+
 // Any comma except one with a digit on both sides, which belongs to a number.
 const BETWEEN_ITEMS_COMMA = /(?<!\d),|,(?!\d)/g
 
@@ -151,10 +165,7 @@ const VAGUE_QUANTIFIER_PATTERN =
  */
 function normalizeTranscript(raw: string): string {
 	// Strip trailing punctuation and whitespace
-	let text = raw
-		.trim()
-		.replace(/[.,!?;:]+$/, '')
-		.trim()
+	let text = trimEndOf(raw.trim(), '.,!?;:').trim()
 
 	// Strip commas — Whisper inserts them between filler words and clauses
 	// (e.g. "Um, like, some Cheerios"). By the time text reaches here, commas
@@ -223,6 +234,17 @@ const QTY_UNIT_NAME = new RegExp(
 )
 const QTY_NAME = new RegExp(`^${QTY}\\s+(.+)$`)
 
+// Typed text only: thousands with spaces between groups ("1 000 g flour"),
+// with a plain, no-break or narrow no-break space. Spoken amounts keep QTY,
+// since Whisper writes a thousand without a space and a spoken count before
+// a size ("2 400 gram cans") is common.
+const SPACED_QTY = `(\\d{1,3}(?:[ \\u00A0\\u202F]\\d{3})+(?:[.,]\\d+)?)`
+const SPACED_QTY_UNIT_NAME = new RegExp(
+	`^${SPACED_QTY}\\s+(${UNIT_PATTERN})\\s+(?:of\\s+)?(.+)$`,
+	'i',
+)
+const SPACED_QTY_NAME = new RegExp(`^${SPACED_QTY}\\s+(.+)$`)
+
 export function parseSpeechItem(transcript: string): ParsedItem {
 	const text = normalizeTranscript(transcript)
 
@@ -263,6 +285,24 @@ export function parseSpeechItem(transcript: string): ParsedItem {
 export function parseTypedItem(text: string): ParsedItem | null {
 	// U+2044 FRACTION SLASH, as in "1 1⁄2"
 	const trimmed = text.trim().replaceAll('\u2044', '/')
+
+	// The groups stay together when a unit follows, even when the amount has
+	// no single value ("2 400 g" can be two 400 g tins), and otherwise only
+	// when parseAmount reads them as one number ("1 000 eggs").
+	// A container after the unit ("2 400 g tins tomatoes") keeps the first
+	// number a count of them.
+	const spacedUnitMatch = trimmed.match(SPACED_QTY_UNIT_NAME)
+	if (spacedUnitMatch && !CONTAINER_START.test(spacedUnitMatch[3]!.trim())) {
+		return {
+			quantity: spacedUnitMatch[1]!,
+			unit: normalizeUnit(spacedUnitMatch[2]!),
+			name: spacedUnitMatch[3]!.trim(),
+		}
+	}
+	const spacedMatch = trimmed.match(SPACED_QTY_NAME)
+	if (spacedMatch && parseAmount(spacedMatch[1]!) !== null) {
+		return { quantity: spacedMatch[1]!, unit: '', name: spacedMatch[2]!.trim() }
+	}
 
 	const qtyUnitMatch = trimmed.match(QTY_UNIT_NAME)
 	if (qtyUnitMatch) {
@@ -309,10 +349,7 @@ const COMPOUND_PLACEHOLDER = '\x00COMPOUND'
  * → [{ name: "chicken", qty: "2", unit: "lb" }, { name: "eggs", qty: "12", unit: "" }, ...]
  */
 export function parseSpeechItems(transcript: string): ParsedItem[] {
-	let cleaned = transcript
-		.trim()
-		.replace(/[.!?;:]+$/, '')
-		.trim()
+	let cleaned = trimEndOf(transcript.trim(), '.!?;:').trim()
 	if (!cleaned) return []
 
 	// Protect compound names from being split on "and"

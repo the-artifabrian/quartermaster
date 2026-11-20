@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { BACKSTOP_MS, MAX_GROWTH, growth } from '#tests/growth.ts'
 import {
 	parseSpeechItem,
 	parseSpeechItems,
@@ -424,5 +425,46 @@ describe('parseTypedItem', () => {
 			quantity: '1/2',
 			unit: '',
 		})
+	})
+})
+
+// Failure list for long input (a long dictation, or text typed or pasted
+// into Shopping's add field): parsing must stay linear in its length.
+// - A long run of trailing punctuation marks before a last letter, for one
+//   item and for the split into items.
+// - The same run at the very end, which is stripped.
+describe('parsing stays linear on long input', () => {
+	const RUN = 2_000
+	test.each([
+		[
+			'one item ending in a long run of punctuation before a letter',
+			(size: number) => {
+				const text = `milk${'.,!?;:'.repeat((RUN * size) / 6)}x`
+				return () => parseSpeechItem(text)
+			},
+		],
+		[
+			'items ending in a long run of punctuation before a letter',
+			(size: number) => {
+				const text = `milk${'.!?;:'.repeat((RUN * size) / 5)}x`
+				return () => parseSpeechItems(text)
+			},
+		],
+	])('%s', (_name, build) => {
+		const { ratio, largeMs } = growth(build)
+		expect(ratio).toBeLessThan(MAX_GROWTH)
+		expect(largeMs).toBeLessThan(BACKSTOP_MS)
+	})
+
+	test('a long run of punctuation at the end is still stripped', () => {
+		expect(parseSpeechItem(`2 lbs chicken${'.,!'.repeat(1000)}`)).toEqual({
+			name: 'chicken',
+			quantity: '2',
+			unit: 'lb',
+		})
+		expect(parseSpeechItems(`milk and eggs${'.!?'.repeat(1000)}`)).toEqual([
+			{ name: 'milk', quantity: '', unit: '' },
+			{ name: 'eggs', quantity: '', unit: '' },
+		])
 	})
 })

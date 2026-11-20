@@ -137,12 +137,16 @@ plan into Shopping.
 - Password, passkey, and Google sign-in, with a "Remember me" choice.
 - Two-factor auth with an authenticator app (TOTP), turned on and off in
   Settings; login then asks for the code.
+- Changing the password signs out every other device; resetting it signs out all
+  of them.
 
 ### AI and voice
 
 - Extract Recipes from text and images with Anthropic models.
 - Suggest Recipe description and time improvements for explicit review.
 - Transcribe voice with Groq Whisper and parse short spoken inputs.
+- Each user gets 10 AI imports, 10 enhancements and 30 voice inputs a day. A
+  call that fails on the provider's side doesn't count.
 - Rate limits, schema validation, and manual fallback keep these features
   optional. The app works without API keys.
 
@@ -181,4 +185,4 @@ Product terms live in [GLOSSARY.md](../GLOSSARY.md). Shipped, stopped, and
 deferred roadmap outcomes live in [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md)
 and roadmap #98.
 
-_Updated 8 October 2026._
+_Updated 20 November 2026._

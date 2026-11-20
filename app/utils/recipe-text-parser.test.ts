@@ -912,6 +912,60 @@ Instructions
 		)
 	})
 
+	// Failure list for the number in a yield line, which parseAmount reads the
+	// way it reads an ingredient amount:
+	// - "Makes 1,000,000 cookies" is a million cookies.
+	// - "Makes 1,000 cookies" has no single value: no yield, and the line
+	//   stays in the description.
+	// - "Makes 1 000 cookies" is a thousand. A count before a size ("Makes 4
+	//   500 ml jars", "Yield: 3 250 g jars", "Makes 24 100g portions") is
+	//   that count, and "Makes 6 100-calorie bars" never groups.
+	// - "Serves 4." and "Yield: 1,5 litres" read as before.
+	test('reads the whole number in a yield line', () => {
+		const base = (line: string) => `Cookies
+
+${line}
+
+Ingredients
+- 2 cups flour
+
+Instructions
+1. Bake.`
+
+		expect(parseRecipeText(base('Makes 1,000,000 cookies'))).toEqual(
+			expect.objectContaining({
+				yieldAmount: 1_000_000,
+				yieldLabel: 'cookies',
+			}),
+		)
+		expect(parseRecipeText(base('Makes 1 000 cookies'))).toEqual(
+			expect.objectContaining({ yieldAmount: 1000, yieldLabel: 'cookies' }),
+		)
+		expect(parseRecipeText(base('Serves 4.'))).toEqual(
+			expect.objectContaining({ yieldAmount: 4, yieldLabel: 'servings' }),
+		)
+		expect(parseRecipeText(base('Yield: 1,5 litres'))).toEqual(
+			expect.objectContaining({ yieldAmount: 1.5, yieldLabel: 'litres' }),
+		)
+		for (const [line, amount, label] of [
+			['Makes 4 500 ml jars', 4, '500 ml jars'],
+			['Serves 8 250 ml glasses', 8, '250 ml glasses'],
+			['Makes 24 100g portions', 24, '100g portions'],
+			['Yield: 3 250 g jars', 3, '250 g jars'],
+			['Makes 6 100-calorie bars', 6, '100-calorie bars'],
+		] as const) {
+			expect(parseRecipeText(base(line)), line).toEqual(
+				expect.objectContaining({ yieldAmount: amount, yieldLabel: label }),
+			)
+		}
+		for (const line of ['Makes 1,000 cookies']) {
+			const result = parseRecipeText(base(line))
+			expect(result.yieldAmount).toBeUndefined()
+			expect(result.yieldLabel).toBeUndefined()
+			expect(result.description).toBe(line)
+		}
+	})
+
 	test('title serves wins over a later body line', () => {
 		const text = `Stew (Serves 2)
 

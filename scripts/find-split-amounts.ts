@@ -23,6 +23,10 @@
  * - split-thousands: the name ends in a digit and the notes start with three
  *   digits, the rest of a number cut at its comma.
  * - pack-size-name: the name starts with "x 400" or "× 400".
+ * - number-start-name: the name starts with a digit or a fraction, so the
+ *   amount may have been cut short: "1" and "1/2 pounds ground beef", or
+ *   "1" and "000 g flour" from thousands written with a space. A name such
+ *   as "2% milk" shows up too.
  * - reading-changed: the amount reads differently now ("1,5" was 1 and is
  *   1.5; "1,250" and "2 large" were 1 and 2 and are now kept as written).
  *   Not broken, but its totals and scaling changed.
@@ -117,6 +121,7 @@ function reasonFor(row: Row): string | null {
 	if (NUMBER_ONLY.test(name)) return 'number-name'
 	if (/\d$/.test(name) && /^\d{3}\b/.test(notes)) return 'split-thousands'
 	if (/^[x×]\s*\d/i.test(name)) return 'pack-size-name'
+	if (/^[\d½⅓⅔¼¾⅛⅜⅝⅞]/.test(name)) return 'number-start-name'
 	const amount = row.amount?.trim()
 	if (amount) {
 		const before = oldReading(amount)

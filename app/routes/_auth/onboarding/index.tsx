@@ -249,7 +249,11 @@ export default function OnboardingRoute({
 						/>
 					)}
 
-					<input {...getInputProps(fields.redirectTo, { type: 'hidden' })} />
+					<input
+						{...getInputProps(fields.redirectTo, { type: 'hidden' })}
+						// Can hold an invite link; kept out of session replays.
+						className="ph-no-capture"
+					/>
 					<ErrorList errors={form.errors} id={form.errorId} />
 
 					<div className="mt-8 flex items-center justify-between gap-6">

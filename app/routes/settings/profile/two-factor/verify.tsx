@@ -143,7 +143,13 @@ export default function TwoFactorRoute({
 	return (
 		<div>
 			<div className="flex flex-col items-center gap-4">
-				<img alt="qr code" src={loaderData.qrCode} className="size-56" />
+				{/* ph-no-capture keeps the secret out of session replays, which
+				record the page's text and attributes. */}
+				<img
+					alt="qr code"
+					src={loaderData.qrCode}
+					className="ph-no-capture size-56"
+				/>
 				<p>Scan this QR code with your authenticator app.</p>
 				<p className="text-sm">
 					If you cannot scan the QR code, you can manually add this account to
@@ -151,7 +157,7 @@ export default function TwoFactorRoute({
 				</p>
 				<div className="p-3">
 					<pre
-						className="text-sm break-all whitespace-pre-wrap"
+						className="ph-no-capture text-sm break-all whitespace-pre-wrap"
 						aria-label="One-time Password URI"
 					>
 						{loaderData.otpUri}

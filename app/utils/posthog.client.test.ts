@@ -1,4 +1,5 @@
 import { expect, test, vi } from 'vitest'
+import { BACKSTOP_MS, MAX_GROWTH, growth } from '#tests/growth.ts'
 import { initializePostHog } from './posthog.client.ts'
 
 const posthog = vi.hoisted(() => ({
@@ -205,4 +206,92 @@ test('error messages and replay page addresses lose their codes and tokens', () 
 	expect(snapshotText).not.toMatch(/Q2W3E4|invite-abc|example\.com/)
 	expect(snapshotText).toContain('compressed-full-snapshot')
 	expect(snapshotText).toContain('"width":390')
+})
+
+// Failure list for long error messages, which run in the browser before an
+// event is sent:
+// - A message made of a long run of slashes, or of "a/", which a URL search
+//   would retry from every slash: the work must stop growing with the
+//   message.
+// - A URL with a token past the part that is read must not be sent as it is.
+function sendException(message: string) {
+	vi.clearAllMocks()
+	posthog.__loaded = false
+	initializePostHog({
+		apiKey: 'phc_test',
+		host: 'https://analytics.example.com',
+	})
+	const beforeSend = posthog.init.mock.calls[0]![1].before_send as (event: {
+		event: string
+		properties: Record<string, unknown>
+	}) => { properties: Record<string, unknown> }
+	return (text = message) =>
+		beforeSend({
+			event: '$exception',
+			properties: {
+				$exception_message: text,
+				$exception_list: [{ type: 'Error', value: text }],
+			},
+		})
+}
+
+test.each([
+	['slashes', '/'],
+	['"a/"', 'a/'],
+])('a long error message of %s grows no faster than its length', (_, fill) => {
+	const { ratio, largeMs } = growth((size) => {
+		const send = sendException(fill.repeat((2_000 * size) / fill.length))
+		return () => send()
+	})
+	expect(ratio).toBeLessThan(MAX_GROWTH)
+	expect(largeMs).toBeLessThan(BACKSTOP_MS)
+})
+
+test('a long error message is cut, so a token past the cut is not sent', () => {
+	const message = `${'x '.repeat(5_000)}/household/join?token=invite-abc`
+	const event = sendException(message)()
+	const text = JSON.stringify(event)
+	expect(text).not.toContain('invite-abc')
+	expect(String(event.properties.$exception_message).length).toBeLessThan(3_000)
+})
+
+// Failure list for what replays record of form fields:
+// - every input type the SDK masks when told to mask all inputs stays masked
+// - hidden inputs, which carry invite tokens and redirectTo values on the
+//   login, signup, onboarding, verify and join forms, are masked too; the
+//   SDK's "mask all inputs" list leaves them out, and it replaces any list
+//   of our own, so it has to be off for ours to count
+test('replays mask every input type, hidden ones included', () => {
+	vi.clearAllMocks()
+	posthog.__loaded = false
+	initializePostHog({
+		apiKey: 'phc_test',
+		host: 'https://analytics.example.com',
+	})
+	const recording = posthog.init.mock.calls[0]![1].session_recording as {
+		maskAllInputs?: boolean
+		maskInputOptions?: Record<string, boolean>
+	}
+	expect(recording.maskAllInputs).toBe(false)
+	for (const type of [
+		'color',
+		'date',
+		'datetime-local',
+		'email',
+		'month',
+		'number',
+		'range',
+		'search',
+		'tel',
+		'text',
+		'time',
+		'url',
+		'week',
+		'textarea',
+		'select',
+		'password',
+		'hidden',
+	]) {
+		expect(recording.maskInputOptions?.[type], type).toBe(true)
+	}
 })

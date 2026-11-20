@@ -158,6 +158,8 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 
 							<input
 								{...getInputProps(fields.redirectTo, { type: 'hidden' })}
+								// Can hold an invite link; kept out of session replays.
+								className="ph-no-capture"
 							/>
 							<ErrorList errors={form.errors} id={form.errorId} />
 

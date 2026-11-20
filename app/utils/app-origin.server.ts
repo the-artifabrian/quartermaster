@@ -17,6 +17,19 @@ export function getAppOrigin(): string {
 	return `http://localhost:${process.env.PORT || 3000}`
 }
 
+/**
+ * A Host header's name in lower case, without its port or a trailing dot,
+ * so "WWW.useqm.app.:443" compares equal to "www.useqm.app". Empty when
+ * there is no header.
+ */
+export function hostName(header: string | null | undefined): string {
+	return (header ?? '')
+		.trim()
+		.toLowerCase()
+		.replace(/:\d*$/, '')
+		.replace(/\.$/, '')
+}
+
 /** The app page the request was referred from, as a path, or '/'. */
 export function getReferrerRoute(request: Request) {
 	// spelling errors and whatever makes this annoyingly inconsistent

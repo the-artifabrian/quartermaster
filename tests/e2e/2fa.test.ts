@@ -25,6 +25,15 @@ test('Users can add 2FA to their account and use it when logging in', async ({
 		.getByLabel(/One-Time Password URI/i)
 		.innerText()
 
+	// Session replay records the text on the page, so the secret and its QR
+	// code are kept out of it.
+	await expect(main.getByRole('img', { name: 'qr code' })).toHaveClass(
+		/\bph-no-capture\b/,
+	)
+	await expect(main.getByLabel(/One-Time Password URI/i)).toHaveClass(
+		/\bph-no-capture\b/,
+	)
+
 	const otpUri = new URL(otpUriString)
 	const options = Object.fromEntries(otpUri.searchParams)
 

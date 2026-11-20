@@ -119,13 +119,17 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 						<input
 							{...getInputProps(fields[typeQueryParam], { type: 'hidden' })}
 						/>
+						{/* The target can be an email address and redirectTo an invite
+						link, so both are kept out of session replays. */}
 						<input
 							{...getInputProps(fields[targetQueryParam], { type: 'hidden' })}
+							className="ph-no-capture"
 						/>
 						<input
 							{...getInputProps(fields[redirectToQueryParam], {
 								type: 'hidden',
 							})}
+							className="ph-no-capture"
 						/>
 						<StatusButton
 							className="w-full"

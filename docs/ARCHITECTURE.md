@@ -113,10 +113,15 @@ never removes folders, so a resize being written isn't pulled out from under
 openimg. A folder or file it isn't allowed to read or delete is skipped and
 counted in the log line. A pruned resize is made again on its next view.
 
-Two gaps are known and accepted. A resize that is already being made when its
-photo is deleted can land in the cache after the delete has cleared it, and
-then stays until the prune removes it. And a browser or the service worker
-that already holds a deleted photo keeps showing it from its own cache.
+A resize that is already being made when its photo is deleted can land in the
+cache after the delete has cleared it. The cache is far under the prune limit in
+production (about half a megabyte), so the prune would never reach it. The
+delete therefore clears the photo's resizes again two minutes later, from an
+unref'd timer that logs a failure and moves on. Two gaps are known and accepted.
+A restart inside those two minutes loses the second clear, and a resize that
+lands then is served until the cache passes the limit. And a browser or the
+service worker that already holds a deleted photo keeps showing it from its own
+cache.
 
 ## Data model
 
@@ -147,10 +152,8 @@ deleting a section keeps its items. A RecipeMetadataAssignment joins one Recipe
 to one household classification value. A Shopping row's `horizon` puts it in
 Next shop or Later.
 
-`UsageEvent` records AI limits: one row per use of a paid AI feature, counted
-and written in one write transaction (`claimAiUsage`). A voice row covers the
-Whisper call and the parse that follows it. A row is deleted again when the
-call fails in a way the user can't cause, such as a provider outage.
+`UsageEvent` holds one row per use of a paid AI feature, for the daily limits
+described under AI.
 
 New household data must be authorized by household membership, included in
 export/import when durable, and handled in sole-member household moves.
@@ -264,24 +267,35 @@ Amounts are saved as written, and `parseAmount()` in `app/utils/fractions.ts` is
 the one place that gives them a number. Anything that scales, sums, converts or
 counts an amount asks it. It reads the whole string or nothing: a fraction, a
 mixed number, a decimal with a dot or a comma (“1,5”), or thousands that can't
-be anything else (“1,000,000”, “1,000.5”). An amount it can't read as exactly
-one number stays as written and is never summed or scaled. That covers “2
-large” and a pack size like “2 x 400”. It also covers one to three digits, a
-single comma or dot, then three digits: a Romanian scale writes 1.25 kg as
-“1,250”, and “1.000” is one thousand in Romanian but one in English. Ranges
-such as “1,5–2” scale end by end and never sum; a range with an end like that,
-or with its low end above its high end, stays as written. The import, paste,
+be anything else (“1,000,000”, “1,000.5”, or with spaces as French sites write
+them, “1 000” and “1 000 000”). An amount it can't read as exactly one number
+stays as written and is never summed or scaled. That covers “2 large” and a pack
+size like “2 x 400”. It also covers one to three digits, a single comma or dot,
+then three digits: a Romanian scale writes 1.25 kg as “1,250”, and “1.000” is
+one thousand in Romanian but one in English. One group after a space that
+doesn't start with 0 is the same: “2 400 g” can be two 400 g tins. Ranges such
+as “1,5–2” scale end by end and never sum; a range with an end like that, or
+with its low end above its high end, stays as written. Yields go through it too,
+so “Makes 1,000 cookies” gives no yield rather than 1, and in “Makes 4 500 ml
+jars”, which it can't read, the first number is the yield. The import, paste,
 voice and Shopping quick-add parsers only find where an amount starts and ends,
-and they never split a number at its comma.
+and they never split a number at its comma. The ingredient and quick-add parsers
+keep thousands split by spaces together when a unit follows, or when they read
+as one number. A container after the unit (“2 400 g tins tomatoes”) makes the
+first number a count of tins instead, as it read before. The voice parser never
+groups them, since a spoken count before a size is common.
 
 The paste, JSON-LD and ingredient parsers read text as long as a whole paste or
 a JSON-LD field, so their patterns must stay linear. Ingredient lines are cut at
 `MAX_INGREDIENT_LINE_LENGTH` once links are reduced to their text, and a cut
 line makes the import report Ingredients as shortened.
 `app/utils/recipe-parsing-time.test.ts` checks that parsing time grows linearly
-with the input for the patterns that can backtrack on it. Inside one ingredient
-line it grows the line below the cap, and it skips the parts of the paren
-patterns that only ever see text already matched up to the end of the line.
+with the input for the patterns that can backtrack on it, with the helper in
+`tests/growth.ts` that the voice parser's and the browser analytics' timing
+tests use too. Inside one ingredient line it grows the line below the cap, and
+it skips the parts of the paren patterns that only ever see text already matched
+up to the end of the line. The browser reads and sends only the first 2,000
+characters of an error message when it redacts the URLs in it.
 
 Shopping uses deterministic demand identity and unit-family conversion. Legacy
 fuzzy Recipe matching still exists for a few older suggestion/recovery paths. It
@@ -307,6 +321,12 @@ remembered one that has under `SESSION_REFRESH_THRESHOLD` (7 days) left. The
 it is a browser-session cookie and is never extended. The iOS shell always
 remembers (`shouldRememberSession` in `app/utils/native-shell.server.ts`),
 because WKWebView drops session cookies when iOS kills the app.
+
+Changing the password in Settings signs out every other session of the user and
+keeps the current one; a password reset signs out all of them. With 2FA on,
+changing the email or turning 2FA off asks for a code again when the session
+last verified more than two hours ago (`requireRecentVerification` in
+`app/routes/_auth/verify.server.ts`).
 
 **Pro.** `app/utils/subscription.server.ts` is the source of truth:
 `getUserTier` reads the Stripe-backed `Subscription` row, `requireProTier`
@@ -337,11 +357,15 @@ addresses count as IPv4, and IPv6 addresses count per /64.
 (decoded, any case, dot segments resolved, `.data` dropped). Sign-in, sign-out,
 sign-up, codes, passkeys, Household invites, account settings and admin allow 10
 non-GET requests a minute. The paid AI routes (Recipe import, enhance,
-transcribe) allow 20 in their own bucket, other non-GET requests 100, and
-GETs 1000. Tests check that every listed path is a real route, and that every
-action under `_auth`, every other action that checks a password or code, takes
-an invite or sends an email, and every route that reaches a paid AI helper is on
-a strict tier.
+transcribe) allow 20 in their own bucket, other non-GET requests 100, and GETs
+1000, except passkey GETs under `/webauthn`, which make a challenge and
+allow 100. The apple-app-site-association file, at
+`/.well-known/apple-app-site-association` and `/apple-app-site-association`, has
+no limit: Apple's CDN fetches it from shared addresses, and a 429 there would
+break passkeys and universal links for every iOS user. Tests check that every
+listed path is a real route, and that every action under `_auth`, every other
+action that checks a password or code, takes an invite or sends an email, and
+every route that reaches a paid AI helper is on a strict tier.
 
 **Logs and analytics.** `redactUrl` in `app/utils/redact-url.ts` replaces the
 values of `code`, `token`, `target`, `session_id`, `otp`, `state` and similar
@@ -352,8 +376,19 @@ query parameters, including inside `redirectTo`. These go through it:
   autocapture records, URLs in error messages, the network requests and page
   addresses recorded for replays.
 
-Replay page content is not redacted. Log a user id, never an email address or
-token.
+Replays record the page's text, since `mask_all_text` is off. Input values are
+masked by type, with the list in `app/utils/posthog.client.ts`: every type the
+SDK's own "mask all inputs" covers, plus hidden inputs. Masking settings turned
+on in the PostHog project would replace that list with the SDK's, which leaves
+hidden inputs out, so they stay off. The hidden inputs that carry a secret are
+blocked with `ph-no-capture` as well, so they stay out of replays whatever the
+remote settings are: the invite token on the join page, and `redirectTo` and the
+verify page's `target` on the sign-in forms. A page that shows a secret marks it
+with PostHog's `ph-no-capture` class, and the recording keeps only an empty box
+of its size: the 2FA setup's QR code and URI, and the Household invite link.
+posthog-js has no browser-side setting to stop recording on chosen URLs; the URL
+blocklist for recordings lives in the PostHog project's settings. Log a user id,
+never an email address or token.
 
 ## Keeping loader data fresh
 
@@ -428,12 +463,30 @@ Why the rules are shaped this way:
 ## AI
 
 AI calls go through a small schema-validated Anthropic JSON boundary. Prompts
-and Zod schemas remain feature-local. Text and image Recipe extraction returns a
-readable overview with optional editing, saved only after an explicit action.
-The original input or available extraction is retained in `Recipe.rawText`;
-reviewed saves do not run extraction or charge AI usage again. Recipe
-enhancement returns suggested description and time estimates that the user
-chooses whether to apply. Provider errors normalize to safe UI errors.
+and Zod schemas remain feature-local. Provider errors normalize to safe UI
+errors.
+
+An AI import (pasted text or screenshots, Pro only) runs the extraction once and
+saves what it read at once, like the other imports
+(`app/utils/import-recipe-save.server.ts`). There is no review step: the Recipe
+page says what was missing or shortened, and the cook edits it there. The pasted
+text, or the extraction itself for screenshots, is kept in `Recipe.rawText`.
+Because nothing is reviewed first, the prompt asks for a transcription and adds
+nothing the source doesn't give. Recipe enhancement returns a suggested
+description and time estimates that the user chooses whether to apply. Voice
+input sends audio to Groq Whisper, and the transcript to the fast model to split
+into items, with the rule-based parser as the fallback.
+
+Each paid feature has a daily limit per user: 10 AI imports, 10 enhancements and
+30 voice inputs, counted from the server's local midnight. `claimAiUsage` in
+`app/utils/ai-rate-limit.server.ts` counts today's `UsageEvent` rows and writes
+a new one in one write transaction, so parallel requests queue rather than all
+passing; a claim it can't record is refused. A voice row covers the Whisper call
+and the parse that follows it. A call that fails in a way the user can't cause
+(no key, a dropped connection, a provider 429 or 5xx, a bad key) gives its row
+back. A timeout, other 4xx and anything after a 200 stay spent, so slow or bad
+input can't buy unlimited calls. The daily prune in
+`server/scheduled-maintenance.ts` deletes older rows.
 
 The manual Recipe, Plan, and Shopping flows do not require API keys. AI quantity
 planning was removed after real-use feedback; Recipe import remains the proven
@@ -465,7 +518,9 @@ high-value AI path.
   - the TOTP issuer shown in authenticator apps;
   - the passkey relying party ID and origin;
   - Stripe checkout and portal return URLs;
-  - the HTTP→HTTPS redirect;
+  - the HTTP→HTTPS redirect, and the 301 from `www.` plus its host to it
+    (`server/https-redirect.ts`). The 301 is for GET and HEAD on the www host
+    alone, so fly.dev and Fly's healthcheck are never redirected;
   - the referrer check that picks the page to return to after Google login.
 
   Redirects within the site stay relative, so the browser keeps the host it used
@@ -477,7 +532,11 @@ high-value AI path.
   request to the zone, as a static value that overwrites anything a client sent.
   The same value is the unstaged Fly secret `CF_EDGE_SECRET`. Both are in place.
   To rotate, change the rule and the secret together. If the secret is missing,
-  the server warns at boot and rate limits key on `fly-client-ip`.
+  the server warns at boot and rate limits key on `fly-client-ip`. If it is set
+  but requests through Cloudflare stop carrying it, they key on `fly-client-ip`
+  too, and the server logs a warning with their count at most once an hour,
+  without the header's value. Only requests for APP_ORIGIN's host count, since
+  anyone can send Cloudflare's headers to the fly.dev host.
 
 Before a multi-machine deployment, all of these must be designed, wired, and
 tested together:

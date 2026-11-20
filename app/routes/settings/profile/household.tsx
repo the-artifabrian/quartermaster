@@ -396,7 +396,7 @@ function ManualCopyField({ url }: { url: string }) {
 			readOnly
 			value={url}
 			aria-label="Invite link"
-			className="bg-background w-full min-w-0 rounded border px-2 py-1 text-sm"
+			className="ph-no-capture bg-background w-full min-w-0 rounded border px-2 py-1 text-sm"
 			onFocus={(event) => event.currentTarget.select()}
 		/>
 	)
@@ -409,7 +409,9 @@ function CopyLinkButton({ token }: { token: string }) {
 	return (
 		<div className="flex flex-col gap-2">
 			<div className="flex min-w-0 items-center gap-2">
-				<code className="bg-muted min-w-0 flex-1 truncate rounded px-2 py-1 text-sm">
+				{/* ph-no-capture keeps the token out of session replays, which
+				record the page's text. */}
+				<code className="ph-no-capture bg-muted min-w-0 flex-1 truncate rounded px-2 py-1 text-sm">
 					{path}
 				</code>
 				<Button

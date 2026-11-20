@@ -1,50 +1,58 @@
 /**
  * Parsing time on long input. Recipe import reads pages up to 5 MB and a
- * paste up to MAX_RAW_TEXT_LENGTH, so every pattern that reads that text has
- * to stay linear in its length. A pattern that backtracks over its own
- * whitespace, digits or brackets holds the event loop for seconds on one
- * long line.
+ * paste up to MAX_RAW_TEXT_LENGTH, so the patterns that read that text must
+ * stay linear in its length. Each case times the same input at one size and
+ * at four times that size: linear work takes about four times as long, while
+ * quadratic work takes about sixteen. The ratio holds on a slow runner or
+ * under coverage, where a fixed time limit would not.
+ *
+ * Ingredient lines are cut at MAX_INGREDIENT_LINE_LENGTH, so the cases that
+ * check patterns inside one ingredient line grow the line below that cap.
  *
  * Failure list:
- * - A paste line that starts with a section word and then runs to the cap
- *   in spaces ("Ingredients      …x").
+ * - A paste line that starts with a section word and then runs on in spaces
+ *   ("Ingredients      …x").
  * - A paste whose title line ends in a long run of spaces before other text.
  * - A paste description line "Serves      …x", "Serves 4 a      …x" or
  *   "Serves 4 a::::…x".
- * - A paste of "++[" over and over, which looks like the start of an Apple
- *   Notes link that never closes.
+ * - A paste of "++[" over and over.
  * - A paste step that is one long run of digits, or of "1.", before a step
  *   that starts with a unit.
- * - A paste ingredient line of the cap's length with a run of spaces before
- *   text that ends in a line separator once a stray ")" is dropped
- *   ("1      x\r)").
- * - Paste ingredient lines at the line cap with runs of spaces before text
- *   that never ends in "(…)", "(approx.)" or "to taste", including lines
- *   that hold "(approx." or end in "taste" somewhere else.
- * - Paste ingredient lines at the line cap with a paren after the run.
- * - JSON-LD ingredient lines at the line cap made of "[", ",(" or "(".
+ * - Saved steps of digits, or of a number then spaces, shown with Metric on,
+ *   which rewrites Fahrenheit in every step on each render.
+ * - Ingredient lines with a run of spaces after the amount, unit or
+ *   parenthetical that each pattern reads, before text that ends in a line
+ *   separator once a stray ")" is dropped ("1      x\r)"). That reaches the
+ *   name-and-notes part of the amount, mixed fraction, fluid ounce, can size,
+ *   pack size and "juice of" patterns. The leading and embedded paren
+ *   patterns read a name those have already matched, which holds no line
+ *   separator, so the same part of theirs can't backtrack and has no case.
+ * - Ingredient lines with a run of spaces in the name before a paren.
+ * - Ingredient lines with runs of spaces before text that never ends in
+ *   "(…)", "(approx.)" or "to taste", including lines that hold "(approx."
+ *   or end in "taste" somewhere else, or put a paren after the run.
+ * - JSON-LD ingredient lines made of "[", "[a](", ",(" or "(".
  * - JSON-LD text that is one long run of "<".
- * - Saved steps at the step limit made of digits, or of a number followed by
- *   spaces, shown with Metric on, which rewrites Fahrenheit in every step on
- *   each render.
- * - JSON-LD with thousands of ingredient lines.
- * - An amount string far longer than any saved amount.
- * - A line longer than the line cap: what fits still parses, and the parse
- *   keeps more text than the fields can hold, so import still reports the
- *   ingredient as shortened instead of dropping the rest quietly.
+ * - JSON-LD with far more ingredient lines than a Recipe holds: the work
+ *   stays the same however many lines follow.
+ * - An amount string far longer than any saved amount: the work stays the
+ *   same however long it is.
+ * - A line longer than the cap: the parse says it was cut, and import reports
+ *   Ingredients as shortened. Link markup doesn't count towards the cap.
  * - A title longer than the save limit still gives up a trailing
  *   "(Serves 2)".
- * - JSON-LD with more ingredient lines than a Recipe can hold still reports
- *   Ingredients as shortened.
+ * - JSON-LD with more ingredient rows than a Recipe holds reports Ingredients
+ *   as shortened, counting rows the save keeps rather than lines.
  */
 import { describe, expect, test } from 'vitest'
 import { scaleAmount, scaleAmountKitchen } from './fractions.ts'
-import { convertTemperatures } from './metric-conversion.ts'
 import { fitImportedRecipe } from './import-recipe-fit.ts'
+import { type ExtractedRecipe } from './import-recipe-types.ts'
 import {
 	MAX_INGREDIENT_LINE_LENGTH,
 	parseIngredient,
 } from './ingredient-parser.ts'
+import { convertTemperatures } from './metric-conversion.ts'
 import { cleanJsonLdText, extractRecipe } from './recipe-jsonld.server.ts'
 import {
 	extractYieldFromTitle,
@@ -52,29 +60,45 @@ import {
 	parseRecipeText,
 } from './recipe-text-parser.ts'
 import {
-	MAX_INGREDIENT_AMOUNT_LENGTH,
-	MAX_INGREDIENT_NAME_LENGTH,
-	MAX_INGREDIENT_NOTES_LENGTH,
-	MAX_INGREDIENT_UNIT_LENGTH,
 	MAX_INSTRUCTION_LENGTH,
 	MAX_RAW_TEXT_LENGTH,
 	MAX_RECIPE_INGREDIENTS,
 } from './recipe-validation.ts'
 
-// Generous next to the few milliseconds the linear code takes, so a slow CI
-// runner stays well under it. The quadratic code took hundreds of
-// milliseconds to seconds on the same input.
-const BOUND_MS = 50
+// Linear work grows about 4× from one size to the next, quadratic about 16×.
+const MAX_GROWTH = 8
+// Only a backstop: a hang still fails here rather than at the test timeout.
+const BACKSTOP_MS = 1000
 
-/** The best of three runs, so a pause for garbage collection doesn't count. */
-function elapsedMs(run: () => unknown) {
+function elapsedMs(run: () => unknown, times: number) {
+	const start = performance.now()
+	for (let i = 0; i < times; i++) run()
+	return performance.now() - start
+}
+
+/** The best of five, so a pause for garbage collection doesn't count. */
+function bestMs(run: () => unknown, times: number) {
 	let best = Infinity
-	for (let i = 0; i < 3; i++) {
-		const start = performance.now()
-		run()
-		best = Math.min(best, performance.now() - start)
-	}
+	for (let i = 0; i < 5; i++) best = Math.min(best, elapsedMs(run, times))
 	return best
+}
+
+/**
+ * How much longer the input at four times the size takes. Each side repeats
+ * its run enough times to take a few milliseconds, so timer resolution
+ * doesn't decide the ratio.
+ */
+function growth(build: (size: number) => () => unknown) {
+	const small = build(1)
+	const large = build(4)
+	small()
+	large()
+	let times = 1
+	while (elapsedMs(small, times) < 5 && times < 1 << 16) times *= 2
+	return {
+		ratio: bestMs(large, times) / bestMs(small, times),
+		largeMs: elapsedMs(large, 1),
+	}
 }
 
 function paste({
@@ -93,18 +117,10 @@ function paste({
 	].join('\n')
 }
 
-/** As many lines of `line` as fit in one paste. */
-function pasteLines(line: string) {
-	const count = Math.floor(MAX_RAW_TEXT_LENGTH / (line.length + 3))
-	return Array.from({ length: count }, () => `- ${line}`)
-}
-
-function lineOf(head: string, fill: string, tail: string) {
-	const room = MAX_INGREDIENT_LINE_LENGTH - head.length - tail.length
-	return head + fill.repeat(Math.floor(room / fill.length)) + tail
-}
-
-const RUN = MAX_RAW_TEXT_LENGTH - 100
+// A quarter of a paste, so the larger size is a whole one.
+const RUN = Math.floor((MAX_RAW_TEXT_LENGTH - 100) / 4)
+// A fifth of the line cap, so the larger size still fits under it.
+const LINE_RUN = Math.floor(MAX_INGREDIENT_LINE_LENGTH / 5)
 
 const jsonLd = (fields: Record<string, unknown>) =>
 	extractRecipe(
@@ -112,202 +128,250 @@ const jsonLd = (fields: Record<string, unknown>) =>
 		'https://example.com/soup',
 	)
 
-const jsonLdLines = (line: string) =>
-	Array.from({ length: MAX_RECIPE_INGREDIENTS + 1 }, () => line)
+/** 50 paste ingredient lines, each with `fill` repeated to the size. */
+const pasteLines =
+	(head: string, fill: string, tail: string) => (size: number) => {
+		const line = `- ${head}${fill.repeat((LINE_RUN * size) / fill.length)}${tail}`
+		const text = paste({ ingredients: Array(50).fill(line) })
+		return () => parseRecipeText(text)
+	}
 
-const manyLines = Array.from(
-	{ length: 200_000 },
-	(_, i) => `${i} g flour, (sifted)`,
-)
+/** One JSON-LD line past the ingredient limit, each grown to the size. */
+const jsonLdLines =
+	(head: string, fill: string, tail: string) => (size: number) => {
+		const line = `${head}${fill.repeat((LINE_RUN * size) / fill.length)}${tail}`
+		const lines = Array(MAX_RECIPE_INGREDIENTS + 1).fill(line)
+		return () => jsonLd({ recipeIngredient: lines })
+	}
 
-const cases: Array<[string, () => unknown]> = [
+const pasteOf =
+	(make: (run: string) => Parameters<typeof paste>[0]) =>
+	(fill: string) =>
+	(size: number) => {
+		const text = paste(make(fill.repeat((RUN * size) / fill.length)))
+		return () => parseRecipeText(text)
+	}
+
+type Case = [string, (size: number) => () => unknown, number?]
+
+const cases: Case[] = [
 	[
 		'a section word followed by a long run of spaces',
-		() =>
-			parseRecipeText(
-				paste({ description: [`Ingredients${' '.repeat(RUN)}x`] }),
-			),
+		pasteOf((run) => ({ description: [`Ingredients${run}x`] }))(' '),
 	],
 	[
 		'a title that ends in a long run of spaces before other text',
-		() => parseRecipeText(paste({ title: `Soup${' '.repeat(RUN)}x` })),
+		pasteOf((run) => ({ title: `Soup${run}x` }))(' '),
 	],
 	[
 		'a yield line with a long run of spaces after "Serves"',
-		() =>
-			parseRecipeText(paste({ description: [`Serves${' '.repeat(RUN)}x`] })),
+		pasteOf((run) => ({ description: [`Serves${run}x`] }))(' '),
 	],
 	[
 		'a yield line with a long run of spaces inside its label',
-		() =>
-			parseRecipeText(
-				paste({ description: [`Serves 4 a${' '.repeat(RUN)}x`] }),
-			),
+		pasteOf((run) => ({ description: [`Serves 4 a${run}x`] }))(' '),
 	],
 	[
 		'a yield line whose label holds a long run of colons',
-		() =>
-			parseRecipeText(
-				paste({ description: [`Serves 4 a${':'.repeat(RUN)}x`] }),
-			),
+		pasteOf((run) => ({ description: [`Serves 4 a${run}x`] }))(':'),
 	],
 	[
 		'an Apple Notes link opener repeated across the paste',
-		() => parseRecipeText('++['.repeat(RUN / 3)),
-	],
-	[
-		'a step of digits before a step that starts with a unit',
-		() =>
-			parseRecipeText(
-				paste({ steps: [`1. ${'1'.repeat(RUN)}x`, '2. F and serve'] }),
-			),
-	],
-	[
-		'a step of "1." repeated before a step that starts with a unit',
-		() =>
-			joinBrokenUnitSteps([
-				{ content: `${'1.'.repeat(RUN / 2)}x` },
-				{ content: 'F' },
-			]),
-	],
-	[
-		'saved steps of digits shown with Metric on',
-		() => {
-			const step = `${'1'.repeat(MAX_INSTRUCTION_LENGTH - 1)}x`
-			for (let i = 0; i < 20; i++) convertTemperatures(step)
+		(size) => {
+			const text = '++['.repeat((RUN * size) / 3)
+			return () => parseRecipeText(text)
 		},
 	],
 	[
-		'saved steps of spaces after a number shown with Metric on',
-		() => {
-			const step = `350${' '.repeat(MAX_INSTRUCTION_LENGTH - 4)}x`
-			for (let i = 0; i < 20; i++) convertTemperatures(step)
+		'a step of digits before a step that starts with a unit',
+		pasteOf((run) => ({ steps: [`1. ${run}x`, '2. F and serve'] }))('1'),
+	],
+	[
+		'a step of "1." repeated before a step that starts with a unit',
+		(size) => {
+			const steps = [{ content: `${'1.'.repeat((RUN * size) / 2)}x` }]
+			return () => joinBrokenUnitSteps([...steps, { content: 'F' }])
 		},
 	],
 	[
 		'a title of spaces checked for a trailing serves note',
-		() => extractYieldFromTitle(`Soup${' '.repeat(RUN)}x`),
+		(size) => {
+			const title = `Soup${' '.repeat(RUN * size)}x`
+			return () => extractYieldFromTitle(title)
+		},
 	],
 	[
-		'an ingredient line of spaces before text ending in a line separator',
-		() => parseIngredient(lineOf('1', ' ', 'x\r)')),
+		'saved steps of digits shown with Metric on',
+		(size) => {
+			const step = `${'1'.repeat((MAX_INSTRUCTION_LENGTH * size) / 4)}x`
+			return () => convertTemperatures(step)
+		},
 	],
+	[
+		'saved steps of spaces after a number shown with Metric on',
+		(size) => {
+			const step = `350${' '.repeat((MAX_INSTRUCTION_LENGTH * size) / 4)}x`
+			return () => convertTemperatures(step)
+		},
+	],
+	...(
+		[
+			['an amount and unit', '1 cup'],
+			['a bare amount', '1'],
+			['a mixed fraction', '1 1/2'],
+			['fluid ounces', '2 fl oz'],
+			['a can size', '1 (14 oz) can'],
+			['a pack size', '2 x 400 g'],
+			['"juice of"', 'juice of 1'],
+		] as const
+	).map(([what, head]): Case => [
+		`ingredient lines of spaces after ${what}, before a line separator`,
+		pasteLines(head, ' ', 'x\r)'),
+	]),
 	[
 		'ingredient lines of spaces after an amount and unit',
-		() =>
-			parseRecipeText(
-				paste({ ingredients: pasteLines(lineOf('1 cup flour', ' ', 'x')) }),
-			),
+		pasteLines('1 cup flour', ' ', 'x'),
 	],
+	['ingredient lines of spaces with no amount', pasteLines('salt', ' ', 'x')],
 	[
-		'ingredient lines of spaces with no amount',
-		() =>
-			parseRecipeText(
-				paste({ ingredients: pasteLines(lineOf('salt', ' ', 'x')) }),
-			),
+		'ingredient lines of spaces in the name before a paren',
+		pasteLines('1 cup a', ' ', 'x (b) c'),
 	],
 	[
 		'ingredient lines of spaces before a paren in the name',
-		() =>
-			parseRecipeText(
-				paste({
-					ingredients: pasteLines(lineOf('1 cup a', ' ', '(b) c\rx')),
-				}),
-			),
+		pasteLines('1 cup a', ' ', '(b) c\rx'),
 	],
 	[
 		'ingredient lines of tabs before a closing paren',
-		() =>
-			parseRecipeText(
-				paste({ ingredients: pasteLines(lineOf('salt', '\t', 'x(a)\ry')) }),
-			),
+		pasteLines('salt', '\t', 'x(a)\ry'),
 	],
 	[
 		'ingredient lines of spaces that hold "(approx." but not at the run',
-		() =>
-			parseRecipeText(
-				paste({
-					ingredients: pasteLines(lineOf('1 cup flour (approx.)', ' ', 'x')),
-				}),
-			),
+		pasteLines('1 cup flour (approx.)', ' ', 'x'),
 	],
 	[
 		'ingredient lines of spaces that end in "taste" but not "to taste"',
-		() =>
-			parseRecipeText(
-				paste({ ingredients: pasteLines(lineOf('salt', ' ', 'x taste')) }),
-			),
+		pasteLines('salt', ' ', 'x taste'),
 	],
-	[
-		'JSON-LD ingredient lines of "["',
-		() => jsonLd({ recipeIngredient: jsonLdLines(lineOf('1 cup ', '[', '')) }),
-	],
-	[
-		'JSON-LD ingredient lines of "]("',
-		() =>
-			jsonLd({
-				recipeIngredient: jsonLdLines(lineOf('1 cup ', '[a](', '')),
-			}),
-	],
-	[
-		'JSON-LD ingredient lines of ",("',
-		() =>
-			jsonLd({ recipeIngredient: jsonLdLines(lineOf('1 cup a', ',(', '')) }),
-	],
-	[
-		'JSON-LD ingredient lines of "("',
-		() =>
-			jsonLd({ recipeIngredient: jsonLdLines(lineOf('1 cup a', '(', ')')) }),
-	],
+	['JSON-LD ingredient lines of "["', jsonLdLines('1 cup ', '[', '')],
+	['JSON-LD ingredient lines of "[a]("', jsonLdLines('1 cup ', '[a](', '')],
+	['JSON-LD ingredient lines of ",("', jsonLdLines('1 cup a', ',(', '')],
+	['JSON-LD ingredient lines of "("', jsonLdLines('1 cup a', '(', ')')],
 	[
 		'JSON-LD text that is one long run of "<"',
-		() => cleanJsonLdText('<'.repeat(RUN)),
-	],
-	[
-		'JSON-LD with far more ingredient lines than a Recipe holds',
-		() => jsonLd({ recipeIngredient: manyLines }),
+		(size) => {
+			const text = '<'.repeat(RUN * size)
+			return () => cleanJsonLdText(text)
+		},
 	],
 	[
 		'an amount far longer than any saved amount',
-		() => {
-			const amount = `1${' '.repeat(RUN)}x`
-			scaleAmount(amount, 2, 'g')
-			scaleAmountKitchen(amount, 2, 'g')
+		(size) => {
+			const amount = `1${' '.repeat(RUN * size)}x`
+			return () => {
+				scaleAmount(amount, 2, 'g')
+				scaleAmountKitchen(amount, 2, 'g')
+			}
 		},
+		// An amount that long is never read, so its length adds nothing.
+		2.5,
 	],
 ]
 
-describe('parsing stays fast on long input', () => {
-	test.each(cases)('%s', (_name, run) => {
-		// Warm up so the first call's compile time isn't counted.
-		parseRecipeText(paste({}))
-		jsonLd({ recipeIngredient: ['1 cup flour'] })
-		expect(elapsedMs(run)).toBeLessThan(BOUND_MS)
+describe('parsing stays linear on long input', () => {
+	test.each(cases)('%s', (_name, build, maxGrowth = MAX_GROWTH) => {
+		const { ratio, largeMs } = growth(build)
+		expect(ratio).toBeLessThan(maxGrowth)
+		expect(largeMs).toBeLessThan(BACKSTOP_MS)
+	})
+
+	test('JSON-LD with far more ingredient lines than a Recipe holds', () => {
+		// Keeping the source as raw text reads every line once anyway, so the
+		// import should cost about that much, not a parse of every line.
+		const node = {
+			'@type': 'Recipe',
+			name: 'Soup',
+			recipeIngredient: Array.from(
+				{ length: 200_000 },
+				(_, i) => `${i} g flour, (sifted)`,
+			),
+		}
+		const keepRawText = () => JSON.stringify(node, null, 2)
+		const extract = () => extractRecipe(node, 'https://example.com/soup')
+		keepRawText()
+		extract()
+		expect(bestMs(extract, 1)).toBeLessThan(4 * bestMs(keepRawText, 1))
 	})
 })
 
 describe('the line cap', () => {
-	const fields =
-		MAX_INGREDIENT_NAME_LENGTH +
-		MAX_INGREDIENT_AMOUNT_LENGTH +
-		MAX_INGREDIENT_UNIT_LENGTH +
-		MAX_INGREDIENT_NOTES_LENGTH
+	// Two links whose markup alone is over the cap, then notes that fit.
+	const url = (c: string) => `https://example.com/${c.repeat(420)}`
+	const linked = `2 cups [flour](${url('a')}) or [spelt](${url('b')}), sifted, plus extra for dusting the counter and your hands while you knead the dough until it is smooth and springy, about ten minutes by hand or five in a mixer`
+	// A run of spaces pushes the end of the notes past the cap.
+	const spaced = `2 cups flour, sifted${' '.repeat(990)}then chilled overnight`
 
-	test('a line longer than the cap keeps more than the fields hold', () => {
-		const words = Array.from({ length: 2000 }, (_, i) => `word${i}`)
-		const parsed = parseIngredient(`2 cups flour, ${words.join(' ')}`)!
-		expect(parsed).toMatchObject({ amount: '2', unit: 'cups', name: 'flour' })
-		const kept = parsed.name.length + (parsed.notes?.length ?? 0)
-		expect(kept).toBeGreaterThan(fields)
-		expect(kept).toBeLessThanOrEqual(MAX_INGREDIENT_LINE_LENGTH)
+	const fromPaste = (line: string): ExtractedRecipe => {
+		const parsed = parseRecipeText(
+			`Bread\nIngredients\n- ${line}\nInstructions\n1. Bake`,
+		)
+		return {
+			title: parsed.title,
+			description: null,
+			notes: null,
+			activeTime: null,
+			totalTime: null,
+			yieldAmount: null,
+			yieldLabel: null,
+			sourceUrl: '',
+			metadataValueIds: [],
+			rawText: line,
+			ingredients: parsed.ingredients,
+			ingredientsCut: parsed.ingredientsCut,
+			instructions: parsed.instructions,
+		}
+	}
+
+	test('a line past the cap says it was cut', () => {
+		expect(parseIngredient(spaced)).toMatchObject({
+			amount: '2',
+			unit: 'cups',
+			name: 'flour',
+			notes: 'sifted',
+			cut: true,
+		})
+		expect(parseIngredient('2 cups flour, sifted')).not.toHaveProperty('cut')
 	})
 
-	test('import still reports a line past the cap as shortened', () => {
-		const words = Array.from({ length: 2000 }, (_, i) => `word${i}`)
-		const extracted = jsonLd({
-			recipeIngredient: [`2 cups flour, ${words.join(' ')}`],
+	test('a pasted line past the cap is reported as shortened', () => {
+		const { shortened } = fitImportedRecipe(fromPaste(spaced))
+		expect(shortened).toContain('ingredients')
+	})
+
+	test('a JSON-LD line past the cap is reported as shortened', () => {
+		// JSON-LD text has its runs of spaces collapsed, so this line is long in
+		// stray parens, which the parse drops once the line is cut.
+		const parens = `2 cups flour, sifted ${'('.repeat(990)} then chilled overnight`
+		const extracted = jsonLd({ recipeIngredient: [parens] })
+		expect(extracted.ingredients[0]).toEqual({
+			amount: '2',
+			unit: 'cups',
+			name: 'flour',
+			notes: 'sifted',
 		})
 		expect(fitImportedRecipe(extracted).shortened).toContain('ingredients')
+	})
+
+	test('link markup does not count towards the cap', () => {
+		expect(linked.length).toBeGreaterThan(MAX_INGREDIENT_LINE_LENGTH)
+		for (const extracted of [
+			fromPaste(linked),
+			jsonLd({ recipeIngredient: [linked] }),
+		]) {
+			const { recipe, shortened } = fitImportedRecipe(extracted)
+			expect(shortened).toEqual([])
+			expect(recipe.ingredients[0]!.notes).toMatch(/five in a mixer$/)
+		}
 	})
 
 	test('a title past the save limit keeps its trailing serves note', () => {
@@ -319,7 +383,7 @@ describe('the line cap', () => {
 		})
 	})
 
-	test('JSON-LD past the ingredient limit still reports Ingredients shortened', () => {
+	test('JSON-LD past the ingredient limit reports Ingredients shortened', () => {
 		const extracted = jsonLd({
 			recipeIngredient: Array.from(
 				{ length: MAX_RECIPE_INGREDIENTS + 50 },
@@ -332,5 +396,28 @@ describe('the line cap', () => {
 		expect(recipe.ingredients.at(-1)).toMatchObject({
 			amount: String(MAX_RECIPE_INGREDIENTS),
 		})
+	})
+
+	test('lines that make no row do not count towards the limit', () => {
+		const rows = (count: number) =>
+			Array.from({ length: count }, (_, i) => `${i + 1} g flour`)
+		const over = fitImportedRecipe(
+			jsonLd({ recipeIngredient: ['- [ ]', ...rows(230)] }),
+		)
+		expect(over.shortened).toContain('ingredients')
+		expect(over.recipe.ingredients).toHaveLength(MAX_RECIPE_INGREDIENTS)
+
+		const full = fitImportedRecipe(
+			jsonLd({
+				recipeIngredient: [
+					'- [ ]',
+					...rows(MAX_RECIPE_INGREDIENTS),
+					'- [ ]',
+					'',
+				],
+			}),
+		)
+		expect(full.shortened).toEqual([])
+		expect(full.recipe.ingredients).toHaveLength(MAX_RECIPE_INGREDIENTS)
 	})
 })

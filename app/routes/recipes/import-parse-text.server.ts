@@ -49,6 +49,7 @@ export async function importFromText(
 			notes: ing.notes,
 			isHeading: ing.isHeading,
 		})),
+		ingredientsCut: parsed.ingredientsCut,
 		instructions: parsed.instructions,
 	}
 

@@ -18,12 +18,14 @@ export type ParsedRecipe = {
 		isHeading?: boolean
 	}>
 	instructions: Array<{ content: string }>
+	/** An ingredient line was longer than the parser reads, and was cut. */
+	ingredientsCut: boolean
 	warnings: string[]
 }
 
 // Patterns in this file read text of any length, up to a whole paste or a
 // JSON-LD field, so none may let two quantifiers take turns over the same
-// characters: that backtracks quadratically on a long run of spaces or digits.
+// characters; that keeps parsing linear in the length of the text.
 const HEADING_PATTERN =
 	/^(ingredients|instructions|directions|steps|method|preparation)\s*(?::\s*)?$/i
 
@@ -284,6 +286,7 @@ export function parseRecipeText(text: string): ParsedRecipe {
 
 	// Parse ingredients
 	const ingredients: ParsedRecipe['ingredients'] = []
+	let ingredientsCut = false
 	for (const [sectionIndex, section] of sections.entries()) {
 		if (section.type !== 'ingredients') continue
 		const ingredientLines = getSectionLines(sectionIndex)
@@ -328,8 +331,10 @@ export function parseRecipeText(text: string): ParsedRecipe {
 			}
 
 			// Long preparation notes are still part of an ingredient.
-			const parsed = parseIngredient(stripped)
-			if (parsed) {
+			const parsedLine = parseIngredient(stripped)
+			if (parsedLine) {
+				const { cut, ...parsed } = parsedLine
+				if (cut) ingredientsCut = true
 				// Carry sub-section context into ingredient notes
 				if (currentHeading) {
 					const headingNote = /^for\b/i.test(currentHeading)
@@ -381,6 +386,7 @@ export function parseRecipeText(text: string): ParsedRecipe {
 		yieldLabel,
 		ingredients,
 		instructions: joinedInstructions,
+		ingredientsCut,
 		warnings,
 	}
 }

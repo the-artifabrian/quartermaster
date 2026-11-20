@@ -21,6 +21,12 @@ export type ExtractedRecipe = {
 		notes?: string
 		isHeading?: boolean
 	}>
+	/**
+	 * The parser left ingredient text out: a line past the length it reads,
+	 * or rows past what a Recipe holds. Import reports Ingredients as
+	 * shortened.
+	 */
+	ingredientsCut?: boolean
 	instructions: Array<{ content: string }>
 }
 

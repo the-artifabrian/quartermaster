@@ -6,9 +6,10 @@ import {
 } from './recipe-validation.ts'
 
 /**
- * The longest ingredient line the parser reads; the rest is dropped before
- * parsing. Well over what the four fields can hold together, so a line that
- * is too long still overflows them and import reports it as shortened.
+ * The longest ingredient line the parser reads, after links are reduced to
+ * their text; the rest is dropped before parsing, and the result says so
+ * with `cut`, so import can report the ingredients as shortened. Well over
+ * what the four fields hold together, so real lines are never cut.
  */
 export const MAX_INGREDIENT_LINE_LENGTH =
 	MAX_INGREDIENT_NAME_LENGTH +
@@ -18,9 +19,8 @@ export const MAX_INGREDIENT_LINE_LENGTH =
 	200
 
 // The patterns below read whole ingredient lines, so none may let two
-// quantifiers take turns over the same characters: a long run of spaces,
-// brackets or digits would then backtrack quadratically or worse. A name or
-// notes part is matched as `\s+(\S.*|[^\S\n\r\u2028\u2029])$` rather than
+// quantifiers take turns over the same characters; that keeps parsing linear
+// in the length of the line. A name or notes part is matched as `\s+(\S.*|[^\S\n\r\u2028\u2029])$` rather than
 // `\s+(.+)$` for that reason. It starts at its first non-space, or is the
 // last space when only spaces are left, which is what `(.+)` held too.
 
@@ -373,6 +373,15 @@ export function detectIngredientHeading(
 	return null
 }
 
+// Amount, optional unit word, then the rest of the line: "600 g broccoli",
+// "600g broccoli". An amount starts with a digit, a fraction, "." or "~",
+// and takes a comma only between digits.
+const LEADING_AMOUNT =
+	/^(~?[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)(?:\s*([a-zA-Z]+\.?))?\s+(\S.*|[^\S\n\r\u2028\u2029])$/
+// The same with a count times a size as the amount: "2 x 400 g tomatoes".
+const PACK_SIZE_AMOUNT =
+	/^(~?[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*\s*[x×]\s*\d(?:[\d.\/]|,(?=\d))*)(?:\s*([a-zA-Z]+\.?))?\s+(\S.*|[^\S\n\r\u2028\u2029])$/
+
 /** The first MAX_INGREDIENT_LINE_LENGTH characters, never half an emoji. */
 function capLine(line: string): string {
 	if (line.length <= MAX_INGREDIENT_LINE_LENGTH) return line
@@ -380,20 +389,35 @@ function capLine(line: string): string {
 	return /[\uD800-\uDBFF]$/.test(head) ? head.slice(0, -1) : head
 }
 
-// Parse an ingredient string into structured parts
-export function parseIngredient(line: string): {
+export type ParsedIngredient = {
 	name: string
 	amount?: string
 	unit?: string
 	notes?: string
 	isHeading?: boolean
-} | null {
-	let cleaned = capLine(line)
+	/** The line was longer than MAX_INGREDIENT_LINE_LENGTH and was cut. */
+	cut?: true
+}
+
+// Parse an ingredient string into structured parts
+export function parseIngredient(line: string): ParsedIngredient | null {
+	const text = line
+		// U+2044 FRACTION SLASH, as in "1 1⁄2"
+		.replaceAll('\u2044', '/')
 		.replace(/^-\s*\[[ x]\]\s*/, '')
 		.replace(APPLE_NOTES_LINK, '$1')
 		.replace(MARKDOWN_LINK, '$1')
 		.trim()
-	if (!cleaned) return null
+	if (!text) return null
+	const capped = capLine(text).trimEnd()
+	const parsed = parseCleanedLine(capped)
+	return parsed && capped.length < text.length
+		? { ...parsed, cut: true }
+		: parsed
+}
+
+function parseCleanedLine(line: string): ParsedIngredient | null {
+	let cleaned = line
 
 	// Strip redundant parens after commas: "beans, (trimmed)" → "beans, trimmed"
 	// Common in JSON-LD recipeIngredient data from recipe sites
@@ -444,13 +468,13 @@ export function parseIngredient(line: string): {
 
 	// "X to Y" range normalization: "2 to 3 tablespoons" → "2-3 tablespoons"
 	cleaned = cleaned.replace(
-		/^(~?(?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))+)\s+to\s+((?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))+)\s/,
+		/^(~?[\d.\/½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s+to\s+([\d.\/½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s/,
 		'$1-$2 ',
 	)
 
 	// Normalize ranges with spaces around dash: "1½ -2 cups" → "1½-2 cups"
 	cleaned = cleaned.replace(
-		/^(~?(?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))+)\s*[-–]\s*((?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))+)\s/,
+		/^(~?[\d.\/½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s*[-–]\s*([\d.\/½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s/,
 		'$1-$2 ',
 	)
 
@@ -513,7 +537,7 @@ export function parseIngredient(line: string): {
 
 	// Handle "fl oz" multi-word unit: "2 fl oz lime juice"
 	const flOzMatch = cleaned.match(
-		/^(~?(?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))+)\s*(?:fl\.?\s*oz\.?|fluid\s+ounces?)\s+(\S.*|[^\S\n\r\u2028\u2029])$/i,
+		/^(~?[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s*(?:fl\.?\s*oz\.?|fluid\s+ounces?)\s+(\S.*|[^\S\n\r\u2028\u2029])$/i,
 	)
 	if (flOzMatch) {
 		let name = flOzMatch[2]!.trim()
@@ -534,7 +558,7 @@ export function parseIngredient(line: string): {
 
 	// Handle "N (X unit) container name" → e.g. "1 (14.5 oz) can diced tomatoes"
 	const nestedMatch = cleaned.match(
-		/^((?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞~]|,(?=\d))+)\s*\(([^)]+)\)\s*([a-zA-Z]+\.?)\s+(\S.*|[^\S\n\r\u2028\u2029])$/,
+		/^([\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞~](?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞~]|,(?=\d))*)\s*\(([^)]+)\)\s*([a-zA-Z]+\.?)\s+(\S.*|[^\S\n\r\u2028\u2029])$/,
 	)
 	if (nestedMatch) {
 		const [, nestedAmount, parenthetical, possibleUnit, rest] = nestedMatch
@@ -562,11 +586,12 @@ export function parseIngredient(line: string): {
 	// Handle both "600 g broccoli" and "600g broccoli"
 	// Unicode fractions (½⅓⅔¼¾⅛⅜⅝⅞) included in amount character class
 	// Trailing period on unit allowed for abbreviations like "tbsp."
-	// A count times a size ("2 x 400 g", "2x400g") stays one amount; there is
-	// no pack size, so parseAmount leaves it as written and out of totals.
-	const match = cleaned.match(
-		/^(~?(?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))+(?:\s*[x×]\s*\d(?:[\d.\/]|,(?=\d))*)?)(?:\s*([a-zA-Z]+\.?))?\s+(\S.*|[^\S\n\r\u2028\u2029])$/,
-	)
+	// A count times a size ("2 x 400 g", "2x400g") stays one amount when a
+	// unit follows; there is no pack size, so parseAmount leaves it as written
+	// and out of totals. Without a unit ("9x13 baking dish") it reads as before.
+	const pack = cleaned.match(PACK_SIZE_AMOUNT)
+	const match =
+		pack?.[2] && isUnit(pack[2]) ? pack : cleaned.match(LEADING_AMOUNT)
 
 	if (match) {
 		const amount = match[1]

@@ -4,6 +4,7 @@ export {
 	detectIngredientHeading,
 	isAllCapsHouseStyle,
 	parseIngredient,
+	type ParsedIngredient,
 } from './ingredient-parser.ts'
 
 // Convert ISO 8601 duration (PT30M, PT1H15M) to minutes

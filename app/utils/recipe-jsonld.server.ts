@@ -4,6 +4,7 @@ import {
 	isAllCapsHouseStyle,
 	parseIngredient,
 	parseISODuration,
+	type ParsedIngredient,
 } from './ingredient-parser.server.ts'
 import {
 	extractYieldFromTitle,
@@ -52,9 +53,8 @@ export function findRecipeInJsonLd(
 }
 
 /**
- * Drops each "<…>" the way /<[^>]+>/g does, in one pass. A JSON-LD field can
- * be megabytes long, and that pattern rescans to the end from every "<" that
- * has no ">" after it.
+ * Drops each "<…>" the way /<[^>]+>/g does, in one pass, so it stays linear
+ * on a JSON-LD field megabytes long.
  */
 function stripTags(text: string): string {
 	let out = ''
@@ -216,25 +216,40 @@ export function extractRecipe(
 		throw new RecipeShapeError('recipeIngredient is not a list of strings')
 	}
 	const rawIngredients: string[] = ingredientField
-	// One line past what a Recipe holds is enough for the import to say the
-	// list was cut, and a page can't make it parse thousands more.
-	const cleanedLines: string[] = []
+	// Parsing stops at the first row past what a Recipe holds, so a page can't
+	// make it parse thousands more; the import then says the list was cut.
+	const lines: Array<{ cleaned: string; parsed: ParsedIngredient | null }> = []
+	let ingredientsCut = false
 	for (const line of rawIngredients) {
 		const cleaned = cleanJsonLdText(line)
-		if (cleaned) cleanedLines.push(cleaned)
-		if (cleanedLines.length > MAX_RECIPE_INGREDIENTS) break
+		if (!cleaned) continue
+		const parsed = parseIngredient(cleaned)
+		// Caps can decide whether a line is a heading, never whether it is a
+		// row, so this counts rows the way the save does.
+		const isRow =
+			detectIngredientHeading(cleaned, { allCapsIsHeading: false }) !== null ||
+			Boolean(parsed?.name.trim())
+		if (!isRow) continue
+		if (lines.length === MAX_RECIPE_INGREDIENTS) {
+			ingredientsCut = true
+			break
+		}
+		lines.push({ cleaned, parsed })
 	}
 	// When the whole list is caps, caps is house style, not structure
-	const allCapsIsHeading = !isAllCapsHouseStyle(cleanedLines)
-	const ingredients = cleanedLines
-		.map((cleaned) => {
-			// Sites stuff sub-section headers ("For the crust") into
-			// recipeIngredient — keep them as headings, not fake ingredients
-			const heading = detectIngredientHeading(cleaned, { allCapsIsHeading })
-			if (heading) return { name: heading, isHeading: true }
-			return parseIngredient(cleaned)
-		})
-		.filter((ing): ing is NonNullable<typeof ing> => ing !== null)
+	const allCapsIsHeading = !isAllCapsHouseStyle(
+		lines.map((line) => line.cleaned),
+	)
+	const ingredients = lines.flatMap(({ cleaned, parsed }) => {
+		// Sites stuff sub-section headers ("For the crust") into
+		// recipeIngredient — keep them as headings, not fake ingredients
+		const heading = detectIngredientHeading(cleaned, { allCapsIsHeading })
+		if (heading) return [{ name: heading, isHeading: true }]
+		if (!parsed) return []
+		const { cut, ...ingredient } = parsed
+		if (cut) ingredientsCut = true
+		return [ingredient]
+	})
 
 	const instructions = joinBrokenUnitSteps(
 		parseInstructions(jsonLd.recipeInstructions),
@@ -266,6 +281,7 @@ export function extractRecipe(
 		// what a Recipe keeps.
 		rawText: JSON.stringify(jsonLd, null, 2).slice(0, MAX_RAW_TEXT_LENGTH),
 		ingredients,
+		ingredientsCut,
 		instructions,
 	}
 }

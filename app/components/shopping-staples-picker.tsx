@@ -335,7 +335,7 @@ export function ShoppingStaplesPicker({
 						// sheet stands in for the popover.
 						aria-expanded={open}
 					>
-						<Icon name="cookie" size="sm" />
+						<Icon name="file-text" size="sm" />
 						From Staples
 						{showCue && (
 							<span

@@ -115,6 +115,18 @@ function MultiplierControl({ item }: { item: PlanMealItem }) {
 	)
 }
 
+/**
+ * A Meal's rows share two left edges: the cooked circle (and the icon of a
+ * note or Add Recipe row) on the content edge, and every title 32px in. On a
+ * phone the circle's 44px tap box hangs into the page gutter.
+ */
+const COOKED_TOGGLE =
+	'-ml-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-center desktop:mx-0 desktop:-ml-1 desktop:min-h-0 desktop:min-w-0 desktop:p-1'
+
+/** A trailing icon button whose glyph ends on the content edge. */
+const TRAILING_ICON_SLOT =
+	'size-11 shrink-0 -mr-[15px] desktop:size-7 desktop:-mr-[7px]'
+
 function ItemRow({
 	item,
 	showRemove,
@@ -133,12 +145,7 @@ function ItemRow({
 
 	const missing = item.recipe == null
 	return (
-		<div
-			className={cn(
-				'flex items-center gap-2 md:gap-1',
-				isCooked && 'opacity-50',
-			)}
-		>
+		<div className={cn('flex items-center gap-2', isCooked && 'opacity-50')}>
 			{/* Cooked checkbox — independent per Recipe item (#98) */}
 			<cookedFetcher.Form
 				method="POST"
@@ -153,7 +160,7 @@ function ItemRow({
 				<input type="hidden" name="cooked" value={String(!isCooked)} />
 				<button
 					type="submit"
-					className="flex min-h-11 min-w-11 shrink-0 items-center justify-center md:min-h-0 md:min-w-0 md:p-1"
+					className={COOKED_TOGGLE}
 					aria-label={
 						isCooked
 							? `Mark ${item.recipeTitle} as not cooked`
@@ -174,10 +181,10 @@ function ItemRow({
 			    multiplier trailing, so each is 44px tall without the row
 			    growing; stacked, two 44px targets would not fit. */}
 			<div className="min-w-0 flex-1">
-				<div className="flex min-w-0 items-center gap-2 md:block">
+				<div className="flex min-w-0 items-center gap-2">
 					<h4
 						className={cn(
-							'flex min-w-0 flex-1 font-serif text-[15px] leading-snug md:block',
+							'flex min-w-0 flex-1 font-serif text-[15px] leading-snug',
 							isCooked && 'text-muted-foreground line-through',
 						)}
 					>
@@ -189,7 +196,7 @@ function ItemRow({
 										: `/recipes/${item.recipe.id}`
 								}
 								className={cn(
-									'flex min-h-11 min-w-0 items-center hover:underline md:inline md:min-h-0',
+									'desktop:inline desktop:min-h-0 flex min-h-11 min-w-0 items-center hover:underline',
 									!isCooked && 'text-foreground',
 								)}
 								onClick={(e) => e.stopPropagation()}
@@ -220,13 +227,17 @@ function ItemRow({
 				) : null}
 			</div>
 
-			{/* Remove item: at once, with Undo */}
-			{showRemove && (
+			{/* Remove item: at once, with Undo. A Recipe without one keeps its
+			    place, so the scale fields of a day line up. */}
+			{showRemove ? (
 				<Button
 					type="button"
 					size="sm"
 					variant="ghost"
-					className="text-destructive hover:text-destructive desktop:size-7 size-11 shrink-0 p-0"
+					className={cn(
+						'text-destructive hover:text-destructive p-0',
+						TRAILING_ICON_SLOT,
+					)}
 					aria-label={`Remove ${item.recipeTitle} from this meal`}
 					onClick={() =>
 						deleteWithUndo({
@@ -241,6 +252,8 @@ function ItemRow({
 				>
 					<Icon name="trash" className="size-3.5" />
 				</Button>
+			) : (
+				<span aria-hidden="true" className={TRAILING_ICON_SLOT} />
 			)}
 		</div>
 	)
@@ -252,8 +265,10 @@ function ItemRow({
  */
 function NoteRow({ note }: { note: PlanMealNote }) {
 	return (
-		<div className="text-muted-foreground flex items-start gap-2">
-			<Icon name="pencil-2" className="mt-0.5 size-3.5 shrink-0" />
+		<div className="text-muted-foreground flex items-start gap-3">
+			<span className="flex w-5 shrink-0 justify-center pt-0.5">
+				<Icon name="pencil-2" className="size-3.5" />
+			</span>
 			<div className="min-w-0 flex-1">
 				<p className="text-[13px] leading-snug break-words whitespace-pre-wrap">
 					{note.text}
@@ -544,6 +559,9 @@ export function MealCard({
 		setAddingRecipe(false)
 	}
 	const [editingDetails, setEditingDetails] = useState(false)
+	// Where the inline panel opened. A save can add or remove the header line;
+	// moving the panel then would remount its form and lose the save's close.
+	const [detailsUnderHeader, setDetailsUnderHeader] = useState(false)
 	const [menuOpen, setMenuOpen] = useState(false)
 	const menuPointer = useRef<string | null>(null)
 
@@ -687,6 +705,150 @@ export function MealCard({
 		)
 	}
 
+	// A Meal with no label, time, guests or Menu has no header line; its
+	// actions end its last row instead.
+	const hasHeader = Boolean(
+		meal.label || timeText || meal.guestCount != null || meal.sourceMenu,
+	)
+	const detailsPanel = editingDetails && !detailsInSheet && (
+		<div className="border-border/50 bg-background mt-1 rounded-md border p-3">
+			<MealDetailsForm meal={meal} onDone={() => setEditingDetails(false)} />
+		</div>
+	)
+	// The dots glyph ends on the content edge; the 44px tap area is wider.
+	const actions = (
+		<DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
+			<DropdownMenuTrigger asChild>
+				<button
+					ref={menuTriggerRef}
+					type="button"
+					// Radix opens a menu on pointerdown. A finger opens it on the
+					// tap instead, so a scroll that starts on the button leaves
+					// it shut.
+					onPointerDown={(event) => {
+						menuPointer.current = event.pointerType
+						if (event.pointerType !== 'mouse') event.preventDefault()
+					}}
+					onClick={() => {
+						if (menuPointer.current && menuPointer.current !== 'mouse') {
+							setMenuOpen((open) => !open)
+						}
+						menuPointer.current = null
+					}}
+					// 32px to the eye on a phone, 44px to the thumb: the
+					// pseudo-element takes taps without growing the header.
+					className="text-muted-foreground hover:text-foreground active:bg-muted desktop:-mr-[5px] desktop:min-h-6 desktop:min-w-6 desktop:before:hidden relative -mr-[9px] flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded transition-colors before:absolute before:-inset-1.5 before:content-['']"
+					aria-label={`Meal actions for ${mealActionName}`}
+				>
+					<Icon name="dots-horizontal" className="size-3.5" />
+				</button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end">
+				{canMoveUp ? (
+					<DropdownMenuItem
+						onSelect={() => {
+							void moveFetcher.submit(
+								{
+									intent: 'moveMeal',
+									mealId: meal.id,
+									direction: 'up',
+								},
+								{ method: 'POST' },
+							)
+						}}
+					>
+						<Icon name="arrow-up" size="sm" />
+						Move earlier
+					</DropdownMenuItem>
+				) : null}
+				{canMoveDown ? (
+					<DropdownMenuItem
+						onSelect={() => {
+							void moveFetcher.submit(
+								{
+									intent: 'moveMeal',
+									mealId: meal.id,
+									direction: 'down',
+								},
+								{ method: 'POST' },
+							)
+						}}
+					>
+						<Icon name="arrow-down" size="sm" />
+						Move later
+					</DropdownMenuItem>
+				) : null}
+				{canMoveUp || canMoveDown ? <DropdownMenuSeparator /> : null}
+				<DropdownMenuItem onSelect={() => submitMealCooked(!isComplete)}>
+					<Icon name="check" size="sm" />
+					{isComplete ? 'Mark not cooked' : 'Mark cooked'}
+				</DropdownMenuItem>
+				<DropdownMenuItem
+					onSelect={() => {
+						setDetailsInSheet(opensAsSheet())
+						setDetailsUnderHeader(hasHeader)
+						setDetailsOpens((count) => count + 1)
+						setEditingDetails(true)
+					}}
+				>
+					<Icon name="pencil-1" size="sm" />
+					Edit details
+				</DropdownMenuItem>
+				{/* A Meal reaches Shopping only through this explicit action —
+				    planning never live-syncs Shopping. Text-only Meals have no
+				    Shopping behavior (#108). A Meal already on Shopping keeps
+				    Update after losing its demand, so the update can clear it. */}
+				{!isText && (hasShoppingDemand || meal.addedToShopping) && (
+					<DropdownMenuItem
+						disabled={addToShoppingFetcher.state !== 'idle'}
+						onSelect={() => {
+							void addToShoppingFetcher.submit(
+								{
+									intent: meal.addedToShopping
+										? 'refreshMealShopping'
+										: 'addMealToShopping',
+									mealId: meal.id,
+								},
+								{ method: 'POST' },
+							)
+						}}
+					>
+						<Icon name={meal.addedToShopping ? 'update' : 'cart'} size="sm" />
+						{meal.addedToShopping ? 'Update Shopping' : 'Add to Shopping'}
+					</DropdownMenuItem>
+				)}
+				<DropdownMenuSeparator />
+				{/* A Meal on Shopping asks what to do with its amounts there. */}
+				{meal.addedToShopping ? (
+					<>
+						<DropdownMenuItem
+							variant="destructive"
+							onSelect={() => deleteMeal(false)}
+						>
+							<Icon name="trash" size="sm" />
+							Delete · keep Shopping
+						</DropdownMenuItem>
+						<DropdownMenuItem
+							variant="destructive"
+							onSelect={() => deleteMeal(true)}
+						>
+							<Icon name="trash" size="sm" />
+							Delete · remove generated amount
+						</DropdownMenuItem>
+					</>
+				) : (
+					<DropdownMenuItem
+						variant="destructive"
+						onSelect={() => deleteMeal(false)}
+					>
+						<Icon name="trash" size="sm" />
+						Delete
+					</DropdownMenuItem>
+				)}
+			</DropdownMenuContent>
+		</DropdownMenu>
+	)
+
 	return (
 		<div
 			ref={cardRef}
@@ -698,177 +860,39 @@ export function MealCard({
 		>
 			{/* Header: optional label/time/guests on the left — display metadata
 			    only, never what orders the day (#98) — controls on the right. */}
-			<div className="flex min-h-7 items-center gap-1.5">
-				<div className="text-muted-foreground flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-[11px] font-semibold tracking-wider uppercase">
-					{meal.label ? (
-						<span>{mealLabelText(meal.label)}</span>
-					) : (
-						<span className="hidden md:inline">Meal</span>
-					)}
-					{timeText && (
-						<span className="inline-flex items-center gap-0.5 normal-case">
-							<Icon name="clock" className="size-3" />
-							{timeText}
-						</span>
-					)}
-					{meal.guestCount != null && (
-						<span className="normal-case">· {meal.guestCount} guests</span>
-					)}
-					{/* Where the snapshot came from — a reference, not live data */}
-					{meal.sourceMenu && (
-						<PushLink
-							to={`/recipes/menus/${meal.sourceMenu.id}`}
-							className="hover:text-foreground inline-flex max-w-full min-w-0 items-center gap-0.5 normal-case transition-colors"
-						>
-							<Icon name="file-text" className="size-3 shrink-0" />
-							<span className="truncate">{meal.sourceMenu.title}</span>
-						</PushLink>
-					)}
-				</div>
-
-				<DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
-					<DropdownMenuTrigger asChild>
-						<button
-							ref={menuTriggerRef}
-							type="button"
-							// Radix opens a menu on pointerdown. A finger opens it on the
-							// tap instead, so a scroll that starts on the button leaves
-							// it shut.
-							onPointerDown={(event) => {
-								menuPointer.current = event.pointerType
-								if (event.pointerType !== 'mouse') event.preventDefault()
-							}}
-							onClick={() => {
-								if (menuPointer.current && menuPointer.current !== 'mouse') {
-									setMenuOpen((open) => !open)
-								}
-								menuPointer.current = null
-							}}
-							// 32px to the eye on a phone, 44px to the thumb: the
-							// pseudo-element takes taps without growing the header.
-							className="text-muted-foreground hover:text-foreground active:bg-muted relative flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded transition-colors before:absolute before:-inset-1.5 before:content-[''] md:min-h-6 md:min-w-6 md:before:hidden"
-							aria-label={`Meal actions for ${mealActionName}`}
-						>
-							<Icon name="dots-horizontal" className="size-3.5" />
-						</button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end">
-						{canMoveUp ? (
-							<DropdownMenuItem
-								onSelect={() => {
-									void moveFetcher.submit(
-										{
-											intent: 'moveMeal',
-											mealId: meal.id,
-											direction: 'up',
-										},
-										{ method: 'POST' },
-									)
-								}}
-							>
-								<Icon name="arrow-up" size="sm" />
-								Move earlier
-							</DropdownMenuItem>
-						) : null}
-						{canMoveDown ? (
-							<DropdownMenuItem
-								onSelect={() => {
-									void moveFetcher.submit(
-										{
-											intent: 'moveMeal',
-											mealId: meal.id,
-											direction: 'down',
-										},
-										{ method: 'POST' },
-									)
-								}}
-							>
-								<Icon name="arrow-down" size="sm" />
-								Move later
-							</DropdownMenuItem>
-						) : null}
-						{canMoveUp || canMoveDown ? <DropdownMenuSeparator /> : null}
-						<DropdownMenuItem onSelect={() => submitMealCooked(!isComplete)}>
-							<Icon name="check" size="sm" />
-							{isComplete ? 'Mark not cooked' : 'Mark cooked'}
-						</DropdownMenuItem>
-						<DropdownMenuItem
-							onSelect={() => {
-								setDetailsInSheet(opensAsSheet())
-								setDetailsOpens((count) => count + 1)
-								setEditingDetails(true)
-							}}
-						>
-							<Icon name="pencil-1" size="sm" />
-							Edit details
-						</DropdownMenuItem>
-						{/* A Meal reaches Shopping only through this explicit action —
-						    planning never live-syncs Shopping. Text-only Meals have no
-						    Shopping behavior (#108). A Meal already on Shopping keeps
-						    Update after losing its demand, so the update can clear it. */}
-						{!isText && (hasShoppingDemand || meal.addedToShopping) && (
-							<DropdownMenuItem
-								disabled={addToShoppingFetcher.state !== 'idle'}
-								onSelect={() => {
-									void addToShoppingFetcher.submit(
-										{
-											intent: meal.addedToShopping
-												? 'refreshMealShopping'
-												: 'addMealToShopping',
-											mealId: meal.id,
-										},
-										{ method: 'POST' },
-									)
-								}}
-							>
-								<Icon
-									name={meal.addedToShopping ? 'update' : 'cart'}
-									size="sm"
-								/>
-								{meal.addedToShopping ? 'Update Shopping' : 'Add to Shopping'}
-							</DropdownMenuItem>
+			{hasHeader && (
+				<div className="flex min-h-7 items-center gap-1.5">
+					<div className="text-muted-foreground flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-[11px] font-semibold tracking-wider uppercase">
+						{meal.label ? <span>{mealLabelText(meal.label)}</span> : null}
+						{timeText && (
+							<span className="inline-flex items-center gap-0.5 normal-case">
+								<Icon name="clock" className="size-3" />
+								{timeText}
+							</span>
 						)}
-						<DropdownMenuSeparator />
-						{/* A Meal on Shopping asks what to do with its amounts there. */}
-						{meal.addedToShopping ? (
-							<>
-								<DropdownMenuItem
-									variant="destructive"
-									onSelect={() => deleteMeal(false)}
-								>
-									<Icon name="trash" size="sm" />
-									Delete · keep Shopping
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									variant="destructive"
-									onSelect={() => deleteMeal(true)}
-								>
-									<Icon name="trash" size="sm" />
-									Delete · remove generated amount
-								</DropdownMenuItem>
-							</>
-						) : (
-							<DropdownMenuItem
-								variant="destructive"
-								onSelect={() => deleteMeal(false)}
-							>
-								<Icon name="trash" size="sm" />
-								Delete
-							</DropdownMenuItem>
+						{meal.guestCount != null && (
+							<span className="normal-case">· {meal.guestCount} guests</span>
 						)}
-					</DropdownMenuContent>
-				</DropdownMenu>
-			</div>
+						{/* Where the snapshot came from — a reference, not live data */}
+						{meal.sourceMenu && (
+							<PushLink
+								to={`/recipes/menus/${meal.sourceMenu.id}`}
+								className="hover:text-foreground inline-flex max-w-full min-w-0 items-center gap-0.5 normal-case transition-colors"
+							>
+								<Icon name="file-text" className="size-3 shrink-0" />
+								<span className="truncate">{meal.sourceMenu.title}</span>
+							</PushLink>
+						)}
+					</div>
 
-			{/* Edit details: inline panel, or a sheet on a phone */}
-			{editingDetails && !detailsInSheet && (
-				<div className="border-border/50 bg-background mt-1 rounded-md border p-3">
-					<MealDetailsForm
-						meal={meal}
-						onDone={() => setEditingDetails(false)}
-					/>
+					{actions}
 				</div>
 			)}
+
+			{/* Edit details: inline panel, or a sheet on a phone */}
+			{/* Edit details in place opens under the dots that opened it: under
+			    the header, or at the end of a Meal without one. */}
+			{detailsUnderHeader && detailsPanel}
 			{detailsInSheet && (
 				<BottomSheet
 					open={editingDetails}
@@ -895,7 +919,7 @@ export function MealCard({
 					<button
 						type="button"
 						onClick={() => submitMealCooked(!isComplete)}
-						className="flex min-h-11 min-w-11 shrink-0 items-center justify-center md:min-h-0 md:min-w-0 md:p-1"
+						className={COOKED_TOGGLE}
 						aria-label={isComplete ? 'Mark not cooked' : 'Mark cooked'}
 					>
 						{isComplete ? (
@@ -914,6 +938,7 @@ export function MealCard({
 					>
 						{meal.genericText}
 					</p>
+					{!hasHeader && actions}
 				</div>
 			) : (
 				<div className="space-y-0">
@@ -946,11 +971,11 @@ export function MealCard({
 									// Inset from the cooked toggle, so it reads as inside the
 									// Meal next to the full-width line between Meals.
 									insetLine &&
-										"before:border-border/60 relative before:absolute before:top-0 before:right-0 before:left-11 before:border-t before:content-[''] md:before:left-8",
+										"before:border-border/60 relative before:absolute before:top-0 before:right-0 before:left-8 before:border-t before:content-['']",
 								)}
 							>
 								{row.kind === 'heading' ? (
-									<h5 className="text-muted-foreground/80 text-[10px] font-semibold tracking-wider uppercase">
+									<h5 className="text-muted-foreground/80 pl-8 text-[10px] font-semibold tracking-wider uppercase">
 										{row.name}
 									</h5>
 								) : row.kind === 'recipe' ? (
@@ -975,23 +1000,29 @@ export function MealCard({
 						<div className="bg-card animate-fade-up-reveal shadow-warm-lg mt-2 rounded-lg border p-3">
 							{recipePicker}
 						</div>
-					) : (
-						<button
-							ref={addRecipeButtonRef}
-							type="button"
-							onClick={() => {
-								choices.load()
-								setRecipeInSheet(opensAsSheet())
-								setRecipeOpens((count) => count + 1)
-								setAddingRecipe(true)
-							}}
-							aria-label={`Add Recipe to ${mealActionName}`}
-							className="text-muted-foreground hover:text-foreground flex min-h-11 items-center gap-1 text-xs font-semibold transition-colors md:mt-1 md:min-h-9 md:pl-8"
-						>
-							<Icon name="plus" className="size-3" />
-							Add Recipe
-						</button>
-					)}
+					) : null}
+					<div className="flex items-center gap-2 md:mt-1">
+						{addingRecipe && !recipeInSheet ? null : (
+							<button
+								ref={addRecipeButtonRef}
+								type="button"
+								onClick={() => {
+									choices.load()
+									setRecipeInSheet(opensAsSheet())
+									setRecipeOpens((count) => count + 1)
+									setAddingRecipe(true)
+								}}
+								aria-label={`Add Recipe to ${mealActionName}`}
+								className="text-muted-foreground hover:text-foreground desktop:min-h-9 flex min-h-11 items-center gap-3 text-xs font-semibold transition-colors"
+							>
+								<span className="flex w-5 justify-center">
+									<Icon name="plus" className="size-3" />
+								</span>
+								Add Recipe
+							</button>
+						)}
+						{!hasHeader && <div className="ml-auto">{actions}</div>}
+					</div>
 					{recipeInSheet && (
 						<BottomSheet
 							open={addingRecipe}
@@ -1004,6 +1035,7 @@ export function MealCard({
 					)}
 				</div>
 			)}
+			{!detailsUnderHeader && detailsPanel}
 		</div>
 	)
 }

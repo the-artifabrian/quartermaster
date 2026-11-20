@@ -6,7 +6,6 @@ import {
 	useRouteLoaderData,
 	useSearchParams,
 } from 'react-router'
-import { Divider } from '#app/components/divider.tsx'
 import { IngredientList } from '#app/components/recipe-ingredient-list.tsx'
 import { RecipeInstructionsList } from '#app/components/recipe-instructions-list.tsx'
 import { RecipeMetadataCard } from '#app/components/recipe-metadata-card.tsx'
@@ -137,7 +136,6 @@ export function SharedRecipeView({
 						<h1 className="font-serif text-[2rem] leading-[1.15] font-normal tracking-[-0.02em]">
 							{recipe.title}
 						</h1>
-						<Divider className="mt-3 mb-2 max-w-xs" />
 						<RecipeMetadataCard
 							activeTime={recipe.activeTime}
 							totalTime={recipe.totalTime}

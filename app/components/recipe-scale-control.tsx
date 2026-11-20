@@ -63,7 +63,8 @@ export function RecipeScaleControl({
 		if (draft.trim() === displayedValue) return
 		if (draft === sentDraft.current) return
 		const parsed = ScaleMultiplierSchema.safeParse(draft)
-		if (!parsed.success) {
+		// "1.0" on a 1× Recipe saves nothing, so show the saved form again.
+		if (!parsed.success || parsed.data === scaleMultiplier) {
 			setDraft(displayedValue)
 			return
 		}
@@ -84,11 +85,12 @@ export function RecipeScaleControl({
 		<label
 			className={cn(
 				'flex items-center gap-1',
-				// The compact field is 28px to the eye; the label around it is
-				// 44px to the thumb (a tap on it focuses the field). The field
-				// sits above that area, so a tap in it still places the caret.
+				// The compact field is a quiet 28px fill to the eye, the × inside
+				// it; the label around it is 44px to the thumb (a tap on it
+				// focuses the field). The field sits above that area, so a tap in
+				// it still places the caret.
 				compact &&
-					"relative shrink-0 before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] md:before:hidden",
+					"bg-muted/70 focus-within:ring-ring/40 desktop:before:hidden relative h-7 min-w-11 shrink-0 justify-center gap-0.5 rounded-md pr-2 pl-1.5 before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] focus-within:ring-2",
 			)}
 		>
 			<span className="sr-only">Scale multiplier</span>
@@ -114,11 +116,30 @@ export function RecipeScaleControl({
 				className={cn(
 					'text-center tabular-nums',
 					compact
-						? 'relative z-1 h-7 w-16 px-1.5 text-xs'
+						? cn(
+								'relative z-1 h-7 border-0 bg-transparent px-0 text-center text-xs focus-visible:ring-0 focus-visible:ring-offset-0 md:text-xs',
+								// 1× is the usual; a scaled Recipe reads in ink.
+								draft.trim() === '1' && 'text-muted-foreground',
+							)
 						: 'h-11 w-20 px-2 text-base',
 				)}
+				// Sized to the value: a phone forces inputs to 16px, where a fixed
+				// width clipped "99.75". Digits are tabular, one ch each.
+				style={
+					compact
+						? { width: `calc(${Math.max(draft.length, 2)}ch + 2px)` }
+						: undefined
+				}
 			/>
-			<span aria-hidden="true" className="text-muted-foreground text-sm">
+			<span
+				aria-hidden="true"
+				className={cn(
+					'text-muted-foreground',
+					compact
+						? 'pointer-events-none relative z-1 text-sm md:text-xs'
+						: 'text-sm',
+				)}
+			>
 				×
 			</span>
 		</label>
@@ -227,6 +248,9 @@ export function RecipeIngredientsControls({
 					aria-expanded={ingredientsExpanded}
 					aria-controls="ingredients-list"
 				>
+					{/* The chevron trails, so the heading starts on the content edge
+					    like Instructions. */}
+					<h2 className="font-serif text-lg font-normal">Ingredients</h2>
 					<Icon
 						name="chevron-down"
 						size="sm"
@@ -236,7 +260,6 @@ export function RecipeIngredientsControls({
 							!ingredientsExpanded && '-rotate-90',
 						)}
 					/>
-					<h2 className="font-serif text-lg font-normal">Ingredients</h2>
 				</button>
 				<h2 className="hidden font-serif text-lg font-normal lg:block print:block">
 					Ingredients
@@ -309,7 +332,7 @@ export function RecipeIngredientsControls({
 			{formattedTargetYield != null && recipeYield ? (
 				<p
 					aria-live="polite"
-					className="text-muted-foreground min-w-0 pl-0 text-xs leading-relaxed break-words max-lg:pl-[1.375rem] print:hidden"
+					className="text-muted-foreground min-w-0 text-xs leading-relaxed break-words print:hidden"
 				>
 					<span>
 						Makes {formattedTargetYield} {recipeYield.label}

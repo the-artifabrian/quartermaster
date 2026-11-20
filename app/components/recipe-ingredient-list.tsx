@@ -49,7 +49,7 @@ export function IngredientList({
 					if (ingredient.isHeading) {
 						return (
 							<li key={ingredient.id}>
-								<p className="text-muted-foreground border-border/50 mt-4 mb-1.5 border-b px-2 pb-1 font-sans text-xs font-medium tracking-widest uppercase first:mt-0 print:mt-2 print:mb-0.5 print:break-inside-avoid-column print:px-0 print:text-[10px]">
+								<p className="text-muted-foreground border-border/50 mt-4 mb-1.5 border-b pb-1 font-sans text-xs font-medium tracking-widest uppercase first:mt-0 print:mt-2 print:mb-0.5 print:break-inside-avoid-column print:px-0 print:text-[10px]">
 									{ingredient.name}
 								</p>
 							</li>
@@ -66,10 +66,11 @@ export function IngredientList({
 							aria-label={ingredient.name}
 							tabIndex={0}
 							className={cn(
-								'flex cursor-pointer items-center gap-3 rounded-lg px-1 py-2.5 transition-colors select-none',
+								// The checkbox sits on the content edge; the hover fill reaches past it.
+								'-mx-2 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 transition-colors select-none',
 								'hover:bg-accent/5',
 								'focus-visible:ring-primary/50 focus-visible:ring-2 focus-visible:outline-none',
-								'print:gap-1.5 print:rounded-none print:px-0 print:py-0.5',
+								'print:mx-0 print:gap-1.5 print:rounded-none print:px-0 print:py-0.5',
 							)}
 							onClick={() => onToggle(ingredient.id)}
 							onKeyDown={(e) => {
@@ -187,7 +188,8 @@ function AddIngredientToShopping({
 
 	return (
 		<span
-			className="ml-auto flex shrink-0 items-center print:hidden"
+			// The cart glyph ends on the content edge.
+			className="-mr-3.5 ml-auto flex shrink-0 items-center print:hidden"
 			onClick={(e) => e.stopPropagation()}
 			onKeyDown={(e) => e.stopPropagation()}
 		>

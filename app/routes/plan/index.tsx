@@ -241,13 +241,15 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 								{titleAction}
 							</TitleRow>
 
-							{/* Week Navigation */}
-							<div className="mx-auto mt-4 flex max-w-2xl items-center justify-between">
+							{/* Week Navigation: the chevrons sit on the content edges on a
+							    phone; on a wide screen the three keep together at the left,
+							    over the agenda's edge. */}
+							<div className="mt-4 flex items-center justify-between md:justify-start md:gap-2">
 								<Button
 									asChild
 									variant="ghost"
 									size="icon"
-									className="rounded-full"
+									className="-ml-3 rounded-full"
 								>
 									<Link
 										to={`/plan?weekStart=${prevWeek}`}
@@ -273,7 +275,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 									asChild
 									variant="ghost"
 									size="icon"
-									className="rounded-full"
+									className="-mr-3 rounded-full md:mr-0"
 								>
 									<Link
 										to={`/plan?weekStart=${nextWeek}`}

@@ -240,7 +240,9 @@ function ItemSelector({
 			</div>
 			<div
 				ref={listRef}
-				className="max-h-[300px] scrollbar-thin space-y-0.5 overflow-y-auto"
+				// Rows keep their hover padding; their thumbnails line up with the
+				// search field above.
+				className="-mx-2 max-h-[300px] scrollbar-thin space-y-0.5 overflow-y-auto"
 			>
 				{!hasAnyChoice ? (
 					<div className="py-4 text-center">

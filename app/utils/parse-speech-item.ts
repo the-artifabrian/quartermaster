@@ -204,8 +204,11 @@ function normalizeTranscript(raw: string): string {
 	return text
 }
 
-// Quantity pattern: integer, decimal, fraction, or mixed number (1 1/2)
-const QTY = `(\\d+(?:\\.\\d+)?(?:\\s+\\d+\\/\\d+)?|\\d+\\s*\\/\\s*\\d+)`
+// Quantity pattern: a count times a size ("2 x 400"), an integer or decimal
+// with dots or commas ("1.5", "1,5", "1,000"), a fraction, or a mixed number
+// (1 1/2). parseAmount in fractions.ts decides what it means.
+const NUMBER = `\\d+(?:[.,]\\d+)*`
+const QTY = `(${NUMBER}\\s*[x×]\\s*${NUMBER}|${NUMBER}(?:\\s+\\d+\\/\\d+)?|\\d+\\s*\\/\\s*\\d+)`
 
 // Match: "<number> <unit> [of] <name>" or "<number> <name>"
 const QTY_UNIT_NAME = new RegExp(

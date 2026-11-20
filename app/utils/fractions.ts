@@ -16,10 +16,26 @@ const UNICODE_FRACTIONS: Record<string, number> = {
 
 const UNICODE_FRACTION_PATTERN = /[½⅓⅔¼¾⅛⅜⅝⅞]/
 
+// A comma before exactly three digits, after a first group of one to three
+// digits that doesn't start with 0, separates thousands: "1,000", "1,000.5".
+const COMMA_THOUSANDS = /^[1-9]\d{0,2}(?:,\d{3})+(?:\.\d+)?$/
+// Any other single comma between digits is a decimal comma: "1,5", "0,500".
+const COMMA_DECIMAL = /^\d+,\d+$/
+// "1.000" is one thousand in Romanian and one in English, so it has no
+// single value.
+const DOT_THOUSANDS_LOOKALIKE = /^[1-9]\d{0,2}\.\d{3}$/
+const DOT_DECIMAL = /^(?:\d+\.?\d*|\.\d+)$/
+
 /**
- * Parse a string amount into a number.
- * Handles fractions ("1/2"), mixed numbers ("1 1/2"), decimals ("1.5"),
+ * Parse a string amount into a number, or null when the whole string isn't
+ * one number. Handles fractions ("1/2"), mixed numbers ("1 1/2"), decimals
+ * with a dot or a comma ("1.5", "1,5"), thousands separators ("1,000"),
  * unicode fractions ("½", "¾"), and mixed unicode ("1½", "1 ½").
+ *
+ * This is the one place an amount gets a numeric value: scaling, Shopping
+ * totals and metric conversion all ask it. Anything it can't read, such as
+ * "2 large", "2 x 400" or an ambiguous "1.000", stays as written and out of
+ * every sum, so the app never shows a false total.
  */
 export function parseAmount(amount: string): number | null {
 	const trimmed = amount.trim()
@@ -60,9 +76,11 @@ export function parseAmount(amount: string): number | null {
 		return num / den
 	}
 
-	// Decimal or integer
-	const n = parseFloat(trimmed)
-	return isNaN(n) ? null : n
+	if (COMMA_THOUSANDS.test(trimmed)) return Number(trimmed.replaceAll(',', ''))
+	if (COMMA_DECIMAL.test(trimmed)) return Number(trimmed.replace(',', '.'))
+	if (DOT_THOUSANDS_LOOKALIKE.test(trimmed)) return null
+	if (DOT_DECIMAL.test(trimmed)) return Number(trimmed)
+	return null
 }
 
 // Common fractions for display, ordered by denominator then numerator
@@ -142,7 +160,7 @@ function snapToCommonFraction(
  * so every caller asks this first (#109, #384).
  */
 const RANGE_AMOUNT =
-	/^\s*(\d[\d\s./½⅓⅔¼¾⅛⅜⅝⅞]*?|[½⅓⅔¼¾⅛⅜⅝⅞])\s*([-–—~]|to)\s*(\d[\d\s./½⅓⅔¼¾⅛⅜⅝⅞]*|[½⅓⅔¼¾⅛⅜⅝⅞])\s*$/i
+	/^\s*(\d[\d\s.,/½⅓⅔¼¾⅛⅜⅝⅞]*?|[½⅓⅔¼¾⅛⅜⅝⅞])\s*([-–—~]|to)\s*(\d[\d\s.,/½⅓⅔¼¾⅛⅜⅝⅞]*|[½⅓⅔¼¾⅛⅜⅝⅞])\s*$/i
 
 export function isRangeAmount(amount: string): boolean {
 	return amount.length <= MAX_AMOUNT_TEXT && RANGE_AMOUNT.test(amount)

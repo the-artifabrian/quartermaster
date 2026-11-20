@@ -691,3 +691,115 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 		)
 	}
 })
+
+test('a comma decimal reads as one number on the Recipe, when scaled, and in the Shopping total', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
+	await page.setViewportSize({ width: 1280, height: 800 })
+
+	// Written the way a Romanian cook writes it.
+	await page.goto('/recipes/new')
+	await page.getByRole('textbox', { name: /title/i }).fill('Country bread')
+	await page.getByPlaceholder('Ingredient name').fill('flour')
+	await page.getByPlaceholder('Amount').fill('1,5')
+	await page.getByPlaceholder('Unit').fill('kg')
+	await page.getByPlaceholder('Step 1').fill('Mix and bake.')
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
+	await expect(page).toHaveURL(/\/recipes\/(?!new$)[a-z0-9]+$/)
+	const recipeId = new URL(page.url()).pathname.split('/').at(-1)!
+	expect(
+		await prisma.ingredient.findMany({
+			where: { recipeId },
+			select: { amount: true, unit: true, name: true },
+		}),
+	).toEqual([{ amount: '1,5', unit: 'kg', name: 'flour' }])
+
+	const flourRow = page.getByRole('checkbox', { name: 'flour', exact: true })
+	await expect(flourRow).toContainText('1.5 kg')
+
+	const multiplier = page.getByLabel('Scale multiplier')
+	await expect(async () => {
+		if (!(await multiplier.isVisible())) {
+			await page.getByRole('button', { name: 'Scale 1×' }).click()
+		}
+		await expect(multiplier).toBeVisible({ timeout: 2000 })
+	}).toPass({ timeout: 10_000 })
+	await multiplier.fill('2')
+	await multiplier.press('Enter')
+	await expect(page).toHaveURL(new RegExp(`/recipes/${recipeId}\\?scale=2$`))
+	await expect(flourRow).toContainText('3 kg')
+
+	// Plan it for today, so the From Plan picker offers it.
+	const now = new Date()
+	const today = new Date(
+		Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
+	)
+	await prisma.mealPlan.create({
+		data: {
+			householdId: user.householdId,
+			weekStart: getWeekStart(today),
+			meals: {
+				create: {
+					date: today,
+					order: 0,
+					recipeItems: {
+						create: {
+							order: 0,
+							recipeId,
+							recipeTitle: 'Country bread',
+							scaleMultiplier: 1,
+						},
+					},
+				},
+			},
+		},
+	})
+
+	await page.goto('/shopping')
+	await page
+		.getByPlaceholder(/add an item/i)
+		.filter({ visible: true })
+		.fill('500 g flour')
+	await page.getByRole('button', { name: /add to next shop/i }).click()
+	const savedFlour = () =>
+		prisma.shoppingListItem.findMany({
+			where: { list: { householdId: user.householdId } },
+			select: {
+				name: true,
+				quantity: true,
+				unit: true,
+				mealContributions: { select: { quantity: true, unit: true } },
+			},
+		})
+	await expect
+		.poll(savedFlour)
+		.toEqual([
+			{ name: 'flour', quantity: '500', unit: 'g', mealContributions: [] },
+		])
+	await page.reload()
+
+	// Flour is already on the list, so the picker offers it unticked.
+	await page.getByRole('button', { name: /from plan/i }).click()
+	const flourLine = page.getByRole('button', { name: /^flour/i })
+	await expect(flourLine).toHaveAttribute('aria-pressed', 'false')
+	await flourLine.click()
+	await expect(flourLine).toHaveAttribute('aria-pressed', 'true')
+	await page.getByRole('button', { name: /add 1 from 1 meal/i }).click()
+	await expect.poll(savedFlour).toEqual([
+		{
+			name: 'flour',
+			quantity: '500',
+			unit: 'g',
+			mealContributions: [{ quantity: '1,5', unit: 'kg' }],
+		},
+	])
+	// 500 g and 1,5 kg make 2 kg, not the 1.5 kg a reader that stops at the
+	// comma would show.
+	const flourItem = page.getByRole('group', { name: 'flour shopping item' })
+	await expect(flourItem).toContainText('2 kg')
+	await page.reload()
+	await expect(flourItem).toContainText('2 kg')
+})

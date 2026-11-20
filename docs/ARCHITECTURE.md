@@ -260,6 +260,23 @@ unticked defaults only; it never removes a line on its own.
 text. `normalizeIngredientName()` removes safe modifiers, normalizes plurals,
 and protects compounds such as “rice vinegar” and protein cuts.
 
+Amounts are saved as written, and `parseAmount()` in `app/utils/fractions.ts` is
+the one place that gives them a number. Scaling, Shopping totals, metric
+conversion and the produce counts all ask it. It reads the whole string or
+nothing: a fraction, a mixed number, a decimal with a dot or a comma (“1,5”), or
+thousands separated by commas (“1,000”, “1,000.5”). An amount it can't read as
+exactly one number stays as written and is never summed or scaled. That covers
+“2 large”, a pack size like “2 x 400”, and “1.000”, which means one thousand in
+Romanian and one in English. Ranges such as “800–1,000” scale end by end and
+never sum. The import, paste and Shopping quick-add parsers only find where an
+amount starts and ends, and they never split a number at its comma.
+
+The paste, JSON-LD and ingredient parsers read text as long as a whole paste or
+a JSON-LD field, so their patterns must stay linear. Ingredient lines are cut at
+`MAX_INGREDIENT_LINE_LENGTH` before parsing.
+`app/utils/recipe-parsing-time.test.ts` times each pattern on worst-case input
+at that cap.
+
 Shopping uses deterministic demand identity and unit-family conversion. Legacy
 fuzzy Recipe matching still exists for a few older suggestion/recovery paths. It
 is not a claim of exact ingredient identity; #144 may replace its hot paths with

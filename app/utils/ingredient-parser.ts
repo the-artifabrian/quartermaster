@@ -438,15 +438,19 @@ export function parseIngredient(line: string): {
 		cleaned = `${juiceZestMatch[2]} ${juiceZestMatch[3]}, ${descriptor}`
 	}
 
+	// Amount patterns take a comma only between digits ("1,5", "1,000"), so a
+	// number isn't split at its comma and "2, chopped" still starts notes.
+	// parseAmount decides what the amount means.
+
 	// "X to Y" range normalization: "2 to 3 tablespoons" → "2-3 tablespoons"
 	cleaned = cleaned.replace(
-		/^(~?[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]+)\s+to\s+([\d.\/½⅓⅔¼¾⅛⅜⅝⅞]+)\s/,
+		/^(~?(?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))+)\s+to\s+((?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))+)\s/,
 		'$1-$2 ',
 	)
 
 	// Normalize ranges with spaces around dash: "1½ -2 cups" → "1½-2 cups"
 	cleaned = cleaned.replace(
-		/^(~?[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]+)\s*[-–]\s*([\d.\/½⅓⅔¼¾⅛⅜⅝⅞]+)\s/,
+		/^(~?(?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))+)\s*[-–]\s*((?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))+)\s/,
 		'$1-$2 ',
 	)
 
@@ -509,7 +513,7 @@ export function parseIngredient(line: string): {
 
 	// Handle "fl oz" multi-word unit: "2 fl oz lime juice"
 	const flOzMatch = cleaned.match(
-		/^(~?[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]+)\s*(?:fl\.?\s*oz\.?|fluid\s+ounces?)\s+(\S.*|[^\S\n\r\u2028\u2029])$/i,
+		/^(~?(?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))+)\s*(?:fl\.?\s*oz\.?|fluid\s+ounces?)\s+(\S.*|[^\S\n\r\u2028\u2029])$/i,
 	)
 	if (flOzMatch) {
 		let name = flOzMatch[2]!.trim()
@@ -530,7 +534,7 @@ export function parseIngredient(line: string): {
 
 	// Handle "N (X unit) container name" → e.g. "1 (14.5 oz) can diced tomatoes"
 	const nestedMatch = cleaned.match(
-		/^([\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞~]+)\s*\(([^)]+)\)\s*([a-zA-Z]+\.?)\s+(\S.*|[^\S\n\r\u2028\u2029])$/,
+		/^((?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞~]|,(?=\d))+)\s*\(([^)]+)\)\s*([a-zA-Z]+\.?)\s+(\S.*|[^\S\n\r\u2028\u2029])$/,
 	)
 	if (nestedMatch) {
 		const [, nestedAmount, parenthetical, possibleUnit, rest] = nestedMatch
@@ -558,8 +562,10 @@ export function parseIngredient(line: string): {
 	// Handle both "600 g broccoli" and "600g broccoli"
 	// Unicode fractions (½⅓⅔¼¾⅛⅜⅝⅞) included in amount character class
 	// Trailing period on unit allowed for abbreviations like "tbsp."
+	// A count times a size ("2 x 400 g", "2x400g") stays one amount; there is
+	// no pack size, so parseAmount leaves it as written and out of totals.
 	const match = cleaned.match(
-		/^(~?[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]+)(?:\s*([a-zA-Z]+\.?))?\s+(\S.*|[^\S\n\r\u2028\u2029])$/,
+		/^(~?(?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))+(?:\s*[x×]\s*\d(?:[\d.\/]|,(?=\d))*)?)(?:\s*([a-zA-Z]+\.?))?\s+(\S.*|[^\S\n\r\u2028\u2029])$/,
 	)
 
 	if (match) {

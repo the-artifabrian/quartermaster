@@ -90,8 +90,8 @@ export function signS3Request({
 	const { endpoint, bucket, region, accessKeyId, secretAccessKey } = credentials
 	// Encoded per segment: `fetch` will percent-encode whatever the path needs
 	// anyway, and if we signed the raw form the two would disagree and S3 would
-	// answer 403. Image keys end in an extension taken from the uploaded
-	// filename, so a space in there is a user away.
+	// answer 403. The app's own image keys need no encoding; this keeps
+	// signing right for any key.
 	const canonicalUri = `/${bucket}/${key}`
 		.split('/')
 		.map(encodeRfc3986)

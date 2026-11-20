@@ -4,8 +4,8 @@
 //   route serves something other than what the page laid out
 // - a size outside the list (a new <Img> with its own width) makes a URL
 //   the route snaps, so the page and the route disagree on the cached copy
-// - the form's preview of a picked file is a data: URL, which must reach
-//   the <img> as is rather than becoming a request the route refuses
+// - the form's preview of a picked file is a data: URL; it must reach the
+//   <img> unchanged, since the route refuses a src= request
 import { renderToStaticMarkup } from 'react-dom/server'
 import { type GetSrcArgs, Img, OpenImgContextProvider } from 'openimg/react'
 import { expect, test, vi } from 'vitest'

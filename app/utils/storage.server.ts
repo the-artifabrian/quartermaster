@@ -108,8 +108,7 @@ export async function copyRecipeImage(
 			type: response.headers.get('Content-Type') || 'application/octet-stream',
 		},
 	)
-	// A fresh name rather than the source's with an id in front, which grew
-	// with every copy of a copy.
+	// A fresh name of the same shape as an upload's.
 	const sourceExtension = /\.([A-Za-z0-9]{1,8})$/.exec(objectKey)?.[1]
 	const key = newImageKey(
 		userId,

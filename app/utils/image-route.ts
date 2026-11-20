@@ -1,8 +1,8 @@
 /**
  * What the public image route (/resources/images) accepts: the stored photo
  * keys the app writes, and the sizes its pages ask for. The route has no
- * login in front of it, so anything else it would fetch, resize and cache
- * on disk is refused or snapped to a listed size.
+ * login in front of it, so any other key is refused and any other size is
+ * snapped to a listed one before openimg sees the request.
  */
 
 /** The width and height of every <Img> that shows a stored photo. */
@@ -82,11 +82,11 @@ export function snapImageSize({
  * The shape both storage writers produce:
  * `users/<userId>/recipes/<recipeId>/images/<file>`. Ids take no dots, and
  * the file name starts with a letter or digit, so no segment can be `.` or
- * `..`. The file name stays short enough for openimg to name its cached
- * resizes after it.
+ * `..`. openimg names each cached resize after the file plus about 29
+ * characters, so 200 keeps that name under the 255-byte limit.
  */
 const RECIPE_IMAGE_KEY =
-	/^users\/[A-Za-z0-9_-]{1,64}\/recipes\/[A-Za-z0-9_-]{1,64}\/images\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
+	/^users\/[A-Za-z0-9_-]{1,64}\/recipes\/[A-Za-z0-9_-]{1,64}\/images\/[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/
 
 export function isRecipeImageKey(key: string) {
 	return RECIPE_IMAGE_KEY.test(key)

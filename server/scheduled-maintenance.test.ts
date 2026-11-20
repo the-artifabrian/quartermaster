@@ -20,6 +20,7 @@ const EMPTY_IMAGE_CACHE: ImageCachePruneSummary = {
 	removedFiles: 0,
 	removedBytes: 0,
 	keptBytes: 0,
+	skipped: 0,
 }
 const pruneImages = async () => EMPTY_IMAGE_CACHE
 
@@ -244,6 +245,7 @@ describe('startScheduledMaintenance', () => {
 			removedFiles: 3,
 			removedBytes: 3_000,
 			keptBytes: 1_000,
+			skipped: 1,
 		}))
 		const log = vi.fn()
 		const timer = startScheduledMaintenance({
@@ -258,7 +260,7 @@ describe('startScheduledMaintenance', () => {
 
 		expect(prunedImages).toHaveBeenCalledOnce()
 		expect(log).toHaveBeenCalledWith(
-			'🧹 image cache: removed_files=3 removed_bytes=3000 kept_bytes=1000 duration_ms=0',
+			'🧹 image cache: removed_files=3 removed_bytes=3000 kept_bytes=1000 skipped=1 duration_ms=0',
 		)
 		clearInterval(timer)
 	})

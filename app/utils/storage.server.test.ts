@@ -5,8 +5,8 @@
 //   the key must not carry any of that
 // - a copy names itself after its source, so a copy of a copy must not grow
 //   the key until it no longer fits
-// - an id that would break the shape must stop the write, not store an
-//   object no page can show
+// - an id that would break the shape must stop the write, so no page is
+//   left with an object it can't show
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { afterEach, expect, test } from 'vitest'

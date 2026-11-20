@@ -111,7 +111,7 @@ export function startScheduledMaintenance({
 			})
 			await step('image cache', async () => {
 				const result = await pruneImages()
-				return `removed_files=${result.removedFiles} removed_bytes=${result.removedBytes} kept_bytes=${result.keptBytes}`
+				return `removed_files=${result.removedFiles} removed_bytes=${result.removedBytes} kept_bytes=${result.keptBytes} skipped=${result.skipped}`
 			})
 		} finally {
 			running = false

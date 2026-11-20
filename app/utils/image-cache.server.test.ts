@@ -11,6 +11,8 @@
 // - a resize is being written while the prune runs: openimg makes its folder,
 //   writes the file, then reopens it by path to answer, so a fresh file and
 //   every folder must be left alone
+// - a folder it can't read, or a file it isn't allowed to stat or delete,
+//   must not stop the prune; it's skipped, counted, and the rest is pruned
 // - removing one photo's resizes when the folder doesn't exist
 import fs from 'node:fs/promises'
 import os from 'node:os'
@@ -57,12 +59,22 @@ test('does nothing when the cache folder does not exist', async () => {
 		maxBytes: 0,
 		now: NOW,
 	})
-	expect(result).toEqual({ removedFiles: 0, removedBytes: 0, keptBytes: 0 })
+	expect(result).toEqual({
+		removedFiles: 0,
+		removedBytes: 0,
+		keptBytes: 0,
+		skipped: 0,
+	})
 })
 
 test('does nothing when the cache folder is empty', async () => {
 	const result = await pruneImageCache({ dir, maxBytes: 0, now: NOW })
-	expect(result).toEqual({ removedFiles: 0, removedBytes: 0, keptBytes: 0 })
+	expect(result).toEqual({
+		removedFiles: 0,
+		removedBytes: 0,
+		keptBytes: 0,
+		skipped: 0,
+	})
 })
 
 test('keeps everything while the cache is under the limit', async () => {
@@ -79,7 +91,12 @@ test('removes the oldest resizes first, only until the cache is under the limit'
 	await cached('host/users/v/recipes/s/images/b-w-72.webp', 100, 3 * HOUR)
 	await cached('host/users/v/recipes/s/images/b-w-400.webp', 100, 2 * HOUR)
 	const result = await pruneImageCache({ dir, maxBytes: 250, now: NOW })
-	expect(result).toEqual({ removedFiles: 2, removedBytes: 200, keptBytes: 200 })
+	expect(result).toEqual({
+		removedFiles: 2,
+		removedBytes: 200,
+		keptBytes: 200,
+		skipped: 0,
+	})
 	expect(await remaining()).toEqual([
 		'host/users/v/recipes/s/images/b-w-400.webp',
 		'host/users/v/recipes/s/images/b-w-72.webp',
@@ -128,6 +145,68 @@ test('carries on when files disappear underneath it', async () => {
 	})
 	expect(await remaining()).toEqual(['a/4.webp'])
 	expect(result.keptBytes).toBe(100)
+})
+
+function denied(code: 'EACCES' | 'EPERM') {
+	return Object.assign(new Error(`${code}: not allowed`), { code })
+}
+
+test('skips and counts a folder it cannot read, and prunes the rest', async () => {
+	const locked = path.join(dir, 'locked')
+	await cached('locked/1.webp', 100, 9 * HOUR)
+	await cached('open/2.webp', 100, 5 * HOUR)
+	await cached('open/3.webp', 100, 2 * HOUR)
+	const result = await pruneImageCache({
+		dir,
+		maxBytes: 100,
+		now: NOW,
+		fs: {
+			async readdir(folder, options) {
+				if (folder === locked) throw denied('EACCES')
+				return fs.readdir(folder, options)
+			},
+			stat: fs.stat,
+			unlink: fs.unlink,
+		},
+	})
+	expect(result).toEqual({
+		removedFiles: 1,
+		removedBytes: 100,
+		keptBytes: 100,
+		skipped: 1,
+	})
+	expect(await remaining()).toEqual(['locked/1.webp', 'open/3.webp'])
+})
+
+test('skips and counts files it may not stat or delete, and moves on to the next oldest', async () => {
+	const noStat = await cached('a/1.webp', 100, 9 * HOUR)
+	const noDelete = await cached('a/2.webp', 100, 8 * HOUR)
+	await cached('a/3.webp', 100, 7 * HOUR)
+	await cached('a/4.webp', 100, 2 * HOUR)
+	const result = await pruneImageCache({
+		dir,
+		maxBytes: 200,
+		now: NOW,
+		fs: {
+			readdir: (folder, options) => fs.readdir(folder, options),
+			async stat(file) {
+				if (file === noStat) throw denied('EPERM')
+				return fs.stat(file)
+			},
+			async unlink(file) {
+				if (file === noDelete) throw denied('EACCES')
+				return fs.unlink(file)
+			},
+		},
+	})
+	// 2 and 4 are left (200 bytes counted); 1 was never counted.
+	expect(result).toEqual({
+		removedFiles: 1,
+		removedBytes: 100,
+		keptBytes: 200,
+		skipped: 2,
+	})
+	expect(await remaining()).toEqual(['a/1.webp', 'a/2.webp', 'a/4.webp'])
 })
 
 test('removing a photo’s resizes is fine when nothing was cached', async () => {

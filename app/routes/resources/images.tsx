@@ -23,8 +23,9 @@ function parseOption<T extends string>(
 
 /**
  * The resize openimg makes and caches. Every request lands on a listed size
- * (see snapImageSize), in a format and fit the pages ask for, so the cache
- * holds a bounded set of copies per photo however the URL is varied.
+ * (see snapImageSize) in AVIF, WebP or the original format, so a photo has
+ * at most 21 cached resizes, none larger than 1200×630, plus one full-size
+ * copy for the data export. Uploads are capped at 3 MB.
  */
 function getImgParams(searchParams: URLSearchParams) {
 	const width = parseEdge(searchParams.get('w'))
@@ -38,20 +39,25 @@ function getImgParams(searchParams: URLSearchParams) {
 	invariantResponse(format !== null, 'Format must be avif or webp', {
 		status: 400,
 	})
-	const fit = parseOption(searchParams.get('fit'), ['cover'])
-	invariantResponse(fit !== null, 'Fit must be cover', { status: 400 })
+	// Share links ask for `cover`, which is also what sharp does with no fit,
+	// so openimg never sees a fit and both land on one cached copy.
+	invariantResponse(
+		parseOption(searchParams.get('fit'), ['cover']) !== null,
+		'Fit must be cover',
+		{ status: 400 },
+	)
 
 	if (width === undefined && height === undefined) {
-		// The data export links to the original. Nothing asks for a full-size
-		// re-encode, which is the slowest thing the route could be made to do.
+		// The data export links to the original in its own format. No page
+		// asks for a full-size AVIF or WebP, so the route doesn't make one.
 		invariantResponse(
 			format === undefined,
 			'A format needs a width and a height',
 			{ status: 400 },
 		)
-		return { format, fit }
+		return { format }
 	}
-	return { ...snapImageSize({ width, height }), format, fit }
+	return { ...snapImageSize({ width, height }), format }
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -66,8 +72,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	invariantResponse(objectKey, 'objectKey query parameter is required', {
 		status: 400,
 	})
-	// Only keys of the shape the app writes, so a request can't reach other
-	// objects in the bucket or other files on disk in MOCKS mode.
+	// Serves only keys the app writes (see isRecipeImageKey).
 	invariantResponse(isRecipeImageKey(objectKey), 'Invalid object key', {
 		status: 400,
 	})

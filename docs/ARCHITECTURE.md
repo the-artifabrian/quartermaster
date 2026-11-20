@@ -97,7 +97,12 @@ no login, and `app/utils/image-route.ts` sets what it accepts:
   unlisted size gets the next listed size up instead of an error, so a page
   cached before a size changed still shows its photo. No size at all serves the
   original, which the data export links to.
-- **Formats.** AVIF, WebP, or the original format. `fit` is `cover` or left out.
+- **Formats.** AVIF, WebP, or the original format. `fit` is `cover` or left
+  out. Both mean the same crop, so they share one cached copy. A format needs a
+  size: no page asks for a full-size AVIF or WebP.
+
+Per photo that is at most 21 resizes no larger than 1200×630, plus one
+full-size copy in the original format. Uploads are capped at 3 MB.
 
 The cache is `/data/images` in production, on the same volume as SQLite. It
 stays bounded in two ways. Deleting a photo also deletes its cached resizes,
@@ -105,7 +110,13 @@ because the route answers from the cache before it asks storage. And the hourly
 maintenance in `server/scheduled-maintenance.ts` deletes the oldest resizes when
 the cache passes 100 MB. It skips files written in the last ten minutes and
 never removes folders, so a resize being written isn't pulled out from under
-openimg. A pruned resize is made again on its next view.
+openimg. A folder or file it isn't allowed to read or delete is skipped and
+counted in the log line. A pruned resize is made again on its next view.
+
+Two gaps are known and accepted. A resize that is already being made when its
+photo is deleted can land in the cache after the delete has cleared it, and
+then stays until the prune removes it. And a browser or the service worker
+that already holds a deleted photo keeps showing it from its own cache.
 
 ## Data model
 
@@ -138,8 +149,8 @@ Next shop or Later.
 
 `UsageEvent` records AI limits: one row per use of a paid AI feature, counted
 and written in one write transaction (`claimAiUsage`). A voice row covers the
-Whisper call and the parse that follows it. A row is deleted again when the call
-fails in a way the user can't cause, such as a provider outage.
+Whisper call and the parse that follows it. A row is deleted again when the
+call fails in a way the user can't cause, such as a provider outage.
 
 New household data must be authorized by household membership, included in
 export/import when durable, and handled in sole-member household moves.

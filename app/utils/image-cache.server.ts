@@ -7,10 +7,11 @@ import {
 
 /**
  * Resized photos live on the production volume next to SQLite, so the
- * cache gets a budget that stays small next to even a 1 GB volume. Each
- * photo has at most a few dozen resizes of tens of kilobytes, so this holds
- * thousands of them, and a resize that's pruned is made again on its next
- * view.
+ * cache gets a budget that stays small next to even a 1 GB volume. A
+ * photo's full set is at most 21 resizes no larger than 1200×630 plus one
+ * full-size copy, which uploads cap at 3 MB, so this holds every resize of
+ * at least 30 photos and usually far more. A resize that's pruned is made
+ * again on its next view.
  */
 export const IMAGE_CACHE_MAX_BYTES = 100 * 1024 * 1024
 
@@ -131,6 +132,8 @@ export type ImageCachePruneSummary = {
 	removedFiles: number
 	removedBytes: number
 	keptBytes: number
+	/** Folders and files the prune wasn't allowed to read or delete. */
+	skipped: number
 }
 
 type PruneFs = {
@@ -142,23 +145,41 @@ type PruneFs = {
 	unlink: (path: string) => Promise<void>
 }
 
-function isMissing(error: unknown) {
-	return (error as NodeJS.ErrnoException | null)?.code === 'ENOENT'
+function errorCode(error: unknown) {
+	return (error as NodeJS.ErrnoException | null)?.code
 }
 
-async function listFiles(fs: PruneFs, dir: string): Promise<Array<string>> {
+function isMissing(error: unknown) {
+	return errorCode(error) === 'ENOENT'
+}
+
+function isDenied(error: unknown) {
+	const code = errorCode(error)
+	return code === 'EACCES' || code === 'EPERM'
+}
+
+async function listFiles(
+	fs: PruneFs,
+	dir: string,
+	counts: { skipped: number },
+): Promise<Array<string>> {
 	let entries
 	try {
 		entries = await fs.readdir(dir, { withFileTypes: true })
 	} catch (error) {
 		if (isMissing(error)) return []
+		if (isDenied(error)) {
+			counts.skipped++
+			return []
+		}
 		throw error
 	}
 	const files: Array<string> = []
 	for (const entry of entries) {
 		const entryPath = path.join(dir, entry.name)
-		if (entry.isDirectory()) files.push(...(await listFiles(fs, entryPath)))
-		else if (entry.isFile()) files.push(entryPath)
+		if (entry.isDirectory()) {
+			files.push(...(await listFiles(fs, entryPath, counts)))
+		} else if (entry.isFile()) files.push(entryPath)
 	}
 	return files
 }
@@ -167,7 +188,8 @@ async function listFiles(fs: PruneFs, dir: string): Promise<Array<string>> {
  * When the cache is over `maxBytes`, delete its oldest resizes until it's
  * back under. Folders stay (openimg may be about to write into one), and so
  * does openimg's metadata.json; openimg checks a file exists before serving
- * it from the cache, so its stale entries only mean a fresh resize.
+ * it from the cache, so its stale entries only mean a fresh resize. A
+ * folder or file it isn't allowed to read or delete is skipped and counted.
  */
 export async function pruneImageCache({
 	dir,
@@ -183,14 +205,17 @@ export async function pruneImageCache({
 	fs?: PruneFs
 }): Promise<ImageCachePruneSummary> {
 	const metadataPath = path.join(dir, 'metadata.json')
+	const counts = { skipped: 0 }
 	const files: Array<{ path: string; size: number; mtimeMs: number }> = []
-	for (const file of await listFiles(fs, dir)) {
+	for (const file of await listFiles(fs, dir, counts)) {
 		try {
 			const { size, mtimeMs } = await fs.stat(file)
 			files.push({ path: file, size, mtimeMs })
 		} catch (error) {
 			// Already gone: a photo delete or another prune got there first.
-			if (!isMissing(error)) throw error
+			if (isMissing(error)) continue
+			if (isDenied(error)) counts.skipped++
+			else throw error
 		}
 	}
 
@@ -208,9 +233,14 @@ export async function pruneImageCache({
 			removedFiles++
 			removedBytes += file.size
 		} catch (error) {
+			if (isDenied(error)) {
+				// Still on disk, so it still counts against the limit.
+				counts.skipped++
+				continue
+			}
 			if (!isMissing(error)) throw error
 		}
 		keptBytes -= file.size
 	}
-	return { removedFiles, removedBytes, keptBytes }
+	return { removedFiles, removedBytes, keptBytes, skipped: counts.skipped }
 }

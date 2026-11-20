@@ -443,7 +443,15 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 			>
 				<div className="flex flex-col gap-4 sm:flex-row sm:items-start">
 					<div className="border-border/60 bg-muted/30 relative aspect-[4/3] w-full overflow-hidden rounded-lg border-2 border-dashed sm:w-40">
-						{imagePreview ? (
+						{imagePreview?.startsWith('data:') ? (
+							// A photo just picked: there are no resizes to choose from yet.
+							<img
+								src={imagePreview}
+								alt="Recipe preview"
+								className="h-full w-full object-cover"
+								{...IMG_SIZES.formPreview}
+							/>
+						) : imagePreview ? (
 							<Img
 								src={imagePreview}
 								alt="Recipe preview"

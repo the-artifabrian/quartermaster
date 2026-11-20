@@ -17,13 +17,16 @@
 // Sizes:
 // - a listed size is served at exactly that size
 // - an unlisted width is served at the next listed size up, and one past the
-//   largest at the largest; these share the listed size's cached copy rather
-//   than adding one per width asked for
+//   largest at the largest; all of them share the listed size's one cached
+//   copy
 // - a width or a height on its own is snapped too, so it can't make a
 //   full-size copy per number
 // - no size at all serves the original (the data export links to it), but a
 //   format with no size is refused, since nothing asks for a full-size
 //   re-encode
+// - `fit=cover` (share links) and no fit (every <Img>) mean the same crop,
+//   so they share one cached copy; with no size, `fit=cover` makes no second
+//   full-size copy
 // - a format or fit the app never asks for is refused
 // - a width that isn't a positive whole number is refused
 // Deleting a photo:
@@ -215,6 +218,10 @@ describe('object keys', () => {
 			'an id with a dash or an underscore',
 			'users/user_1/recipes/r-2/images/a.png',
 		],
+		[
+			'a file name of 200 characters',
+			`users/u1/recipes/r1/images/${'a'.repeat(196)}.png`,
+		],
 	])('accepts the shape of %s', async (_, objectKey) => {
 		// Not in the bucket, so openimg answers 404 once the key is accepted.
 		expect(status(await storedImage(objectKey))).toBe(404)
@@ -238,7 +245,7 @@ describe('object keys', () => {
 		['a space', `${base}/a b.png`],
 		['a non-ASCII letter', `${base}/é.png`],
 		['a query character', `${base}/0.png?x=1`],
-		['a file name too long to cache', `${base}/${'a'.repeat(200)}.png`],
+		['a file name too long to cache', `${base}/${'a'.repeat(236)}.png`],
 	])('refuses %s with a 400 in either storage mode', async (_, objectKey) => {
 		for (const mocks of ['true', 'false']) {
 			vi.stubEnv('MOCKS', mocks)
@@ -299,6 +306,23 @@ describe('sizes', () => {
 			expect.stringMatching(/0-png-w-768-h-576-fit-base\.webp$/),
 		])
 	})
+
+	test.each([
+		['a listed size', { w: '400', h: '300', format: 'webp' }],
+		['no size', {}],
+	])(
+		'keeps one cached copy for %s whether or not fit=cover is asked for',
+		async (_, size: Record<string, string>) => {
+			await clearCachedResizes(PHOTO)
+			const fits: Array<Record<string, string>> = [{}, { fit: 'cover' }]
+			for (const fit of fits) {
+				const response = await storedImage(PHOTO, { ...size, ...fit })
+				expect(status(response)).toBe(200)
+				await (response as Response).arrayBuffer()
+			}
+			expect(await cachedResizes(PHOTO)).toHaveLength(1)
+		},
+	)
 
 	test('serves the original when no size is asked for', async () => {
 		const result = await dimensions(await storedImage(PHOTO, {}))

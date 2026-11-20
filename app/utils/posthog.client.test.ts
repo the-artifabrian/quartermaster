@@ -254,3 +254,44 @@ test('a long error message is cut, so a token past the cut is not sent', () => {
 	expect(text).not.toContain('invite-abc')
 	expect(String(event.properties.$exception_message).length).toBeLessThan(3_000)
 })
+
+// Failure list for what replays record of form fields:
+// - every input type the SDK masks when told to mask all inputs stays masked
+// - hidden inputs, which carry invite tokens and redirectTo values on the
+//   login, signup, onboarding, verify and join forms, are masked too; the
+//   SDK's "mask all inputs" list leaves them out, and it replaces any list
+//   of our own, so it has to be off for ours to count
+test('replays mask every input type, hidden ones included', () => {
+	vi.clearAllMocks()
+	posthog.__loaded = false
+	initializePostHog({
+		apiKey: 'phc_test',
+		host: 'https://analytics.example.com',
+	})
+	const recording = posthog.init.mock.calls[0]![1].session_recording as {
+		maskAllInputs?: boolean
+		maskInputOptions?: Record<string, boolean>
+	}
+	expect(recording.maskAllInputs).toBe(false)
+	for (const type of [
+		'color',
+		'date',
+		'datetime-local',
+		'email',
+		'month',
+		'number',
+		'range',
+		'search',
+		'tel',
+		'text',
+		'time',
+		'url',
+		'week',
+		'textarea',
+		'select',
+		'password',
+		'hidden',
+	]) {
+		expect(recording.maskInputOptions?.[type], type).toBe(true)
+	}
+})

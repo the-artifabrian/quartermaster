@@ -1,4 +1,4 @@
-import posthog from 'posthog-js'
+import posthog, { type MaskInputOptions } from 'posthog-js'
 import { type AnalyticsClient } from './posthog-provider.tsx'
 import { redactUrl } from './redact-url.ts'
 
@@ -16,6 +16,32 @@ const urlInText = /https?:\/\/[^\s"'<>`]+|\/[^\s"'<>`?]*\?[^\s"'<>`]+/g
 // (properties.$web_vitals_LCP_event.$current_url), its attribution, and
 // autocapture's $elements list.
 const MAX_DEPTH = 4
+
+// What replays mask in form fields. The SDK's maskAllInputs masks this list
+// less `hidden`, and it replaces any list of our own, so it is off and the
+// whole list is here. Hidden inputs carry invite tokens and redirectTo values
+// on the login, signup, onboarding, verify and join forms. MaskInputOptions
+// has no `hidden` key, but the recorder checks the input's type against the
+// list.
+const MASKED_INPUTS = {
+	color: true,
+	date: true,
+	'datetime-local': true,
+	email: true,
+	month: true,
+	number: true,
+	range: true,
+	search: true,
+	tel: true,
+	text: true,
+	time: true,
+	url: true,
+	week: true,
+	textarea: true,
+	select: true,
+	password: true,
+	hidden: true,
+} satisfies MaskInputOptions & { hidden: true }
 
 // The search for paths retries from every slash, so a long run of slashes
 // takes time that grows with the square of its length. Only this much of a
@@ -137,6 +163,8 @@ export function initializePostHog({
 				return event ? redactEventUrls(event) : event
 			},
 			session_recording: {
+				maskAllInputs: false,
+				maskInputOptions: MASKED_INPUTS,
 				maskCapturedNetworkRequestFn: (request) => ({
 					...request,
 					name: redactUrl(request.name),

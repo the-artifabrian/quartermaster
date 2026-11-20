@@ -374,8 +374,12 @@ query parameters, including inside `redirectTo`. These go through it:
   autocapture records, URLs in error messages, the network requests and page
   addresses recorded for replays.
 
-Replays record the page's text, since `mask_all_text` is off, but not what is
-typed into inputs. A page that shows a secret marks it with PostHog's
+Replays record the page's text, since `mask_all_text` is off. Input values are
+masked by type, with the list in `app/utils/posthog.client.ts`: every type the
+SDK's own "mask all inputs" covers, plus hidden inputs, which carry invite
+tokens and `redirectTo` on the sign-in forms. Masking settings turned on in the
+PostHog project would replace that list with the SDK's, which leaves hidden
+inputs out, so they stay off. A page that shows a secret marks it with PostHog's
 `ph-no-capture` class, and the recording keeps only an empty box of its size:
 the 2FA setup's QR code and URI, and the Household invite link. posthog-js has
 no browser-side setting to stop recording on chosen URLs; the URL blocklist for

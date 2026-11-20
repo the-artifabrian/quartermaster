@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import { isIP } from 'node:net'
 import { ipKeyGenerator } from 'express-rate-limit'
+import { getAppOrigin, hostName } from './app-origin.server.ts'
 
 /**
  * The header a Cloudflare Transform Rule sets on every request to our zone,
@@ -76,6 +77,8 @@ export function clientAddressKey({
 	edgeSecret,
 	ip,
 	expectedEdgeSecret = process.env.CF_EDGE_SECRET,
+	host,
+	appHost,
 	onEdgeMismatch,
 }: {
 	flyClientIp?: string | null
@@ -84,10 +87,15 @@ export function clientAddressKey({
 	edgeSecret?: string | null
 	ip?: string | null
 	expectedEdgeSecret?: string
+	/** The Host header as received. */
+	host?: string | null
+	/** The app's own host name; APP_ORIGIN's when left out. */
+	appHost?: string
 	/**
-	 * Called for a request that came through Cloudflare (both proxy headers)
-	 * without the secret we expect, while one is set. Its key then falls back
-	 * to fly-client-ip.
+	 * Called for a request for the app's own host that came through
+	 * Cloudflare (both proxy headers) without the secret we expect, while one
+	 * is set. Its key then falls back to fly-client-ip. Other hosts don't
+	 * count: anyone can send both headers to the fly.dev host.
 	 */
 	onEdgeMismatch?: () => void
 }): string {
@@ -95,7 +103,15 @@ export function clientAddressKey({
 		const fly = asAddress(flyClientIp)
 		if (!fly) return UNKNOWN_CLIENT_KEY
 		const fromEdge = isFromOurEdge(edgeSecret ?? undefined, expectedEdgeSecret)
-		if (!fromEdge && expectedEdgeSecret && cfConnectingIp) onEdgeMismatch?.()
+		if (
+			onEdgeMismatch &&
+			!fromEdge &&
+			expectedEdgeSecret &&
+			cfConnectingIp &&
+			hostName(host) === (appHost ?? new URL(getAppOrigin()).hostname)
+		) {
+			onEdgeMismatch()
+		}
 		const visitor = fromEdge ? asAddress(cfConnectingIp) : null
 		return keyFor(visitor ?? fly)
 	}

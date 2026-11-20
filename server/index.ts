@@ -123,6 +123,7 @@ const rateLimitDefault = {
 			flyClientIp: req.get('fly-client-ip'),
 			cfConnectingIp: req.get('cf-connecting-ip'),
 			edgeSecret: req.get(EDGE_SECRET_HEADER),
+			host: req.get('host'),
 			ip: req.ip ?? req.socket?.remoteAddress,
 			onEdgeMismatch,
 		}),

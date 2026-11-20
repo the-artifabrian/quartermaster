@@ -39,10 +39,13 @@ import {
 //     cf-connecting-ip (straight to fly.dev), one with no fly-client-ip
 //     (local runs), and an unset secret (the boot warning covers that) are
 //     not.
-// 14. The first mismatch warns at once.
-// 15. Mismatches in the hour after a warning are only counted; the first one
+// 14. Only requests for the app's own host count, in any case, with a port
+//     or a trailing dot. Anyone can reach the fly.dev host with both headers
+//     and no secret, and that must not raise the alarm.
+// 15. The first mismatch warns at once.
+// 16. Mismatches in the hour after a warning are only counted; the first one
 //     an hour or more later warns with the count since the last warning.
-// 16. The warning never holds the header's value.
+// 17. The warning never holds the header's value.
 
 const SECRET = 'edge-secret-for-tests'
 const visitorA = '203.0.113.7'
@@ -50,7 +53,11 @@ const visitorB = '198.51.100.23'
 const edge = '172.70.1.2'
 
 function key(fields: Parameters<typeof clientAddressKey>[0]) {
-	return clientAddressKey({ expectedEdgeSecret: SECRET, ...fields })
+	return clientAddressKey({
+		expectedEdgeSecret: SECRET,
+		appHost: 'app.example',
+		...fields,
+	})
 }
 
 describe('client address key', () => {
@@ -194,7 +201,11 @@ test('production without the edge secret warns once at boot', () => {
 })
 
 describe('a secret that stops matching', () => {
-	const both = { flyClientIp: edge, cfConnectingIp: visitorA }
+	const both = {
+		flyClientIp: edge,
+		cfConnectingIp: visitorA,
+		host: 'app.example',
+	}
 
 	test('counts requests through Cloudflare whose edge header is missing or wrong', () => {
 		const onEdgeMismatch = vi.fn()
@@ -211,6 +222,18 @@ describe('a secret that stops matching', () => {
 		clientAddressKey({ ...both, expectedEdgeSecret: undefined, onEdgeMismatch })
 		clientAddressKey({ ...both, expectedEdgeSecret: '', onEdgeMismatch })
 		expect(onEdgeMismatch).not.toHaveBeenCalled()
+	})
+
+	test('counts only requests for the app host', () => {
+		const onEdgeMismatch = vi.fn()
+		for (const host of ['quartermaster.fly.dev', 'other.example', '', null]) {
+			key({ ...both, host, onEdgeMismatch })
+		}
+		expect(onEdgeMismatch).not.toHaveBeenCalled()
+		for (const host of ['APP.example', 'app.example:443', 'app.example.']) {
+			key({ ...both, host, onEdgeMismatch })
+		}
+		expect(onEdgeMismatch).toHaveBeenCalledTimes(3)
 	})
 
 	test('warns at once, then at most once an hour with the count', () => {

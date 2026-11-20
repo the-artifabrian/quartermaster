@@ -76,7 +76,7 @@
     "isbot": "^5.2.1",
     "litefs-js": "^2.0.2",
     "morgan": "^1.11.0",
-    "openimg": "^1.1.1",
+    "openimg": "1.1.1",
     "posthog-js": "^1.402.3",
     "posthog-node": "^5.44.0",
     "prisma": "^7.8.0",
@@ -136,5 +136,8 @@
   "epic-stack": {
     "head": "d1c3dde718e1e98ba49a542a1eb13985ad484d5d",
     "date": "2026-02-01T22:50:23Z"
+  },
+  "patchedDependencies": {
+    "openimg@1.1.1": "patches/openimg@1.1.1.patch"
   }
 }

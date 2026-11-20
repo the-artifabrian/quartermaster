@@ -52,7 +52,7 @@
         "isbot": "^5.2.1",
         "litefs-js": "^2.0.2",
         "morgan": "^1.11.0",
-        "openimg": "^1.1.1",
+        "openimg": "1.1.1",
         "posthog-js": "^1.402.3",
         "posthog-node": "^5.44.0",
         "prisma": "^7.8.0",
@@ -110,6 +110,9 @@
         "vitest": "^4.1.10",
       },
     },
+  },
+  "patchedDependencies": {
+    "openimg@1.1.1": "patches/openimg@1.1.1.patch",
   },
   "packages": {
     "@adobe/css-tools": ["@adobe/css-tools@4.4.4", "", {}, "sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg=="],

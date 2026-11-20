@@ -4,13 +4,18 @@
 //   is re-encoded, no larger than MAX_DOWNSCALED_EDGE
 // - a small photo exactly at the pixel limit is left as it is
 // - a small photo the browser can't decode is left for the server to judge
+// - a PNG, found by its first bytes, gets the lower PNG limit: one over it is
+//   re-encoded, one at it is left alone, and a JPEG of the same size stays
 import { describe, expect, test } from 'vitest'
 import {
 	downscaleImageToFit,
 	MAX_DOWNSCALED_EDGE,
 	type DecodeImage,
 } from './downscale-image.ts'
-import { MAX_UNSHRUNK_PIXELS } from './recipe-validation.ts'
+import {
+	MAX_UNSHRUNK_PIXELS,
+	MAX_UNSHRUNK_PNG_PIXELS,
+} from './recipe-validation.ts'
 
 const MB = 1024 * 1024
 
@@ -151,6 +156,34 @@ describe('downscaleImageToFit', () => {
 			throw new Error('unsupported')
 		}
 		expect(await downscaleImageToFit(file, 3 * MB, decode)).toBe(file)
+	})
+
+	test('holds a PNG to the lower limit, by its first bytes', async () => {
+		const png = (bytes: number) =>
+			new File(
+				[
+					new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+					new Uint8Array(bytes),
+				],
+				'scan.png',
+				{ type: 'image/png' },
+			)
+		// One row over the PNG limit, well under the general one.
+		const over = fakeDecoder(2000, MAX_UNSHRUNK_PNG_PIXELS / 2000 + 1, 0.1)
+		const atLimit = fakeDecoder(2000, MAX_UNSHRUNK_PNG_PIXELS / 2000, 0.1)
+		const jpeg = fakeDecoder(2000, MAX_UNSHRUNK_PNG_PIXELS / 2000 + 1, 0.1)
+		expect(2000 * (MAX_UNSHRUNK_PNG_PIXELS / 2000 + 1)).toBeLessThan(
+			MAX_UNSHRUNK_PIXELS,
+		)
+
+		const shrunk = await downscaleImageToFit(png(MB), 3 * MB, over.decode)
+		expect(shrunk.type).toBe('image/jpeg')
+		const kept = png(MB)
+		expect(await downscaleImageToFit(kept, 3 * MB, atLimit.decode)).toBe(kept)
+		const photoFile = photo(MB)
+		expect(await downscaleImageToFit(photoFile, 3 * MB, jpeg.decode)).toBe(
+			photoFile,
+		)
 	})
 
 	test('leaves a file that is not an image alone', async () => {

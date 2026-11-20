@@ -201,6 +201,12 @@ export const MAX_IMPORT_IMAGE_SIZE = 5 * 1024 * 1024
  * every one of its limits.
  */
 export const MAX_UNSHRUNK_PIXELS = 8_000_000
+/**
+ * The same for a PNG, which can hold 16 bits per sample and be interlaced,
+ * so it decodes whole at up to 8 bytes a pixel. The browser can't tell
+ * those apart cheaply, so every PNG gets the lower limit.
+ */
+export const MAX_UNSHRUNK_PNG_PIXELS = 4_000_000
 /** Screenshots in one Recipe image import. */
 export const MAX_IMPORT_IMAGE_COUNT = 5
 

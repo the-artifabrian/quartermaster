@@ -1,5 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
-import { MAX_UNSHRUNK_PIXELS } from './recipe-validation.ts'
+import {
+	MAX_UNSHRUNK_PIXELS,
+	MAX_UNSHRUNK_PNG_PIXELS,
+} from './recipe-validation.ts'
 
 /** The longest edge, in pixels, of a photo the browser has re-encoded. */
 export const MAX_DOWNSCALED_EDGE = 2048
@@ -16,9 +19,18 @@ type DecodedImage = {
 
 export type DecodeImage = (file: Blob) => Promise<DecodedImage>
 
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+
+/** The pixels a file may keep unshrunk: fewer for a PNG, by its first bytes. */
+async function pixelLimit(file: Blob) {
+	const start = new Uint8Array(await file.slice(0, 8).arrayBuffer())
+	const isPng = PNG_SIGNATURE.every((byte, index) => start[index] === byte)
+	return isPng ? MAX_UNSHRUNK_PNG_PIXELS : MAX_UNSHRUNK_PIXELS
+}
+
 /**
  * Shrink a chosen photo in the browser until it fits `maxBytes` and has no
- * more than `maxPixels`.
+ * more pixels than the server decodes without refusing it.
  *
  * A phone photo is often larger than the upload limit, and a flat one can
  * be small on disk with more pixels than the server will decode. The photo
@@ -30,7 +42,6 @@ export async function downscaleImageToFit(
 	file: File,
 	maxBytes: number,
 	decode: DecodeImage = decodeInBrowser,
-	maxPixels = MAX_UNSHRUNK_PIXELS,
 ): Promise<File> {
 	if (!file.type.startsWith('image/')) return file
 
@@ -42,7 +53,8 @@ export async function downscaleImageToFit(
 	}
 
 	try {
-		if (file.size <= maxBytes && image.width * image.height <= maxPixels) {
+		const pixels = image.width * image.height
+		if (file.size <= maxBytes && pixels <= (await pixelLimit(file))) {
 			return file
 		}
 		const fit = Math.min(

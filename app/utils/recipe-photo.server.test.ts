@@ -15,7 +15,8 @@
 //   refused at a size its baseline or plain twin passes
 // - a 48 MP phone photo, as a baseline JPEG, passes; one past the JPEG limit
 //   is refused
-// - a photo the browser leaves unshrunk stays under every limit
+// - a photo the browser leaves unshrunk stays under every limit, even an
+//   interlaced 16-bit RGBA PNG at the browser's PNG limit
 // - an iPhone HEIC is refused by its signature, whatever type it is sent as
 // - formats sharp reads that the form doesn't offer (GIF, SVG, AVIF) are
 //   refused
@@ -39,7 +40,10 @@ import {
 	PhotoQueueTimeout,
 	withPhotoSlot,
 } from './recipe-photo.server.ts'
-import { MAX_UNSHRUNK_PIXELS } from './recipe-validation.ts'
+import {
+	MAX_UNSHRUNK_PIXELS,
+	MAX_UNSHRUNK_PNG_PIXELS,
+} from './recipe-validation.ts'
 
 function upload(bytes: Uint8Array | string, name: string, type: string) {
 	const part = typeof bytes === 'string' ? bytes : new Uint8Array(bytes)
@@ -183,9 +187,34 @@ describe('decoded size', () => {
 		expect(await check(over, 'scan.jpg', 'image/jpeg')).toEqual(tooBig)
 	})
 
-	test('keeps any 8-bit photo the browser leaves unshrunk under every limit', () => {
-		// RGBA is the most an 8-bit photo holds per pixel.
+	test('keeps any photo the browser leaves unshrunk under every limit', async () => {
+		// RGBA is the most an 8-bit JPEG or WebP holds per pixel.
 		expect(MAX_UNSHRUNK_PIXELS * 4).toBeLessThanOrEqual(MAX_WHOLE_DECODED_BYTES)
+		// A 16-bit RGBA PNG holds 8, and an interlaced one decodes whole.
+		expect(MAX_UNSHRUNK_PNG_PIXELS * 8).toBeLessThanOrEqual(
+			MAX_WHOLE_DECODED_BYTES,
+		)
+		const edge = Math.floor(Math.sqrt(MAX_UNSHRUNK_PNG_PIXELS))
+		const png = await sharp({
+			create: {
+				width: edge,
+				height: edge,
+				channels: 4,
+				background: { r: 200, g: 107, b: 60, alpha: 0.5 },
+			},
+		})
+			.toColourspace('rgb16')
+			.png({ progressive: true })
+			.toBuffer()
+		const metadata = await sharp(png).metadata()
+		expect(metadata).toMatchObject({
+			depth: 'ushort',
+			channels: 4,
+			isProgressive: true,
+		})
+		expect(await check(png, 'scan.png', 'image/png')).toMatchObject({
+			ok: true,
+		})
 	})
 })
 

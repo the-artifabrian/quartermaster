@@ -112,9 +112,10 @@ waiting, or when its request is aborted, and sharp stops one that runs for 30
 seconds.
 
 The browser shrinks a picked photo to 2048 px on the long edge, as a JPEG, when
-it is over the 3 MB upload limit or has more than 8 million pixels. The app
-never shows a photo larger than 2048 px, and any 8-bit photo the browser leaves
-alone fits every limit above.
+it is over the 3 MB upload limit or has more than 8 million pixels, or 4 million
+for a PNG, which can be 16-bit and interlaced. The app never shows a photo
+larger than 2048 px, and any photo the browser leaves alone fits every limit
+above.
 
 Pages show them through `/resources/images`, which resizes with openimg and
 caches each resize on disk. Share pages and link previews use it too, so it has

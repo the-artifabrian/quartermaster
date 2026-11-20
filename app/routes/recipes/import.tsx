@@ -498,8 +498,8 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 								onChange={(event) => void fitImages(event.currentTarget)}
 							/>
 							<p className="text-muted-foreground text-xs">
-								JPEG, PNG, or WebP. Large images are resized. Multiple images
-								will be combined into one recipe.
+								JPG, PNG or WebP. Large images are resized. Multiple images will
+								be combined into one recipe.
 							</p>
 						</div>
 						{imageError && (

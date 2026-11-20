@@ -1,17 +1,13 @@
-import { type FileUpload } from '@mjackson/form-data-parser'
 import { createId } from '@paralleldrive/cuid2'
 import { removeCachedResizes } from '#app/utils/image-cache.server.ts'
 import { isRecipeImageKey } from '#app/utils/image-route.ts'
+import { type CheckedRecipePhoto } from '#app/utils/recipe-photo.server.ts'
 import {
 	getS3CredentialsFromEnv,
 	signS3Request,
 } from '#app/utils/s3-request.server.ts'
 
-async function uploadToStorage(
-	file: File | FileUpload,
-	key: string,
-	signal?: AbortSignal,
-) {
+async function uploadToStorage(file: File, key: string, signal?: AbortSignal) {
 	// The image route serves only keys of this shape, so storing anything else
 	// would leave a photo no page can show.
 	if (!isRecipeImageKey(key)) {
@@ -22,7 +18,7 @@ async function uploadToStorage(
 	const uploadResponse = await fetch(url, {
 		method: 'PUT',
 		headers,
-		body: file instanceof File ? file : (file as FileUpload).stream(),
+		body: file,
 		signal,
 	})
 
@@ -92,15 +88,19 @@ function newImageKey(userId: string, recipeId: string, extension: string) {
 	return `users/${userId}/recipes/${recipeId}/images/${Date.now()}-${createId()}.${extension}`
 }
 
+/**
+ * Store a photo that passed `checkRecipePhoto`. Its extension and type come
+ * from its bytes, never the browser's type or file name.
+ */
 export async function uploadRecipeImage(
 	userId: string,
 	recipeId: string,
-	file: File | FileUpload,
+	photo: CheckedRecipePhoto,
 ) {
-	// The browser's file name can hold anything after its last dot, so the
-	// extension comes from the type the upload was checked against.
-	const extension = EXTENSION_BY_TYPE[file.type] ?? 'img'
-	return uploadToStorage(file, newImageKey(userId, recipeId, extension))
+	const file = new File([photo.bytes], `photo.${photo.extension}`, {
+		type: photo.type,
+	})
+	return uploadToStorage(file, newImageKey(userId, recipeId, photo.extension))
 }
 
 /** Copy bytes to a recipient-owned key before committing a shared bundle. */
@@ -139,7 +139,7 @@ export async function copyRecipeImage(
 	}
 }
 
-function getSignedPutRequestInfo(file: File | FileUpload, key: string) {
+function getSignedPutRequestInfo(file: File, key: string) {
 	return signS3Request({
 		credentials: getS3CredentialsFromEnv(),
 		method: 'PUT',

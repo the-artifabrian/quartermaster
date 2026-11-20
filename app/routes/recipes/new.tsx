@@ -11,6 +11,7 @@ import { recipeNewNav } from '#app/utils/nav-back.ts'
 import { data, replace, type ShouldRevalidateFunctionArgs } from 'react-router'
 import { RECIPE_FORM_ID, RecipeForm } from '#app/components/recipe-form.tsx'
 import { prisma } from '#app/utils/db.server.ts'
+import { checkRecipePhoto } from '#app/utils/recipe-photo.server.ts'
 import {
 	clientLeaves,
 	type EditScreenDone,
@@ -30,7 +31,7 @@ import {
 	RecipeSchema,
 	MAX_RECIPE_IMAGE_SIZE,
 	photoTooLargeResult,
-	ACCEPTED_RECIPE_IMAGE_TYPES,
+	PHOTO_REFUSALS,
 } from '#app/utils/recipe-validation.ts'
 import { uploadRecipeImage } from '#app/utils/storage.server.ts'
 import { writeTransaction } from '#app/utils/write-transaction.server.ts'
@@ -83,9 +84,7 @@ export async function action({ request }: Route.ActionArgs) {
 					if (file.size > MAX_RECIPE_IMAGE_SIZE) {
 						return undefined
 					}
-					if (!ACCEPTED_RECIPE_IMAGE_TYPES.includes(file.type)) {
-						return undefined
-					}
+					// Its type is the browser's guess; checkRecipePhoto reads the bytes.
 					imageFile = file
 					return file
 				}
@@ -140,6 +139,24 @@ export async function action({ request }: Route.ActionArgs) {
 			instructions,
 		})),
 	})
+
+	// Checked before anything is saved, so a refused file leaves no Recipe
+	// behind.
+	const check = imageFile
+		? await checkRecipePhoto(imageFile, { signal: request.signal })
+		: null
+	if (check && !check.ok) {
+		return data(
+			{
+				result: submission.reply({
+					fieldErrors: { image: [PHOTO_REFUSALS[check.reason]] },
+				}),
+				photoRefusal: check.reason,
+			},
+			{ status: 400 },
+		)
+	}
+	const photo = check?.photo
 
 	if (submission.status !== 'success') {
 		return data({ result: submission.reply() }, { status: 400 })
@@ -235,8 +252,8 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	// Upload image if provided
-	if (imageFile) {
-		const objectKey = await uploadRecipeImage(userId, recipe.id, imageFile)
+	if (photo) {
+		const objectKey = await uploadRecipeImage(userId, recipe.id, photo)
 		await prisma.recipeImage.create({
 			data: {
 				recipeId: recipe.id,

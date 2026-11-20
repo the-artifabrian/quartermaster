@@ -85,6 +85,41 @@ Photos are stored in object storage (Tigris) under
 id and an extension taken from the upload's checked type, never the browser's
 file name. A copy for a shared Recipe gets a new name of the same shape.
 
+An upload is checked before anything is saved, in
+`app/utils/recipe-photo.server.ts`, and storage takes only a photo that passed.
+The browser's type and the file name are ignored. The first bytes must be JPEG,
+PNG or WebP, the formats the form offers. sharp must then read the same format
+from the header and decode the whole file to a thumbnail, since a JPEG cut off
+partway still has a readable header. A file that fails gets "We can't use that
+file. Choose a JPG, PNG or WebP." next to the photo field, and the Recipe isn't
+saved or changed. The form then takes the file off its input, so the next Save
+goes through without it. HEIC is refused by its first bytes. The prebuilt sharp
+can read a HEIC header but not decode it.
+
+The production machine has 512 MB, one CPU, and about 90 to 165 MB free while
+the app runs, so the limit is on the memory a decode holds, not the file size.
+That is width × height × channels × bytes per sample from the header. A
+baseline JPEG may decode to 150 MB, which fits a 48 MP phone photo, because it
+shrinks while it loads. A plain PNG may decode to 100 MB, since it streams. A
+progressive JPEG, an interlaced PNG or a WebP decodes whole and may decode to
+32 MB. A photo over its limit gets "That photo is too big. Try a smaller one."
+Measured on macOS under Node and Bun with one libvips thread, one job at those
+limits held at most 45 MB over a bare process for the baseline JPEG and up to
+85 MB for the others. Two jobs at once added up, so every
+sharp job on a photo (the upload check, each resize, and the import's
+preparation) waits for one shared turn. When eight jobs are already waiting, the
+next is refused at once with the busy error. A job gives up after 30 seconds of
+waiting, or when its request is aborted, and sharp stops one that runs for 30
+seconds. Under Bun the request's abort signal doesn't fire when the visitor
+leaves (checked on 20 November 2026 by dropping image requests mid-resize), so
+in practice a job whose visitor left still waits its turn or its 30 seconds.
+
+The browser shrinks a picked photo to 2048 px on the long edge, as a JPEG, when
+it is over the 3 MB upload limit or has more than 8 million pixels, or 4 million
+for a PNG, which can be 16-bit and interlaced. The app never shows a photo
+larger than 2048 px, and any photo the browser leaves alone fits every limit
+above.
+
 Pages show them through `/resources/images`, which resizes with openimg and
 caches each resize on disk. Share pages and link previews use it too, so it has
 no login, and `app/utils/image-route.ts` sets what it accepts:
@@ -96,13 +131,17 @@ no login, and `app/utils/image-route.ts` sets what it accepts:
   and height from `IMG_SIZES`, so the page and the route use one list. An
   unlisted size gets the next listed size up instead of an error, so a page
   cached before a size changed still shows its photo. No size at all serves the
-  original, which the data export links to.
+  photo the data export links to: upright, at most 2048 px, and without the
+  stored bytes' metadata, which can hold where it was taken.
 - **Formats.** AVIF, WebP, or the original format. `fit` is `cover` or left
   out. Both mean the same crop, so they share one cached copy. A format needs a
   size: no page asks for a full-size AVIF or WebP.
+- **Decoding.** The route reads the stored photo's header first, so one over
+  the upload's limit gets an error before it is decoded. The decode then waits
+  for its turn like every other photo job.
 
-Per photo that is at most 21 resizes no larger than 1200×630, plus one
-full-size copy in the original format. Uploads are capped at 3 MB.
+Per photo that is at most 21 resizes no larger than 1200×630, plus one copy of
+at most 2048 px in the original format. Uploads are capped at 3 MB.
 
 The cache is `/data/images` in production, on the same volume as SQLite. It
 stays bounded in two ways. Deleting a photo also deletes its cached resizes,
@@ -487,6 +526,11 @@ and the parse that follows it. A call that fails in a way the user can't cause
 back. A timeout, other 4xx and anything after a 200 stay spent, so slow or bad
 input can't buy unlimited calls. The daily prune in
 `server/scheduled-maintenance.ts` deletes older rows.
+
+An image sent to the import gets the photo upload's checks: its first bytes,
+then its header against the same decoded-size limit, before a daily use is
+claimed. Preparing it for the model waits for the same turn as other photo
+jobs, and a use spent waiting too long comes back.
 
 The manual Recipe, Plan, and Shopping flows do not require API keys. AI quantity
 planning was removed after real-use feedback; Recipe import remains the proven

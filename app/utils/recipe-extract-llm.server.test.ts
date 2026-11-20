@@ -1,6 +1,8 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 
 type SharpChain = {
+	metadata: () => Promise<Record<string, unknown>>
+	timeout: () => SharpChain
 	rotate: () => SharpChain
 	resize: (...args: unknown[]) => SharpChain
 	jpeg: (...args: unknown[]) => SharpChain
@@ -21,6 +23,9 @@ vi.mock('sharp', () => ({
 			jpeg: [] as unknown[],
 		}
 		const chain: SharpChain = {
+			metadata: () =>
+				Promise.resolve({ width: 40, height: 30, channels: 3, depth: 'uchar' }),
+			timeout: () => chain,
 			rotate: () => {
 				call.rotated = true
 				return chain

@@ -156,6 +156,107 @@ test('a phone photo over 3 MB is resized in the browser and saved', async ({
 	expect(stored.size).toBeLessThan(3 * 1024 * 1024)
 })
 
+const NOT_A_PHOTO = {
+	name: 'pasta.jpg',
+	mimeType: 'image/jpeg',
+	// Text with a photo's name and type: only its bytes give it away.
+	buffer: Buffer.from('Boil the pasta for 9 minutes.'),
+}
+const REFUSED = 'We can’t use that file. Choose a JPG, PNG or WebP.'
+
+test('a file that isn’t a photo is refused, and the Recipe then saves without it', async ({
+	page,
+	login,
+}) => {
+	const { householdId } = await login()
+
+	await page.goto('/recipes/new')
+	await page.getByRole('textbox', { name: /title/i }).fill('Notes Pasta')
+	await page.getByPlaceholder('Ingredient name').fill('spaghetti')
+	await page.getByPlaceholder('Step 1').fill('Boil water and cook pasta')
+	await page.getByText('Photo', { exact: true }).click()
+	const photoInput = page.locator('input[type="file"][name="image"]')
+	await photoInput.setInputFiles(NOT_A_PHOTO)
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
+
+	await expect(page.getByText(REFUSED)).toBeVisible()
+	await expect(page).toHaveURL(/\/recipes\/new$/)
+	await expect(page.getByRole('textbox', { name: /title/i })).toHaveValue(
+		'Notes Pasta',
+	)
+	expect(
+		await prisma.recipe.count({ where: { householdId, title: 'Notes Pasta' } }),
+	).toBe(0)
+	// The refused file is off the input and out of the preview.
+	await expect
+		.poll(() =>
+			photoInput.evaluate((input: HTMLInputElement) => input.files?.length),
+		)
+		.toBe(0)
+	await expect(page.getByRole('img', { name: 'Recipe preview' })).toHaveCount(0)
+
+	// Save again without picking another photo.
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
+	await expect(page).toHaveURL(/\/recipes\/(?!new$)[a-z0-9]+$/)
+	const recipeId = new URL(page.url()).pathname.split('/').at(-1)!
+	expect(
+		await prisma.recipe.findMany({
+			where: { householdId, title: 'Notes Pasta' },
+			select: { id: true, image: { select: { objectKey: true } } },
+		}),
+	).toEqual([{ id: recipeId, image: null }])
+})
+
+test('editing with a file that isn’t a photo keeps the old photo, and the edit then saves', async ({
+	page,
+	login,
+}) => {
+	const { id: userId, householdId } = await login()
+	const objectKey = 'users/fixture-user/recipes/fixture-recipe/images/0.png'
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Photo Soup',
+			userId,
+			householdId,
+			ingredients: { create: { name: 'leeks', order: 0 } },
+			instructions: { create: { content: 'Simmer.', order: 0 } },
+			image: { create: { objectKey } },
+		},
+		select: { id: true },
+	})
+
+	await page.goto(`/recipes/${recipe.id}/edit`)
+	await page.getByRole('textbox', { name: /title/i }).fill('Leek Soup')
+	await page.getByText('Photo', { exact: true }).click()
+	const photoInput = page.locator('input[type="file"][name="image"]')
+	await photoInput.setInputFiles(NOT_A_PHOTO)
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
+
+	await expect(page.getByText(REFUSED)).toBeVisible()
+	await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
+	await expect
+		.poll(() =>
+			photoInput.evaluate((input: HTMLInputElement) => input.files?.length),
+		)
+		.toBe(0)
+	// The preview is the saved photo again.
+	await expect(
+		page.getByRole('img', { name: 'Recipe preview' }),
+	).toHaveAttribute(
+		'src',
+		new RegExp(encodeURIComponent(objectKey).replaceAll('.', '\\.')),
+	)
+
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
+	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+	expect(
+		await prisma.recipe.findUniqueOrThrow({
+			where: { id: recipe.id },
+			select: { title: true, image: { select: { objectKey: true } } },
+		}),
+	).toEqual({ title: 'Leek Soup', image: { objectKey } })
+})
+
 test('a Pro user can extract with AI from text and from an image', async ({
 	page,
 	login,

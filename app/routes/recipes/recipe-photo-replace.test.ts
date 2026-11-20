@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { http, HttpResponse } from 'msw'
 import { RouterContextProvider } from 'react-router'
+import sharp from 'sharp'
 import { expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
@@ -72,10 +73,12 @@ async function replacePhoto(session: { id: string }, recipeId: string) {
 	body.set('title', 'Braided loaf')
 	body.set('ingredients[0].name', 'flour')
 	body.set('instructions[0].content', 'Knead the dough.')
-	body.set(
-		'image',
-		new File([new Uint8Array(1024)], 'new.jpg', { type: 'image/jpeg' }),
-	)
+	const jpeg = await sharp({
+		create: { width: 40, height: 30, channels: 3, background: '#c86b3c' },
+	})
+		.jpeg()
+		.toBuffer()
+	body.set('image', new File([jpeg], 'new.jpg', { type: 'image/jpeg' }))
 	const pathname = `/recipes/${recipeId}/edit`
 	return editAction({
 		request: new Request(`${BASE_URL}${pathname}`, {

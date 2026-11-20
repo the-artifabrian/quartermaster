@@ -193,8 +193,35 @@ export const ImportUrlSchema = z.object({
 export const MAX_RECIPE_IMAGE_SIZE = 1024 * 1024 * 3 // 3MB
 /** Each screenshot sent to a Recipe image import. */
 export const MAX_IMPORT_IMAGE_SIZE = 5 * 1024 * 1024
+/**
+ * The most pixels a picked photo may have before the browser shrinks it to
+ * 2048 px, however small the file. The app never shows a photo larger than
+ * that. The server refuses photos that cost too much to decode
+ * (recipe-photo.server.ts); at this many pixels any 8-bit photo is under
+ * every one of its limits.
+ */
+export const MAX_UNSHRUNK_PIXELS = 8_000_000
+/**
+ * The same for a PNG, which can hold 16 bits per sample and be interlaced,
+ * so it decodes whole at up to 8 bytes a pixel. The browser can't tell
+ * those apart cheaply, so every PNG gets the lower limit.
+ */
+export const MAX_UNSHRUNK_PNG_PIXELS = 4_000_000
 /** Screenshots in one Recipe image import. */
 export const MAX_IMPORT_IMAGE_COUNT = 5
+
+/**
+ * The photo field's reply to a file the server's check refuses. The form's
+ * action also returns the reason, so the form can tell a refused file from
+ * one the server had no turn to check.
+ */
+export const PHOTO_REFUSALS = {
+	unusable: 'We can’t use that file. Choose a JPG, PNG or WebP.',
+	'too-big': 'That photo is too big. Try a smaller one.',
+	busy: 'We couldn’t check that photo just now. Try again.',
+} as const
+
+export type PhotoRefusal = keyof typeof PHOTO_REFUSALS
 
 /**
  * The Recipe form's reply when the upload parser stops at a photo over
@@ -206,9 +233,3 @@ export const photoTooLargeResult = {
 	initialValue: {},
 	error: { image: ['Photo is over 3 MB'] },
 }
-export const ACCEPTED_RECIPE_IMAGE_TYPES = [
-	'image/jpeg',
-	'image/jpg',
-	'image/png',
-	'image/webp',
-]

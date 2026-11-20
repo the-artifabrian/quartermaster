@@ -128,50 +128,57 @@ test('A change of email survives a reverify in the middle', async ({
 }) => {
 	const user = await login()
 	const { otp: _otp, ...totpConfig } = await generateTOTP()
+	// Verification rows aren't tied to the user, so the test removes its own.
 	await prisma.verification.create({
 		data: { ...totpConfig, type: '2fa', target: user.id },
 	})
-	const enterTOTP = async () => {
-		await expect(page.getByText(/check your 2fa app/i)).toBeVisible()
+	try {
+		const enterTOTP = async () => {
+			await expect(page.getByText(/check your 2fa app/i)).toBeVisible()
+			await page
+				.getByRole('textbox', { name: /code/i })
+				.fill((await generateTOTP(totpConfig)).otp)
+			await page.getByRole('button', { name: /submit/i }).click()
+		}
+
+		await navigate('/settings/profile/change-email')
+		await enterTOTP()
+		await expect(page).toHaveURL('/settings/profile/change-email')
+
+		const newEmailAddress = faker.internet.email().toLowerCase()
 		await page
-			.getByRole('textbox', { name: /code/i })
-			.fill((await generateTOTP(totpConfig)).otp)
+			.getByRole('textbox', { name: /new email/i })
+			.fill(newEmailAddress)
+		await page.getByRole('button', { name: /send confirmation/i }).click()
+		await expect(page.getByText(/check your email/i)).toBeVisible()
+		const email = await waitFor(() => readEmail(newEmailAddress), {
+			errorMessage: 'Confirmation email was not sent',
+		})
+		const code = email.text.match(
+			/Here's your verification code: (?<code>[\d\w]+)/,
+		)?.groups?.code
+		invariant(code, 'Code not found in the email')
+
+		// The code arrives after this browser's verification has gone stale.
+		await ageVerification(page, 3)
+		await page.getByRole('textbox', { name: /code/i }).fill(code)
 		await page.getByRole('button', { name: /submit/i }).click()
+
+		await enterTOTP()
+		// Back on the email step, the same code still works.
+		await expect(page.getByText(/check your email/i)).toBeVisible()
+		await page.getByRole('textbox', { name: /code/i }).fill(code)
+		await page.getByRole('button', { name: /submit/i }).click()
+
+		await expect(page.getByText(/email changed/i)).toBeVisible()
+		await expect(page).toHaveURL('/settings/profile')
+		expect(
+			await prisma.user.findUniqueOrThrow({
+				where: { id: user.id },
+				select: { email: true },
+			}),
+		).toEqual({ email: newEmailAddress })
+	} finally {
+		await prisma.verification.deleteMany({ where: { target: user.id } })
 	}
-
-	await navigate('/settings/profile/change-email')
-	await enterTOTP()
-	await expect(page).toHaveURL('/settings/profile/change-email')
-
-	const newEmailAddress = faker.internet.email().toLowerCase()
-	await page.getByRole('textbox', { name: /new email/i }).fill(newEmailAddress)
-	await page.getByRole('button', { name: /send confirmation/i }).click()
-	await expect(page.getByText(/check your email/i)).toBeVisible()
-	const email = await waitFor(() => readEmail(newEmailAddress), {
-		errorMessage: 'Confirmation email was not sent',
-	})
-	const code = email.text.match(
-		/Here's your verification code: (?<code>[\d\w]+)/,
-	)?.groups?.code
-	invariant(code, 'Code not found in the email')
-
-	// The code arrives after this browser's verification has gone stale.
-	await ageVerification(page, 3)
-	await page.getByRole('textbox', { name: /code/i }).fill(code)
-	await page.getByRole('button', { name: /submit/i }).click()
-
-	await enterTOTP()
-	// Back on the email step, the same code still works.
-	await expect(page.getByText(/check your email/i)).toBeVisible()
-	await page.getByRole('textbox', { name: /code/i }).fill(code)
-	await page.getByRole('button', { name: /submit/i }).click()
-
-	await expect(page.getByText(/email changed/i)).toBeVisible()
-	await expect(page).toHaveURL('/settings/profile')
-	expect(
-		await prisma.user.findUniqueOrThrow({
-			where: { id: user.id },
-			select: { email: true },
-		}),
-	).toEqual({ email: newEmailAddress })
 })

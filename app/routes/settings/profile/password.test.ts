@@ -9,8 +9,8 @@ import '#tests/setup/db-setup.ts'
 import '#tests/setup/mocks-setup.ts'
 
 // Failure list for changing a password from Settings:
-// 1. The user has other sessions, including one still waiting on its 2FA
-//    code. All of them end; the session that made the change stays.
+// 1. The user is signed in on two other devices. Both of those sessions end;
+//    the session that made the change stays.
 // 2. Another user's sessions are untouched.
 // 3. A change refused for a wrong current password ends no session.
 
@@ -38,7 +38,7 @@ async function setUp() {
 		user,
 		current: await sessionFor(user.id),
 		otherDevice: await sessionFor(user.id),
-		pendingTwoFA: await sessionFor(user.id),
+		thirdDevice: await sessionFor(user.id),
 		otherUsersSession: await sessionFor(otherUser.id),
 	}
 }
@@ -66,30 +66,43 @@ async function changePassword(
 	})
 }
 
-async function remainingSessionIds() {
-	const sessions = await prisma.session.findMany({ select: { id: true } })
+async function remainingSessionIds(where: { userId?: string } = {}) {
+	const sessions = await prisma.session.findMany({
+		where,
+		select: { id: true },
+	})
 	return sessions.map((s) => s.id).sort()
 }
 
 test('changing the password ends the user’s other sessions and keeps this one', async () => {
-	const { current, otherUsersSession } = await setUp()
+	const { user, current } = await setUp()
 
 	const response = await changePassword(current, oldPassword)
 
 	expect(response).toBeInstanceOf(Response)
 	expect((response as Response).status).toBe(302)
-	expect(await remainingSessionIds()).toEqual(
-		[current.id, otherUsersSession.id].sort(),
-	)
+	expect(await remainingSessionIds({ userId: user.id })).toEqual([current.id])
+})
+
+test('changing the password leaves another user’s sessions alone', async () => {
+	const { current, otherUsersSession } = await setUp()
+
+	await changePassword(current, oldPassword)
+
+	expect(
+		await prisma.session.findUnique({
+			where: { id: otherUsersSession.id },
+			select: { id: true },
+		}),
+	).toEqual({ id: otherUsersSession.id })
 })
 
 test('a refused password change ends no session', async () => {
-	const { current, otherDevice, pendingTwoFA, otherUsersSession } =
-		await setUp()
+	const { current, otherDevice, thirdDevice, otherUsersSession } = await setUp()
 
 	await changePassword(current, 'not-the-password')
 
 	expect(await remainingSessionIds()).toEqual(
-		[current.id, otherDevice.id, pendingTwoFA.id, otherUsersSession.id].sort(),
+		[current.id, otherDevice.id, thirdDevice.id, otherUsersSession.id].sort(),
 	)
 })

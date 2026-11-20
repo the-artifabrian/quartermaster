@@ -1,5 +1,6 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
+import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { data, redirect, Form } from 'react-router'
 import { z } from 'zod'
@@ -103,6 +104,8 @@ export async function action({ request }: Route.ActionArgs) {
 		request.headers.get('cookie'),
 	)
 	const sessionId = authSession.get(sessionKey)
+	// Without an id the filter below would drop out and end this session too.
+	invariantResponse(sessionId, 'You must be signed in to change your password')
 	const hash = await getPasswordHash(newPassword)
 	// A changed password signs out every other session of the user.
 	await prisma.$transaction([

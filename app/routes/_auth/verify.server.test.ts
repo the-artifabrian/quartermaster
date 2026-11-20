@@ -391,5 +391,6 @@ describe('change email', () => {
 
 		const reused = await submitVerify(changeEmail, cookie, search)
 		expect(reused.status).toBe(400)
+		expect(reused.formErrors).toEqual({ code: ['Invalid code'] })
 	})
 })

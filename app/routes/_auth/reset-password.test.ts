@@ -47,7 +47,7 @@ function createSession(userId: string) {
 	})
 }
 
-test('resetting the password ends every session of that user only', async () => {
+async function setUpUsers() {
 	const user = await prisma.user.create({
 		data: { ...createUser(), password: { create: createPassword() } },
 		select: { id: true, username: true },
@@ -58,13 +58,29 @@ test('resetting the password ends every session of that user only', async () => 
 	})
 	await createSession(user.id)
 	await createSession(user.id)
-	const otherUsersSession = await createSession(otherUser.id)
+	return { user, otherUsersSession: await createSession(otherUser.id) }
+}
+
+test('resetting the password ends every session of that user', async () => {
+	const { user } = await setUpUsers()
 
 	const response = await resetPassword(user.username)
 
 	expect((response as Response).headers.get('location')).toBe('/login')
-	const sessions = await prisma.session.findMany({ select: { id: true } })
-	expect(sessions).toEqual([{ id: otherUsersSession.id }])
+	expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0)
+})
+
+test('resetting the password leaves another user’s sessions alone', async () => {
+	const { user, otherUsersSession } = await setUpUsers()
+
+	await resetPassword(user.username)
+
+	expect(
+		await prisma.session.findUnique({
+			where: { id: otherUsersSession.id },
+			select: { id: true },
+		}),
+	).toEqual({ id: otherUsersSession.id })
 })
 
 test('an account without a password gets one from a reset', async () => {

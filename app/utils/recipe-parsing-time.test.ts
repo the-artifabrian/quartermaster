@@ -103,21 +103,33 @@ const jsonLd = (fields: Record<string, unknown>) =>
 		'https://example.com/soup',
 	)
 
+// The cases that grow ingredient lines below the line cap start from a
+// short line, so the work that doesn't depend on its length (one parse per
+// line) is a large share of the small size. Linear code then grows only 4 to
+// 10 times, and quadratic code about 150 times, so these cases fail at
+// half the usual limit.
+const LINE_MAX_GROWTH = MAX_GROWTH / 2
+const lineCases = new WeakSet<(size: number) => () => unknown>()
+function lineCase(build: (size: number) => () => unknown) {
+	lineCases.add(build)
+	return build
+}
+
 /** 50 paste ingredient lines, each with `fill` repeated to the size. */
-const pasteLines =
-	(head: string, fill: string, tail: string) => (size: number) => {
+const pasteLines = (head: string, fill: string, tail: string) =>
+	lineCase((size: number) => {
 		const line = `- ${head}${fill.repeat((LINE_RUN * size) / fill.length)}${tail}`
 		const text = paste({ ingredients: Array(50).fill(line) })
 		return () => parseRecipeText(text)
-	}
+	})
 
 /** One JSON-LD line past the ingredient limit, each grown to the size. */
-const jsonLdLines =
-	(head: string, fill: string, tail: string) => (size: number) => {
+const jsonLdLines = (head: string, fill: string, tail: string) =>
+	lineCase((size: number) => {
 		const line = `${head}${fill.repeat((LINE_RUN * size) / fill.length)}${tail}`
 		const lines = Array(MAX_RECIPE_INGREDIENTS + 1).fill(line)
 		return () => jsonLd({ recipeIngredient: lines })
-	}
+	})
 
 const pasteOf =
 	(make: (run: string) => Parameters<typeof paste>[0]) =>
@@ -262,9 +274,11 @@ const cases: Case[] = [
 ]
 
 describe('parsing stays linear on long input', () => {
-	test.each(cases)('%s', (_name, build, maxGrowth = MAX_GROWTH) => {
+	test.each(cases)('%s', (_name, build, maxGrowth) => {
 		const { ratio, largeMs } = growth(build)
-		expect(ratio).toBeLessThan(maxGrowth)
+		expect(ratio).toBeLessThan(
+			maxGrowth ?? (lineCases.has(build) ? LINE_MAX_GROWTH : MAX_GROWTH),
+		)
 		expect(largeMs).toBeLessThan(BACKSTOP_MS)
 	})
 

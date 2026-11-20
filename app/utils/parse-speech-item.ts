@@ -124,6 +124,9 @@ function normalizeUnit(unit: string): string {
 	return UNIT_ALIASES[unit.toLowerCase()] ?? unit
 }
 
+// Any comma except one with a digit on both sides, which belongs to a number.
+const BETWEEN_ITEMS_COMMA = /(?<!\d),|,(?!\d)/g
+
 const FILLER_PATTERN =
 	/^(?:um|uh|uh+m*|hmm?|oh|like|so|well|okay|ok|yeah|yep|yup|right|actually|and|also)\s+/i
 
@@ -156,8 +159,9 @@ function normalizeTranscript(raw: string): string {
 	// Strip commas — Whisper inserts them between filler words and clauses
 	// (e.g. "Um, like, some Cheerios"). By the time text reaches here, commas
 	// from multi-item splitting have already been consumed by parseSpeechItems.
+	// A comma between two digits is part of a number ("1,5 kg") and stays.
 	text = text
-		.replace(/,/g, ' ')
+		.replace(BETWEEN_ITEMS_COMMA, ' ')
 		.replace(/\s{2,}/g, ' ')
 		.trim()
 
@@ -204,15 +208,17 @@ function normalizeTranscript(raw: string): string {
 	return text
 }
 
-// Quantity pattern: a count times a size ("2 x 400"), an integer or decimal
-// with dots or commas ("1.5", "1,5", "1,000"), a fraction, or a mixed number
-// (1 1/2). parseAmount in fractions.ts decides what it means.
+// Quantity pattern: an integer or decimal with dots or commas ("1.5", "1,5",
+// "1,000"), a fraction, or a mixed number (1 1/2). Before a unit it can also
+// be a count times a size ("2 x 400 g"). parseAmount in fractions.ts decides
+// what it means.
 const NUMBER = `\\d+(?:[.,]\\d+)*`
-const QTY = `(${NUMBER}\\s*[x×]\\s*${NUMBER}|${NUMBER}(?:\\s+\\d+\\/\\d+)?|\\d+\\s*\\/\\s*\\d+)`
+const QTY = `(${NUMBER}(?:\\s+\\d+\\/\\d+)?|\\d+\\s*\\/\\s*\\d+)`
+const QTY_OR_PACK = `(${NUMBER}\\s*[x×]\\s*${NUMBER}|${QTY.slice(1, -1)})`
 
 // Match: "<number> <unit> [of] <name>" or "<number> <name>"
 const QTY_UNIT_NAME = new RegExp(
-	`^${QTY}\\s+(${UNIT_PATTERN})\\s+(?:of\\s+)?(.+)$`,
+	`^${QTY_OR_PACK}\\s+(${UNIT_PATTERN})\\s+(?:of\\s+)?(.+)$`,
 	'i',
 )
 const QTY_NAME = new RegExp(`^${QTY}\\s+(.+)$`)
@@ -255,7 +261,8 @@ export function parseSpeechItem(transcript: string): ParsedItem {
  * so callers can fall back to the raw input untouched.
  */
 export function parseTypedItem(text: string): ParsedItem | null {
-	const trimmed = text.trim()
+	// U+2044 FRACTION SLASH, as in "1 1⁄2"
+	const trimmed = text.trim().replaceAll('\u2044', '/')
 
 	const qtyUnitMatch = trimmed.match(QTY_UNIT_NAME)
 	if (qtyUnitMatch) {
@@ -324,7 +331,7 @@ export function parseSpeechItems(transcript: string): ParsedItem[] {
 
 	// Split on comma or " and " (but not "and" inside a word like "mandarin")
 	const segments = cleaned
-		.split(/,|\band\b/i)
+		.split(new RegExp(`${BETWEEN_ITEMS_COMMA.source}|\\band\\b`, 'i'))
 		.map((s) => s.trim())
 		.filter(Boolean)
 

@@ -1,6 +1,9 @@
 import { data } from 'react-router'
 import { z } from 'zod'
-import { checkAndRecordAiUsage } from '#app/utils/ai-rate-limit.server.ts'
+import {
+	aiUsageRefusal,
+	claimAiUsage,
+} from '#app/utils/ai-rate-limit.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { AI_FEATURE_USED } from '#app/utils/posthog-events.ts'
 import { captureServerEvent } from '#app/utils/posthog.server.ts'
@@ -47,21 +50,6 @@ export async function action({ request }: Route.ActionArgs) {
 
 	const { recipeId } = parsed.data
 
-	const { allowed } = await checkAndRecordAiUsage(
-		userId,
-		'recipe_enhance_llm_call',
-		DAILY_LIMIT,
-	)
-	if (!allowed) {
-		return data(
-			{
-				error: `You've reached the daily limit of ${DAILY_LIMIT} recipe enhancements. Try again tomorrow.`,
-				suggestions: null as EnhanceableFields | null,
-			},
-			{ status: 429 },
-		)
-	}
-
 	// Fetch recipe with household scoping
 	const recipe = await prisma.recipe.findFirst({
 		where: { id: recipeId, householdId },
@@ -92,6 +80,25 @@ export async function action({ request }: Route.ActionArgs) {
 		)
 	}
 
+	// Claimed only once the Recipe is found, so a bad id spends nothing.
+	const usage = await claimAiUsage(userId, 'recipe_enhance_llm_call', {
+		perUser: DAILY_LIMIT,
+	})
+	if (!usage.allowed) {
+		const refusal = aiUsageRefusal(usage.reason, {
+			limit: DAILY_LIMIT,
+			uses: 'suggestion requests',
+			unavailable: "Couldn't get suggestions just now.",
+		})
+		return data(
+			{
+				error: refusal.error,
+				suggestions: null as EnhanceableFields | null,
+			},
+			{ status: refusal.status },
+		)
+	}
+
 	const startedAt = performance.now()
 	const suggestions = await enhanceRecipeMetadata({
 		title: recipe.title,
@@ -104,6 +111,7 @@ export async function action({ request }: Route.ActionArgs) {
 	const durationMs = Math.round(performance.now() - startedAt)
 
 	if ('error' in suggestions) {
+		if (suggestions.refundable) await usage.refund()
 		return data({
 			error: suggestions.error,
 			suggestions: null as EnhanceableFields | null,

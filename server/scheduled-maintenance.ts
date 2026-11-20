@@ -1,3 +1,4 @@
+import { startOfUsageDay } from '#app/utils/ai-rate-limit.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import { serializeError } from '#app/utils/serialize-error.server.ts'
@@ -16,9 +17,8 @@ export type MaintenanceSummary = {
 export async function pruneExpiredData(
 	now = new Date(),
 ): Promise<MaintenanceSummary> {
-	const usageCutoff = new Date(now)
-	// Match checkAndRecordAiUsage's local-calendar daily window exactly.
-	usageCutoff.setHours(0, 0, 0, 0)
+	// The same daily window claimAiUsage counts in.
+	const usageCutoff = startOfUsageDay(now)
 	const householdEventCutoff = new Date(
 		now.getTime() - HOUSEHOLD_EVENT_RETENTION_DAYS * DAY_MS,
 	)

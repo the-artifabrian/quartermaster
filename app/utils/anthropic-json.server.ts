@@ -59,12 +59,50 @@ export function nullable(schema: JsonSchema): JsonSchema {
 export type AnthropicJsonFailure =
 	| { kind: 'configuration' }
 	| { kind: 'rate-limit'; status: 429 }
+	/** An HTTP error, or a 200 whose body could not be read. */
 	| { kind: 'provider'; status?: number }
+	/** The request failed before any response arrived. */
+	| { kind: 'network' }
 	| { kind: 'timeout' }
+	| { kind: 'refusal' }
 	| { kind: 'empty-response' }
 	| { kind: 'max-tokens' }
 	| { kind: 'parse' }
 	| { kind: 'schema' }
+
+/**
+ * Whether the caller should give back the daily use a failed call took. It
+ * does when the failure is ours or the provider's and a user can't cause it:
+ * no key, a dropped connection, a 401, 403 or 404 (a bad key or a retired
+ * model), a 429 or a 5xx.
+ *
+ * A timeout stays spent, since the provider may have finished after we
+ * stopped waiting. So does any other 4xx, and anything after a 200. Refunding
+ * those would let slow or bad input buy unlimited paid calls.
+ */
+export function isRefundableFailure(failure: AnthropicJsonFailure): boolean {
+	switch (failure.kind) {
+		case 'configuration':
+		case 'rate-limit':
+		case 'network':
+			return true
+		case 'provider':
+			return (
+				failure.status !== undefined &&
+				(failure.status === 401 ||
+					failure.status === 403 ||
+					failure.status === 404 ||
+					failure.status >= 500)
+			)
+		case 'timeout':
+		case 'refusal':
+		case 'empty-response':
+		case 'max-tokens':
+		case 'parse':
+		case 'schema':
+			return false
+	}
+}
 
 export type AnthropicJsonResult<T> =
 	{ ok: true; data: T } | { ok: false; failure: AnthropicJsonFailure }
@@ -199,7 +237,7 @@ export async function requestAnthropicJson<T>(
 	} catch (error) {
 		const failure: AnthropicJsonFailure = isTimeoutError(error)
 			? { kind: 'timeout' }
-			: { kind: 'provider' }
+			: { kind: 'network' }
 		adapter.logError('Anthropic JSON request failed', {
 			feature: request.feature,
 			kind: failure.kind,
@@ -257,15 +295,15 @@ export async function requestAnthropicJson<T>(
 	}
 
 	// A refusal can stop mid-JSON. Haiku has no server-side fallback model, so
-	// it is a provider failure, logged on its own line so it is not mistaken
-	// for an outage.
+	// the caller shows it as a failed call; it has its own kind and log line so
+	// it is not mistaken for an outage.
 	if (parsedResponse.data.stop_reason === 'refusal') {
 		adapter.logError('Anthropic JSON response was a refusal', {
 			feature: request.feature,
-			kind: 'provider',
+			kind: 'refusal',
 			model: request.model,
 		})
-		return { ok: false, failure: { kind: 'provider' } }
+		return { ok: false, failure: { kind: 'refusal' } }
 	}
 
 	// Thinking blocks come first on the 5.5 models; the answer is the text

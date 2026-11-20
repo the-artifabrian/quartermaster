@@ -275,3 +275,35 @@ test('text with neither ingredients nor steps saves nothing and keeps what was p
 	)
 	expect(await prisma.recipe.count({ where: { userId: user.id } })).toBe(0)
 })
+
+test('a Pro user out of AI imports for the day is told so and nothing is saved', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
+	await prisma.usageEvent.createMany({
+		data: Array.from({ length: 10 }, () => ({
+			type: 'recipe_extract_llm_call',
+			userId: user.id,
+		})),
+	})
+	await page.goto('/recipes/import')
+	await expect(async () => {
+		await page.getByRole('tab', { name: 'From Text', exact: true }).click()
+		await expect(page.getByLabel('Recipe text', { exact: true })).toBeVisible({
+			timeout: 2000,
+		})
+	}).toPass({ timeout: 10_000 })
+	await page.getByLabel('Recipe text', { exact: true }).fill(original)
+	await page.getByRole('button', { name: 'Extract with AI' }).click()
+
+	await expect(
+		page.getByText("You've used today's 10 AI imports. Try again tomorrow."),
+	).toBeVisible()
+	await expect(page.getByLabel('Recipe text', { exact: true })).toHaveValue(
+		original,
+	)
+	expect(await prisma.recipe.count({ where: { userId: user.id } })).toBe(0)
+	expect(await prisma.usageEvent.count({ where: { userId: user.id } })).toBe(10)
+})

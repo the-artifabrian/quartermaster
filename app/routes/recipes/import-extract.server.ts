@@ -1,5 +1,8 @@
 import { type FileUpload } from '@mjackson/form-data-parser'
-import { checkAndRecordAiUsage } from '#app/utils/ai-rate-limit.server.ts'
+import {
+	aiUsageRefusal,
+	claimAiUsage,
+} from '#app/utils/ai-rate-limit.server.ts'
 import {
 	importFailure,
 	saveImportedRecipe,
@@ -169,28 +172,9 @@ export async function importWithAi(
 		)
 	}
 
-	const { allowed } = await checkAndRecordAiUsage(
-		userId,
-		'recipe_extract_llm_call',
-		DAILY_EXTRACT_LIMIT,
-	)
-	if (!allowed) {
-		return importFailure(
-			intentKey,
-			`You've reached the daily limit of ${DAILY_EXTRACT_LIMIT} AI extractions. Try again tomorrow!`,
-			429,
-		)
-	}
-
-	const metadataValues = await recipeMetadataOptions(householdId)
-	const vocabulary = metadataVocabulary(metadataValues)
-
-	let llmResult: Awaited<ReturnType<typeof extractRecipeFromText>>
-	let durationMs: number
-
+	// The images are checked before the claim, so a bad file spends nothing.
+	const validatedImages: Array<{ base64: string; mediaType: string }> = []
 	if (intentKey === 'extract-image') {
-		const validatedImages: Array<{ base64: string; mediaType: string }> = []
-
 		for (const file of imageFiles) {
 			const buffer = await file.arrayBuffer()
 
@@ -221,7 +205,27 @@ export async function importWithAi(
 				mediaType: detectedType,
 			})
 		}
+	}
 
+	const metadataValues = await recipeMetadataOptions(householdId)
+	const vocabulary = metadataVocabulary(metadataValues)
+
+	const usage = await claimAiUsage(userId, 'recipe_extract_llm_call', {
+		perUser: DAILY_EXTRACT_LIMIT,
+	})
+	if (!usage.allowed) {
+		const refusal = aiUsageRefusal(usage.reason, {
+			limit: DAILY_EXTRACT_LIMIT,
+			uses: 'AI imports',
+			unavailable: "Couldn't start the import just now.",
+		})
+		return importFailure(intentKey, refusal.error, refusal.status)
+	}
+
+	let llmResult: Awaited<ReturnType<typeof extractRecipeFromText>>
+	let durationMs: number
+
+	if (intentKey === 'extract-image') {
 		const startedAt = performance.now()
 		llmResult = await extractRecipeFromImages(validatedImages, vocabulary)
 		durationMs = Math.round(performance.now() - startedAt)
@@ -232,6 +236,7 @@ export async function importWithAi(
 	}
 
 	if ('error' in llmResult) {
+		if (llmResult.refundable) await usage.refund()
 		return importFailure(intentKey, llmResult.error, 422)
 	}
 

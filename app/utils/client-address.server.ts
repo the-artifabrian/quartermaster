@@ -76,6 +76,7 @@ export function clientAddressKey({
 	edgeSecret,
 	ip,
 	expectedEdgeSecret = process.env.CF_EDGE_SECRET,
+	onEdgeMismatch,
 }: {
 	flyClientIp?: string | null
 	cfConnectingIp?: string | null
@@ -83,13 +84,19 @@ export function clientAddressKey({
 	edgeSecret?: string | null
 	ip?: string | null
 	expectedEdgeSecret?: string
+	/**
+	 * Called for a request that came through Cloudflare (both proxy headers)
+	 * without the secret we expect, while one is set. Its key then falls back
+	 * to fly-client-ip.
+	 */
+	onEdgeMismatch?: () => void
 }): string {
 	if (flyClientIp != null) {
 		const fly = asAddress(flyClientIp)
 		if (!fly) return UNKNOWN_CLIENT_KEY
-		const visitor = isFromOurEdge(edgeSecret ?? undefined, expectedEdgeSecret)
-			? asAddress(cfConnectingIp)
-			: null
+		const fromEdge = isFromOurEdge(edgeSecret ?? undefined, expectedEdgeSecret)
+		if (!fromEdge && expectedEdgeSecret && cfConnectingIp) onEdgeMismatch?.()
+		const visitor = fromEdge ? asAddress(cfConnectingIp) : null
 		return keyFor(visitor ?? fly)
 	}
 	const local = asAddress(ip)
@@ -113,5 +120,35 @@ export function warnIfEdgeSecretMissing({
 		warn(
 			'CF_EDGE_SECRET is not set: rate limits count Cloudflare edge addresses, not visitors (docs/ARCHITECTURE.md, Deployment and recovery).',
 		)
+	}
+}
+
+const HOUR_MS = 60 * 60 * 1000
+
+/**
+ * Counts requests that came through Cloudflare without a matching edge
+ * secret, and warns about them at most once an hour: at the first one, then
+ * at the first one an hour or more after the last warning, with the count
+ * since then. Counts that come after the last warning wait for the next
+ * mismatch. The header's value is never logged.
+ */
+export function edgeMismatchWarning({
+	now = Date.now,
+	warn = console.warn,
+}: {
+	now?: () => number
+	warn?: (message: string) => void
+} = {}) {
+	let count = 0
+	let warnedAt: number | null = null
+	return () => {
+		count++
+		const time = now()
+		if (warnedAt !== null && time - warnedAt < HOUR_MS) return
+		warn(
+			`${count} ${count === 1 ? 'request' : 'requests'} came through Cloudflare without a matching ${EDGE_SECRET_HEADER} header${warnedAt === null ? '' : ' since the last warning'}, so rate limits counted the Cloudflare edge's address for them. Check that the Transform Rule and CF_EDGE_SECRET still match (docs/ARCHITECTURE.md, Deployment and recovery).`,
+		)
+		count = 0
+		warnedAt = time
 	}
 }

@@ -484,7 +484,10 @@ high-value AI path.
   request to the zone, as a static value that overwrites anything a client sent.
   The same value is the unstaged Fly secret `CF_EDGE_SECRET`. Both are in place.
   To rotate, change the rule and the secret together. If the secret is missing,
-  the server warns at boot and rate limits key on `fly-client-ip`.
+  the server warns at boot and rate limits key on `fly-client-ip`. If it is set
+  but requests through Cloudflare stop carrying it, they key on
+  `fly-client-ip` too, and the server logs a warning with their count at most
+  once an hour, without the header's value.
 
 Before a multi-machine deployment, all of these must be designed, wired, and
 tested together:

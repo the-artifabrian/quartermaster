@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from 'vitest'
 import {
 	UNKNOWN_CLIENT_KEY,
 	clientAddressKey,
+	edgeMismatchWarning,
 	warnIfEdgeSecretMissing,
 } from './client-address.server.ts'
 
@@ -30,6 +31,18 @@ import {
 // 11. Nothing usable at all: one shared bucket, no throw.
 // 12. Production without the secret warns once at boot; with it, or outside
 //     production, nothing is logged.
+//
+// When the Cloudflare rule and the Fly secret drift apart, every visitor
+// quietly falls back to the edge's bucket, so the mismatch is logged:
+// 13. A request with both fly-client-ip and cf-connecting-ip whose x-qm-edge
+//     is missing or wrong is counted. The right secret, a request with no
+//     cf-connecting-ip (straight to fly.dev), one with no fly-client-ip
+//     (local runs), and an unset secret (the boot warning covers that) are
+//     not.
+// 14. The first mismatch warns at once.
+// 15. Mismatches in the hour after a warning are only counted; the first one
+//     an hour or more later warns with the count since the last warning.
+// 16. The warning never holds the header's value.
 
 const SECRET = 'edge-secret-for-tests'
 const visitorA = '203.0.113.7'
@@ -178,4 +191,61 @@ test('production without the edge secret warns once at boot', () => {
 	warnIfEdgeSecretMissing({ isProduction: true, secret: SECRET, warn })
 	warnIfEdgeSecretMissing({ isProduction: false, secret: undefined, warn })
 	expect(warn).not.toHaveBeenCalled()
+})
+
+describe('a secret that stops matching', () => {
+	const both = { flyClientIp: edge, cfConnectingIp: visitorA }
+
+	test('counts requests through Cloudflare whose edge header is missing or wrong', () => {
+		const onEdgeMismatch = vi.fn()
+		key({ ...both, onEdgeMismatch })
+		key({ ...both, edgeSecret: 'stale-secret', onEdgeMismatch })
+		expect(onEdgeMismatch).toHaveBeenCalledTimes(2)
+	})
+
+	test('does not count a matching secret, a direct or local request, or an unset secret', () => {
+		const onEdgeMismatch = vi.fn()
+		key({ ...both, edgeSecret: SECRET, onEdgeMismatch })
+		key({ flyClientIp: visitorA, edgeSecret: 'x', onEdgeMismatch })
+		key({ cfConnectingIp: visitorA, ip: visitorB, onEdgeMismatch })
+		clientAddressKey({ ...both, expectedEdgeSecret: undefined, onEdgeMismatch })
+		clientAddressKey({ ...both, expectedEdgeSecret: '', onEdgeMismatch })
+		expect(onEdgeMismatch).not.toHaveBeenCalled()
+	})
+
+	test('warns at once, then at most once an hour with the count', () => {
+		const hour = 60 * 60 * 1000
+		let now = 1_000_000
+		const warn = vi.fn()
+		const mismatch = edgeMismatchWarning({ now: () => now, warn })
+
+		mismatch()
+		expect(warn).toHaveBeenCalledTimes(1)
+		expect(String(warn.mock.calls[0]![0])).toMatch(/\b1 request\b/)
+
+		for (let i = 0; i < 4; i++) {
+			now += hour / 5
+			mismatch()
+		}
+		expect(warn).toHaveBeenCalledTimes(1)
+
+		now += hour / 5
+		mismatch()
+		expect(warn).toHaveBeenCalledTimes(2)
+		expect(String(warn.mock.calls[1]![0])).toMatch(/\b5 requests\b/)
+
+		now += hour - 1
+		mismatch()
+		expect(warn).toHaveBeenCalledTimes(2)
+	})
+
+	test('the warning names the header but never its value', () => {
+		const warn = vi.fn()
+		const mismatch = edgeMismatchWarning({ now: () => 0, warn })
+		key({ ...both, edgeSecret: 'stale-secret', onEdgeMismatch: mismatch })
+		const message = String(warn.mock.calls[0]![0])
+		expect(message).toContain('x-qm-edge')
+		expect(message).not.toContain('stale-secret')
+		expect(message).not.toContain(SECRET)
+	})
 })

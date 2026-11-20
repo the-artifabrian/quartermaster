@@ -10,6 +10,7 @@ import { checkAnthropicModels } from '#app/utils/anthropic-model-check.server.ts
 import {
 	EDGE_SECRET_HEADER,
 	clientAddressKey,
+	edgeMismatchWarning,
 	warnIfEdgeSecretMissing,
 } from '#app/utils/client-address.server.ts'
 import { redactUrl } from '#app/utils/redact-url.ts'
@@ -125,6 +126,7 @@ app.use(
 const maxMultiple =
 	!IS_PROD || process.env.PLAYWRIGHT_TEST_BASE_URL ? 10_000 : 1
 warnIfEdgeSecretMissing({ isProduction: IS_PROD })
+const onEdgeMismatch = edgeMismatchWarning()
 const rateLimitDefault = {
 	windowMs: 60 * 1000,
 	limit: 1000 * maxMultiple,
@@ -141,6 +143,7 @@ const rateLimitDefault = {
 			cfConnectingIp: req.get('cf-connecting-ip'),
 			edgeSecret: req.get(EDGE_SECRET_HEADER),
 			ip: req.ip ?? req.socket?.remoteAddress,
+			onEdgeMismatch,
 		}),
 }
 

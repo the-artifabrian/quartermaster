@@ -2,9 +2,10 @@
  * Parsing time on long input. Recipe import reads pages up to 5 MB and a
  * paste up to MAX_RAW_TEXT_LENGTH, so the patterns that read that text must
  * stay linear in its length. Each case times the same input at one size and
- * at four times that size: linear work takes about four times as long, while
- * quadratic work takes about sixteen. The ratio holds on a slow runner or
- * under coverage, where a fixed time limit would not.
+ * at sixteen times that size (tests/growth.ts): linear work takes about 16
+ * times as long, while quadratic work takes about 256 times. The ratio holds
+ * on a slow or busy runner or under coverage, where a fixed time limit would
+ * not.
  *
  * Ingredient lines are cut at MAX_INGREDIENT_LINE_LENGTH, so the cases that
  * check patterns inside one ingredient line grow the line below that cap.
@@ -48,7 +49,13 @@
  *   as shortened, counting rows the save keeps rather than lines.
  */
 import { describe, expect, test } from 'vitest'
-import { BACKSTOP_MS, MAX_GROWTH, bestMs, growth } from '#tests/growth.ts'
+import {
+	BACKSTOP_MS,
+	MAX_GROWTH,
+	SPREAD,
+	bestMs,
+	growth,
+} from '#tests/growth.ts'
 import { scaleAmount, scaleAmountKitchen } from './fractions.ts'
 import { fitImportedRecipe } from './import-recipe-fit.ts'
 import { type ExtractedRecipe } from './import-recipe-types.ts'
@@ -85,10 +92,10 @@ function paste({
 	].join('\n')
 }
 
-// A quarter of a paste, so the larger size is a whole one.
-const RUN = Math.floor((MAX_RAW_TEXT_LENGTH - 100) / 4)
-// A fifth of the line cap, so the larger size still fits under it.
-const LINE_RUN = Math.floor(MAX_INGREDIENT_LINE_LENGTH / 5)
+// A sixteenth of a paste, so the larger size is a whole one.
+const RUN = Math.floor((MAX_RAW_TEXT_LENGTH - 100) / SPREAD)
+// A twentieth of the line cap, so the larger size still fits under it.
+const LINE_RUN = Math.floor(MAX_INGREDIENT_LINE_LENGTH / (SPREAD * 1.25))
 
 const jsonLd = (fields: Record<string, unknown>) =>
 	extractRecipe(
@@ -171,14 +178,14 @@ const cases: Case[] = [
 	[
 		'saved steps of digits shown with Metric on',
 		(size) => {
-			const step = `${'1'.repeat((MAX_INSTRUCTION_LENGTH * size) / 4)}x`
+			const step = `${'1'.repeat((MAX_INSTRUCTION_LENGTH * size) / SPREAD)}x`
 			return () => convertTemperatures(step)
 		},
 	],
 	[
 		'saved steps of spaces after a number shown with Metric on',
 		(size) => {
-			const step = `350${' '.repeat((MAX_INSTRUCTION_LENGTH * size) / 4)}x`
+			const step = `350${' '.repeat((MAX_INSTRUCTION_LENGTH * size) / SPREAD)}x`
 			return () => convertTemperatures(step)
 		},
 	],
@@ -250,7 +257,7 @@ const cases: Case[] = [
 			}
 		},
 		// An amount that long is never read, so its length adds nothing.
-		2.5,
+		4,
 	],
 ]
 

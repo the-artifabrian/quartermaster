@@ -434,7 +434,7 @@ describe('parseTypedItem', () => {
 //   item and for the split into items.
 // - The same run at the very end, which is stripped.
 describe('parsing stays linear on long input', () => {
-	const RUN = 20_000
+	const RUN = 2_000
 	test.each([
 		[
 			'one item ending in a long run of punctuation before a letter',

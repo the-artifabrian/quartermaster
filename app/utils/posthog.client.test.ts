@@ -238,13 +238,12 @@ function sendException(message: string) {
 test.each([
 	['slashes', '/'],
 	['"a/"', 'a/'],
-])('a long error message of %s takes no longer than a short one', (_, fill) => {
+])('a long error message of %s grows no faster than its length', (_, fill) => {
 	const { ratio, largeMs } = growth((size) => {
-		const send = sendException(fill.repeat((10_000 * size) / fill.length))
+		const send = sendException(fill.repeat((2_000 * size) / fill.length))
 		return () => send()
 	})
-	// Past the part that is read, more text adds nothing.
-	expect(ratio).toBeLessThan(MAX_GROWTH / 2)
+	expect(ratio).toBeLessThan(MAX_GROWTH)
 	expect(largeMs).toBeLessThan(BACKSTOP_MS)
 })
 

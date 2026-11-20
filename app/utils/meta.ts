@@ -1,8 +1,8 @@
 /**
  * Shared meta tag helpers for marketing pages.
  *
- * In React Router v7, child route `meta` completely replaces parent `meta`,
- * so marketing pages must re-include the base OG/Twitter tags from root.
+ * A child route's `meta` completely replaces its parent's, so marketing pages
+ * must re-include the base OG/Twitter tags from root.
  */
 
 type MetaDescriptor =
@@ -15,11 +15,11 @@ type MetaDescriptor =
  * when a child route's meta function replaces the root meta.
  */
 export function baseMetaTags(
-	matches: Array<{ id: string; data?: unknown } | undefined>,
+	matches: Array<{ id: string; loaderData?: unknown } | undefined>,
 ): MetaDescriptor[] {
 	const rootMatch = matches.find((m) => m?.id === 'root')
 	const origin = (
-		rootMatch?.data as { requestInfo?: { origin?: string } } | undefined
+		rootMatch?.loaderData as { requestInfo?: { origin?: string } } | undefined
 	)?.requestInfo?.origin
 
 	return [

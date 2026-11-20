@@ -3,11 +3,10 @@ import { prisma } from './db.server.ts'
 import { writeTransaction } from './write-transaction.server.ts'
 
 /**
- * A usage type's daily caps. `perUser` limits one user. `global`, when given,
- * also limits every user together, for a feature open to anyone (a public
- * demo) where many accounts could share one budget.
+ * A usage type's daily caps. `perUser` limits one user. An options object, so
+ * a cap of another kind can join it without changing callers.
  */
-export type AiUsageLimits = { perUser: number; global?: number }
+export type AiUsageLimits = { perUser: number }
 
 export type AiUsageClaim =
 	| {
@@ -18,25 +17,7 @@ export type AiUsageClaim =
 			 */
 			refund: () => Promise<void>
 	  }
-	| { allowed: false; reason: 'per-user' | 'global' | 'unavailable' }
-
-/**
- * Global uses are recorded a second time under this user, so deleting the
- * accounts that spent a global budget does not hand it back. Their own rows
- * go with them and these stay. The row exists only once a caller passes a
- * global cap. Its username fails `UsernameSchema` and its email cannot receive
- * mail, so no signup can take either.
- */
-const USAGE_LEDGER_USER = {
-	id: 'usage-ledger',
-	username: 'usage-ledger:system',
-	email: 'usage-ledger@system.invalid',
-	name: 'Usage ledger',
-}
-
-function globalType(type: string) {
-	return `global:${type}`
-}
+	| { allowed: false; reason: 'per-user' | 'unavailable' }
 
 function startOfToday() {
 	const start = new Date()
@@ -45,8 +26,7 @@ function startOfToday() {
 }
 
 type Recorded =
-	| { allowed: true; ids: string[] }
-	| { allowed: false; reason: 'per-user' | 'global' }
+	{ allowed: true; id: string } | { allowed: false; reason: 'per-user' }
 
 async function countAndRecord(
 	tx: Prisma.TransactionClient,
@@ -54,39 +34,16 @@ async function countAndRecord(
 	type: string,
 	limits: AiUsageLimits,
 ): Promise<Recorded> {
-	const since = startOfToday()
 	const used = await tx.usageEvent.count({
-		where: { userId, type, createdAt: { gte: since } },
+		where: { userId, type, createdAt: { gte: startOfToday() } },
 	})
 	if (used >= limits.perUser) return { allowed: false, reason: 'per-user' }
 
-	if (limits.global !== undefined) {
-		const usedGlobally = await tx.usageEvent.count({
-			where: { type: globalType(type), createdAt: { gte: since } },
-		})
-		if (usedGlobally >= limits.global) {
-			return { allowed: false, reason: 'global' }
-		}
-	}
-
-	const own = await tx.usageEvent.create({
+	const { id } = await tx.usageEvent.create({
 		data: { type, userId },
 		select: { id: true },
 	})
-	const ids = [own.id]
-	if (limits.global !== undefined) {
-		await tx.user.upsert({
-			where: { id: USAGE_LEDGER_USER.id },
-			update: {},
-			create: USAGE_LEDGER_USER,
-		})
-		const global = await tx.usageEvent.create({
-			data: { type: globalType(type), userId: USAGE_LEDGER_USER.id },
-			select: { id: true },
-		})
-		ids.push(global.id)
-	}
-	return { allowed: true, ids }
+	return { allowed: true, id }
 }
 
 /**
@@ -114,15 +71,15 @@ export async function claimAiUsage(
 	}
 	if (!recorded.allowed) return recorded
 
-	let ids: string[] | null = recorded.ids
+	const { id } = recorded
+	let refunded = false
 	return {
 		allowed: true,
 		async refund() {
-			if (!ids) return
-			const refunding = ids
-			ids = null
+			if (refunded) return
+			refunded = true
 			try {
-				await db.usageEvent.deleteMany({ where: { id: { in: refunding } } })
+				await db.usageEvent.deleteMany({ where: { id } })
 			} catch (error) {
 				console.error('Failed to refund AI usage event:', error)
 			}
@@ -142,11 +99,6 @@ export function aiUsageRefusal(
 		case 'per-user':
 			return {
 				error: `That's ${limit} ${uses} today. Try again tomorrow.`,
-				status: 429,
-			}
-		case 'global':
-			return {
-				error: `That's all the ${uses} for today. Try again tomorrow.`,
 				status: 429,
 			}
 		case 'unavailable':

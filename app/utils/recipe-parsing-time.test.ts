@@ -24,8 +24,9 @@
  * - Paste ingredient lines at the line cap with a paren after the run.
  * - JSON-LD ingredient lines at the line cap made of "[", ",(" or "(".
  * - JSON-LD text that is one long run of "<".
- * - Saved steps at the step limit made of digits, shown with Metric on, which
- *   rewrites Fahrenheit in every step on each render.
+ * - Saved steps at the step limit made of digits, or of a number followed by
+ *   spaces, shown with Metric on, which rewrites Fahrenheit in every step on
+ *   each render.
  * - JSON-LD with thousands of ingredient lines.
  * - An amount string far longer than any saved amount.
  * - A line longer than the line cap: what fits still parses, and the parse
@@ -173,6 +174,13 @@ const cases: Array<[string, () => unknown]> = [
 		'saved steps of digits shown with Metric on',
 		() => {
 			const step = `${'1'.repeat(MAX_INSTRUCTION_LENGTH - 1)}x`
+			for (let i = 0; i < 20; i++) convertTemperatures(step)
+		},
+	],
+	[
+		'saved steps of spaces after a number shown with Metric on',
+		() => {
+			const step = `350${' '.repeat(MAX_INSTRUCTION_LENGTH - 4)}x`
 			for (let i = 0; i < 20; i++) convertTemperatures(step)
 		},
 	],

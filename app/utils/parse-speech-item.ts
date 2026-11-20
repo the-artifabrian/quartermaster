@@ -1,3 +1,5 @@
+import { parseAmount } from './fractions.ts'
+
 export type ParsedItem = {
 	name: string
 	quantity: string
@@ -231,6 +233,17 @@ const QTY_UNIT_NAME = new RegExp(
 )
 const QTY_NAME = new RegExp(`^${QTY}\\s+(.+)$`)
 
+// Typed text only: thousands with spaces between groups ("1 000 g flour"),
+// with a plain, no-break or narrow no-break space. Spoken amounts keep QTY,
+// since Whisper writes a thousand without a space and a spoken count before
+// a size ("2 400 gram cans") is common.
+const SPACED_QTY = `(\\d{1,3}(?:[ \\u00A0\\u202F]\\d{3})+(?:[.,]\\d+)?)`
+const SPACED_QTY_UNIT_NAME = new RegExp(
+	`^${SPACED_QTY}\\s+(${UNIT_PATTERN})\\s+(?:of\\s+)?(.+)$`,
+	'i',
+)
+const SPACED_QTY_NAME = new RegExp(`^${SPACED_QTY}\\s+(.+)$`)
+
 export function parseSpeechItem(transcript: string): ParsedItem {
 	const text = normalizeTranscript(transcript)
 
@@ -271,6 +284,22 @@ export function parseSpeechItem(transcript: string): ParsedItem {
 export function parseTypedItem(text: string): ParsedItem | null {
 	// U+2044 FRACTION SLASH, as in "1 1⁄2"
 	const trimmed = text.trim().replaceAll('\u2044', '/')
+
+	// The groups stay together when a unit follows, even when the amount has
+	// no single value ("2 400 g" can be two 400 g tins), and otherwise only
+	// when parseAmount reads them as one number ("1 000 eggs").
+	const spacedUnitMatch = trimmed.match(SPACED_QTY_UNIT_NAME)
+	if (spacedUnitMatch) {
+		return {
+			quantity: spacedUnitMatch[1]!,
+			unit: normalizeUnit(spacedUnitMatch[2]!),
+			name: spacedUnitMatch[3]!.trim(),
+		}
+	}
+	const spacedMatch = trimmed.match(SPACED_QTY_NAME)
+	if (spacedMatch && parseAmount(spacedMatch[1]!) !== null) {
+		return { quantity: spacedMatch[1]!, unit: '', name: spacedMatch[2]!.trim() }
+	}
 
 	const qtyUnitMatch = trimmed.match(QTY_UNIT_NAME)
 	if (qtyUnitMatch) {

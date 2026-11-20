@@ -43,6 +43,31 @@
  *   1.5 kg; "1,250 kg", "1.000 g", "2 x 400 g" and "2 large" sit beside a sum
  *   instead of joining it.
  * - Recipe display and scaling: "1,5" kg shows 1.5, and 3 at 2×.
+ *
+ * Spaces between thousands, as French sites write them, with a plain space,
+ * a no-break space (U+00A0) or a narrow no-break space (U+202F):
+ * - A space is never a decimal mark, so "1 000", "1 000 000" and "2 050" read
+ *   as thousands: no size is written "000" or "050", and two groups can't be
+ *   a count times a size. "1 000,5" and "1 000.5" are 1000.5, since after
+ *   space groups the mark can only be a decimal.
+ * - One group that doesn't start with 0 ("1 500", "2 400", "1 250") has no
+ *   single value: "2 400 g" can be 2400 g or two 400 g tins, and "1 250 ml
+ *   can" one 250 ml can. It stays as written and out of sums.
+ * - "1 1/2" is still 1.5. "1 0000", "1000 000", "12 34" and "1 000 x" are not
+ *   one number.
+ * - parseIngredient keeps the groups together as the amount, with the space
+ *   the source used, when a unit follows ("1 000 g flour", "1 000g flour",
+ *   "2 400 g tomatoes", "1 250 ml can coconut milk"). With no unit it groups
+ *   only an amount that reads as one number ("1 000 eggs"), so "6 100 calorie
+ *   packs" is still six of them. "1 1/2 cups flour" reads as before.
+ * - Shopping quick-add does the same: "1 000 g flour", "2 400 g tomatoes",
+ *   "1 000 eggs", and "6 100 calorie packs" as before.
+ * - Voice input keeps its reading ("2 400 gram cans" is two cans): Whisper
+ *   writes a thousand as "1000" or "1,000", and a spoken count before a size
+ *   is common.
+ * - Shopping totals: "1 000 g" + "500 g" is 1.5 kg, and "2 400 g" sits beside
+ *   a sum. Scaling "1 000" g by 2 shows 2000, and "2 400" g keeps its
+ *   spelling.
  */
 import { describe, expect, test } from 'vitest'
 import {
@@ -259,5 +284,120 @@ describe('Shopping totals', () => {
 				contributions: [{ quantity: '1,5', unit: 'kg' }],
 			}),
 		).toEqual({ quantity: '2', unit: 'kg', combined: true })
+	})
+})
+
+describe('spaces between thousands', () => {
+	const NBSP = '\u00a0'
+	const NNBSP = '\u202f'
+
+	test.each([
+		['1 000', 1000],
+		[`1${NBSP}000`, 1000],
+		[`1${NNBSP}000`, 1000],
+		['1 000 000', 1_000_000],
+		['12 500 000', 12_500_000],
+		['2 050', 2050],
+		['1 000,5', 1000.5],
+		['1 000.5', 1000.5],
+		['1 1/2', 1.5],
+	])('%s reads as %d', (amount, value) => {
+		expect(parseAmount(amount)).toBe(value)
+	})
+
+	test.each([
+		'1 500',
+		'2 400',
+		`1${NBSP}250`,
+		'12 345',
+		'1 0000',
+		'1000 000',
+		'12 34',
+		'1 000 x',
+		'1  000',
+		'0 500',
+		'1 000,000',
+	])('%s is not one number', (amount) => {
+		expect(parseAmount(amount)).toBeNull()
+	})
+
+	test.each([
+		['1 000 g flour', { amount: '1 000', unit: 'g', name: 'flour' }],
+		['1 000g flour', { amount: '1 000', unit: 'g', name: 'flour' }],
+		[
+			`1${NBSP}000 g flour`,
+			{ amount: `1${NBSP}000`, unit: 'g', name: 'flour' },
+		],
+		[
+			`1${NNBSP}000 g flour`,
+			{ amount: `1${NNBSP}000`, unit: 'g', name: 'flour' },
+		],
+		['1 000 000 g flour', { amount: '1 000 000', unit: 'g', name: 'flour' }],
+		['~1 000 g flour', { amount: '~1 000', unit: 'g', name: 'flour' }],
+		['2 400 g tomatoes', { amount: '2 400', unit: 'g', name: 'tomatoes' }],
+		[
+			'1 250 ml can coconut milk',
+			{ amount: '1 250', unit: 'ml', name: 'can coconut milk' },
+		],
+		['1 000 eggs', { amount: '1 000', name: 'eggs' }],
+		[
+			'1 000 g flour, sifted',
+			{ amount: '1 000', unit: 'g', name: 'flour', notes: 'sifted' },
+		],
+		['6 100 calorie packs', { amount: '6', name: '100 calorie packs' }],
+		['1 1/2 cups flour', { amount: '1 1/2', unit: 'cups', name: 'flour' }],
+		['12 345 g x', { amount: '12 345', unit: 'g', name: 'x' }],
+		['1234 567 g x', { amount: '1234', name: '567 g x' }],
+	])('parseIngredient reads %s', (line, parsed) => {
+		expect(parseIngredient(line)).toEqual(parsed)
+	})
+
+	test.each([
+		['1 000 g flour', { quantity: '1 000', unit: 'g', name: 'flour' }],
+		[
+			`1${NNBSP}000 g flour`,
+			{ quantity: `1${NNBSP}000`, unit: 'g', name: 'flour' },
+		],
+		['2 400 g tomatoes', { quantity: '2 400', unit: 'g', name: 'tomatoes' }],
+		['1 000 eggs', { quantity: '1 000', unit: '', name: 'eggs' }],
+		[
+			'6 100 calorie packs',
+			{ quantity: '6', unit: '', name: '100 calorie packs' },
+		],
+		['1 1/2 lb beef', { quantity: '1 1/2', unit: 'lb', name: 'beef' }],
+	])('Shopping quick-add reads %s', (text, parsed) => {
+		expect(parseTypedItem(text)).toEqual(parsed)
+	})
+
+	test('voice input keeps a spoken count before a size', () => {
+		expect(parseSpeechItems('2 400 gram cans')).toEqual([
+			{ quantity: '2', unit: '', name: '400 gram cans' },
+		])
+	})
+
+	const quantityOf = (...rows: Array<{ amount: string; unit: string }>) =>
+		buildShoppingDemand({
+			recipeBatches: [
+				{
+					ingredients: rows.map((row) => ({ name: 'flour', ...row })),
+				},
+			],
+		}).map(({ quantity, unit }) => ({ quantity, unit }))
+
+	test('thousands with a space sum with grams', () => {
+		expect(
+			quantityOf({ amount: '1 000', unit: 'g' }, { amount: '500', unit: 'g' }),
+		).toEqual([{ quantity: '1.5', unit: 'kg' }])
+	})
+
+	test('one group that could be a count times a size stays beside the sum', () => {
+		expect(
+			quantityOf({ amount: '2 400', unit: 'g' }, { amount: '500', unit: 'g' }),
+		).toEqual([{ quantity: '2 400 g + 500 g', unit: null }])
+	})
+
+	test('scaling', () => {
+		expect(scaleAmount('1 000', 2, 'g')).toBe('2000')
+		expect(scaleAmount('2 400', 2, 'g')).toBe('2 400')
 	})
 })

@@ -27,6 +27,9 @@
  *   pack size and "juice of" patterns. The leading and embedded paren
  *   patterns read a name those have already matched, which holds no line
  *   separator, so the same part of theirs can't backtrack and has no case.
+ * - Ingredient lines that start with a long run of thousands split by
+ *   spaces, or with "1 000" and then a run of spaces, before a line
+ *   separator.
  * - Ingredient lines with a run of spaces in the name before a paren.
  * - Ingredient lines with runs of spaces before text that never ends in
  *   "(…)", "(approx.)" or "to taste", including lines that hold "(approx."
@@ -198,6 +201,14 @@ const cases: Case[] = [
 		pasteLines('1 cup flour', ' ', 'x'),
 	],
 	['ingredient lines of spaces with no amount', pasteLines('salt', ' ', 'x')],
+	[
+		'ingredient lines of thousands split by spaces, before a line separator',
+		pasteLines('1', ' 000', ' g x\r)'),
+	],
+	[
+		'ingredient lines of thousands split by spaces, then spaces',
+		pasteLines('1 000', ' ', 'x\r)'),
+	],
 	[
 		'ingredient lines of spaces in the name before a paren',
 		pasteLines('1 cup a', ' ', 'x (b) c'),

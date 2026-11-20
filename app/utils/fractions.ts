@@ -27,6 +27,38 @@ const COMMA_THOUSANDS = /^[1-9]\d{0,2}(?:(?:,\d{3}){2,}(?:\.\d+)?|,\d{3}\.\d+)$/
 // Any other single comma between digits is a decimal comma: "1,5", "0,500".
 const COMMA_DECIMAL = /^\d+,\d+$/
 const DOT_DECIMAL = /^(?:\d+\.?\d*|\.\d+)$/
+// Thousands grouped with spaces, as French sites write them: a plain space, a
+// no-break space or a narrow no-break space, then an optional decimal with a
+// comma or a dot. A space is never a decimal mark.
+const SPACE_THOUSANDS =
+	/^[1-9]\d{0,2}((?:[ \u00A0\u202F]\d{3})+)(?:[.,](\d+))?$/
+
+/**
+ * The value of an amount with spaces between thousands, or null when it has
+ * none. One group that doesn't start with 0 ("2 400") could be a count times
+ * a size, two 400 g tins, so only "1 000", "2 050" and two or more groups
+ * ("1 000 000") count. A decimal of exactly three digits ("1 000,000") could
+ * be another group, so it doesn't either.
+ */
+function spaceThousands(amount: string): number | null {
+	const match = SPACE_THOUSANDS.exec(amount)
+	if (!match) return null
+	const groups = match[1]!
+	const decimals = match[2]
+	if (decimals?.length === 3) return null
+	if (groups.length === 4 && groups[1] !== '0') return null
+	const digits = amount.replace(/[ \u00A0\u202F]/g, '').replace(',', '.')
+	return Number(digits)
+}
+
+/**
+ * One number as it can be written, as a pattern source: thousands split by
+ * spaces ("1 000", "1 000,5") or digits joined by dots and commas
+ * ("1,000,000", "1,5"). It only finds where the number ends; parseAmount
+ * says what it means. Neither part lets two quantifiers take turns over the
+ * same digits, so it stays linear.
+ */
+export const WRITTEN_NUMBER = String.raw`\d{1,3}(?:[ \u00A0\u202F]\d{3})+(?:[.,]\d+)?(?![\d.,])|\d+(?:[.,]\d+)*`
 
 /**
  * Parse a string amount into a number, or null when the whole string isn't
@@ -78,6 +110,7 @@ export function parseAmount(amount: string): number | null {
 		return num / den
 	}
 
+	if (SPACE_THOUSANDS.test(trimmed)) return spaceThousands(trimmed)
 	if (THOUSANDS_LOOKALIKE.test(trimmed)) return null
 	if (COMMA_THOUSANDS.test(trimmed)) return Number(trimmed.replaceAll(',', ''))
 	if (COMMA_DECIMAL.test(trimmed)) return Number(trimmed.replace(',', '.'))

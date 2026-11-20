@@ -4,7 +4,7 @@ import { upgradeNav } from '#app/utils/nav-back.ts'
 import { data, Form, Link, redirect } from 'react-router'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { getAppOrigin } from '#app/utils/app-origin.ts'
+import { getAppOrigin } from '#app/utils/app-origin.server.ts'
 import { getUserId } from '#app/utils/auth.server.ts'
 import { isNativeShell } from '#app/utils/native-shell.server.ts'
 import {

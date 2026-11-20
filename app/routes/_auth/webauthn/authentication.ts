@@ -12,7 +12,7 @@ import {
 	passkeyCookie,
 } from './utils.server.ts'
 
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader() {
 	const config = getWebAuthnConfig()
 	const options = await generateAuthenticationOptions({
 		rpID: config.rpID,

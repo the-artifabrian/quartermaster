@@ -1,7 +1,6 @@
 import { expect, test, vi } from 'vitest'
 import { loader as robotsLoader } from '#app/routes/_seo/robots[.]txt.ts'
-import { getAppOrigin } from './app-origin.ts'
-import { getReferrerRoute } from './misc.tsx'
+import { getAppOrigin, getReferrerRoute } from './app-origin.server.ts'
 
 // Failure list: absolute URLs the app hands out (the robots.txt Sitemap line,
 // the referrer check, and everything else built on getAppOrigin) must name the

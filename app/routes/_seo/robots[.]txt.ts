@@ -1,5 +1,5 @@
 import { generateRobotsTxt } from '@nasa-gcn/remix-seo'
-import { getAppOrigin } from '#app/utils/app-origin.ts'
+import { getAppOrigin } from '#app/utils/app-origin.server.ts'
 
 export function loader() {
 	return generateRobotsTxt([

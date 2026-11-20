@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFormAction, useNavigation } from 'react-router'
 import { useSpinDelay } from 'spin-delay'
 import { twMerge } from 'tailwind-merge'
-import { getAppOrigin } from './app-origin.ts'
 
 export function getImgSrc({
 	height,
@@ -60,21 +59,6 @@ export function cn(...inputs: ClassValue[]) {
  */
 export const sectionLabelClass =
 	'text-xs font-semibold tracking-wider uppercase text-muted-foreground'
-
-export function getReferrerRoute(request: Request) {
-	// spelling errors and whatever makes this annoyingly inconsistent
-	// in my own testing, `referer` returned the right value, but 🤷‍♂️
-	const referrer =
-		request.headers.get('referer') ??
-		request.headers.get('referrer') ??
-		request.referrer
-	if (!referrer || !URL.canParse(referrer)) return '/'
-	const url = new URL(referrer)
-	// Compare whole origins: a prefix check would accept a host that merely
-	// starts with the app's.
-	if (url.origin !== getAppOrigin()) return '/'
-	return `${url.pathname}${url.search}${url.hash}`
-}
 
 /**
  * Merge multiple headers objects into one (uses set so headers are overridden)

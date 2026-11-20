@@ -4,7 +4,6 @@ import {
 } from '@simplewebauthn/server'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { getAppOrigin } from '#app/utils/app-origin.ts'
 import { getErrorMessage } from '#app/utils/misc.tsx'
 import { type Route } from './+types/registration.ts'
 import {
@@ -78,8 +77,7 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 		const { challenge, userId: webauthnUserId } = parsedPasskeyCookieData.data
 
-		const origin = getAppOrigin()
-		const rpID = new URL(origin).hostname
+		const { origin, rpID } = getWebAuthnConfig()
 
 		const verification = await verifyRegistrationResponse({
 			response: data,

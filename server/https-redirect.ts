@@ -1,5 +1,5 @@
 import { type RequestHandler } from 'express'
-import { getAppOrigin } from '#app/utils/app-origin.ts'
+import { getAppOrigin } from '#app/utils/app-origin.server.ts'
 
 /**
  * Sends a plain-HTTP GET (X-Forwarded-Proto comes from Fly) to the same path

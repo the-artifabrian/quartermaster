@@ -24,6 +24,8 @@
 // - a job that waits past its limit never runs, and the queue carries on
 // - a job whose request is aborted while it waits never runs
 // - a job that throws gives its turn to the next
+// - once MAX_WAITING_PHOTO_JOBS are waiting, the next job is refused at once
+//   and never runs, while the waiting ones still run
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import sharp, { type Sharp } from 'sharp'
@@ -32,6 +34,7 @@ import {
 	checkRecipePhoto,
 	MAX_DECODED_BYTES,
 	MAX_JPEG_DECODED_BYTES,
+	MAX_WAITING_PHOTO_JOBS,
 	MAX_WHOLE_DECODED_BYTES,
 	PhotoQueueTimeout,
 	withPhotoSlot,
@@ -281,6 +284,30 @@ describe('the photo job queue', () => {
 		await held
 		expect(ran).toBe(false)
 		await expect(withPhotoSlot(async () => 'next')).resolves.toBe('next')
+	})
+
+	test('refuses a job at once when the queue is full, and runs the waiting ones', async () => {
+		const first = deferred()
+		const held = withPhotoSlot(() => first.promise)
+		let ran = 0
+		const waiting = Array.from({ length: MAX_WAITING_PHOTO_JOBS }, () =>
+			withPhotoSlot(async () => {
+				ran++
+			}),
+		)
+		let extraRan = false
+		const started = Date.now()
+		await expect(
+			withPhotoSlot(async () => {
+				extraRan = true
+			}),
+		).rejects.toBeInstanceOf(PhotoQueueTimeout)
+		// At once, not after the wait limit.
+		expect(Date.now() - started).toBeLessThan(1000)
+		first.resolve()
+		await Promise.all([held, ...waiting])
+		expect(ran).toBe(MAX_WAITING_PHOTO_JOBS)
+		expect(extraRan).toBe(false)
 	})
 
 	test('a job that throws gives its turn to the next', async () => {

@@ -79,14 +79,20 @@ export function isTooBigToDecode(metadata: DecodeMetadata) {
 	return decodedBytes(metadata) > decodeLimit(metadata)
 }
 
-/** A photo job waited longer than its turn allows. */
+/** A photo job found the queue full, or waited longer than its turn allows. */
 export class PhotoQueueTimeout extends Error {
-	constructor() {
-		super('Waited too long for a turn to process a photo')
+	constructor(message = 'Waited too long for a turn to process a photo') {
+		super(message)
 	}
 }
 
 const PHOTO_SLOTS = 1
+/**
+ * Each waiting job already holds its photo's bytes, and one account sending
+ * heavy photos could otherwise keep every other photo waiting its full 30
+ * seconds. Past this many, a job is refused at once.
+ */
+export const MAX_WAITING_PHOTO_JOBS = 8
 let runningJobs = 0
 const waitingJobs: Array<() => void> = []
 
@@ -94,6 +100,11 @@ function takeSlot(signal: AbortSignal | undefined, waitMs: number) {
 	if (runningJobs < PHOTO_SLOTS && waitingJobs.length === 0) {
 		runningJobs++
 		return Promise.resolve()
+	}
+	if (waitingJobs.length >= MAX_WAITING_PHOTO_JOBS) {
+		return Promise.reject(
+			new PhotoQueueTimeout('Too many photo jobs are waiting already'),
+		)
 	}
 	return new Promise<void>((resolve, reject) => {
 		const stopWaiting = () => {
@@ -128,8 +139,9 @@ function giveBackSlot() {
 
 /**
  * Run a sharp job on a photo once no other one is running, so overlapping
- * requests queue instead of adding up their memory. A job that waits longer
- * than `waitMs`, or whose request is aborted while it waits, never runs.
+ * requests queue instead of adding up their memory. A job that finds
+ * `MAX_WAITING_PHOTO_JOBS` already waiting, waits longer than `waitMs`, or
+ * whose request is aborted while it waits, never runs.
  */
 export async function withPhotoSlot<T>(
 	job: () => Promise<T>,

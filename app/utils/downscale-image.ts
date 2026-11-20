@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import { MAX_UNSHRUNK_PIXELS } from './recipe-validation.ts'
 
 /** The longest edge, in pixels, of a photo the browser has re-encoded. */
 export const MAX_DOWNSCALED_EDGE = 2048
@@ -16,18 +17,22 @@ type DecodedImage = {
 export type DecodeImage = (file: Blob) => Promise<DecodedImage>
 
 /**
- * Shrink a chosen photo in the browser until it fits `maxBytes`.
+ * Shrink a chosen photo in the browser until it fits `maxBytes` and has no
+ * more than `maxPixels`.
  *
- * A phone photo is often larger than the upload limit. The photo comes back
- * untouched when it already fits, when the browser cannot decode it, or when
- * no smaller size fits either, so the server's size check can explain it.
+ * A phone photo is often larger than the upload limit, and a flat one can
+ * be small on disk with more pixels than the server will decode. The photo
+ * comes back untouched when it already fits, when the browser cannot decode
+ * it, or when no smaller size fits either, so the server's check can
+ * explain it.
  */
 export async function downscaleImageToFit(
 	file: File,
 	maxBytes: number,
 	decode: DecodeImage = decodeInBrowser,
+	maxPixels = MAX_UNSHRUNK_PIXELS,
 ): Promise<File> {
-	if (file.size <= maxBytes || !file.type.startsWith('image/')) return file
+	if (!file.type.startsWith('image/')) return file
 
 	let image: DecodedImage
 	try {
@@ -37,6 +42,9 @@ export async function downscaleImageToFit(
 	}
 
 	try {
+		if (file.size <= maxBytes && image.width * image.height <= maxPixels) {
+			return file
+		}
 		const fit = Math.min(
 			1,
 			MAX_DOWNSCALED_EDGE / Math.max(image.width, image.height),

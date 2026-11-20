@@ -1,9 +1,16 @@
+// Failure list for shrinking a picked photo in the browser (added for the
+// pixel limit; the byte-limit cases below came first):
+// - a photo small on disk but with more pixels than the server will decode
+//   is re-encoded, no larger than MAX_DOWNSCALED_EDGE
+// - a small photo exactly at the pixel limit is left as it is
+// - a small photo the browser can't decode is left for the server to judge
 import { describe, expect, test } from 'vitest'
 import {
 	downscaleImageToFit,
 	MAX_DOWNSCALED_EDGE,
 	type DecodeImage,
 } from './downscale-image.ts'
+import { MAX_UNSHRUNK_PIXELS } from './recipe-validation.ts'
 
 const MB = 1024 * 1024
 
@@ -34,14 +41,14 @@ function fakeDecoder(width: number, height: number, bytesPerPixel: number) {
 describe('downscaleImageToFit', () => {
 	test('returns a photo under the limit untouched', async () => {
 		const file = photo(2 * MB, 'pasta.png', 'image/png')
-		const { decode, requested } = fakeDecoder(4000, 3000, 1)
+		const { decode, requested } = fakeDecoder(3000, 2000, 1)
 		expect(await downscaleImageToFit(file, 3 * MB, decode)).toBe(file)
 		expect(requested).toEqual([])
 	})
 
 	test('returns a photo exactly at the limit untouched', async () => {
 		const file = photo(3 * MB)
-		const { decode } = fakeDecoder(4000, 3000, 1)
+		const { decode } = fakeDecoder(3000, 2000, 1)
 		expect(await downscaleImageToFit(file, 3 * MB, decode)).toBe(file)
 	})
 
@@ -111,6 +118,35 @@ describe('downscaleImageToFit', () => {
 
 	test('returns the original when the browser cannot decode it', async () => {
 		const file = photo(5 * MB)
+		const decode: DecodeImage = async () => {
+			throw new Error('unsupported')
+		}
+		expect(await downscaleImageToFit(file, 3 * MB, decode)).toBe(file)
+	})
+
+	test('re-encodes a photo small on disk with more pixels than the limit', async () => {
+		const file = photo(2 * MB, 'cookbook.jpg')
+		// 24 MP, the size of a flat page shot on a recent iPhone.
+		const { decode, requested } = fakeDecoder(5712, 4284, 0.1)
+		const result = await downscaleImageToFit(file, 3 * MB, decode)
+		expect(result).not.toBe(file)
+		expect(result.type).toBe('image/jpeg')
+		expect(Math.max(...requested[0]!)).toBe(MAX_DOWNSCALED_EDGE)
+	})
+
+	test('leaves a small photo exactly at the pixel limit alone', async () => {
+		const file = photo(2 * MB)
+		const { decode, requested } = fakeDecoder(
+			4000,
+			MAX_UNSHRUNK_PIXELS / 4000,
+			1,
+		)
+		expect(await downscaleImageToFit(file, 3 * MB, decode)).toBe(file)
+		expect(requested).toEqual([])
+	})
+
+	test('leaves a small photo the browser cannot decode for the server to judge', async () => {
+		const file = photo(2 * MB, 'IMG_0001.HEIC', 'image/heic')
 		const decode: DecodeImage = async () => {
 			throw new Error('unsupported')
 		}

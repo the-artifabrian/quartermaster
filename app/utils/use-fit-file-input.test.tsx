@@ -95,14 +95,20 @@ test('stays busy until the latest pick is ready, even when an earlier one finish
 })
 
 test('leaves a photo that already fits on the input', async () => {
-	const { decode } = heldDecoder()
+	const { decode, release } = heldDecoder()
 	const { result } = renderHook(() => useFitFileInput(3 * MB, decode))
 	const small = photo('small.jpg', MB)
 	const input = fileInput([small])
 
+	// Decoded to read its pixel count, then left as it is.
+	let pending!: Promise<boolean>
+	act(() => {
+		pending = result.current.fit(input)
+	})
+	await release('small.jpg')
 	let fitted!: boolean
 	await act(async () => {
-		fitted = await result.current.fit(input)
+		fitted = await pending
 	})
 
 	expect(fitted).toBe(true)

@@ -17,8 +17,16 @@ const urlInText = /https?:\/\/[^\s"'<>`]+|\/[^\s"'<>`?]*\?[^\s"'<>`]+/g
 // autocapture's $elements list.
 const MAX_DEPTH = 4
 
+// The search for paths retries from every slash, so a long run of slashes
+// takes time that grows with the square of its length. Only this much of a
+// message is read, and only this much is sent, so nothing past it goes out
+// unread.
+const MAX_TEXT_LENGTH = 2_000
+
 function redactUrlsInText(text: string) {
-	return text.replace(urlInText, (url) => redactUrl(url))
+	return text
+		.slice(0, MAX_TEXT_LENGTH)
+		.replace(urlInText, (url) => redactUrl(url))
 }
 
 function redactUrlsIn(

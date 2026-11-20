@@ -279,7 +279,10 @@ a JSON-LD field, so their patterns must stay linear. Ingredient lines are cut at
 `MAX_INGREDIENT_LINE_LENGTH` once links are reduced to their text, and a cut
 line makes the import report Ingredients as shortened.
 `app/utils/recipe-parsing-time.test.ts` checks that parsing time grows linearly
-with the input for the patterns that can backtrack on it. Inside one ingredient
+with the input for the patterns that can backtrack on it, with the helper in
+`tests/growth.ts` that the voice parser's and the browser analytics' timing
+tests use too. The browser reads and sends only the first 2,000 characters of
+an error message when it redacts the URLs in it. Inside one ingredient
 line it grows the line below the cap, and it skips the parts of the paren
 patterns that only ever see text already matched up to the end of the line.
 

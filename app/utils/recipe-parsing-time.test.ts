@@ -45,6 +45,7 @@
  *   as shortened, counting rows the save keeps rather than lines.
  */
 import { describe, expect, test } from 'vitest'
+import { BACKSTOP_MS, MAX_GROWTH, bestMs, growth } from '#tests/growth.ts'
 import { scaleAmount, scaleAmountKitchen } from './fractions.ts'
 import { fitImportedRecipe } from './import-recipe-fit.ts'
 import { type ExtractedRecipe } from './import-recipe-types.ts'
@@ -64,42 +65,6 @@ import {
 	MAX_RAW_TEXT_LENGTH,
 	MAX_RECIPE_INGREDIENTS,
 } from './recipe-validation.ts'
-
-// Linear work grows about 4× from one size to the next, quadratic about 16×.
-const MAX_GROWTH = 8
-// Only a backstop: a hang still fails here rather than at the test timeout.
-const BACKSTOP_MS = 1000
-
-function elapsedMs(run: () => unknown, times: number) {
-	const start = performance.now()
-	for (let i = 0; i < times; i++) run()
-	return performance.now() - start
-}
-
-/** The best of five, so a pause for garbage collection doesn't count. */
-function bestMs(run: () => unknown, times: number) {
-	let best = Infinity
-	for (let i = 0; i < 5; i++) best = Math.min(best, elapsedMs(run, times))
-	return best
-}
-
-/**
- * How much longer the input at four times the size takes. Each side repeats
- * its run enough times to take a few milliseconds, so timer resolution
- * doesn't decide the ratio.
- */
-function growth(build: (size: number) => () => unknown) {
-	const small = build(1)
-	const large = build(4)
-	small()
-	large()
-	let times = 1
-	while (elapsedMs(small, times) < 5 && times < 1 << 16) times *= 2
-	return {
-		ratio: bestMs(large, times) / bestMs(small, times),
-		largeMs: elapsedMs(large, 1),
-	}
-}
 
 function paste({
 	title = 'Soup',

@@ -124,6 +124,17 @@ function normalizeUnit(unit: string): string {
 	return UNIT_ALIASES[unit.toLowerCase()] ?? unit
 }
 
+/**
+ * The text without the given characters at its end. A loop rather than a
+ * pattern like /[.,]+$/, which retries from every mark in a long run and so
+ * takes time that grows with the square of the run.
+ */
+function trimEndOf(text: string, marks: string) {
+	let end = text.length
+	while (end > 0 && marks.includes(text[end - 1]!)) end--
+	return text.slice(0, end)
+}
+
 // Any comma except one with a digit on both sides, which belongs to a number.
 const BETWEEN_ITEMS_COMMA = /(?<!\d),|,(?!\d)/g
 
@@ -151,10 +162,7 @@ const VAGUE_QUANTIFIER_PATTERN =
  */
 function normalizeTranscript(raw: string): string {
 	// Strip trailing punctuation and whitespace
-	let text = raw
-		.trim()
-		.replace(/[.,!?;:]+$/, '')
-		.trim()
+	let text = trimEndOf(raw.trim(), '.,!?;:').trim()
 
 	// Strip commas — Whisper inserts them between filler words and clauses
 	// (e.g. "Um, like, some Cheerios"). By the time text reaches here, commas
@@ -309,10 +317,7 @@ const COMPOUND_PLACEHOLDER = '\x00COMPOUND'
  * → [{ name: "chicken", qty: "2", unit: "lb" }, { name: "eggs", qty: "12", unit: "" }, ...]
  */
 export function parseSpeechItems(transcript: string): ParsedItem[] {
-	let cleaned = transcript
-		.trim()
-		.replace(/[.!?;:]+$/, '')
-		.trim()
+	let cleaned = trimEndOf(transcript.trim(), '.!?;:').trim()
 	if (!cleaned) return []
 
 	// Protect compound names from being split on "and"

@@ -1,4 +1,5 @@
 import { expect, test, vi } from 'vitest'
+import { BACKSTOP_MS, MAX_GROWTH, growth } from '#tests/growth.ts'
 import { initializePostHog } from './posthog.client.ts'
 
 const posthog = vi.hoisted(() => ({
@@ -205,4 +206,52 @@ test('error messages and replay page addresses lose their codes and tokens', () 
 	expect(snapshotText).not.toMatch(/Q2W3E4|invite-abc|example\.com/)
 	expect(snapshotText).toContain('compressed-full-snapshot')
 	expect(snapshotText).toContain('"width":390')
+})
+
+// Failure list for long error messages, which run in the browser before an
+// event is sent:
+// - A message made of a long run of slashes, or of "a/", which a URL search
+//   would retry from every slash: the work must stop growing with the
+//   message.
+// - A URL with a token past the part that is read must not be sent as it is.
+function sendException(message: string) {
+	vi.clearAllMocks()
+	posthog.__loaded = false
+	initializePostHog({
+		apiKey: 'phc_test',
+		host: 'https://analytics.example.com',
+	})
+	const beforeSend = posthog.init.mock.calls[0]![1].before_send as (event: {
+		event: string
+		properties: Record<string, unknown>
+	}) => { properties: Record<string, unknown> }
+	return (text = message) =>
+		beforeSend({
+			event: '$exception',
+			properties: {
+				$exception_message: text,
+				$exception_list: [{ type: 'Error', value: text }],
+			},
+		})
+}
+
+test.each([
+	['slashes', '/'],
+	['"a/"', 'a/'],
+])('a long error message of %s takes no longer than a short one', (_, fill) => {
+	const { ratio, largeMs } = growth((size) => {
+		const send = sendException(fill.repeat((10_000 * size) / fill.length))
+		return () => send()
+	})
+	// Past the part that is read, more text adds nothing.
+	expect(ratio).toBeLessThan(MAX_GROWTH / 2)
+	expect(largeMs).toBeLessThan(BACKSTOP_MS)
+})
+
+test('a long error message is cut, so a token past the cut is not sent', () => {
+	const message = `${'x '.repeat(5_000)}/household/join?token=invite-abc`
+	const event = sendException(message)()
+	const text = JSON.stringify(event)
+	expect(text).not.toContain('invite-abc')
+	expect(String(event.properties.$exception_message).length).toBeLessThan(3_000)
 })

@@ -24,6 +24,8 @@
  * - Paste ingredient lines at the line cap with a paren after the run.
  * - JSON-LD ingredient lines at the line cap made of "[", ",(" or "(".
  * - JSON-LD text that is one long run of "<".
+ * - Saved steps at the step limit made of digits, shown with Metric on, which
+ *   rewrites Fahrenheit in every step on each render.
  * - JSON-LD with thousands of ingredient lines.
  * - An amount string far longer than any saved amount.
  * - A line longer than the line cap: what fits still parses, and the parse
@@ -36,6 +38,7 @@
  */
 import { describe, expect, test } from 'vitest'
 import { scaleAmount, scaleAmountKitchen } from './fractions.ts'
+import { convertTemperatures } from './metric-conversion.ts'
 import { fitImportedRecipe } from './import-recipe-fit.ts'
 import {
 	MAX_INGREDIENT_LINE_LENGTH,
@@ -52,6 +55,7 @@ import {
 	MAX_INGREDIENT_NAME_LENGTH,
 	MAX_INGREDIENT_NOTES_LENGTH,
 	MAX_INGREDIENT_UNIT_LENGTH,
+	MAX_INSTRUCTION_LENGTH,
 	MAX_RAW_TEXT_LENGTH,
 	MAX_RECIPE_INGREDIENTS,
 } from './recipe-validation.ts'
@@ -164,6 +168,13 @@ const cases: Array<[string, () => unknown]> = [
 				{ content: `${'1.'.repeat(RUN / 2)}x` },
 				{ content: 'F' },
 			]),
+	],
+	[
+		'saved steps of digits shown with Metric on',
+		() => {
+			const step = `${'1'.repeat(MAX_INSTRUCTION_LENGTH - 1)}x`
+			for (let i = 0; i < 20; i++) convertTemperatures(step)
+		},
 	],
 	[
 		'a title of spaces checked for a trailing serves note',

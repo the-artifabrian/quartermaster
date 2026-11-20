@@ -15,6 +15,8 @@
  *   1.25.
  * - "1.000" and "1.500" are ambiguous (a thousands dot in Romanian, a
  *   decimal in English), so they keep their spelling and stay out of sums.
+ *   So do "1.333" and "1.125", the shape some sites give a fraction turned
+ *   into a decimal: the shape alone can't tell them from thousands.
  *   "0.125" and "1234.5" are plain decimals.
  * - "1.000,5", "1,00,000", "1.5.3", "1e3", "Infinity", "~2" and "2 large"
  *   are not one number. Nothing reads a number off the front of a string.
@@ -69,6 +71,8 @@ describe('parseAmount', () => {
 	test.each([
 		'1.000',
 		'1.500',
+		'1.333',
+		'1.125',
 		'1.000,5',
 		'1,00,000',
 		'1.5.3',

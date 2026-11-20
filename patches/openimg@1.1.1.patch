@@ -1,0 +1,42 @@
+diff --git a/dist/bun.js b/dist/bun.js
+index 8a5f064b7369ddd088ae0a51c22b1f431f1ab343..5f9d013dba9fdd57d514eff33d3f9babdfebd4c6 100644
+--- a/dist/bun.js
++++ b/dist/bun.js
+@@ -393,10 +393,15 @@ async function getImgResponse(request, config = {}) {
+     } else {
+       pipeline = getDefaultSharpPipeline(params);
+     }
+-    const infoPromise = new Promise((resolve) => {
++    const infoPromise = new Promise((resolve, reject) => {
+       pipeline.on("info", (info) => {
+         resolve(info);
+       });
++      // A source sharp can't decode, or a read that fails, rejects the request
++      // here instead of emitting an 'error' nothing listens to, which would
++      // crash the process.
++      pipeline.on("error", reject);
++      readStream.on("error", reject);
+     });
+     const transformed = readStream.pipe(pipeline);
+     const outputStream = new PassThrough;
+diff --git a/dist/node.js b/dist/node.js
+index 238e634c3ad7fc860a3d51d6e6339d16370bf6c8..44e08b5d4bf79c52e3ea1657f224455a530bc743 100644
+--- a/dist/node.js
++++ b/dist/node.js
+@@ -393,10 +393,15 @@ async function getImgResponse(request, config = {}) {
+     } else {
+       pipeline = getDefaultSharpPipeline(params);
+     }
+-    const infoPromise = new Promise((resolve) => {
++    const infoPromise = new Promise((resolve, reject) => {
+       pipeline.on("info", (info) => {
+         resolve(info);
+       });
++      // A source sharp can't decode, or a read that fails, rejects the request
++      // here instead of emitting an 'error' nothing listens to, which would
++      // crash the process.
++      pipeline.on("error", reject);
++      readStream.on("error", reject);
+     });
+     const transformed = readStream.pipe(pipeline);
+     const outputStream = new PassThrough;

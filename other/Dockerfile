@@ -15,6 +15,7 @@ FROM base as deps
 WORKDIR /myapp
 
 ADD package.json bun.lock bunfig.toml .npmrc ./
+ADD patches ./patches
 # NODE_ENV=development override: base sets NODE_ENV=production, which would
 # make bun install skip devDependencies needed by the build stage.
 RUN NODE_ENV=development bun install --frozen-lockfile
@@ -25,6 +26,7 @@ FROM base as production-deps
 WORKDIR /myapp
 
 ADD package.json bun.lock bunfig.toml .npmrc ./
+ADD patches ./patches
 RUN bun install --frozen-lockfile --production
 
 # Build the app

@@ -1,7 +1,6 @@
 import { promises as fs, constants, existsSync } from 'node:fs'
 import { invariant, invariantResponse } from '@epic-web/invariant'
 import { getDefaultSharpPipeline, getImgResponse } from 'openimg/node'
-import { getDomainUrl } from '#app/utils/misc.tsx'
 import { getSignedGetRequestInfo } from '#app/utils/storage.server.ts'
 import { type Route } from './+types/images'
 
@@ -25,14 +24,37 @@ async function getCacheDir() {
 	return (cacheDir = dir)
 }
 
+// The largest edge the app ever asks for is the 1200px share image; this
+// leaves headroom while keeping one resize well inside the machine's memory.
+const MAX_EDGE = 3000
+
+function parseEdge(value: string | null) {
+	if (value === null) return true
+	if (!/^\d+$/.test(value)) return false
+	const edge = Number(value)
+	return edge >= 1 && edge <= MAX_EDGE
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
 	const url = new URL(request.url)
 	const searchParams = url.searchParams
 
+	// The app only ever asks for stored Recipe photos by objectKey. Serving
+	// `src` paths from disk or other sites let an anonymous request hand sharp
+	// any file in public/ (a non-image crashed the process) or make the server
+	// fetch a URL of the caller's choosing.
+	const objectKey = searchParams.get('objectKey')
+	invariantResponse(objectKey, 'objectKey query parameter is required', {
+		status: 400,
+	})
+	invariantResponse(
+		parseEdge(searchParams.get('w')) && parseEdge(searchParams.get('h')),
+		`Width and height must be whole numbers from 1 to ${MAX_EDGE}`,
+		{ status: 400 },
+	)
+
 	const headers = new Headers()
 	headers.set('Cache-Control', 'public, max-age=31536000, immutable')
-
-	const objectKey = searchParams.get('objectKey')
 
 	return getImgResponse(request, {
 		headers,
@@ -50,61 +72,32 @@ export async function loader({ request }: Route.LoaderArgs) {
 				cacheKey: source.type === 'fetch' ? source.url : source.path,
 			}
 		},
-		allowlistedOrigins: [
-			getDomainUrl(request),
-			process.env.AWS_ENDPOINT_URL_S3,
-		].filter(Boolean),
+		// Only the storage endpoint, never an origin taken from request headers.
+		allowlistedOrigins: process.env.AWS_ENDPOINT_URL_S3
+			? [new URL(process.env.AWS_ENDPOINT_URL_S3).origin]
+			: [],
 		cacheFolder: await getCacheDir(),
 		getImgSource: () => {
-			if (objectKey) {
-				// In MOCKS mode the storage "bucket" is a local folder, so read it
-				// directly. Routing through the mocked fetch hands openimg a stream
-				// sharp can't consume under bun — the resulting async error escapes
-				// the request as an uncaughtException and takes down the dev server.
-				if (process.env.MOCKS === 'true') {
-					invariantResponse(!objectKey.includes('..'), 'Invalid object key', {
-						status: 400,
-					})
-					const fixturePath = `./tests/fixtures/images/${objectKey}`
-					const uploadedPath = `./tests/fixtures/uploaded/${objectKey}`
-					return {
-						type: 'fs',
-						path: existsSync(fixturePath) ? fixturePath : uploadedPath,
-					}
-				}
-				const { url: signedUrl, headers: signedHeaders } =
-					getSignedGetRequestInfo(objectKey)
-				return {
-					type: 'fetch',
-					url: signedUrl,
-					headers: signedHeaders,
-				}
-			}
-
-			const src = searchParams.get('src')
-			invariantResponse(src, 'src query parameter is required', { status: 400 })
-
-			if (URL.canParse(src)) {
-				// Fetch image from external URL; will be matched against allowlist
-				return {
-					type: 'fetch',
-					url: src,
-				}
-			}
-			// A filesystem path never climbs out of the folder it names.
-			invariantResponse(!src.includes('..'), 'Invalid src', { status: 400 })
-			// Retrieve image from filesystem (public folder)
-			if (src.startsWith('/assets')) {
-				// Files managed by Vite
+			// In MOCKS mode the storage "bucket" is a local folder, so read it
+			// directly. Routing through the mocked fetch hands openimg a stream
+			// sharp can't consume under bun.
+			if (process.env.MOCKS === 'true') {
+				invariantResponse(!objectKey.includes('..'), 'Invalid object key', {
+					status: 400,
+				})
+				const fixturePath = `./tests/fixtures/images/${objectKey}`
+				const uploadedPath = `./tests/fixtures/uploaded/${objectKey}`
 				return {
 					type: 'fs',
-					path: '.' + src,
+					path: existsSync(fixturePath) ? fixturePath : uploadedPath,
 				}
 			}
-			// Fallback to files in public folder
+			const { url: signedUrl, headers: signedHeaders } =
+				getSignedGetRequestInfo(objectKey)
 			return {
-				type: 'fs',
-				path: './public' + src,
+				type: 'fetch',
+				url: signedUrl,
+				headers: signedHeaders,
 			}
 		},
 	})

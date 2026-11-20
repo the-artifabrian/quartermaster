@@ -111,6 +111,9 @@
       },
     },
   },
+  "patchedDependencies": {
+    "openimg@1.1.1": "patches/openimg@1.1.1.patch",
+  },
   "packages": {
     "@adobe/css-tools": ["@adobe/css-tools@4.4.4", "", {}, "sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg=="],
 

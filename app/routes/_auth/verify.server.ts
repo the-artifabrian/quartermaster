@@ -198,7 +198,8 @@ export async function validateRequest(
 			return handleOnboardingVerification({ request, body, submission })
 		}
 		case 'change-email': {
-			await deleteVerification()
+			// Its handler consumes the code itself, after the checks that can
+			// send the user to reverify and back with the same code.
 			return handleChangeEmailVerification({ request, body, submission })
 		}
 		case '2fa': {

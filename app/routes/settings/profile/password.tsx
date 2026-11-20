@@ -9,10 +9,12 @@ import {
 	checkIsCommonPassword,
 	getPasswordHash,
 	requireUserId,
+	sessionKey,
 	verifyUserPassword,
 } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
+import { authSessionStorage } from '#app/utils/session.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { PasswordSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/password.ts'
@@ -97,17 +99,16 @@ export async function action({ request }: Route.ActionArgs) {
 
 	const { newPassword } = submission.value
 
-	await prisma.user.update({
-		select: { username: true },
-		where: { id: userId },
-		data: {
-			password: {
-				update: {
-					hash: await getPasswordHash(newPassword),
-				},
-			},
-		},
-	})
+	const authSession = await authSessionStorage.getSession(
+		request.headers.get('cookie'),
+	)
+	const sessionId = authSession.get(sessionKey)
+	const hash = await getPasswordHash(newPassword)
+	// A changed password signs out every other session of the user.
+	await prisma.$transaction([
+		prisma.password.update({ where: { userId }, data: { hash } }),
+		prisma.session.deleteMany({ where: { userId, id: { not: sessionId } } }),
+	])
 
 	return redirectWithToast(
 		`/settings/profile`,

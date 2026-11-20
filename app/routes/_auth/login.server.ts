@@ -1,5 +1,5 @@
 import { invariant } from '@epic-web/invariant'
-import { redirect } from 'react-router'
+import { data, redirect } from 'react-router'
 import { safeRedirect } from 'remix-utils/safe-redirect'
 import { twoFAVerificationType } from '#app/routes/settings/profile/two-factor/_layout.tsx'
 import { getUserId, sessionKey } from '#app/utils/auth.server.ts'
@@ -100,23 +100,33 @@ export async function handleVerification({
 	)
 
 	const remember = verifySession.get(rememberKey)
-	const { redirectTo } = submission.value
+	const { redirectTo, target } = submission.value
 	const headers = new Headers()
-	authSession.set(verifiedTimeKey, Date.now())
+
+	// The code was checked against `target`. It may only verify that user's
+	// pending sign-in, or that user's own signed-in session.
+	const invalidCode = () =>
+		data(
+			{ result: submission.reply({ fieldErrors: { code: ['Invalid code'] } }) },
+			{ status: 400 },
+		)
+
+	const noSessionToVerify = () =>
+		redirectWithToast('/login', {
+			type: 'error',
+			title: 'Invalid session',
+			description: 'Could not find session to verify. Please try again.',
+		})
 
 	const unverifiedSessionId = verifySession.get(unverifiedSessionIdKey)
 	if (unverifiedSessionId) {
 		const session = await prisma.session.findUnique({
-			select: { expirationDate: true },
+			select: { expirationDate: true, userId: true },
 			where: { id: unverifiedSessionId },
 		})
-		if (!session) {
-			throw await redirectWithToast('/login', {
-				type: 'error',
-				title: 'Invalid session',
-				description: 'Could not find session to verify. Please try again.',
-			})
-		}
+		if (!session) throw await noSessionToVerify()
+		if (session.userId !== target) return invalidCode()
+		authSession.set(verifiedTimeKey, Date.now())
 		authSession.set(sessionKey, unverifiedSessionId)
 
 		headers.append(
@@ -125,17 +135,23 @@ export async function handleVerification({
 				expires: remember ? session.expirationDate : undefined,
 			}),
 		)
+		headers.append(
+			'set-cookie',
+			await verifySessionStorage.destroySession(verifySession),
+		)
 	} else {
+		// Signed out with no sign-in pending, e.g. the verify cookie expired.
+		const userId = await getUserId(request)
+		if (!userId) throw await noSessionToVerify()
+		if (userId !== target) return invalidCode()
+		authSession.set(verifiedTimeKey, Date.now())
+		// The verify cookie stays: a reverify can interrupt another
+		// verification, such as a change of email, that still needs it.
 		headers.append(
 			'set-cookie',
 			await authSessionStorage.commitSession(authSession),
 		)
 	}
-
-	headers.append(
-		'set-cookie',
-		await verifySessionStorage.destroySession(verifySession),
-	)
 
 	return redirect(safeRedirect(redirectTo, '/recipes'), { headers })
 }
@@ -157,6 +173,6 @@ export async function shouldRequestTwoFA(request: Request) {
 	})
 	if (!userHasTwoFA) return false
 	const verifiedTime = authSession.get(verifiedTimeKey) ?? new Date(0)
-	const twoHours = 1000 * 60 * 2
+	const twoHours = 1000 * 60 * 60 * 2
 	return Date.now() - verifiedTime > twoHours
 }

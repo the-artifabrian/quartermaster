@@ -164,17 +164,22 @@ export async function resetUserPassword({
 	username: User['username']
 	password: string
 }) {
-	const hashedPassword = await getPasswordHash(password)
-	return prisma.user.update({
+	const hash = await getPasswordHash(password)
+	// A user who signed up through a provider has no Password row yet. A reset
+	// signs out every session of the user.
+	const user = await prisma.user.findUniqueOrThrow({
 		where: { username },
-		data: {
-			password: {
-				update: {
-					hash: hashedPassword,
-				},
-			},
-		},
+		select: { id: true },
 	})
+	await prisma.$transaction([
+		prisma.password.upsert({
+			where: { userId: user.id },
+			create: { userId: user.id, hash },
+			update: { hash },
+		}),
+		prisma.session.deleteMany({ where: { userId: user.id } }),
+	])
+	return user
 }
 
 /**

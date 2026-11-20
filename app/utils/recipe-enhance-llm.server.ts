@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import {
 	ANTHROPIC_MODELS,
+	isUnbilledFailure,
 	nullable,
 	parseAnthropicJson,
 	requestAnthropicJson,
@@ -111,11 +112,12 @@ function reconcileTimeSuggestions(
 /**
  * Call Claude Haiku to suggest reviewed description and time improvements.
  *
- * Returns the suggestions on success, or `{ error: string }` on failure.
+ * Returns the suggestions on success, or the error to show on failure, with
+ * `refundable` true when the provider cannot have billed the call.
  */
 export async function enhanceRecipeMetadata(
 	input: RecipeInput,
-): Promise<EnhanceableFields | { error: string }> {
+): Promise<EnhanceableFields | { error: string; refundable: boolean }> {
 	const result = await requestAnthropicJson({
 		feature: 'recipe-enhance',
 		model: ANTHROPIC_MODELS.fast,
@@ -131,7 +133,10 @@ export async function enhanceRecipeMetadata(
 
 	return result.ok
 		? reconcileTimeSuggestions(result.data, input)
-		: { error: enhanceError(result.failure) }
+		: {
+				error: enhanceError(result.failure),
+				refundable: isUnbilledFailure(result.failure),
+			}
 }
 
 function enhanceError(failure: AnthropicJsonFailure): string {
@@ -150,6 +155,8 @@ function enhanceError(failure: AnthropicJsonFailure): string {
 		case 'schema':
 			return 'Recipe enhance returned an unexpected response. Please try again.'
 		case 'provider':
+		case 'network':
+		case 'refusal':
 			return 'Recipe enhance failed — the AI service returned an error. Please try again later.'
 	}
 }

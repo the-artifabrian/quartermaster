@@ -1,5 +1,9 @@
 import { parseFormData, type FileUpload } from '@mjackson/form-data-parser'
 import { data } from 'react-router'
+import {
+	aiUsageRefusal,
+	claimAiUsage,
+} from '#app/utils/ai-rate-limit.server.ts'
 import { type ParsedItem } from '#app/utils/parse-speech-item.ts'
 import { requireProTierOrNativeShellNull } from '#app/utils/subscription.server.ts'
 import { transcribeAudio } from '#app/utils/whisper.server.ts'
@@ -14,8 +18,15 @@ const ACCEPTED_AUDIO_TYPES = [
 	'audio/ogg',
 ]
 
+// Each use is one Whisper clip plus one small Haiku call, a fraction of a
+// cent. Thirty covers a big weekly shop said one item at a time, retries
+// included, so nobody using the app for real should hit it. It caps what one
+// account can spend in a day, and every new signup gets a Pro trial.
+const DAILY_LIMIT = 30
+
 export async function action({ request }: Route.ActionArgs) {
-	if (!(await requireProTierOrNativeShellNull(request))) {
+	const proTier = await requireProTierOrNativeShellNull(request)
+	if (!proTier) {
 		return data(
 			{
 				error: 'Voice input is not available.',
@@ -59,9 +70,28 @@ export async function action({ request }: Route.ActionArgs) {
 		)
 	}
 
+	const usage = await claimAiUsage(proTier.userId, 'voice_transcribe_call', {
+		perUser: DAILY_LIMIT,
+	})
+	if (!usage.allowed) {
+		const refusal = aiUsageRefusal(usage.reason, {
+			limit: DAILY_LIMIT,
+			uses: 'voice entries',
+		})
+		return data(
+			{
+				error: refusal.error,
+				items: [] as ParsedItem[],
+				transcription: null as string | null,
+			},
+			{ status: refusal.status },
+		)
+	}
+
 	const result = await transcribeAudio(audioFile)
 
 	if ('error' in result) {
+		if (result.refundable) await usage.refund()
 		return data(
 			{
 				error: result.error,

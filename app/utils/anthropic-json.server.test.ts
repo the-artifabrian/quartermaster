@@ -3,6 +3,7 @@ import { z } from 'zod'
 import {
 	ANTHROPIC_MODELS,
 	isAnthropicConfigured,
+	isUnbilledFailure,
 	nullable,
 	parseAnthropicJson,
 	requestAnthropicJson,
@@ -162,7 +163,7 @@ describe('requestAnthropicJson', () => {
 		expect(result).toEqual({ ok: true, data: { value: 'ok' } })
 	})
 
-	test('reports a refusal as a provider failure with its own log line', async () => {
+	test('reports a refusal as its own failure, apart from an outage', async () => {
 		const logError = vi.fn()
 		const refused = await requestAnthropicJson(request, {
 			apiKey: () => 'test-key',
@@ -176,11 +177,11 @@ describe('requestAnthropicJson', () => {
 				),
 			logError,
 		})
-		expect(refused).toEqual({ ok: false, failure: { kind: 'provider' } })
+		expect(refused).toEqual({ ok: false, failure: { kind: 'refusal' } })
 		expect(logError).toHaveBeenCalledOnce()
 		expect(logError).toHaveBeenCalledWith(
 			'Anthropic JSON response was a refusal',
-			expect.objectContaining({ feature: 'test-feature', kind: 'provider' }),
+			expect.objectContaining({ feature: 'test-feature', kind: 'refusal' }),
 		)
 	})
 
@@ -298,4 +299,84 @@ describe('requestAnthropicJson', () => {
 		)
 		expect(complete).toEqual({ ok: true, data: { value: 'ok' } })
 	})
+})
+
+/**
+ * Failure list for giving back a daily use. A use may be refunded only when
+ * the provider cannot have billed the call:
+ *
+ * - the key is missing, so no request went out;
+ * - the provider answered 429 or 5xx;
+ * - the request failed before any response arrived.
+ *
+ * Anything else may have been billed and keeps the use: a timeout (the
+ * provider may have finished after we stopped waiting), another 4xx, and any
+ * failure after a 200 (a body that won't parse, a refusal, an answer cut off).
+ * Refunding those would let slow or bad output buy unlimited paid calls.
+ */
+describe('isUnbilledFailure', () => {
+	const cases: Array<[string, AnthropicJsonAdapter['fetch'] | null, boolean]> =
+		[
+			['missing key', null, true],
+			[
+				'network error before a response',
+				async () => {
+					throw new TypeError('fetch failed')
+				},
+				true,
+			],
+			['429', async () => new Response('', { status: 429 }), true],
+			['503', async () => new Response('', { status: 503 }), true],
+			['400', async () => new Response('', { status: 400 }), false],
+			[
+				'timeout',
+				async () => {
+					throw new DOMException('timed out', 'TimeoutError')
+				},
+				false,
+			],
+			[
+				'200 with a body that is not JSON',
+				async () => new Response('<html>', { status: 200 }),
+				false,
+			],
+			[
+				'200 with a refusal',
+				async () =>
+					new Response(
+						JSON.stringify({
+							stop_reason: 'refusal',
+							content: [{ type: 'text', text: '{"value":' }],
+						}),
+						{ status: 200 },
+					),
+				false,
+			],
+			[
+				'200 cut off at max tokens',
+				async () =>
+					new Response(
+						JSON.stringify({
+							stop_reason: 'max_tokens',
+							content: [{ type: 'text', text: '{"value":' }],
+						}),
+						{ status: 200 },
+					),
+				false,
+			],
+			['200 with no recipe JSON', async () => anthropicResponse('nope'), false],
+		]
+
+	test.each(cases.map(([name, fetch, refunds]) => ({ name, fetch, refunds })))(
+		'$name: refunds $refunds',
+		async ({ fetch, refunds: refundable }) => {
+			const result = await requestAnthropicJson(
+				request,
+				fetch ? makeAdapter(fetch) : makeAdapter(vi.fn(), ''),
+			)
+			expect(result.ok).toBe(false)
+			if (result.ok) return
+			expect(isUnbilledFailure(result.failure)).toBe(refundable)
+		},
+	)
 })

@@ -59,12 +59,43 @@ export function nullable(schema: JsonSchema): JsonSchema {
 export type AnthropicJsonFailure =
 	| { kind: 'configuration' }
 	| { kind: 'rate-limit'; status: 429 }
+	/** An HTTP error, or a 200 whose body could not be read. */
 	| { kind: 'provider'; status?: number }
+	/** The request failed before any response arrived. */
+	| { kind: 'network' }
 	| { kind: 'timeout' }
+	| { kind: 'refusal' }
 	| { kind: 'empty-response' }
 	| { kind: 'max-tokens' }
 	| { kind: 'parse' }
 	| { kind: 'schema' }
+
+/**
+ * Whether the provider cannot have billed the call, so the caller can give
+ * back the daily use it took. That holds when no request went out, when none
+ * got a response, and when the provider answered 429 or 5xx.
+ *
+ * A timeout stays spent: the provider may have finished after we stopped
+ * waiting. So does any other 4xx, and anything after a 200. Refunding those
+ * would let slow or bad output buy unlimited paid calls.
+ */
+export function isUnbilledFailure(failure: AnthropicJsonFailure): boolean {
+	switch (failure.kind) {
+		case 'configuration':
+		case 'rate-limit':
+		case 'network':
+			return true
+		case 'provider':
+			return failure.status !== undefined && failure.status >= 500
+		case 'timeout':
+		case 'refusal':
+		case 'empty-response':
+		case 'max-tokens':
+		case 'parse':
+		case 'schema':
+			return false
+	}
+}
 
 export type AnthropicJsonResult<T> =
 	{ ok: true; data: T } | { ok: false; failure: AnthropicJsonFailure }
@@ -199,7 +230,7 @@ export async function requestAnthropicJson<T>(
 	} catch (error) {
 		const failure: AnthropicJsonFailure = isTimeoutError(error)
 			? { kind: 'timeout' }
-			: { kind: 'provider' }
+			: { kind: 'network' }
 		adapter.logError('Anthropic JSON request failed', {
 			feature: request.feature,
 			kind: failure.kind,
@@ -257,15 +288,15 @@ export async function requestAnthropicJson<T>(
 	}
 
 	// A refusal can stop mid-JSON. Haiku has no server-side fallback model, so
-	// it is a provider failure, logged on its own line so it is not mistaken
-	// for an outage.
+	// the caller shows it as a failed call; it has its own kind and log line so
+	// it is not mistaken for an outage.
 	if (parsedResponse.data.stop_reason === 'refusal') {
 		adapter.logError('Anthropic JSON response was a refusal', {
 			feature: request.feature,
-			kind: 'provider',
+			kind: 'refusal',
 			model: request.model,
 		})
-		return { ok: false, failure: { kind: 'provider' } }
+		return { ok: false, failure: { kind: 'refusal' } }
 	}
 
 	// Thinking blocks come first on the 5.5 models; the answer is the text

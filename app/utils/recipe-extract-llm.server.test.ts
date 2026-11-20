@@ -572,7 +572,10 @@ describe('extractRecipeFromText', () => {
 	test('returns error when API key is missing', async () => {
 		delete process.env.ANTHROPIC_API_KEY
 		const result = await extractRecipeFromText('some recipe text')
-		expect(result).toEqual({ error: expect.stringContaining('not configured') })
+		expect(result).toEqual({
+			error: expect.stringContaining('not configured'),
+			refundable: true,
+		})
 	})
 
 	test('returns error on non-OK response', async () => {
@@ -961,7 +964,10 @@ describe('extractRecipeFromImages', () => {
 		const result = await extractRecipeFromImages([
 			{ base64: 'base64', mediaType: 'image/png' },
 		])
-		expect(result).toEqual({ error: expect.stringContaining('not configured') })
+		expect(result).toEqual({
+			error: expect.stringContaining('not configured'),
+			refundable: true,
+		})
 	})
 
 	test('returns error on non-OK response', async () => {

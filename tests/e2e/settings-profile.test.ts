@@ -225,6 +225,10 @@ test('Copying a Household invite link says Copied, or shows the link to copy by 
 	await expect
 		.poll(() => page.evaluate(() => navigator.clipboard.readText()))
 		.toBe(inviteUrl)
+	// Session replay records the text on the page, so the token stays out of it.
+	await expect(
+		page.getByText(`/household/join?token=${invite.token}`),
+	).toHaveClass(/\bph-no-capture\b/)
 	// The label goes back after two seconds.
 	await expect(copy).toBeVisible({ timeout: 4_000 })
 
@@ -237,6 +241,7 @@ test('Copying a Household invite link says Copied, or shows the link to copy by 
 	await page.getByRole('button', { name: 'Copy link' }).click()
 	const manual = page.getByRole('textbox', { name: 'Invite link' })
 	await expect(manual).toHaveValue(inviteUrl)
+	await expect(manual).toHaveClass(/\bph-no-capture\b/)
 	await expect(manual).toBeFocused()
 	expect(
 		await manual.evaluate(

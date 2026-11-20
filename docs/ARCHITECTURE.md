@@ -352,8 +352,13 @@ query parameters, including inside `redirectTo`. These go through it:
   autocapture records, URLs in error messages, the network requests and page
   addresses recorded for replays.
 
-Replay page content is not redacted. Log a user id, never an email address or
-token.
+Replays record the page's text, since `mask_all_text` is off, but not what is
+typed into inputs. A page that shows a secret marks it with PostHog's
+`ph-no-capture` class, and the recording keeps only an empty box of its size:
+the 2FA setup's QR code and URI, and the Household invite link. posthog-js has
+no browser-side setting to stop recording on chosen URLs; the URL blocklist for
+recordings lives in the PostHog project's settings. Log a user id, never an
+email address or token.
 
 ## Keeping loader data fresh
 

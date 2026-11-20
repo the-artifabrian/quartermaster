@@ -154,7 +154,11 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 			</div>
 			<div className="mx-auto mt-8 max-w-sm min-w-full sm:min-w-[368px]">
 				<Form method="POST" {...getFormProps(form)}>
-					<input {...getInputProps(fields.redirectTo, { type: 'hidden' })} />
+					<input
+						{...getInputProps(fields.redirectTo, { type: 'hidden' })}
+						// Can hold an invite link; kept out of session replays.
+						className="ph-no-capture"
+					/>
 					<Field
 						labelProps={{
 							htmlFor: fields.email.id,

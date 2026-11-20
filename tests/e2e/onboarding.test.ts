@@ -1,5 +1,6 @@
 import { invariant } from '@epic-web/invariant'
 import { faker } from '@faker-js/faker'
+import { type Page } from '@playwright/test'
 import { createOwnHousehold } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
@@ -75,6 +76,19 @@ const test = base.extend<{
 	},
 })
 
+/**
+ * Hidden fields that can carry an invite token or an email address (redirectTo,
+ * target) are blocked from session replays with ph-no-capture, so they stay
+ * out whatever the PostHog project's masking settings say.
+ */
+async function expectHiddenFieldsBlocked(page: Page, names: string[]) {
+	for (const name of names) {
+		// eslint-disable-next-line playwright/no-raw-locators -- hidden inputs have no role
+		const input = page.locator(`input[type="hidden"][name="${name}"]`)
+		await expect(input, name).toHaveClass(/\bph-no-capture\b/)
+	}
+}
+
 test('onboarding with link', async ({ page, navigate, getOnboardingData }) => {
 	const onboardingData = getOnboardingData()
 
@@ -82,6 +96,7 @@ test('onboarding with link', async ({ page, navigate, getOnboardingData }) => {
 
 	await page.getByRole('link', { name: /log in/i }).click()
 	await expect(page).toHaveURL(`/login`)
+	await expectHiddenFieldsBlocked(page, ['redirectTo'])
 
 	const createAccountLink = page.getByRole('link', {
 		name: /create an account/i,
@@ -89,6 +104,7 @@ test('onboarding with link', async ({ page, navigate, getOnboardingData }) => {
 	await createAccountLink.click()
 
 	await expect(page).toHaveURL(`/signup`)
+	await expectHiddenFieldsBlocked(page, ['redirectTo'])
 
 	const emailTextbox = page.getByRole('textbox', { name: /email/i })
 	await emailTextbox.click()
@@ -107,6 +123,7 @@ test('onboarding with link', async ({ page, navigate, getOnboardingData }) => {
 	await navigate(onboardingUrl)
 
 	await expect(page).toHaveURL(/\/verify/)
+	await expectHiddenFieldsBlocked(page, ['target', 'redirectTo'])
 
 	await page
 		.getByRole('main')
@@ -114,6 +131,7 @@ test('onboarding with link', async ({ page, navigate, getOnboardingData }) => {
 		.click()
 
 	await expect(page).toHaveURL(`/onboarding`)
+	await expectHiddenFieldsBlocked(page, ['redirectTo'])
 	await page
 		.getByRole('textbox', { name: /^username/i })
 		.fill(onboardingData.username)

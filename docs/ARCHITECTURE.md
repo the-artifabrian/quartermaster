@@ -378,15 +378,17 @@ query parameters, including inside `redirectTo`. These go through it:
 
 Replays record the page's text, since `mask_all_text` is off. Input values are
 masked by type, with the list in `app/utils/posthog.client.ts`: every type the
-SDK's own "mask all inputs" covers, plus hidden inputs, which carry invite
-tokens and `redirectTo` on the sign-in forms. Masking settings turned on in the
-PostHog project would replace that list with the SDK's, which leaves hidden
-inputs out, so they stay off. A page that shows a secret marks it with PostHog's
-`ph-no-capture` class, and the recording keeps only an empty box of its size:
-the 2FA setup's QR code and URI, and the Household invite link. posthog-js has
-no browser-side setting to stop recording on chosen URLs; the URL blocklist for
-recordings lives in the PostHog project's settings. Log a user id, never an
-email address or token.
+SDK's own "mask all inputs" covers, plus hidden inputs. Masking settings turned
+on in the PostHog project would replace that list with the SDK's, which leaves
+hidden inputs out, so they stay off. The hidden inputs that carry a secret are
+blocked with `ph-no-capture` as well, so they stay out of replays whatever the
+remote settings are: the invite token on the join page, and `redirectTo` and the
+verify page's `target` on the sign-in forms. A page that shows a secret marks it
+with PostHog's `ph-no-capture` class, and the recording keeps only an empty box
+of its size: the 2FA setup's QR code and URI, and the Household invite link.
+posthog-js has no browser-side setting to stop recording on chosen URLs; the URL
+blocklist for recordings lives in the PostHog project's settings. Log a user id,
+never an email address or token.
 
 ## Keeping loader data fresh
 

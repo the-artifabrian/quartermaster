@@ -251,3 +251,36 @@ test('Copying a Household invite link says Copied, or shows the link to copy by 
 	).toBe(true)
 	await expect(page.getByRole('button', { name: 'Copied' })).toHaveCount(0)
 })
+
+test('the invite token on the join page is blocked from session replays', async ({
+	page,
+	login,
+}) => {
+	await login()
+	const owner = await prisma.user.create({ data: createUser() })
+	const household = await prisma.household.create({
+		data: {
+			name: 'Other household',
+			members: { create: { userId: owner.id, role: 'owner' } },
+		},
+	})
+	const invite = await prisma.householdInvite.create({
+		data: {
+			token: faker.string.alphanumeric(24),
+			expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+			householdId: household.id,
+			createdById: owner.id,
+		},
+	})
+
+	await page.goto(`/household/join?token=${invite.token}`)
+	await expect(
+		page.getByRole('heading', { name: 'Join Household' }),
+	).toBeVisible()
+	// Replays record hidden fields unless they are blocked, whatever the
+	// PostHog project's masking settings say.
+	// eslint-disable-next-line playwright/no-raw-locators -- hidden inputs have no role
+	const token = page.locator('input[type="hidden"][name="token"]')
+	await expect(token).toHaveValue(invite.token)
+	await expect(token).toHaveClass(/\bph-no-capture\b/)
+})

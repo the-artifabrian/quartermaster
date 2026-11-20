@@ -117,13 +117,20 @@ export default function JoinHousehold({ loaderData }: Route.ComponentProps) {
 		<div className="m-auto mt-16 mb-24 max-w-md">
 			<div className="container">
 				<div className="bg-muted rounded-3xl px-8 py-12 text-center">
-					<h1 className="font-serif text-xl mb-4">Join Household</h1>
-					<p className="text-lg text-muted-foreground mb-8">
+					<h1 className="mb-4 font-serif text-xl">Join Household</h1>
+					<p className="text-muted-foreground mb-8 text-lg">
 						You've been invited to join{' '}
 						<strong className="text-foreground">{householdName}</strong>
 					</p>
 					<Form method="POST" className="flex justify-center gap-4">
-						<input type="hidden" name="token" value={token} />
+						{/* ph-no-capture keeps the token out of session replays,
+						whatever the PostHog project's masking settings say. */}
+						<input
+							type="hidden"
+							name="token"
+							value={token}
+							className="ph-no-capture"
+						/>
 						<Button type="submit" name="intent" value="accept" size="lg">
 							Accept
 						</Button>

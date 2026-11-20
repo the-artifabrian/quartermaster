@@ -1,4 +1,5 @@
 import { parseAmount } from './fractions.ts'
+import { CONTAINER_START } from './ingredient-parser.ts'
 
 export type ParsedItem = {
 	name: string
@@ -288,8 +289,10 @@ export function parseTypedItem(text: string): ParsedItem | null {
 	// The groups stay together when a unit follows, even when the amount has
 	// no single value ("2 400 g" can be two 400 g tins), and otherwise only
 	// when parseAmount reads them as one number ("1 000 eggs").
+	// A container after the unit ("2 400 g tins tomatoes") keeps the first
+	// number a count of them.
 	const spacedUnitMatch = trimmed.match(SPACED_QTY_UNIT_NAME)
-	if (spacedUnitMatch) {
+	if (spacedUnitMatch && !CONTAINER_START.test(spacedUnitMatch[3]!.trim())) {
 		return {
 			quantity: spacedUnitMatch[1]!,
 			unit: normalizeUnit(spacedUnitMatch[2]!),

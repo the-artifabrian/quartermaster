@@ -57,11 +57,19 @@
  *   one number.
  * - parseIngredient keeps the groups together as the amount, with the space
  *   the source used, when a unit follows ("1 000 g flour", "1 000g flour",
- *   "2 400 g tomatoes", "1 250 ml can coconut milk"). With no unit it groups
- *   only an amount that reads as one number ("1 000 eggs"), so "6 100 calorie
- *   packs" is still six of them. "1 1/2 cups flour" reads as before.
+ *   "2 400 g tomatoes"). With no unit it groups only an amount that reads as
+ *   one number ("1 000 eggs"), so "6 100 calorie packs" is still six of them,
+ *   and so does a dash after the digits ("6 100-calorie bars"). "1 1/2 cups
+ *   flour" reads as before.
+ * - A container after the unit makes the first number a count of them, as
+ *   before: "2 400 g tins tomatoes", "1 250 ml can coconut milk", "2 250 ml
+ *   cans coconut milk", "4 100 g bars chocolate", in the singular or plural,
+ *   for tins, cans, jars, bars, packs, packets, bottles, cartons, sachets and
+ *   tubs. So they scale and sum by count, also when Shopping re-reads a saved
+ *   name that starts with them.
  * - Shopping quick-add does the same: "1 000 g flour", "2 400 g tomatoes",
- *   "1 000 eggs", and "6 100 calorie packs" as before.
+ *   "1 000 eggs", "2 400 g tins tomatoes", and "6 100 calorie packs" as
+ *   before.
  * - Voice input keeps its reading ("2 400 gram cans" is two cans): Whisper
  *   writes a thousand as "1000" or "1,000", and a spoken count before a size
  *   is common.
@@ -337,7 +345,23 @@ describe('spaces between thousands', () => {
 		['2 400 g tomatoes', { amount: '2 400', unit: 'g', name: 'tomatoes' }],
 		[
 			'1 250 ml can coconut milk',
-			{ amount: '1 250', unit: 'ml', name: 'can coconut milk' },
+			{ amount: '1', name: '250 ml can coconut milk' },
+		],
+		['2 400 g tins tomatoes', { amount: '2', name: '400 g tins tomatoes' }],
+		[
+			'2 250 ml cans coconut milk',
+			{ amount: '2', name: '250 ml cans coconut milk' },
+		],
+		['4 100 g bars chocolate', { amount: '4', name: '100 g bars chocolate' }],
+		['3 500g jars passata', { amount: '3', name: '500g jars passata' }],
+		[
+			'2 400 g packet pasta, any shape',
+			{ amount: '2', name: '400 g packet pasta', notes: 'any shape' },
+		],
+		['6 100-calorie bars', { amount: '6', name: '100-calorie bars' }],
+		[
+			'1 000 g tinned tomatoes',
+			{ amount: '1 000', unit: 'g', name: 'tinned tomatoes' },
 		],
 		['1 000 eggs', { amount: '1 000', name: 'eggs' }],
 		[
@@ -365,6 +389,18 @@ describe('spaces between thousands', () => {
 			{ quantity: '6', unit: '', name: '100 calorie packs' },
 		],
 		['1 1/2 lb beef', { quantity: '1 1/2', unit: 'lb', name: 'beef' }],
+		[
+			'2 400 g tins tomatoes',
+			{ quantity: '2', unit: '', name: '400 g tins tomatoes' },
+		],
+		[
+			'2 250 ml cans coconut milk',
+			{ quantity: '2', unit: '', name: '250 ml cans coconut milk' },
+		],
+		[
+			'1 500 g bottle olive oil',
+			{ quantity: '1', unit: '', name: '500 g bottle olive oil' },
+		],
 	])('Shopping quick-add reads %s', (text, parsed) => {
 		expect(parseTypedItem(text)).toEqual(parsed)
 	})
@@ -394,6 +430,22 @@ describe('spaces between thousands', () => {
 		expect(
 			quantityOf({ amount: '2 400', unit: 'g' }, { amount: '500', unit: 'g' }),
 		).toEqual([{ quantity: '2 400 g + 500 g', unit: null }])
+	})
+
+	test('Shopping counts containers in a saved name that holds the amount', () => {
+		const rows = buildShoppingDemand({
+			recipeBatches: [
+				{
+					ingredients: [
+						{ name: '2 400 g tins tomatoes', amount: null, unit: null },
+						{ name: '1 400 g tins tomatoes', amount: null, unit: null },
+					],
+				},
+			],
+		})
+		expect(rows).toHaveLength(1)
+		expect(rows[0]).toMatchObject({ quantity: '3' })
+		expect(rows[0]!.name).toContain('400 g tins tomatoes')
 	})
 
 	test('scaling', () => {

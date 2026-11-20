@@ -387,16 +387,26 @@ const PACK_SIZE_AMOUNT =
 // g", "1 000,5 kg"), with a plain, no-break or narrow no-break space. Nothing
 // may follow it that would carry on the number.
 const SPACED_AMOUNT =
-	/^(~?)(\d{1,3}(?:[ \u00A0\u202F]\d{3})+(?:[.,]\d+)?)(?![\d\/.,])/
+	/^(~?)(\d{1,3}(?:[ \u00A0\u202F]\d{3})+(?:[.,]\d+)?)(?![\d\/.,\-–])/
+
+/**
+ * A container word at the start of a name. After an amount, a unit and one
+ * of these, the first number counts the containers: "2 400 g tins tomatoes"
+ * is two 400 g tins.
+ */
+export const CONTAINER_START =
+	/^(?:tins?|cans?|jars?|bars?|packs?|packets?|bottles?|cartons?|sachets?|tubs?)\b/i
 
 /**
  * A line that starts with thousands split by spaces, parsed with the amount
  * kept whole and spelled as the source wrote it. The groups stay together
- * when a unit follows ("2 400 g tomatoes", "1 250 ml can coconut milk"), even
+ * when a unit follows ("2 400 g tomatoes", "1 500 g flour"), even
  * when parseAmount can't give the amount one value; it then stays as written
  * and out of sums. With no unit they stay together only when they read as
- * one number ("1 000 eggs"), so "6 100 calorie packs" is still six packs.
- * Null when the line doesn't start that way, or the groups don't stay.
+ * one number ("1 000 eggs"), so "6 100 calorie packs" is still six packs. A
+ * container after the unit keeps the first number a count of them, so "2 400
+ * g tins tomatoes" is two tins, as it read before. Null when the line doesn't
+ * start that way, or the groups don't stay.
  */
 function parseSpacedAmountLine(line: string): ParsedIngredient | null {
 	const spaced = SPACED_AMOUNT.exec(line)
@@ -409,6 +419,7 @@ function parseSpacedAmountLine(line: string): ParsedIngredient | null {
 	})
 	if (parsed?.amount !== stand) return null
 	if (!parsed.unit && parseAmount(number!) === null) return null
+	if (parsed.unit && CONTAINER_START.test(parsed.name)) return null
 	return { ...parsed, amount: `${about}${number}` }
 }
 

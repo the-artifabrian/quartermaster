@@ -1,3 +1,5 @@
+import { type PhotoRefusal } from './recipe-validation.ts'
+
 /**
  * What a Recipe photo may cost to decode, and the queue every sharp job on
  * one waits in. The production machine has 512 MB and one CPU, with about
@@ -157,15 +159,6 @@ export async function withPhotoSlot<T>(
 		giveBackSlot()
 	}
 }
-
-/** The photo field's reply to a file the check below refuses. */
-export const PHOTO_REFUSALS = {
-	unusable: 'We can’t use that file. Choose a JPG, PNG or WebP.',
-	'too-big': 'That photo is too big. Try a smaller one.',
-	busy: 'We couldn’t check that photo just now. Try again.',
-} as const
-
-export type PhotoRefusal = keyof typeof PHOTO_REFUSALS
 
 /** The formats the Recipe form offers, by sharp's name for each. */
 const PHOTO_FORMATS = {

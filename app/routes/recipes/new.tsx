@@ -11,10 +11,7 @@ import { recipeNewNav } from '#app/utils/nav-back.ts'
 import { data, replace, type ShouldRevalidateFunctionArgs } from 'react-router'
 import { RECIPE_FORM_ID, RecipeForm } from '#app/components/recipe-form.tsx'
 import { prisma } from '#app/utils/db.server.ts'
-import {
-	checkRecipePhoto,
-	PHOTO_REFUSALS,
-} from '#app/utils/recipe-photo.server.ts'
+import { checkRecipePhoto } from '#app/utils/recipe-photo.server.ts'
 import {
 	clientLeaves,
 	type EditScreenDone,
@@ -34,6 +31,7 @@ import {
 	RecipeSchema,
 	MAX_RECIPE_IMAGE_SIZE,
 	photoTooLargeResult,
+	PHOTO_REFUSALS,
 } from '#app/utils/recipe-validation.ts'
 import { uploadRecipeImage } from '#app/utils/storage.server.ts'
 import { writeTransaction } from '#app/utils/write-transaction.server.ts'
@@ -153,6 +151,7 @@ export async function action({ request }: Route.ActionArgs) {
 				result: submission.reply({
 					fieldErrors: { image: [PHOTO_REFUSALS[check.reason]] },
 				}),
+				photoRefusal: check.reason,
 			},
 			{ status: 400 },
 		)

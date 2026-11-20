@@ -25,10 +25,7 @@ import { Button } from '#app/components/ui/button.tsx'
 import { ConfirmSheet } from '#app/components/ui/confirm-sheet.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
-import {
-	checkRecipePhoto,
-	PHOTO_REFUSALS,
-} from '#app/utils/recipe-photo.server.ts'
+import { checkRecipePhoto } from '#app/utils/recipe-photo.server.ts'
 import {
 	clientLeaves,
 	type EditScreenDone,
@@ -51,6 +48,7 @@ import {
 	RecipeSchema,
 	MAX_RECIPE_IMAGE_SIZE,
 	photoTooLargeResult,
+	PHOTO_REFUSALS,
 } from '#app/utils/recipe-validation.ts'
 import { deleteRecipeImageUnlessShared } from '#app/utils/recipe-image.server.ts'
 import {
@@ -294,6 +292,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 				result: submission.reply({
 					fieldErrors: { image: [PHOTO_REFUSALS[check.reason]] },
 				}),
+				photoRefusal: check.reason,
 			},
 			{ status: 400 },
 		)

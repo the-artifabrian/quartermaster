@@ -83,3 +83,69 @@ test('invalid optional details reopen and focus the field before saving', async 
 	await user.click(screen.getByRole('button', { name: 'Save' }))
 	await waitFor(() => expect(save).toHaveBeenCalledOnce())
 })
+
+// Failure list for the photo after a Save the server refused because of it:
+// - a file it can't use or that is too big comes off the input, and the
+//   preview goes back to none, so the next Save goes through without it
+// - so does one the upload parser stopped at for size, whose reply has no
+//   reason
+// - a photo the server had no turn to check stays, with its preview, so
+//   the next Save tries it again instead of saving without it
+/** Picks a photo, saves, and waits for the server's refusal of it. */
+async function saveRefusedPhoto(photoRefusal: string | undefined) {
+	const user = userEvent.setup()
+	const Stub = createRoutesStub([
+		{
+			path: '/',
+			action: () => ({
+				result: {
+					status: 'error',
+					initialValue: {},
+					error: { image: ['That photo didn’t go through.'] },
+				},
+				photoRefusal,
+			}),
+			Component: () => (
+				<>
+					<button type="submit" form={RECIPE_FORM_ID}>
+						Save
+					</button>
+					<RecipeForm />
+				</>
+			),
+		},
+	])
+	const { container } = render(<Stub />)
+	await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Pasta')
+	await user.type(screen.getByPlaceholderText('Ingredient name'), 'pasta')
+	await user.type(screen.getByPlaceholderText('Step 1'), 'Boil.')
+	const input = container.querySelector<HTMLInputElement>(
+		'input[type="file"][name="image"]',
+	)!
+	await user.upload(
+		input,
+		new File(['jpeg bytes'], 'pasta.jpg', { type: 'image/jpeg' }),
+	)
+	await screen.findByRole('img', { name: 'Recipe preview' })
+	await user.click(screen.getByRole('button', { name: 'Save' }))
+	await screen.findByText('That photo didn’t go through.')
+	return input
+}
+
+test.each([
+	['it can’t use', 'unusable'],
+	['that is too big', 'too-big'],
+	['the upload parser stopped at for size', undefined],
+])('clears a photo the server refused as one %s', async (_, photoRefusal) => {
+	const input = await saveRefusedPhoto(photoRefusal)
+	await waitFor(() => expect(input.files).toHaveLength(0))
+	expect(screen.queryByRole('img', { name: 'Recipe preview' })).toBeNull()
+})
+
+test('keeps a photo the server had no turn to check', async () => {
+	const input = await saveRefusedPhoto('busy')
+	expect(input.files).toHaveLength(1)
+	expect(
+		screen.getByRole('img', { name: 'Recipe preview' }),
+	).toBeInTheDocument()
+})

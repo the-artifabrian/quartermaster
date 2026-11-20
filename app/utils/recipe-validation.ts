@@ -205,6 +205,19 @@ export const MAX_UNSHRUNK_PIXELS = 8_000_000
 export const MAX_IMPORT_IMAGE_COUNT = 5
 
 /**
+ * The photo field's reply to a file the server's check refuses. The form's
+ * action also returns the reason, so the form can tell a refused file from
+ * one the server had no turn to check.
+ */
+export const PHOTO_REFUSALS = {
+	unusable: 'We can’t use that file. Choose a JPG, PNG or WebP.',
+	'too-big': 'That photo is too big. Try a smaller one.',
+	busy: 'We couldn’t check that photo just now. Try again.',
+} as const
+
+export type PhotoRefusal = keyof typeof PHOTO_REFUSALS
+
+/**
  * The Recipe form's reply when the upload parser stops at a photo over
  * `MAX_RECIPE_IMAGE_SIZE`. The parser stops before reading the other fields,
  * so there is nothing to echo back; the browser still holds what was typed.

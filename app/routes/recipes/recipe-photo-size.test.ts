@@ -16,11 +16,11 @@ import sharp from 'sharp'
 import { expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { MAX_DECODED_BYTES } from '#app/utils/recipe-photo.server.ts'
 import {
-	MAX_DECODED_BYTES,
+	MAX_RECIPE_IMAGE_SIZE,
 	PHOTO_REFUSALS,
-} from '#app/utils/recipe-photo.server.ts'
-import { MAX_RECIPE_IMAGE_SIZE } from '#app/utils/recipe-validation.ts'
+} from '#app/utils/recipe-validation.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action as editAction } from './$recipeId_.edit.tsx'
@@ -244,6 +244,8 @@ test('a photo too big to decode gets a field error that says so', async () => {
 		params: {},
 	})
 	expect(photoError(result)).toEqual({ image: [PHOTO_REFUSALS['too-big']] })
+	// The form keeps or clears the photo by this, not by the message.
+	expect(result).toMatchObject({ data: { photoRefusal: 'too-big' } })
 	expect(
 		await prisma.recipe.count({ where: { householdId: session.householdId } }),
 	).toBe(0)

@@ -13,6 +13,7 @@ import { historyIndex } from '#app/utils/nav-direction.ts'
 import { haptic } from '#app/utils/shell-bridge.ts'
 import {
 	MAX_RECIPE_IMAGE_SIZE,
+	type PhotoRefusal,
 	RecipeSchema,
 } from '#app/utils/recipe-validation.ts'
 import { DurationHint } from './duration-hint.tsx'
@@ -124,7 +125,11 @@ export const RECIPE_FORM_ID = 'recipe-form'
 
 export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 	const actionData = useActionData<
-		{ result: { error?: Record<string, string[]> } } | { done: string }
+		| {
+				result: { error?: Record<string, string[]> }
+				photoRefusal?: PhotoRefusal
+		  }
+		| { done: string }
 	>()
 	const lastResult =
 		actionData && 'result' in actionData ? actionData.result : undefined
@@ -160,9 +165,12 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 	const photoInput = useRef<HTMLInputElement>(null)
 	// A refused photo comes off the input, so the next Save goes through
 	// without it: iOS gives no way to clear a picked file. The preview goes
-	// back to the saved photo, which the refused Save left in place.
+	// back to the saved photo, which the refused Save left in place. A photo
+	// the server had no turn to check stays, so Save tries it again.
+	const photoRefusal =
+		actionData && 'result' in actionData ? actionData.photoRefusal : undefined
 	useEffect(() => {
-		if (!lastResult?.error?.image) return
+		if (!lastResult?.error?.image || photoRefusal === 'busy') return
 		if (photoInput.current) photoInput.current.value = ''
 		setImagePreview(savedPhoto)
 		// Once per answer, so a photo picked after it stays.

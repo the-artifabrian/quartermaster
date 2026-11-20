@@ -1,3 +1,4 @@
+import { MAX_INGREDIENT_AMOUNT_LENGTH } from './recipe-validation.ts'
 import { isMetricUnit, round2 } from './unit-conversion.ts'
 
 /** Unicode fraction characters → numeric values */
@@ -15,14 +16,33 @@ const UNICODE_FRACTIONS: Record<string, number> = {
 
 const UNICODE_FRACTION_PATTERN = /[½⅓⅔¼¾⅛⅜⅝⅞]/
 
+// One to three digits that don't start with 0, then a single comma or dot
+// and exactly three digits: "1,250", "1.000". A Romanian scale writes 1.25 kg
+// as "1,250", and "1.000" is one thousand in Romanian but one in English, so
+// neither has a single value.
+const THOUSANDS_LOOKALIKE = /^[1-9]\d{0,2}[.,]\d{3}$/
+// Two or more comma groups, or one before a decimal dot, can only be
+// thousands: "1,000,000", "1,000.5".
+const COMMA_THOUSANDS = /^[1-9]\d{0,2}(?:(?:,\d{3}){2,}(?:\.\d+)?|,\d{3}\.\d+)$/
+// Any other single comma between digits is a decimal comma: "1,5", "0,500".
+const COMMA_DECIMAL = /^\d+,\d+$/
+const DOT_DECIMAL = /^(?:\d+\.?\d*|\.\d+)$/
+
 /**
- * Parse a string amount into a number.
- * Handles fractions ("1/2"), mixed numbers ("1 1/2"), decimals ("1.5"),
+ * Parse a string amount into a number, or null when the whole string isn't
+ * one number. Handles fractions ("1/2"), mixed numbers ("1 1/2"), decimals
+ * with a dot or a comma ("1.5", "1,5"), thousands separators ("1,000,000"),
  * unicode fractions ("½", "¾"), and mixed unicode ("1½", "1 ½").
+ *
+ * This is the one place an amount gets a numeric value; everything that
+ * scales, sums, converts or counts asks it. Anything it can't read, such as
+ * "2 large", "2 x 400" or an ambiguous "1,250", stays as written and out of
+ * every sum, so the app never shows a false total.
  */
 export function parseAmount(amount: string): number | null {
-	const trimmed = amount.trim()
-	if (!trimmed) return null
+	const trimmed = amount.trim().replaceAll('\u2044', '/')
+	// Nothing longer can be saved as an amount, so it isn't one.
+	if (!trimmed || trimmed.length > MAX_INGREDIENT_AMOUNT_LENGTH) return null
 
 	// Unicode fraction (standalone): "½", "¾"
 	if (trimmed.length === 1 && UNICODE_FRACTIONS[trimmed] !== undefined) {
@@ -58,9 +78,11 @@ export function parseAmount(amount: string): number | null {
 		return num / den
 	}
 
-	// Decimal or integer
-	const n = parseFloat(trimmed)
-	return isNaN(n) ? null : n
+	if (THOUSANDS_LOOKALIKE.test(trimmed)) return null
+	if (COMMA_THOUSANDS.test(trimmed)) return Number(trimmed.replaceAll(',', ''))
+	if (COMMA_DECIMAL.test(trimmed)) return Number(trimmed.replace(',', '.'))
+	if (DOT_DECIMAL.test(trimmed)) return Number(trimmed)
+	return null
 }
 
 // Common fractions for display, ordered by denominator then numerator
@@ -136,30 +158,36 @@ function snapToCommonFraction(
 
 /**
  * A range amount like "1-2", "2 to 3", or "1½–2". Ranges are honest input:
- * they scale end by end but never sum. parseAmount would read "1-2" as 1,
- * so every caller asks this first (#109, #384).
+ * they scale end by end but never sum, so every caller asks this first
+ * (#109, #384). parseAmount reads no range as a number.
  */
 const RANGE_AMOUNT =
-	/^\s*(\d[\d\s./½⅓⅔¼¾⅛⅜⅝⅞]*?|[½⅓⅔¼¾⅛⅜⅝⅞])\s*([-–—~]|to)\s*(\d[\d\s./½⅓⅔¼¾⅛⅜⅝⅞]*|[½⅓⅔¼¾⅛⅜⅝⅞])\s*$/i
+	/^\s*(\d[\d\s.,/½⅓⅔¼¾⅛⅜⅝⅞]*?|[½⅓⅔¼¾⅛⅜⅝⅞])\s*([-–—~]|to)\s*(\d[\d\s.,/½⅓⅔¼¾⅛⅜⅝⅞]*|[½⅓⅔¼¾⅛⅜⅝⅞])\s*$/i
 
 export function isRangeAmount(amount: string): boolean {
-	return RANGE_AMOUNT.test(amount)
+	return amount.length <= MAX_AMOUNT_TEXT && RANGE_AMOUNT.test(amount)
 }
+
+// RANGE_AMOUNT lets its ends hold spaces, so it is only ever run on text
+// short enough to be an amount, with room for spaces around it.
+const MAX_AMOUNT_TEXT = MAX_INGREDIENT_AMOUNT_LENGTH * 2
 
 /**
  * Both ends of a range and the dash to rejoin them with: a hyphen or en dash
  * as the author wrote it, otherwise a hyphen ("~" before a digit reads as
- * "about", so "2~4" would be noise). Null when either end defeats parsing, so
- * the caller passes the range through verbatim rather than collapsing it.
+ * "about", so "2~4" would be noise). Null when either end defeats parsing, or
+ * the low end is above the high one, so the caller passes the range through
+ * verbatim rather than collapsing it.
  */
-function parseRangeAmount(
+export function parseRangeAmount(
 	amount: string,
 ): { low: number; high: number; separator: string } | null {
+	if (!isRangeAmount(amount)) return null
 	const match = RANGE_AMOUNT.exec(amount)
 	if (!match) return null
 	const low = parseAmount(match[1]!)
 	const high = parseAmount(match[3]!)
-	if (low === null || high === null) return null
+	if (low === null || high === null || low > high) return null
 	const separator = match[2] === '–' ? '–' : '-'
 	return { low, high, separator }
 }

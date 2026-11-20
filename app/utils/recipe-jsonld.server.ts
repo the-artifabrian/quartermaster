@@ -4,12 +4,16 @@ import {
 	isAllCapsHouseStyle,
 	parseIngredient,
 	parseISODuration,
+	type ParsedIngredient,
 } from './ingredient-parser.server.ts'
 import {
 	extractYieldFromTitle,
 	joinBrokenUnitSteps,
 } from './recipe-text-parser.ts'
-import { MAX_RAW_TEXT_LENGTH } from './recipe-validation.ts'
+import {
+	MAX_RAW_TEXT_LENGTH,
+	MAX_RECIPE_INGREDIENTS,
+} from './recipe-validation.ts'
 
 /** The Recipe node has a field in a shape the import cannot read. */
 export class RecipeShapeError extends Error {
@@ -48,14 +52,36 @@ export function findRecipeInJsonLd(
 	return null
 }
 
+/**
+ * Drops each "<…>" the way /<[^>]+>/g does, in one pass, so it stays linear
+ * on a JSON-LD field megabytes long.
+ */
+function stripTags(text: string): string {
+	let out = ''
+	let from = 0
+	let open = text.indexOf('<')
+	while (open !== -1) {
+		const close = text.indexOf('>', open + 1)
+		if (close === -1) break
+		if (close === open + 1) {
+			// "<>" holds nothing, so it isn't a tag.
+			open = text.indexOf('<', close)
+			continue
+		}
+		out += text.slice(from, open)
+		from = close + 1
+		open = text.indexOf('<', from)
+	}
+	return out + text.slice(from)
+}
+
 /** Decode HTML entities and strip tags from JSON-LD text values */
 export function cleanJsonLdText(text: string): string {
 	return (
-		text
+		stripTags(
 			// Replace <br> variants with spaces
-			.replace(/<br\s*\/?>/gi, ' ')
-			// Strip remaining HTML tags
-			.replace(/<[^>]+>/g, '')
+			text.replace(/<br\s*\/?>/gi, ' '),
+		)
 			// Decode common HTML entities
 			.replace(/&nbsp;/gi, ' ')
 			.replace(/&amp;/gi, '&')
@@ -190,18 +216,40 @@ export function extractRecipe(
 		throw new RecipeShapeError('recipeIngredient is not a list of strings')
 	}
 	const rawIngredients: string[] = ingredientField
-	const cleanedLines = rawIngredients.map(cleanJsonLdText)
+	// Parsing stops at the first row past what a Recipe holds, so a page can't
+	// make it parse thousands more; the import then says the list was cut.
+	const lines: Array<{ cleaned: string; parsed: ParsedIngredient | null }> = []
+	let ingredientsCut = false
+	for (const line of rawIngredients) {
+		const cleaned = cleanJsonLdText(line)
+		if (!cleaned) continue
+		const parsed = parseIngredient(cleaned)
+		// Caps can decide whether a line is a heading, never whether it is a
+		// row, so this counts rows the way the save does.
+		const isRow =
+			detectIngredientHeading(cleaned, { allCapsIsHeading: false }) !== null ||
+			Boolean(parsed?.name.trim())
+		if (!isRow) continue
+		if (lines.length === MAX_RECIPE_INGREDIENTS) {
+			ingredientsCut = true
+			break
+		}
+		lines.push({ cleaned, parsed })
+	}
 	// When the whole list is caps, caps is house style, not structure
-	const allCapsIsHeading = !isAllCapsHouseStyle(cleanedLines)
-	const ingredients = cleanedLines
-		.map((cleaned) => {
-			// Sites stuff sub-section headers ("For the crust") into
-			// recipeIngredient — keep them as headings, not fake ingredients
-			const heading = detectIngredientHeading(cleaned, { allCapsIsHeading })
-			if (heading) return { name: heading, isHeading: true }
-			return parseIngredient(cleaned)
-		})
-		.filter((ing): ing is NonNullable<typeof ing> => ing !== null)
+	const allCapsIsHeading = !isAllCapsHouseStyle(
+		lines.map((line) => line.cleaned),
+	)
+	const ingredients = lines.flatMap(({ cleaned, parsed }) => {
+		// Sites stuff sub-section headers ("For the crust") into
+		// recipeIngredient — keep them as headings, not fake ingredients
+		const heading = detectIngredientHeading(cleaned, { allCapsIsHeading })
+		if (heading) return [{ name: heading, isHeading: true }]
+		if (!parsed) return []
+		const { cut, ...ingredient } = parsed
+		if (cut) ingredientsCut = true
+		return [ingredient]
+	})
 
 	const instructions = joinBrokenUnitSteps(
 		parseInstructions(jsonLd.recipeInstructions),
@@ -233,6 +281,7 @@ export function extractRecipe(
 		// what a Recipe keeps.
 		rawText: JSON.stringify(jsonLd, null, 2).slice(0, MAX_RAW_TEXT_LENGTH),
 		ingredients,
+		ingredientsCut,
 		instructions,
 	}
 }

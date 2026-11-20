@@ -1,3 +1,97 @@
+import {
+	MAX_INGREDIENT_AMOUNT_LENGTH,
+	MAX_INGREDIENT_NAME_LENGTH,
+	MAX_INGREDIENT_NOTES_LENGTH,
+	MAX_INGREDIENT_UNIT_LENGTH,
+} from './recipe-validation.ts'
+
+/**
+ * The longest ingredient line the parser reads, after links are reduced to
+ * their text; the rest is dropped before parsing, and the result says so
+ * with `cut`, so import can report the ingredients as shortened. Well over
+ * what the four fields hold together, so real lines are never cut.
+ */
+export const MAX_INGREDIENT_LINE_LENGTH =
+	MAX_INGREDIENT_NAME_LENGTH +
+	MAX_INGREDIENT_AMOUNT_LENGTH +
+	MAX_INGREDIENT_UNIT_LENGTH +
+	MAX_INGREDIENT_NOTES_LENGTH +
+	200
+
+// The patterns below read whole ingredient lines, so none may let two
+// quantifiers take turns over the same characters; that keeps parsing linear
+// in the length of the line. A name or notes part is matched as `\s+(\S.*|[^\S\n\r\u2028\u2029])$` rather than
+// `\s+(.+)$` for that reason. It starts at its first non-space, or is the
+// last space when only spaces are left, which is what `(.+)` held too.
+
+/**
+ * Apple Notes links "++[text](url)++" keep their text. Neither part may
+ * hold a bracket, so an opener that never closes ends its scan at the next
+ * one instead of at the end of the line.
+ */
+export const APPLE_NOTES_LINK = /\+\+\[([^[\]]+)\]\([^)[\]]+\)\+\+/g
+const MARKDOWN_LINK = /\[([^[\]]+)\]\([^)[\]]+\)/g
+
+const LINE_BREAK = /[\n\r\u2028\u2029]/
+
+/**
+ * A global replace of a pattern that ends in `closer`, run only up to the
+ * last `closer`. No match can end later, and leaving out the tail means an
+ * opener with no closer after it never scans to the end of the text, so a
+ * run of unclosed openers stays linear.
+ */
+function replaceUpToLast(
+	text: string,
+	closer: string,
+	pattern: RegExp,
+	replacement: string,
+): string {
+	const end = text.lastIndexOf(closer) + closer.length
+	if (end < closer.length) return text
+	return text.slice(0, end).replace(pattern, replacement) + text.slice(end)
+}
+
+/**
+ * "((text))" → "(text)", as /\(\(([^)]+)\)\)/g would, in one pass: each
+ * "((" pairs with the first ")" after it, which matches only when another ")"
+ * follows at once.
+ */
+function stripDoubleParens(text: string): string {
+	let out = ''
+	let from = 0
+	let close = -1
+	let open = text.indexOf('((')
+	while (open !== -1) {
+		if (close < open + 2) close = text.indexOf(')', open + 2)
+		if (close === -1) break
+		if (close > open + 2 && text[close + 1] === ')') {
+			out += `${text.slice(from, open)}(${text.slice(open + 2, close)})`
+			from = close + 2
+			open = text.indexOf('((', from)
+		} else {
+			open = text.indexOf('((', open + 1)
+		}
+	}
+	return out + text.slice(from)
+}
+
+const TO_TASTE_SUFFIX = /(?<!\s)\s+to\s+taste$/i
+// A quick look at the end before TO_TASTE_SUFFIX reads the whole text.
+const endsWithTaste = (text: string) => text.slice(-5).toLowerCase() === 'taste'
+
+/**
+ * What comes before a closing "to taste", or null when there is none. Like
+ * /^(.+?)\s+to\s+taste$/i: the part before is at least one character on one
+ * line.
+ */
+function beforeToTaste(text: string): string | null {
+	if (!endsWithTaste(text)) return null
+	const match = TO_TASTE_SUFFIX.exec(text)
+	if (!match || match.index === 0) return null
+	const before = text.slice(0, match.index)
+	return LINE_BREAK.test(before) ? null : before
+}
+
 // Common cooking units - only these should be treated as units
 export const COMMON_UNITS = new Set([
 	'g',
@@ -114,36 +208,31 @@ const NUMBER_WORDS: Record<string, string> = {
  * Handles broken HTML that produces orphaned ) or ( in ingredient strings.
  */
 function stripOrphanedParens(text: string): string {
+	if (!text.includes('(') && !text.includes(')')) return text
 	// Pass 1: left-to-right, remove orphaned )
 	let depth = 0
-	let result = ''
+	const kept: string[] = []
 	for (const ch of text) {
-		if (ch === '(') {
+		if (ch === ')') {
+			if (depth === 0) continue // orphaned ), skip
+			depth--
+		} else if (ch === '(') {
 			depth++
-			result += ch
-		} else if (ch === ')') {
-			if (depth > 0) {
-				depth--
-				result += ch
-			}
-			// orphaned ), skip
-		} else {
-			result += ch
+		}
+		kept.push(ch)
+	}
+	if (depth === 0) return kept.join('')
+	// Pass 2: right-to-left, remove as many ( as are left open
+	for (let i = kept.length - 1; i >= 0 && depth > 0; i--) {
+		if (kept[i] === '(') {
+			kept[i] = ''
+			depth--
 		}
 	}
-	// Pass 2: right-to-left, remove orphaned (
-	if (depth > 0) {
-		let result2 = ''
-		for (let i = result.length - 1; i >= 0; i--) {
-			if (result[i] === '(' && depth > 0) {
-				depth--
-			} else {
-				result2 = result[i] + result2
-			}
-		}
-		return result2.replace(/\s{2,}/g, ' ').trim()
-	}
-	return result
+	return kept
+		.join('')
+		.replace(/\s{2,}/g, ' ')
+		.trim()
 }
 
 /**
@@ -190,15 +279,37 @@ function extractTrailingParenthetical(
 	name: string,
 	existingNotes: string | undefined,
 ): { name: string; notes: string | undefined } {
-	const parenMatch = name.match(/^(.+?)\s*\(([^)]+)\)\s*$/)
-	if (parenMatch) {
-		const extracted = parenMatch[2]!.trim()
+	const paren = trailingParenthetical(name)
+	if (paren) {
+		const extracted = paren.inside.trim()
 		return {
-			name: parenMatch[1]!.trim(),
+			name: paren.before.trim(),
 			notes: existingNotes ? existingNotes + ', ' + extracted : extracted,
 		}
 	}
 	return { name, notes: existingNotes }
+}
+
+/**
+ * Splits "name (inside)" at a closing parenthetical, as
+ * /^(.+?)\s*\(([^)]+)\)\s*$/ would, without backtracking. The parenthetical
+ * opens at the first "(" after any earlier ")", and holds no ")" itself.
+ * The part before is at least one character on one line.
+ */
+function trailingParenthetical(
+	name: string,
+): { before: string; inside: string } | null {
+	const text = name.trimEnd()
+	const close = text.length - 1
+	if (text[close] !== ')') return null
+	const afterEarlierClose = text.lastIndexOf(')', close - 1) + 1
+	const open = text.indexOf('(', Math.max(afterEarlierClose, 1))
+	if (open === -1 || open >= close - 1) return null
+	let beforeEnd = open
+	while (beforeEnd > 1 && /\s/.test(text[beforeEnd - 1]!)) beforeEnd--
+	const before = text.slice(0, beforeEnd)
+	if (LINE_BREAK.test(before)) return null
+	return { before, inside: text.slice(open + 1, close) }
 }
 
 /**
@@ -262,31 +373,62 @@ export function detectIngredientHeading(
 	return null
 }
 
-// Parse an ingredient string into structured parts
-export function parseIngredient(line: string): {
+// Amount, optional unit word, then the rest of the line: "600 g broccoli",
+// "600g broccoli". An amount starts with a digit, a fraction, "." or "~",
+// and takes a comma only between digits.
+const LEADING_AMOUNT =
+	/^(~?[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)(?:\s*([a-zA-Z]+\.?))?\s+(\S.*|[^\S\n\r\u2028\u2029])$/
+// The same with a count times a size as the amount: "2 x 400 g tomatoes".
+const PACK_SIZE_AMOUNT =
+	/^(~?[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*\s*[x×]\s*\d(?:[\d.\/]|,(?=\d))*)(?:\s*([a-zA-Z]+\.?))?\s+(\S.*|[^\S\n\r\u2028\u2029])$/
+
+/** The first MAX_INGREDIENT_LINE_LENGTH characters, never half an emoji. */
+function capLine(line: string): string {
+	if (line.length <= MAX_INGREDIENT_LINE_LENGTH) return line
+	const head = line.slice(0, MAX_INGREDIENT_LINE_LENGTH)
+	return /[\uD800-\uDBFF]$/.test(head) ? head.slice(0, -1) : head
+}
+
+export type ParsedIngredient = {
 	name: string
 	amount?: string
 	unit?: string
 	notes?: string
 	isHeading?: boolean
-} | null {
-	let cleaned = line
+	/** The line was longer than MAX_INGREDIENT_LINE_LENGTH and was cut. */
+	cut?: true
+}
+
+// Parse an ingredient string into structured parts
+export function parseIngredient(line: string): ParsedIngredient | null {
+	const text = line
+		// U+2044 FRACTION SLASH, as in "1 1⁄2"
+		.replaceAll('\u2044', '/')
 		.replace(/^-\s*\[[ x]\]\s*/, '')
-		.replace(/\+\+\[([^\]]+)\]\([^)]+\)\+\+/g, '$1')
-		.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+		.replace(APPLE_NOTES_LINK, '$1')
+		.replace(MARKDOWN_LINK, '$1')
 		.trim()
-	if (!cleaned) return null
+	if (!text) return null
+	const capped = capLine(text).trimEnd()
+	const parsed = parseCleanedLine(capped)
+	return parsed && capped.length < text.length
+		? { ...parsed, cut: true }
+		: parsed
+}
+
+function parseCleanedLine(line: string): ParsedIngredient | null {
+	let cleaned = line
 
 	// Strip redundant parens after commas: "beans, (trimmed)" → "beans, trimmed"
 	// Common in JSON-LD recipeIngredient data from recipe sites
-	cleaned = cleaned.replace(/,\s*\(([^)]+)\)/g, ', $1')
+	cleaned = replaceUpToLast(cleaned, ')', /,\s*\(([^)]+)\)/g, ', $1')
 
 	// Fix broken parenthetical fragments from poorly-formatted JSON-LD:
 	// "chicken cutlets, sliced thin), (approx." → "chicken cutlets, sliced thin, approx."
 	cleaned = cleaned.replace(/\)\s*,\s*\(/g, ', ')
 
 	// Strip double parentheses: "((I like to use panko))" → "(I like to use panko)"
-	cleaned = cleaned.replace(/\(\(([^)]+)\)\)/g, '($1)')
+	cleaned = stripDoubleParens(cleaned)
 
 	// Strip orphaned parentheses from broken HTML/JSON-LD
 	cleaned = stripOrphanedParens(cleaned)
@@ -295,8 +437,10 @@ export function parseIngredient(line: string): {
 	cleaned = cleaned.replace(/^(?:about|approximately)\s+/i, '')
 
 	// Strip parenthetical approximation markers: "(approx.)" / "(approximately)"
-	cleaned = cleaned.replace(/\s*\(approx\.?\)/gi, '')
-	cleaned = cleaned.replace(/\s*\(approximately\)/gi, '')
+	if (/\(approx/i.test(cleaned)) {
+		cleaned = cleaned.replace(/(?<!\s)\s*\(approx\.?\)/gi, '')
+		cleaned = cleaned.replace(/(?<!\s)\s*\(approximately\)/gi, '')
+	}
 
 	// Written-out numbers: "Two cloves garlic" → "2 cloves garlic"
 	const wordNumMatch = cleaned.match(
@@ -311,31 +455,38 @@ export function parseIngredient(line: string): {
 
 	// "Juice of" / "Zest of" patterns: "Juice of 1 lemon" → "1 lemon, juice"
 	const juiceZestMatch = cleaned.match(
-		/^(juice|zest|juice\s+and\s+zest)\s+of\s+([\d½⅓⅔¼¾⅛⅜⅝⅞\/]+)\s+(.+)$/i,
+		/^(juice|zest|juice\s+and\s+zest)\s+of\s+([\d½⅓⅔¼¾⅛⅜⅝⅞\/]+)\s+(\S.*|[^\S\n\r\u2028\u2029])$/i,
 	)
 	if (juiceZestMatch) {
 		const descriptor = juiceZestMatch[1]!.toLowerCase()
 		cleaned = `${juiceZestMatch[2]} ${juiceZestMatch[3]}, ${descriptor}`
 	}
 
+	// Amount patterns take a comma only between digits ("1,5", "1,000"), so a
+	// number isn't split at its comma and "2, chopped" still starts notes.
+	// parseAmount decides what the amount means.
+
 	// "X to Y" range normalization: "2 to 3 tablespoons" → "2-3 tablespoons"
 	cleaned = cleaned.replace(
-		/^(~?[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]+)\s+to\s+([\d.\/½⅓⅔¼¾⅛⅜⅝⅞]+)\s/,
+		/^(~?[\d.\/½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s+to\s+([\d.\/½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s/,
 		'$1-$2 ',
 	)
 
 	// Normalize ranges with spaces around dash: "1½ -2 cups" → "1½-2 cups"
 	cleaned = cleaned.replace(
-		/^(~?[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]+)\s*[-–]\s*([\d.\/½⅓⅔¼¾⅛⅜⅝⅞]+)\s/,
+		/^(~?[\d.\/½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s*[-–]\s*([\d.\/½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s/,
 		'$1-$2 ',
 	)
 
 	// Handle "X to taste" pattern (without comma).
 	// Only match when not starting with a digit (avoids capturing "2 tsp salt to taste"
 	// which should fall through to the main regex for proper amount/unit parsing).
-	const toTasteMatch = cleaned.match(/^([a-zA-Z][^,]*?)\s+to\s+taste$/i)
-	if (toTasteMatch) {
-		return { name: toTasteMatch[1]!.trim(), notes: 'to taste' }
+	const toTasteMatch = endsWithTaste(cleaned)
+		? TO_TASTE_SUFFIX.exec(cleaned)
+		: null
+	const beforeTaste = toTasteMatch ? cleaned.slice(0, toTasteMatch.index) : ''
+	if (/^[a-zA-Z][^,]*$/.test(beforeTaste)) {
+		return { name: beforeTaste.trim(), notes: 'to taste' }
 	}
 
 	// Handle mixed unicode fractions with space: "1 ½ cups flour" → combine to "1½ cups flour"
@@ -344,7 +495,9 @@ export function parseIngredient(line: string): {
 
 	// Handle mixed ASCII fractions: "1 3/4 cups flour", "1 1/2 eggs"
 	// The main regex can't capture "1 3/4" as one token due to the internal space
-	const mixedFractionMatch = cleaned.match(/^(~?\d+)\s+(\d+\/\d+)\s+(.+)$/)
+	const mixedFractionMatch = cleaned.match(
+		/^(~?\d+)\s+(\d+\/\d+)\s+(\S.*|[^\S\n\r\u2028\u2029])$/,
+	)
 	if (mixedFractionMatch) {
 		const [, whole, frac, rest] = mixedFractionMatch
 		const amount = `${whole} ${frac}`
@@ -373,9 +526,9 @@ export function parseIngredient(line: string): {
 			name = split.name
 			notes = split.notes
 		}
-		const toTasteSuffix = name.match(/^(.+?)\s+to\s+taste$/i)
-		if (toTasteSuffix) {
-			name = toTasteSuffix[1]!
+		const toTasteSuffix = beforeToTaste(name)
+		if (toTasteSuffix !== null) {
+			name = toTasteSuffix
 			notes = notes ? notes + ', to taste' : 'to taste'
 		}
 		;({ name, notes } = extractTrailingParenthetical(name, notes))
@@ -384,7 +537,7 @@ export function parseIngredient(line: string): {
 
 	// Handle "fl oz" multi-word unit: "2 fl oz lime juice"
 	const flOzMatch = cleaned.match(
-		/^(~?[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]+)\s*(?:fl\.?\s*oz\.?|fluid\s+ounces?)\s+(.+)$/i,
+		/^(~?[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s*(?:fl\.?\s*oz\.?|fluid\s+ounces?)\s+(\S.*|[^\S\n\r\u2028\u2029])$/i,
 	)
 	if (flOzMatch) {
 		let name = flOzMatch[2]!.trim()
@@ -394,9 +547,9 @@ export function parseIngredient(line: string): {
 			name = split.name
 			notes = split.notes
 		}
-		const toTasteSuffix = name.match(/^(.+?)\s+to\s+taste$/i)
-		if (toTasteSuffix) {
-			name = toTasteSuffix[1]!
+		const toTasteSuffix = beforeToTaste(name)
+		if (toTasteSuffix !== null) {
+			name = toTasteSuffix
 			notes = notes ? notes + ', to taste' : 'to taste'
 		}
 		;({ name, notes } = extractTrailingParenthetical(name, notes))
@@ -405,7 +558,7 @@ export function parseIngredient(line: string): {
 
 	// Handle "N (X unit) container name" → e.g. "1 (14.5 oz) can diced tomatoes"
 	const nestedMatch = cleaned.match(
-		/^([\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞~]+)\s*\(([^)]+)\)\s*([a-zA-Z]+\.?)\s+(.+)$/,
+		/^([\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞~](?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞~]|,(?=\d))*)\s*\(([^)]+)\)\s*([a-zA-Z]+\.?)\s+(\S.*|[^\S\n\r\u2028\u2029])$/,
 	)
 	if (nestedMatch) {
 		const [, nestedAmount, parenthetical, possibleUnit, rest] = nestedMatch
@@ -433,9 +586,12 @@ export function parseIngredient(line: string): {
 	// Handle both "600 g broccoli" and "600g broccoli"
 	// Unicode fractions (½⅓⅔¼¾⅛⅜⅝⅞) included in amount character class
 	// Trailing period on unit allowed for abbreviations like "tbsp."
-	const match = cleaned.match(
-		/^(~?[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]+)\s*([a-zA-Z]+\.?)?\s+(.+)$/,
-	)
+	// A count times a size ("2 x 400 g", "2x400g") stays one amount when a
+	// unit follows; there is no pack size, so parseAmount leaves it as written
+	// and out of totals. Without a unit ("9x13 baking dish") it reads as before.
+	const pack = cleaned.match(PACK_SIZE_AMOUNT)
+	const match =
+		pack?.[2] && isUnit(pack[2]) ? pack : cleaned.match(LEADING_AMOUNT)
 
 	if (match) {
 		const amount = match[1]
@@ -464,7 +620,9 @@ export function parseIngredient(line: string): {
 		}
 
 		// Extract leading parenthetical: "(about 8 oz) shredded cheddar" → notes + name
-		const leadingParen = name.match(/^\(([^)]+)\)\s+(.+)$/)
+		const leadingParen = name.match(
+			/^\(([^)]+)\)\s+(\S.*|[^\S\n\r\u2028\u2029])$/,
+		)
 		if (leadingParen) {
 			notes = leadingParen[1]!.trim()
 			name = leadingParen[2]!
@@ -473,7 +631,9 @@ export function parseIngredient(line: string): {
 		// Extract embedded parenthetical: "whole (8 oz each) boneless" → notes + cleaned name
 		// Only matches when there's content after the closing paren (not trailing parens)
 		if (!leadingParen) {
-			const embeddedParen = name.match(/^([^(]+?)\s*\(([^)]+)\)\s+(.+)$/)
+			const embeddedParen = name.match(
+				/^([^(]+)\(([^)]+)\)\s+(\S.*|[^\S\n\r\u2028\u2029])$/,
+			)
 			if (embeddedParen) {
 				notes = notes
 					? notes + ', ' + embeddedParen[2]!.trim()
@@ -492,9 +652,9 @@ export function parseIngredient(line: string): {
 		}
 
 		// Extract trailing "to taste" from name to notes
-		const toTasteSuffix = name.match(/^(.+?)\s+to\s+taste$/i)
-		if (toTasteSuffix) {
-			name = toTasteSuffix[1]!
+		const toTasteSuffix = beforeToTaste(name)
+		if (toTasteSuffix !== null) {
+			name = toTasteSuffix
 			notes = notes ? notes + ', to taste' : 'to taste'
 		}
 

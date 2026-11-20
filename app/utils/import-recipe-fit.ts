@@ -134,7 +134,12 @@ export function fitImportedRecipe(extracted: ExtractedRecipe): {
 	const ingredientRows = extracted.ingredients.filter((row) =>
 		blankToNull(row.name),
 	)
-	if (ingredientRows.length > MAX_RECIPE_INGREDIENTS) cut('ingredients')()
+	if (
+		ingredientRows.length > MAX_RECIPE_INGREDIENTS ||
+		extracted.ingredientsCut
+	) {
+		cut('ingredients')()
+	}
 	const ingredients = ingredientRows
 		.slice(0, MAX_RECIPE_INGREDIENTS)
 		.map((row) => {

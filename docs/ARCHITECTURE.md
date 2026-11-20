@@ -260,6 +260,29 @@ unticked defaults only; it never removes a line on its own.
 text. `normalizeIngredientName()` removes safe modifiers, normalizes plurals,
 and protects compounds such as “rice vinegar” and protein cuts.
 
+Amounts are saved as written, and `parseAmount()` in `app/utils/fractions.ts` is
+the one place that gives them a number. Anything that scales, sums, converts or
+counts an amount asks it. It reads the whole string or nothing: a fraction, a
+mixed number, a decimal with a dot or a comma (“1,5”), or thousands that can't
+be anything else (“1,000,000”, “1,000.5”). An amount it can't read as exactly
+one number stays as written and is never summed or scaled. That covers “2
+large” and a pack size like “2 x 400”. It also covers one to three digits, a
+single comma or dot, then three digits: a Romanian scale writes 1.25 kg as
+“1,250”, and “1.000” is one thousand in Romanian but one in English. Ranges
+such as “1,5–2” scale end by end and never sum; a range with an end like that,
+or with its low end above its high end, stays as written. The import, paste,
+voice and Shopping quick-add parsers only find where an amount starts and ends,
+and they never split a number at its comma.
+
+The paste, JSON-LD and ingredient parsers read text as long as a whole paste or
+a JSON-LD field, so their patterns must stay linear. Ingredient lines are cut at
+`MAX_INGREDIENT_LINE_LENGTH` once links are reduced to their text, and a cut
+line makes the import report Ingredients as shortened.
+`app/utils/recipe-parsing-time.test.ts` checks that parsing time grows linearly
+with the input for the patterns that can backtrack on it. Inside one ingredient
+line it grows the line below the cap, and it skips the parts of the paren
+patterns that only ever see text already matched up to the end of the line.
+
 Shopping uses deterministic demand identity and unit-family conversion. Legacy
 fuzzy Recipe matching still exists for a few older suggestion/recovery paths. It
 is not a claim of exact ingredient identity; #144 may replace its hot paths with

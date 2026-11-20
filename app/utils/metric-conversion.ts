@@ -179,11 +179,14 @@ export function formatMetricAmount(result: MetricResult): string {
  */
 export function convertTemperatures(text: string): string {
 	return text.replace(
-		/(\d{3,})\s*(?:°|degrees?\s*)?\s*F(?:ahrenheit)?\b/gi,
+		// Starts only at the first digit of a run, so a long run of digits
+		// isn't rescanned from every digit in it. Only one `\s*` can take a
+		// given space, so a long run of spaces isn't split every possible way.
+		/(?<!\d)(\d{3,})(?:\s*(?:°|degrees?))?\s*F(?:ahrenheit)?\b/gi,
 		(_, digits: string) => {
 			const f = parseInt(digits, 10)
 			// Round to nearest 5°C for oven temperatures (cooking convention)
-			const c = Math.round((f - 32) * 5 / 9 / 5) * 5
+			const c = Math.round(((f - 32) * 5) / 9 / 5) * 5
 			return `${c}°C`
 		},
 	)

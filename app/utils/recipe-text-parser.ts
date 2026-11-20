@@ -1,4 +1,5 @@
 import {
+	APPLE_NOTES_LINK,
 	detectIngredientHeading,
 	isAllCapsHouseStyle,
 	parseIngredient,
@@ -17,20 +18,29 @@ export type ParsedRecipe = {
 		isHeading?: boolean
 	}>
 	instructions: Array<{ content: string }>
+	/** An ingredient line was longer than the parser reads, and was cut. */
+	ingredientsCut: boolean
 	warnings: string[]
 }
 
+// Patterns in this file read text of any length, up to a whole paste or a
+// JSON-LD field, so none may let two quantifiers take turns over the same
+// characters; that keeps parsing linear in the length of the text.
 const HEADING_PATTERN =
-	/^(ingredients|instructions|directions|steps|method|preparation)\s*:?\s*$/i
+	/^(ingredients|instructions|directions|steps|method|preparation)\s*(?::\s*)?$/i
 
-// Trailing "(Serves 2)" / "— serves 4" on a recipe title
+// Trailing "(Serves 2)" / "— serves 4" on a recipe title. Only the end of a
+// title can hold one, so only its last characters are read.
 const TITLE_SERVES_PATTERN =
-	/\s*(?:\(\s*serves\s+(\d+)\s*\)|[,—–-]\s*serves\s+(\d+))\s*$/i
+	/(?:\(\s*serves\s+(\d+)\s*\)|[,—–-]\s*serves\s+(\d+))\s*$/i
+const TITLE_SERVES_TAIL = 64
 
-// A standalone explicit-yield line: "Serves 4", "Servings: 4",
-// "Yield: 4 servings", or "Makes 2 loaves".
-const YIELD_LINE_PATTERN =
-	/^(serves?|servings?|yield|makes)\s*:?\s*(?:about\s+|approximately\s+)?(\d+(?:[.,]\d+)?)(?:\s+(.+?))?\s*\.?$/i
+// The start of a standalone explicit-yield line: "Serves 4", "Servings: 4",
+// "Yield: 4 servings", or "Makes 2 loaves". matchTypedYieldLine reads the
+// label after it.
+const YIELD_LINE_HEAD =
+	/^(serves?|servings?|yield|makes)\s*(?::\s*)?(?:about\s+|approximately\s+)?(\d+(?:[.,]\d+)?)/i
+const LINE_BREAK = /[\n\r\u2028\u2029]/
 
 /**
  * Pull a trailing "(Serves N)" out of a recipe title. Returns the stripped
@@ -42,10 +52,11 @@ export function extractYieldFromTitle(title: string): {
 	yieldAmount: number | null
 	yieldLabel: string | null
 } {
-	const match = title.match(TITLE_SERVES_PATTERN)
+	const tailStart = Math.max(0, title.length - TITLE_SERVES_TAIL)
+	const match = TITLE_SERVES_PATTERN.exec(title.slice(tailStart))
 	if (!match) return { title, yieldAmount: null, yieldLabel: null }
 	const value = parseInt(match[1] ?? match[2] ?? '', 10)
-	const stripped = title.slice(0, match.index).trim()
+	const stripped = title.slice(0, tailStart + match.index).trim()
 	if (!stripped || !value || value < 1 || value > 100) {
 		return { title, yieldAmount: null, yieldLabel: null }
 	}
@@ -56,18 +67,35 @@ function matchTypedYieldLine(line: string): {
 	amount: number
 	label: string
 } | null {
-	const match = line.match(YIELD_LINE_PATTERN)
+	const match = YIELD_LINE_HEAD.exec(line)
 	if (!match) return null
+	const written = yieldLineLabel(line.slice(match[0].length))
+	if (written === null) return null
 	const amount = Number(match[2]!.replace(',', '.'))
 	if (!Number.isFinite(amount) || amount <= 0) return null
 	const prefix = match[1]!.toLowerCase()
-	const explicitLabel = match[3]?.replace(/[.;:,]+$/, '').trim()
+	const explicitLabel = written?.replace(/(?<![.;:,])[.;:,]+$/, '').trim()
 	if (explicitLabel && /^(?:[-–—]|to)\s*\d/i.test(explicitLabel)) return null
 	const label = explicitLabel || (/^serv/.test(prefix) ? 'servings' : '')
 	return label ? { amount, label: label.slice(0, 100) } : null
 }
 
-const STEP_TRAILING_NUMBER = /\d(?:[\d.,/]*\d)?\s*°?$/
+/**
+ * The label after a yield line's amount: undefined when there is none ("Serves
+ * 4."), null when the rest of the line isn't a label ("Serves 4x"). A label
+ * follows a space and runs to the end, less a closing full stop.
+ */
+function yieldLineLabel(rest: string): string | undefined | null {
+	if (/^\s*\.?$/.test(rest)) return undefined
+	if (!/^\s/.test(rest)) return null
+	const label = rest.trimStart().replace(/\.$/, '').trimEnd()
+	return LINE_BREAK.test(label) ? null : label
+}
+
+// A step that ends in a number, perhaps with a degree sign: "Preheat to 350".
+// Only the end of a step matters, so only its last characters are read.
+const STEP_TRAILING_NUMBER = /\d\s*°?$/
+const STEP_TAIL = 32
 const STEP_LEADING_UNIT =
 	/^(?:°\s*)?(?:F|C|Fahrenheit|Celsius|degrees?|minutes?|mins?|hours?|hrs?|seconds?|secs?|grams?|g|kg|ml|liters?|litres?|l|oz|ounces?|lbs?|pounds?|cups?|tablespoons?|tbsps?|teaspoons?|tsps?)\b/i
 
@@ -85,7 +113,7 @@ export function joinBrokenUnitSteps(
 		const prev = result[result.length - 1]
 		if (
 			prev &&
-			STEP_TRAILING_NUMBER.test(prev.content) &&
+			STEP_TRAILING_NUMBER.test(prev.content.slice(-STEP_TAIL)) &&
 			STEP_LEADING_UNIT.test(step.content)
 		) {
 			prev.content = `${prev.content} ${step.content}`
@@ -111,7 +139,7 @@ function normalizeText(text: string): string {
 			// Zero-width spaces and joiners
 			.replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
 			// Apple Notes links: ++[text](url)++ → text
-			.replace(/\+\+\[([^\]]+)\]\([^)]+\)\+\+/g, '$1')
+			.replace(APPLE_NOTES_LINK, '$1')
 			// Markdown escaped characters: \* \_ \# → literal
 			.replace(/\\([*_#])/g, '$1')
 			// Markdown heading prefixes: # Title → Title
@@ -258,6 +286,7 @@ export function parseRecipeText(text: string): ParsedRecipe {
 
 	// Parse ingredients
 	const ingredients: ParsedRecipe['ingredients'] = []
+	let ingredientsCut = false
 	for (const [sectionIndex, section] of sections.entries()) {
 		if (section.type !== 'ingredients') continue
 		const ingredientLines = getSectionLines(sectionIndex)
@@ -302,8 +331,10 @@ export function parseRecipeText(text: string): ParsedRecipe {
 			}
 
 			// Long preparation notes are still part of an ingredient.
-			const parsed = parseIngredient(stripped)
-			if (parsed) {
+			const parsedLine = parseIngredient(stripped)
+			if (parsedLine) {
+				const { cut, ...parsed } = parsedLine
+				if (cut) ingredientsCut = true
 				// Carry sub-section context into ingredient notes
 				if (currentHeading) {
 					const headingNote = /^for\b/i.test(currentHeading)
@@ -355,6 +386,7 @@ export function parseRecipeText(text: string): ParsedRecipe {
 		yieldLabel,
 		ingredients,
 		instructions: joinedInstructions,
+		ingredientsCut,
 		warnings,
 	}
 }

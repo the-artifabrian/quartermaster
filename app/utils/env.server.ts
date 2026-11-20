@@ -21,12 +21,10 @@ const schema = z.object({
 	DATABASE_URL: z.string(),
 	DATA_VOLUME_PATH: z.string().optional(),
 	SESSION_SECRET: z.string(),
-	// The origin every absolute URL is built from (app/utils/app-origin.ts):
-	// emailed verification links, robots.txt and the sitemap, OG URLs, the
-	// WebAuthn relying party, the HTTPS redirect. Never derived from the
-	// request, whose Host and X-Forwarded-* headers the client controls.
-	// Required in production (the refinement below); elsewhere it defaults to
-	// http://localhost:$PORT.
+	// The origin for every absolute URL the app hands out. What uses it is
+	// listed in docs/ARCHITECTURE.md under "Deployment and recovery". Required
+	// in production (the refinement below); elsewhere it defaults to
+	// http://localhost:$PORT (app/utils/app-origin.server.ts).
 	APP_ORIGIN: z.preprocess(
 		emptyAsUndefined,
 		z
@@ -121,7 +119,7 @@ const validatedSchema = schema.superRefine((env, ctx) => {
 			code: 'custom',
 			path: ['APP_ORIGIN'],
 			message:
-				'required in production. Emailed links, robots.txt, passkeys and the HTTPS redirect use it. Set it to the site origin, such as https://useqm.app',
+				'required in production. Set it to the site origin, such as https://useqm.app',
 		})
 	}
 })

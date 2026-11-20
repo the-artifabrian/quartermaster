@@ -303,9 +303,9 @@ if (!portAvailable && !IS_DEV) {
 	console.log(`⚠️ Port ${desiredPort} is not available.`)
 	process.exit(1)
 }
-// Dev only (production exits above): the default APP_ORIGIN is localhost on
-// PORT (app/utils/app-origin.ts), so emailed links and passkeys follow the
-// port actually bound.
+// Dev only, since production exits above. The default APP_ORIGIN is
+// localhost on PORT (app/utils/app-origin.server.ts), so emailed links and
+// passkeys follow the port actually bound.
 if (!portAvailable) process.env.PORT = String(portToUse)
 
 const server = app.listen(portToUse, () => {

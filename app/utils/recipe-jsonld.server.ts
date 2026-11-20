@@ -9,7 +9,10 @@ import {
 	extractYieldFromTitle,
 	joinBrokenUnitSteps,
 } from './recipe-text-parser.ts'
-import { MAX_RAW_TEXT_LENGTH } from './recipe-validation.ts'
+import {
+	MAX_RAW_TEXT_LENGTH,
+	MAX_RECIPE_INGREDIENTS,
+} from './recipe-validation.ts'
 
 /** The Recipe node has a field in a shape the import cannot read. */
 export class RecipeShapeError extends Error {
@@ -48,14 +51,37 @@ export function findRecipeInJsonLd(
 	return null
 }
 
+/**
+ * Drops each "<…>" the way /<[^>]+>/g does, in one pass. A JSON-LD field can
+ * be megabytes long, and that pattern rescans to the end from every "<" that
+ * has no ">" after it.
+ */
+function stripTags(text: string): string {
+	let out = ''
+	let from = 0
+	let open = text.indexOf('<')
+	while (open !== -1) {
+		const close = text.indexOf('>', open + 1)
+		if (close === -1) break
+		if (close === open + 1) {
+			// "<>" holds nothing, so it isn't a tag.
+			open = text.indexOf('<', close)
+			continue
+		}
+		out += text.slice(from, open)
+		from = close + 1
+		open = text.indexOf('<', from)
+	}
+	return out + text.slice(from)
+}
+
 /** Decode HTML entities and strip tags from JSON-LD text values */
 export function cleanJsonLdText(text: string): string {
 	return (
-		text
+		stripTags(
 			// Replace <br> variants with spaces
-			.replace(/<br\s*\/?>/gi, ' ')
-			// Strip remaining HTML tags
-			.replace(/<[^>]+>/g, '')
+			text.replace(/<br\s*\/?>/gi, ' '),
+		)
 			// Decode common HTML entities
 			.replace(/&nbsp;/gi, ' ')
 			.replace(/&amp;/gi, '&')
@@ -190,7 +216,14 @@ export function extractRecipe(
 		throw new RecipeShapeError('recipeIngredient is not a list of strings')
 	}
 	const rawIngredients: string[] = ingredientField
-	const cleanedLines = rawIngredients.map(cleanJsonLdText)
+	// One line past what a Recipe holds is enough for the import to say the
+	// list was cut, and a page can't make it parse thousands more.
+	const cleanedLines: string[] = []
+	for (const line of rawIngredients) {
+		const cleaned = cleanJsonLdText(line)
+		if (cleaned) cleanedLines.push(cleaned)
+		if (cleanedLines.length > MAX_RECIPE_INGREDIENTS) break
+	}
 	// When the whole list is caps, caps is house style, not structure
 	const allCapsIsHeading = !isAllCapsHouseStyle(cleanedLines)
 	const ingredients = cleanedLines

@@ -1,3 +1,4 @@
+import { MAX_INGREDIENT_AMOUNT_LENGTH } from './recipe-validation.ts'
 import { isMetricUnit, round2 } from './unit-conversion.ts'
 
 /** Unicode fraction characters → numeric values */
@@ -22,7 +23,8 @@ const UNICODE_FRACTION_PATTERN = /[½⅓⅔¼¾⅛⅜⅝⅞]/
  */
 export function parseAmount(amount: string): number | null {
 	const trimmed = amount.trim()
-	if (!trimmed) return null
+	// Nothing longer can be saved as an amount, so it isn't one.
+	if (!trimmed || trimmed.length > MAX_INGREDIENT_AMOUNT_LENGTH) return null
 
 	// Unicode fraction (standalone): "½", "¾"
 	if (trimmed.length === 1 && UNICODE_FRACTIONS[trimmed] !== undefined) {
@@ -143,8 +145,12 @@ const RANGE_AMOUNT =
 	/^\s*(\d[\d\s./½⅓⅔¼¾⅛⅜⅝⅞]*?|[½⅓⅔¼¾⅛⅜⅝⅞])\s*([-–—~]|to)\s*(\d[\d\s./½⅓⅔¼¾⅛⅜⅝⅞]*|[½⅓⅔¼¾⅛⅜⅝⅞])\s*$/i
 
 export function isRangeAmount(amount: string): boolean {
-	return RANGE_AMOUNT.test(amount)
+	return amount.length <= MAX_AMOUNT_TEXT && RANGE_AMOUNT.test(amount)
 }
+
+// RANGE_AMOUNT lets its ends hold spaces, so it is only ever run on text
+// short enough to be an amount, with room for spaces around it.
+const MAX_AMOUNT_TEXT = MAX_INGREDIENT_AMOUNT_LENGTH * 2
 
 /**
  * Both ends of a range and the dash to rejoin them with: a hyphen or en dash
@@ -155,6 +161,7 @@ export function isRangeAmount(amount: string): boolean {
 function parseRangeAmount(
 	amount: string,
 ): { low: number; high: number; separator: string } | null {
+	if (!isRangeAmount(amount)) return null
 	const match = RANGE_AMOUNT.exec(amount)
 	if (!match) return null
 	const low = parseAmount(match[1]!)

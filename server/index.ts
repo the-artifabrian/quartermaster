@@ -5,7 +5,6 @@ import { ip as ipAddress } from 'address'
 import express from 'express'
 import rateLimit from 'express-rate-limit'
 import getPort, { portNumbers } from 'get-port'
-import morgan from 'morgan'
 import { checkAnthropicModels } from '#app/utils/anthropic-model-check.server.ts'
 import {
 	EDGE_SECRET_HEADER,
@@ -13,11 +12,11 @@ import {
 	edgeMismatchWarning,
 	warnIfEdgeSecretMissing,
 } from '#app/utils/client-address.server.ts'
-import { redactUrl } from '#app/utils/redact-url.ts'
 import { compressionMiddleware } from './compression.ts'
 import { httpsRedirect } from './https-redirect.ts'
 import { servePrecompressed } from './precompressed.ts'
 import { rateLimitTier } from './rate-limit.ts'
+import { requestLog } from './request-log.ts'
 import { startEventLoopWatchdog } from './event-loop-watchdog.ts'
 import { startMemoryWatchdog } from './memory-watchdog.ts'
 import { startScheduledMaintenance } from './scheduled-maintenance.ts'
@@ -100,25 +99,7 @@ app.use((_, res, next) => {
 	next()
 })
 
-// originalUrl: servePrecompressed rewrites req.url to the asset's .br/.gz
-// twin, and the log should still name what the client asked for. Codes,
-// tokens and email addresses are redacted before decoding for readability.
-morgan.token('url', (req) => {
-	const url = redactUrl((req as express.Request).originalUrl ?? req.url ?? '')
-	try {
-		return decodeURIComponent(url)
-	} catch {
-		return url
-	}
-})
-app.use(
-	morgan('tiny', {
-		skip: (req, res) =>
-			res.statusCode === 200 &&
-			(req.url?.startsWith('/resources/images') ||
-				req.url?.startsWith('/resources/healthcheck')),
-	}),
-)
+app.use(requestLog())
 
 // When running tests or running in development, we want to effectively disable
 // rate limiting because playwright tests are very fast and we don't want to

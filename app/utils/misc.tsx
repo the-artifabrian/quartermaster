@@ -23,7 +23,10 @@ export function getImgSrc({
 		const searchParams = new URLSearchParams(query)
 		// The route serves only listed sizes, so ask for the one it would serve
 		// and every page shares one URL (and one cached copy) per size.
-		const size = snapImageSize({ width: Math.round(width) })
+		const size = snapImageSize({
+			width: Math.round(width),
+			height: Math.round(height),
+		})
 		if (
 			import.meta.env.DEV &&
 			(size.width !== Math.round(width) || size.height !== Math.round(height))

@@ -327,7 +327,7 @@ describe('deleting a photo', () => {
 	test.each([
 		['mocks mode', 'true'],
 		['storage', 'false'],
-	])('stops serving its cached resizes (%s)', async (name, mocks) => {
+	])('stops serving its cached resizes (%s)', async (_, mocks) => {
 		await using photo = await uploadedPhoto(
 			mocks === 'true' ? 'mocks' : 'fetch',
 		)
@@ -338,7 +338,7 @@ describe('deleting a photo', () => {
 		]
 		for (const size of sizes) {
 			const response = await request({ objectKey: photo.objectKey, ...size })
-			expect(status(response), name).toBe(200)
+			expect(status(response)).toBe(200)
 			await (response as Response).arrayBuffer()
 		}
 		const response = await request({ objectKey: PHOTO, w: '72', h: '72' })

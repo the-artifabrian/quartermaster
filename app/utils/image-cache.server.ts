@@ -7,10 +7,10 @@ import {
 
 /**
  * Resized photos live on the production volume next to SQLite, so the
- * cache gets a budget well under the volume's size (Fly volumes start at
- * 1 GB). Each photo has at most a few dozen resizes of tens of kilobytes,
- * so this holds thousands of them, and a resize that's pruned is made again
- * on its next view.
+ * cache gets a budget that stays small next to even a 1 GB volume. Each
+ * photo has at most a few dozen resizes of tens of kilobytes, so this holds
+ * thousands of them, and a resize that's pruned is made again on its next
+ * view.
  */
 export const IMAGE_CACHE_MAX_BYTES = 100 * 1024 * 1024
 

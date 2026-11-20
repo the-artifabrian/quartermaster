@@ -68,6 +68,10 @@ export function snapImageSize({
 	width?: number
 	height?: number
 }): Size {
+	const exact = IMAGE_SIZES.find(
+		(size) => size.width === width && size.height === height,
+	)
+	if (exact) return exact
 	const by = width === undefined ? 'height' : 'width'
 	const wanted = width ?? height ?? 0
 	const sorted = [...IMAGE_SIZES].sort((a, b) => a[by] - b[by])

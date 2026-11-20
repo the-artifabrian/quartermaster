@@ -94,13 +94,14 @@ since a JPEG cut off partway still has a readable header. A file that fails gets
 "That file isn't a photo we can use. Choose a JPG, PNG or WebP." next to the
 photo field, and the Recipe isn't saved or changed.
 
-The pixel cap clears a 24 MP phone photo. Bigger photos are over the 3 MB
-limit, so the form shrinks them to 2048 px on the long edge before sending. The
-cap comes from the image route's full-size copy. Measured locally, a rotated JPEG
-at the cap peaks around 310 MB there, and one of 60 million pixels around
-650 MB, more than the production machine has. iPhone HEIC is refused: the
-prebuilt sharp reads its header but can't decode it. iOS Safari sends a JPEG
-when the file input doesn't list HEIC.
+The pixel cap clears a 24 MP phone photo. A photo over the 3 MB limit is shrunk
+in the browser to 2048 px on the long edge before it is sent, so only originals
+under 3 MB reach the check at full size. The cap comes from the image route's
+full-size copy. Measured locally, a rotated JPEG at the cap peaks around 310 MB
+there, and one of 60 million pixels around 650 MB, more than the production
+machine has. HEIC is refused: the prebuilt sharp reads its header but can't
+decode it. The form's file input lists only JPEG, PNG and WebP, and before this
+check the form dropped any other type without saving it, so no HEIC is stored.
 
 Pages show them through `/resources/images`, which resizes with openimg and
 caches each resize on disk. Share pages and link previews use it too, so it has

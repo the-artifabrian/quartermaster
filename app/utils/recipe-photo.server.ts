@@ -2,11 +2,12 @@
  * The most pixels a Recipe photo may have: checked at upload, and again by
  * the image route before it decodes a stored photo.
  *
- * 25M px clears a 24 MP phone photo (5712×4284). Bigger photos are well over
- * the 3 MB upload limit, so the form shrinks them to 2048 px on the long edge
- * before they are sent. The limit is set by the image route's full-size copy:
- * a rotated JPEG at the cap peaks around 310 MB there, and one of 60M px
- * around 650 MB, more than the production machine has.
+ * 25M px clears a 24 MP phone photo (5712×4284). A photo over the 3 MB upload
+ * limit is shrunk in the browser to 2048 px on the long edge before it is
+ * sent, so only originals under 3 MB get here at full size. The limit is set
+ * by the image route's full-size copy: measured locally, a rotated JPEG at
+ * the cap peaks around 310 MB there, and one of 60M px around 650 MB, more
+ * than the production machine has.
  */
 export const MAX_PHOTO_PIXELS = 25_000_000
 
@@ -34,6 +35,8 @@ function startsWith(bytes: Uint8Array, signature: number[], offset = 0) {
 }
 
 function sniffFormat(bytes: Uint8Array): PhotoFormat | null {
+	// No photo is this short, and WebP's signature runs to the 12th byte.
+	if (bytes.length < 12) return null
 	if (startsWith(bytes, [0xff, 0xd8, 0xff])) return 'jpeg'
 	if (startsWith(bytes, PNG_SIGNATURE)) return 'png'
 	// RIFF, a four-byte length, then WEBP.

@@ -24,7 +24,6 @@ import {
 	MAX_RECIPE_NOTES_LENGTH,
 	MAX_RECIPE_TITLE_LENGTH,
 } from './recipe-validation.ts'
-import { PHOTO_SHARP_OPTIONS } from './recipe-photo.server.ts'
 import { CANONICAL_UNITS } from './unit-conversion.ts'
 
 // Long enough for the whole paste the box accepts and for a recipe that fills
@@ -479,7 +478,7 @@ async function prepareImage(
 ): Promise<{ data: string; media_type: string }> {
 	const { default: sharp } = await import('sharp')
 	const buf = Buffer.from(imageBase64, 'base64')
-	const optimized = await sharp(buf, PHOTO_SHARP_OPTIONS)
+	const optimized = await sharp(buf)
 		// Auto-orient first: sharp drops the EXIF orientation tag on write but
 		// does not turn the pixels, so a photo shot in portrait would otherwise
 		// reach the model on its side, with every line of the recipe vertical.

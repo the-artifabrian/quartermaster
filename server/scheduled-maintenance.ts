@@ -1,5 +1,10 @@
 import { startOfUsageDay } from '#app/utils/ai-rate-limit.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import {
+	getImageCacheDir,
+	pruneImageCache,
+	type ImageCachePruneSummary,
+} from '#app/utils/image-cache.server.ts'
 import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import { serializeError } from '#app/utils/serialize-error.server.ts'
 
@@ -47,6 +52,10 @@ export async function pruneExpiredData(
 	}
 }
 
+async function pruneResizedImages() {
+	return pruneImageCache({ dir: await getImageCacheDir() })
+}
+
 function reportMaintenanceFailure(error: unknown) {
 	captureServerEvent('server', 'server_error', {
 		error: serializeError(error),
@@ -58,6 +67,7 @@ function reportMaintenanceFailure(error: unknown) {
 type ScheduledMaintenanceOptions = {
 	intervalMs?: number
 	prune?: () => Promise<MaintenanceSummary>
+	pruneImages?: () => Promise<ImageCachePruneSummary>
 	log?: (message: string) => void
 	logError?: (message: string) => void
 	reportFailure?: (error: unknown) => void
@@ -66,20 +76,19 @@ type ScheduledMaintenanceOptions = {
 export function startScheduledMaintenance({
 	intervalMs = MAINTENANCE_INTERVAL_MS,
 	prune = pruneExpiredData,
+	pruneImages = pruneResizedImages,
 	log = console.log,
 	logError = console.error,
 	reportFailure = reportMaintenanceFailure,
 }: ScheduledMaintenanceOptions = {}) {
 	let running = false
-	const run = async () => {
-		if (running) return
-		running = true
+	// Each step logs and reports its own failure, so one failing (a full
+	// volume can fail the database deletes) doesn't skip the other.
+	const step = async (label: string, work: () => Promise<string>) => {
 		const startedAt = Date.now()
 		try {
-			const result = await prune()
-			log(
-				`🧹 maintenance: sessions=${result.sessions} verifications=${result.verifications} usage_events=${result.usageEvents} household_events=${result.householdEvents} duration_ms=${Date.now() - startedAt}`,
-			)
+			const summary = await work()
+			log(`🧹 ${label}: ${summary} duration_ms=${Date.now() - startedAt}`)
 		} catch (error) {
 			let reportingError: unknown
 			try {
@@ -88,8 +97,22 @@ export function startScheduledMaintenance({
 				reportingError = caught
 			}
 			logError(
-				`🧹 maintenance: failed error=${serializeError(error)} duration_ms=${Date.now() - startedAt}${reportingError === undefined ? '' : ` reporting_error=${serializeError(reportingError)}`}`,
+				`🧹 ${label}: failed error=${serializeError(error)} duration_ms=${Date.now() - startedAt}${reportingError === undefined ? '' : ` reporting_error=${serializeError(reportingError)}`}`,
 			)
+		}
+	}
+	const run = async () => {
+		if (running) return
+		running = true
+		try {
+			await step('maintenance', async () => {
+				const result = await prune()
+				return `sessions=${result.sessions} verifications=${result.verifications} usage_events=${result.usageEvents} household_events=${result.householdEvents}`
+			})
+			await step('image cache', async () => {
+				const result = await pruneImages()
+				return `removed_files=${result.removedFiles} removed_bytes=${result.removedBytes} kept_bytes=${result.keptBytes} skipped=${result.skipped}`
+			})
 		} finally {
 			running = false
 		}

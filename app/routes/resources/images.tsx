@@ -1,38 +1,63 @@
-import { promises as fs, constants, existsSync } from 'node:fs'
 import { invariant, invariantResponse } from '@epic-web/invariant'
 import { getDefaultSharpPipeline, getImgResponse } from 'openimg/node'
-import { getSignedGetRequestInfo } from '#app/utils/storage.server.ts'
+import {
+	getImageCacheDir,
+	getStoredImageSource,
+} from '#app/utils/image-cache.server.ts'
+import { isRecipeImageKey, snapImageSize } from '#app/utils/image-route.ts'
 import { type Route } from './+types/images'
 
-let cacheDir: string | null = null
-
-async function getCacheDir() {
-	if (cacheDir) return cacheDir
-
-	let dir = './tests/fixtures/openimg'
-	if (process.env.NODE_ENV === 'production') {
-		const isAccessible = await fs
-			.access('/data', constants.W_OK)
-			.then(() => true)
-			.catch(() => false)
-
-		if (isAccessible) {
-			dir = '/data/images'
-		}
-	}
-
-	return (cacheDir = dir)
+function parseEdge(value: string | null) {
+	if (value === null) return undefined
+	if (!/^[1-9]\d*$/.test(value)) return null
+	return Number(value)
 }
 
-// The largest edge the app ever asks for is the 1200px share image; this
-// leaves headroom while keeping one resize well inside the machine's memory.
-const MAX_EDGE = 3000
+function parseOption<T extends string>(
+	value: string | null,
+	allowed: ReadonlyArray<T>,
+) {
+	if (value === null) return undefined
+	return allowed.find((option) => option === value) ?? null
+}
 
-function parseEdge(value: string | null) {
-	if (value === null) return true
-	if (!/^\d+$/.test(value)) return false
-	const edge = Number(value)
-	return edge >= 1 && edge <= MAX_EDGE
+/**
+ * The resize openimg makes and caches. Every request lands on a listed size
+ * (see snapImageSize) in AVIF, WebP or the original format, so a photo has
+ * at most 21 cached resizes, none larger than 1200×630, plus one full-size
+ * copy for the data export. Uploads are capped at 3 MB.
+ */
+function getImgParams(searchParams: URLSearchParams) {
+	const width = parseEdge(searchParams.get('w'))
+	const height = parseEdge(searchParams.get('h'))
+	invariantResponse(
+		width !== null && height !== null,
+		'Width and height must be positive whole numbers',
+		{ status: 400 },
+	)
+	const format = parseOption(searchParams.get('format'), ['avif', 'webp'])
+	invariantResponse(format !== null, 'Format must be avif or webp', {
+		status: 400,
+	})
+	// Share links ask for `cover`, which is also what sharp does with no fit,
+	// so openimg never sees a fit and both land on one cached copy.
+	invariantResponse(
+		parseOption(searchParams.get('fit'), ['cover']) !== null,
+		'Fit must be cover',
+		{ status: 400 },
+	)
+
+	if (width === undefined && height === undefined) {
+		// The data export links to the original in its own format. No page
+		// asks for a full-size AVIF or WebP, so the route doesn't make one.
+		invariantResponse(
+			format === undefined,
+			'A format needs a width and a height',
+			{ status: 400 },
+		)
+		return { format }
+	}
+	return { ...snapImageSize({ width, height }), format }
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -47,17 +72,18 @@ export async function loader({ request }: Route.LoaderArgs) {
 	invariantResponse(objectKey, 'objectKey query parameter is required', {
 		status: 400,
 	})
-	invariantResponse(
-		parseEdge(searchParams.get('w')) && parseEdge(searchParams.get('h')),
-		`Width and height must be whole numbers from 1 to ${MAX_EDGE}`,
-		{ status: 400 },
-	)
+	// Serves only keys the app writes (see isRecipeImageKey).
+	invariantResponse(isRecipeImageKey(objectKey), 'Invalid object key', {
+		status: 400,
+	})
+	const params = getImgParams(searchParams)
 
 	const headers = new Headers()
 	headers.set('Cache-Control', 'public, max-age=31536000, immutable')
 
 	return getImgResponse(request, {
 		headers,
+		getImgParams: () => params,
 		// sharp's default AVIF effort (4) spends 250 ms per Recipe photo here and
 		// a few seconds on the production machine, which is what a Recipe page
 		// waits for on its first view after an import. Effort 1 encodes the same
@@ -76,29 +102,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		allowlistedOrigins: process.env.AWS_ENDPOINT_URL_S3
 			? [new URL(process.env.AWS_ENDPOINT_URL_S3).origin]
 			: [],
-		cacheFolder: await getCacheDir(),
-		getImgSource: () => {
-			// In MOCKS mode the storage "bucket" is a local folder, so read it
-			// directly. Routing through the mocked fetch hands openimg a stream
-			// sharp can't consume under bun.
-			if (process.env.MOCKS === 'true') {
-				invariantResponse(!objectKey.includes('..'), 'Invalid object key', {
-					status: 400,
-				})
-				const fixturePath = `./tests/fixtures/images/${objectKey}`
-				const uploadedPath = `./tests/fixtures/uploaded/${objectKey}`
-				return {
-					type: 'fs',
-					path: existsSync(fixturePath) ? fixturePath : uploadedPath,
-				}
-			}
-			const { url: signedUrl, headers: signedHeaders } =
-				getSignedGetRequestInfo(objectKey)
-			return {
-				type: 'fetch',
-				url: signedUrl,
-				headers: signedHeaders,
-			}
-		},
+		cacheFolder: await getImageCacheDir(),
+		getImgSource: () => getStoredImageSource(objectKey),
 	})
 }

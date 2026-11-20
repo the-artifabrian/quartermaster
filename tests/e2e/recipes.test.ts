@@ -132,7 +132,14 @@ test('a phone photo over 3 MB is resized in the browser and saved', async ({
 		mimeType: 'image/jpeg',
 		buffer: photo,
 	})
-	await expect(page.getByRole('img', { name: 'Recipe preview' })).toBeVisible()
+	const preview = page.getByRole('img', { name: 'Recipe preview' })
+	await expect(preview).toBeVisible()
+	// Visible is not loaded: the preview must decode the picked photo.
+	await expect
+		.poll(() =>
+			preview.evaluate((element) => (element as HTMLImageElement).naturalWidth),
+		)
+		.toBeGreaterThan(0)
 	await page.getByRole('button', { name: 'Save', exact: true }).click()
 
 	await expect(page).toHaveURL(/\/recipes\/(?!new$)[a-z0-9]+$/)

@@ -4,6 +4,7 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { formatDuration } from '#app/utils/format-duration.ts'
+import { IMG_SIZES } from '#app/utils/image-route.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 import {
@@ -79,8 +80,7 @@ export function RecipeThumb({
 					src={`/resources/images?objectKey=${encodeURIComponent(image.objectKey)}`}
 					alt=""
 					className="h-full w-full object-cover"
-					width={72}
-					height={72}
+					{...IMG_SIZES.thumbnail}
 				/>
 			</span>
 		)

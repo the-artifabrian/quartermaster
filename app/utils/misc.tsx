@@ -1,9 +1,10 @@
 import { clsx, type ClassValue } from 'clsx'
-import { type GetSrcArgs, defaultGetSrc } from 'openimg/react'
+import { type GetSrcArgs } from 'openimg/react'
 import { useEffect, useMemo, useRef } from 'react'
 import { useFormAction, useNavigation } from 'react-router'
 import { useSpinDelay } from 'spin-delay'
 import { twMerge } from 'tailwind-merge'
+import { snapImageSize } from './image-route.ts'
 
 export function getImgSrc({
 	height,
@@ -20,10 +21,22 @@ export function getImgSrc({
 	if (src.startsWith(optimizerEndpoint)) {
 		const [endpoint, query] = src.split('?')
 		const searchParams = new URLSearchParams(query)
-		// openimg derives a candidate's height from the aspect ratio, so it can
-		// be fractional; the image route takes whole pixels.
-		searchParams.set('h', Math.round(height).toString())
-		searchParams.set('w', Math.round(width).toString())
+		// The route serves only listed sizes, so ask for the one it would serve
+		// and every page shares one URL (and one cached copy) per size.
+		const size = snapImageSize({
+			width: Math.round(width),
+			height: Math.round(height),
+		})
+		if (
+			import.meta.env.DEV &&
+			(size.width !== Math.round(width) || size.height !== Math.round(height))
+		) {
+			console.warn(
+				`An <Img> asked for ${Math.round(width)}x${Math.round(height)}, which the image route doesn't list. Add its size to IMG_SIZES in app/utils/image-route.ts.`,
+			)
+		}
+		searchParams.set('h', size.height.toString())
+		searchParams.set('w', size.width.toString())
 		if (fit) {
 			searchParams.set('fit', fit)
 		}
@@ -32,7 +45,9 @@ export function getImgSrc({
 		}
 		return `${endpoint}?${searchParams.toString()}`
 	}
-	return defaultGetSrc({ height, optimizerEndpoint, src, width, fit, format })
+	// Anything else, such as the form's data: preview of a picked photo, goes
+	// to the <img> as it is: the image route serves stored photos only.
+	return src
 }
 
 export function getErrorMessage(error: unknown) {

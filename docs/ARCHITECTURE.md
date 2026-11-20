@@ -77,6 +77,47 @@ reaches the app at once. The two sides meet in three places:
   through a TestFlight build, so the Web side must keep working against the
   previous shell.
 
+### Recipe photos
+
+Photos are stored in object storage (Tigris) under
+`users/<userId>/recipes/<recipeId>/images/<file>`, and
+`app/utils/storage.server.ts` writes every key. The file name is a timestamp, an
+id and an extension taken from the upload's checked type, never the browser's
+file name. A copy for a shared Recipe gets a new name of the same shape.
+
+Pages show them through `/resources/images`, which resizes with openimg and
+caches each resize on disk. Share pages and link previews use it too, so it has
+no login, and `app/utils/image-route.ts` sets what it accepts:
+
+- **Keys.** Only keys of the shape above. Anything else gets a 400 before
+  storage or the disk is touched.
+- **Sizes.** Only the sizes the pages ask for: each `<Img>` size in `IMG_SIZES`,
+  its srcset widths, and the 1200×630 share image. Components take their width
+  and height from `IMG_SIZES`, so the page and the route use one list. An
+  unlisted size gets the next listed size up instead of an error, so a page
+  cached before a size changed still shows its photo. No size at all serves the
+  original, which the data export links to.
+- **Formats.** AVIF, WebP, or the original format. `fit` is `cover` or left
+  out. Both mean the same crop, so they share one cached copy. A format needs a
+  size: no page asks for a full-size AVIF or WebP.
+
+Per photo that is at most 21 resizes no larger than 1200×630, plus one
+full-size copy in the original format. Uploads are capped at 3 MB.
+
+The cache is `/data/images` in production, on the same volume as SQLite. It
+stays bounded in two ways. Deleting a photo also deletes its cached resizes,
+because the route answers from the cache before it asks storage. And the hourly
+maintenance in `server/scheduled-maintenance.ts` deletes the oldest resizes when
+the cache passes 100 MB. It skips files written in the last ten minutes and
+never removes folders, so a resize being written isn't pulled out from under
+openimg. A folder or file it isn't allowed to read or delete is skipped and
+counted in the log line. A pruned resize is made again on its next view.
+
+Two gaps are known and accepted. A resize that is already being made when its
+photo is deleted can land in the cache after the delete has cleared it, and
+then stays until the prune removes it. And a browser or the service worker
+that already holds a deleted photo keeps showing it from its own cache.
+
 ## Data model
 
 Most user data belongs to a Household, not an individual User.

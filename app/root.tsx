@@ -49,6 +49,7 @@ import { prisma } from './utils/db.server.ts'
 import { getEnv } from './utils/env.server.ts'
 import { pipeHeaders } from './utils/headers.server.ts'
 import { getAppOrigin } from './utils/app-origin.server.ts'
+import { IMAGE_BREAKPOINTS } from './utils/image-route.ts'
 import { cn, combineHeaders, getImgSrc } from './utils/misc.tsx'
 import { isNativeShell } from './utils/native-shell.server.ts'
 import { useNavDirection } from './utils/nav-direction.ts'
@@ -462,6 +463,7 @@ function App() {
 			) : null}
 			<OpenImgContextProvider
 				optimizerEndpoint="/resources/images"
+				breakpoints={[...IMAGE_BREAKPOINTS]}
 				getSrc={getImgSrc}
 			>
 				<div

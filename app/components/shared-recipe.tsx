@@ -16,6 +16,7 @@ import {
 	formatScaleMultiplier,
 	ScaleMultiplierSchema,
 } from '#app/utils/menu-validation.ts'
+import { IMG_SIZES } from '#app/utils/image-route.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
 
@@ -153,8 +154,7 @@ export function SharedRecipeView({
 								src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
 								alt={recipe.image.altText ?? recipe.title}
 								className="md:border-border aspect-[16/10] w-full object-cover md:aspect-[4/3] md:rounded-md md:border"
-								width={800}
-								height={600}
+								{...IMG_SIZES.hero}
 							/>
 						</div>
 					)}

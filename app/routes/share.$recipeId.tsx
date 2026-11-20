@@ -4,6 +4,7 @@ import { redirect } from 'react-router'
 import { SharedRecipeView } from '#app/components/shared-recipe.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { getShareImageUrl } from '#app/utils/image-route.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { isUniqueConstraintError } from '#app/utils/menu-validation.ts'
 import { sharedRecipeSelect } from '#app/utils/share-menu.server.ts'
@@ -62,7 +63,7 @@ export const meta: Route.MetaFunction = ({ loaderData, matches }) => {
 	}
 
 	if (origin && recipe?.image?.objectKey) {
-		const imageUrl = `${origin}/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}&w=1200&h=630&fit=cover`
+		const imageUrl = getShareImageUrl(origin, recipe.image.objectKey)
 		meta.push(
 			{ property: 'og:image', content: imageUrl },
 			{ name: 'twitter:card', content: 'summary_large_image' },

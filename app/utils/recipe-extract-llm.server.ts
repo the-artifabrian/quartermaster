@@ -2,7 +2,7 @@ import { z } from 'zod'
 import {
 	ANTHROPIC_MODELS,
 	isAnthropicConfigured,
-	isUnbilledFailure,
+	isRefundableFailure,
 	nullable,
 	parseAnthropicJson,
 	requestAnthropicJson,
@@ -434,8 +434,9 @@ export function parseExtractResponse(
 }
 
 /**
- * A failed extraction. `refundable` is true when the provider cannot have
- * billed the call, so the caller can give back the daily use.
+ * A failed extraction. `refundable` is true when the caller should give back
+ * the daily use: see `isRefundableFailure`, and an image that could not be
+ * prepared, which fails before any request goes out.
  */
 export type ExtractionFailure = { error: string; refundable: boolean }
 
@@ -462,7 +463,7 @@ export async function extractRecipeFromText(
 		? result.data
 		: {
 				error: extractionError(result.failure, 'text'),
-				refundable: isUnbilledFailure(result.failure),
+				refundable: isRefundableFailure(result.failure),
 			}
 }
 
@@ -533,7 +534,8 @@ export async function extractRecipeFromImages(
 		return {
 			error:
 				'Could not process the image(s). Please try different images or formats.',
-			refundable: false,
+			// Nothing was sent to the model, so there is nothing to pay for.
+			refundable: true,
 		}
 	}
 
@@ -568,7 +570,7 @@ export async function extractRecipeFromImages(
 		? result.data
 		: {
 				error: extractionError(result.failure, 'image'),
-				refundable: isUnbilledFailure(result.failure),
+				refundable: isRefundableFailure(result.failure),
 			}
 }
 

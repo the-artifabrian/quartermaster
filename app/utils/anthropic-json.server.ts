@@ -71,22 +71,29 @@ export type AnthropicJsonFailure =
 	| { kind: 'schema' }
 
 /**
- * Whether the provider cannot have billed the call, so the caller can give
- * back the daily use it took. That holds when no request went out, when none
- * got a response, and when the provider answered 429 or 5xx.
+ * Whether the caller should give back the daily use a failed call took. It
+ * does when the failure is ours or the provider's and a user can't cause it:
+ * no key, a dropped connection, a 401, 403 or 404 (a bad key or a retired
+ * model), a 429 or a 5xx.
  *
- * A timeout stays spent: the provider may have finished after we stopped
- * waiting. So does any other 4xx, and anything after a 200. Refunding those
- * would let slow or bad output buy unlimited paid calls.
+ * A timeout stays spent, since the provider may have finished after we
+ * stopped waiting. So does any other 4xx, and anything after a 200. Refunding
+ * those would let slow or bad input buy unlimited paid calls.
  */
-export function isUnbilledFailure(failure: AnthropicJsonFailure): boolean {
+export function isRefundableFailure(failure: AnthropicJsonFailure): boolean {
 	switch (failure.kind) {
 		case 'configuration':
 		case 'rate-limit':
 		case 'network':
 			return true
 		case 'provider':
-			return failure.status !== undefined && failure.status >= 500
+			return (
+				failure.status !== undefined &&
+				(failure.status === 401 ||
+					failure.status === 403 ||
+					failure.status === 404 ||
+					failure.status >= 500)
+			)
 		case 'timeout':
 		case 'refusal':
 		case 'empty-response':

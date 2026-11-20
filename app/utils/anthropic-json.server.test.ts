@@ -3,7 +3,7 @@ import { z } from 'zod'
 import {
 	ANTHROPIC_MODELS,
 	isAnthropicConfigured,
-	isUnbilledFailure,
+	isRefundableFailure,
 	nullable,
 	parseAnthropicJson,
 	requestAnthropicJson,
@@ -302,19 +302,20 @@ describe('requestAnthropicJson', () => {
 })
 
 /**
- * Failure list for giving back a daily use. A use may be refunded only when
- * the provider cannot have billed the call:
+ * Failure list for giving back a daily use. A use comes back only when the
+ * failure is ours or the provider's and a user can't cause it:
  *
  * - the key is missing, so no request went out;
+ * - the key is bad or revoked, or the model is retired (401, 403, 404);
  * - the provider answered 429 or 5xx;
- * - the request failed before any response arrived.
+ * - the connection dropped before any response arrived.
  *
  * Anything else may have been billed and keeps the use: a timeout (the
  * provider may have finished after we stopped waiting), another 4xx, and any
  * failure after a 200 (a body that won't parse, a refusal, an answer cut off).
  * Refunding those would let slow or bad output buy unlimited paid calls.
  */
-describe('isUnbilledFailure', () => {
+describe('isRefundableFailure', () => {
 	const cases: Array<[string, AnthropicJsonAdapter['fetch'] | null, boolean]> =
 		[
 			['missing key', null, true],
@@ -325,6 +326,9 @@ describe('isUnbilledFailure', () => {
 				},
 				true,
 			],
+			['401', async () => new Response('', { status: 401 }), true],
+			['403', async () => new Response('', { status: 403 }), true],
+			['404', async () => new Response('', { status: 404 }), true],
 			['429', async () => new Response('', { status: 429 }), true],
 			['503', async () => new Response('', { status: 503 }), true],
 			['400', async () => new Response('', { status: 400 }), false],
@@ -376,7 +380,7 @@ describe('isUnbilledFailure', () => {
 			)
 			expect(result.ok).toBe(false)
 			if (result.ok) return
-			expect(isUnbilledFailure(result.failure)).toBe(refundable)
+			expect(isRefundableFailure(result.failure)).toBe(refundable)
 		},
 	)
 })

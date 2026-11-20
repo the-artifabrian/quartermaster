@@ -207,19 +207,20 @@ export async function importWithAi(
 		}
 	}
 
+	const metadataValues = await recipeMetadataOptions(householdId)
+	const vocabulary = metadataVocabulary(metadataValues)
+
 	const usage = await claimAiUsage(userId, 'recipe_extract_llm_call', {
 		perUser: DAILY_EXTRACT_LIMIT,
 	})
 	if (!usage.allowed) {
 		const refusal = aiUsageRefusal(usage.reason, {
 			limit: DAILY_EXTRACT_LIMIT,
-			uses: 'text and photo imports',
+			uses: 'AI imports',
+			unavailable: "Couldn't start the import just now.",
 		})
 		return importFailure(intentKey, refusal.error, refusal.status)
 	}
-
-	const metadataValues = await recipeMetadataOptions(householdId)
-	const vocabulary = metadataVocabulary(metadataValues)
 
 	let llmResult: Awaited<ReturnType<typeof extractRecipeFromText>>
 	let durationMs: number

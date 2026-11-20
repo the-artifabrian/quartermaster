@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import {
 	ANTHROPIC_MODELS,
-	isUnbilledFailure,
+	isRefundableFailure,
 	nullable,
 	parseAnthropicJson,
 	requestAnthropicJson,
@@ -113,7 +113,7 @@ function reconcileTimeSuggestions(
  * Call Claude Haiku to suggest reviewed description and time improvements.
  *
  * Returns the suggestions on success, or the error to show on failure, with
- * `refundable` true when the provider cannot have billed the call.
+ * `refundable` true when the daily use should come back (`isRefundableFailure`).
  */
 export async function enhanceRecipeMetadata(
 	input: RecipeInput,
@@ -135,7 +135,7 @@ export async function enhanceRecipeMetadata(
 		? reconcileTimeSuggestions(result.data, input)
 		: {
 				error: enhanceError(result.failure),
-				refundable: isUnbilledFailure(result.failure),
+				refundable: isRefundableFailure(result.failure),
 			}
 }
 

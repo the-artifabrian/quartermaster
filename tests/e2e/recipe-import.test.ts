@@ -299,9 +299,7 @@ test('a Pro user out of AI imports for the day is told so and nothing is saved',
 	await page.getByRole('button', { name: 'Extract with AI' }).click()
 
 	await expect(
-		page.getByText(
-			"That's 10 text and photo imports today. Try again tomorrow.",
-		),
+		page.getByText("You've used today's 10 AI imports. Try again tomorrow."),
 	).toBeVisible()
 	await expect(page.getByLabel('Recipe text', { exact: true })).toHaveValue(
 		original,

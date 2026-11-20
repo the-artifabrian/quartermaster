@@ -77,6 +77,7 @@ export async function action({ request }: Route.ActionArgs) {
 		const refusal = aiUsageRefusal(usage.reason, {
 			limit: DAILY_LIMIT,
 			uses: 'voice entries',
+			unavailable: "Couldn't start voice input just now.",
 		})
 		return data(
 			{

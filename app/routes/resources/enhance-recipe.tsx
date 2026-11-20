@@ -87,7 +87,8 @@ export async function action({ request }: Route.ActionArgs) {
 	if (!usage.allowed) {
 		const refusal = aiUsageRefusal(usage.reason, {
 			limit: DAILY_LIMIT,
-			uses: 'Recipe suggestions',
+			uses: 'suggestion requests',
+			unavailable: "Couldn't get suggestions just now.",
 		})
 		return data(
 			{

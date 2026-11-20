@@ -37,10 +37,7 @@ const WHISPER_HALLUCINATION_EXACT = new Set([
 ])
 
 function isWhisperHallucination(text: string): boolean {
-	const normalized = text
-		.toLowerCase()
-		.replace(/[.,!?;:\s]+/g, ' ')
-		.trim()
+	const normalized = text.toLowerCase().replace(/[.,!?;:\s]+/g, ' ').trim()
 
 	// Too short to be a real grocery item
 	if (normalized.length < 2) return true
@@ -61,13 +58,19 @@ type TranscribeResult = {
 }
 
 /**
- * A failed transcription. `refundable` is true only when Groq cannot have
- * billed the call, so the caller can give back the daily use: no request went
- * out, none got a response, or Groq answered 429 or 5xx. A timeout stays
- * spent, since Groq may have finished after we stopped waiting, and so does
- * anything after a 200.
+ * A failed transcription. `refundable` says whether the caller should give
+ * back the daily use. It does when the failure is ours or Groq's and the user
+ * can't cause it: no key, a dropped connection, or Groq answering 401, 403,
+ * 404, 429 or 5xx. A timeout stays spent, since Groq may have finished after
+ * we stopped waiting. So does another 4xx, which is about the audio we sent,
+ * and anything after a 200.
  */
 type TranscribeFailure = { error: string; refundable: boolean }
+
+/** 401, 403 and 404 mean our key or model is wrong; 5xx is Groq's own. */
+function isRefundableStatus(status: number) {
+	return status === 401 || status === 403 || status === 404 || status >= 500
+}
 
 const FAILED = 'Voice transcription failed. Please try again.'
 const NOT_UNDERSTOOD = "Couldn't understand the audio. Please try again."
@@ -88,13 +91,9 @@ export async function transcribeAudio(
 		const formData = new FormData()
 		formData.append(
 			'file',
-			new File(
-				[await audioFile.arrayBuffer()],
-				audioFile.name || 'audio.webm',
-				{
-					type: audioFile.type,
-				},
-			),
+			new File([await audioFile.arrayBuffer()], audioFile.name || 'audio.webm', {
+				type: audioFile.type,
+			}),
 		)
 		formData.append('model', MODEL)
 		formData.append(
@@ -116,7 +115,8 @@ export async function transcribeAudio(
 				refundable: false,
 			}
 		}
-		// No response arrived, so nothing was billed.
+		// No response arrived. Groq may still have had the request, but a user
+		// can't cause a dropped connection, so the use comes back.
 		return { error: FAILED, refundable: true }
 	}
 
@@ -131,8 +131,10 @@ export async function transcribeAudio(
 				refundable: true,
 			}
 		}
-		// Another 4xx is about the audio we sent, which Groq may bill.
-		return { error: FAILED, refundable: response.status >= 500 }
+		return {
+			error: FAILED,
+			refundable: isRefundableStatus(response.status),
+		}
 	}
 
 	let transcription: string

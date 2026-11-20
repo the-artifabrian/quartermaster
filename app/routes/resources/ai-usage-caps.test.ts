@@ -1,25 +1,31 @@
 /**
- * Failure list for the daily caps on paid AI calls, at the routes. A use is
- * given back only when the provider cannot have billed the call (no response,
- * 429 or 5xx); a refund for anything else would let slow or bad input buy
+ * Failure list for the daily caps on paid AI calls, at the routes. A use comes
+ * back only when the call failed in a way a user can't cause: no key, a bad
+ * key or retired model (401, 403, 404), a 429, a 5xx, or a dropped
+ * connection. Refunding anything else would let slow or bad input buy
  * unlimited paid calls.
  *
- * 1. Voice input has no cap, and every new signup gets a Pro trial. Once the
- *    day's uses run out it must be refused before Whisper is called.
+ * 1. Voice input has no cap, and every new signup gets a Pro trial. After 30
+ *    uses in a day it must be refused before Whisper is called.
  * 2. A voice request without usable audio spends a use.
- * 3. Whisper answers 503: nothing was billed, so the use must come back.
- * 4. Whisper answers 400 for the audio it was sent: that may be billed, so
- *    the use stays spent.
+ * 3. Whisper answers 401, 403, 404, 429 or 503, or the connection drops: the
+ *    use must come back.
+ * 4. Whisper answers 400 for the audio it was sent: the use stays spent.
  * 5. Whisper times out: Groq may have finished and billed it, so the use
  *    stays spent.
  * 6. Whisper answers but the audio held nothing usable: the use stays spent.
- * 7. Text extraction gets a 503: the use must come back.
+ * 7. Text extraction gets a 503, or the connection drops: the use must come
+ *    back.
  * 8. Text extraction times out: the use stays spent.
  * 9. The model refuses: the use stays spent.
  * 10. Screenshot import with a file that is not an image spends a use.
- * 11. Enhance on a Recipe that does not exist (or is another household's)
- *     spends a use.
- * 12. Enhance gets a 429: the use must come back.
+ * 11. An image that passes the byte check but can't be prepared fails before
+ *     any request goes out: the use must come back.
+ * 12. Enhance on a Recipe that does not exist spends a use.
+ * 13. Enhance on another household's Recipe spends a use.
+ * 14. Enhance gets a 429: the use must come back.
+ * 15. The use can't be recorded: the call must be refused with a 503 and a
+ *     message that says to try again soon, without calling the model.
  */
 import { http, HttpResponse } from 'msw'
 import { RouterContextProvider } from 'react-router'
@@ -130,7 +136,7 @@ function uses(userId: string) {
 }
 
 describe('voice input', () => {
-	test('is refused once the day’s uses run out, without calling Whisper', async () => {
+	test('is refused after 30 uses in a day, without calling Whisper', async () => {
 		using _groq = withEnv('GROQ_API_KEY', 'test-key')
 		using _anthropic = withEnv('ANTHROPIC_API_KEY', 'test-key')
 		const session = await proUser()
@@ -152,25 +158,32 @@ describe('voice input', () => {
 			),
 		)
 
-		let allowed = 0
-		let refused: Awaited<ReturnType<typeof call>> | null = null
-		for (let i = 0; i < 200 && !refused; i++) {
+		for (let i = 0; i < 30; i++) {
 			const result = await call(
 				transcribeAction,
 				'/resources/transcribe',
 				session,
 				audioForm(),
 			)
-			if (result.status === 429) refused = result
-			else allowed++
+			expect(result.status).toBe(200)
 		}
-
-		expect(refused?.body.error).toMatch(
-			/^That's \d+ voice entries today\. Try again tomorrow\.$/,
+		const refused = await call(
+			transcribeAction,
+			'/resources/transcribe',
+			session,
+			audioForm(),
 		)
-		expect(allowed).toBeGreaterThan(0)
-		expect(whisperCalls).toBe(allowed)
-		expect(await uses(session.userId)).toBe(allowed)
+
+		expect(refused).toEqual({
+			status: 429,
+			body: {
+				error: "You've used today's 30 voice entries. Try again tomorrow.",
+				items: [],
+				transcription: null,
+			},
+		})
+		expect(whisperCalls).toBe(30)
+		expect(await uses(session.userId)).toBe(30)
 	})
 
 	test('a request without audio spends nothing', async () => {
@@ -188,13 +201,18 @@ describe('voice input', () => {
 		expect(await uses(session.userId)).toBe(0)
 	})
 
-	test('a Whisper 503 gives the use back', async () => {
+	test.each([
+		['401', () => new HttpResponse(null, { status: 401 })],
+		['403', () => new HttpResponse(null, { status: 403 })],
+		['404', () => new HttpResponse(null, { status: 404 })],
+		['429', () => new HttpResponse(null, { status: 429 })],
+		['503', () => new HttpResponse(null, { status: 503 })],
+		['a dropped connection', () => HttpResponse.error()],
+	])('Whisper failing with %s gives the use back', async (_name, respond) => {
 		using _groq = withEnv('GROQ_API_KEY', 'test-key')
 		consoleError.mockImplementation(() => {})
 		const session = await proUser()
-		server.use(
-			http.post(GROQ_URL, () => new HttpResponse(null, { status: 503 })),
-		)
+		server.use(http.post(GROQ_URL, respond))
 
 		const result = await call(
 			transcribeAction,
@@ -266,13 +284,14 @@ describe('voice input', () => {
 })
 
 describe('AI extraction', () => {
-	test('a 503 gives the use back', async () => {
+	test.each([
+		['a 503', () => new HttpResponse(null, { status: 503 })],
+		['a dropped connection', () => HttpResponse.error()],
+	])('%s gives the use back', async (_name, respond) => {
 		using _anthropic = withEnv('ANTHROPIC_API_KEY', 'test-key')
 		consoleError.mockImplementation(() => {})
 		const session = await proUser()
-		server.use(
-			http.post(ANTHROPIC_URL, () => new HttpResponse(null, { status: 503 })),
-		)
+		server.use(http.post(ANTHROPIC_URL, respond))
 
 		const result = await call(
 			importAction,
@@ -365,6 +384,37 @@ describe('AI extraction', () => {
 	})
 })
 
+test('an image that can’t be prepared gives the use back', async () => {
+	using _anthropic = withEnv('ANTHROPIC_API_KEY', 'test-key')
+	consoleError.mockImplementation(() => {})
+	const session = await proUser()
+	let modelCalls = 0
+	server.use(
+		http.post(ANTHROPIC_URL, () => {
+			modelCalls++
+			return new HttpResponse(null, { status: 500 })
+		}),
+	)
+	const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+	const broken = new Uint8Array([...pngSignature, ...new Uint8Array(32)])
+
+	const result = await call(
+		importAction,
+		'/recipes/import',
+		session,
+		form({
+			intent: 'extract-image',
+			image: new File([broken], 'recipe.png', { type: 'image/png' }),
+		}),
+	)
+
+	expect(result.body.error).toBe(
+		'Could not process the image(s). Please try different images or formats.',
+	)
+	expect(modelCalls).toBe(0)
+	expect(await uses(session.userId)).toBe(0)
+})
+
 describe('Recipe enhance', () => {
 	test('a Recipe that does not exist spends nothing', async () => {
 		using _anthropic = withEnv('ANTHROPIC_API_KEY', 'test-key')
@@ -378,6 +428,73 @@ describe('Recipe enhance', () => {
 		)
 
 		expect(result.status).toBe(404)
+		expect(await uses(session.userId)).toBe(0)
+	})
+
+	test('another household’s Recipe spends nothing', async () => {
+		using _anthropic = withEnv('ANTHROPIC_API_KEY', 'test-key')
+		const session = await proUser()
+		const other = await proUser()
+		const theirs = await prisma.recipe.create({
+			data: {
+				title: 'Their chickpeas',
+				userId: other.userId,
+				householdId: other.householdId,
+			},
+			select: { id: true },
+		})
+
+		const result = await call(
+			enhanceAction,
+			'/resources/enhance-recipe',
+			session,
+			form({ recipeId: theirs.id }),
+		)
+
+		expect(result.status).toBe(404)
+		expect(await uses(session.userId)).toBe(0)
+		expect(await uses(other.userId)).toBe(0)
+	})
+
+	test('a use that can’t be recorded is refused with a 503', async () => {
+		using _anthropic = withEnv('ANTHROPIC_API_KEY', 'test-key')
+		consoleError.mockImplementation(() => {})
+		const session = await proUser()
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Plain chickpeas',
+				userId: session.userId,
+				householdId: session.householdId,
+			},
+			select: { id: true },
+		})
+		let modelCalls = 0
+		server.use(
+			http.post(ANTHROPIC_URL, () => {
+				modelCalls++
+				return new HttpResponse(null, { status: 500 })
+			}),
+		)
+		const failure = vi
+			.spyOn(prisma, '$transaction')
+			.mockRejectedValueOnce(new Error('database is locked'))
+
+		const result = await call(
+			enhanceAction,
+			'/resources/enhance-recipe',
+			session,
+			form({ recipeId: recipe.id }),
+		)
+		failure.mockRestore()
+
+		expect(result).toEqual({
+			status: 503,
+			body: {
+				error: "Couldn't get suggestions just now. Try again in a minute.",
+				suggestions: null,
+			},
+		})
+		expect(modelCalls).toBe(0)
 		expect(await uses(session.userId)).toBe(0)
 	})
 

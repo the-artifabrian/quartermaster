@@ -12,15 +12,20 @@ export type AiUsageClaim =
 	| {
 			allowed: true
 			/**
-			 * Give the slot back, for a call the provider cannot have billed.
+			 * Give the slot back, for a call that failed in a way the user
+			 * can't cause.
 			 * Calling it twice does nothing the second time.
 			 */
 			refund: () => Promise<void>
 	  }
 	| { allowed: false; reason: 'per-user' | 'unavailable' }
 
-function startOfToday() {
-	const start = new Date()
+/**
+ * When today's uses began: local midnight on the server. The daily prune in
+ * `server/scheduled-maintenance.ts` keeps rows from here on, so both use this.
+ */
+export function startOfUsageDay(now = new Date()) {
+	const start = new Date(now)
 	start.setHours(0, 0, 0, 0)
 	return start
 }
@@ -35,7 +40,7 @@ async function countAndRecord(
 	limits: AiUsageLimits,
 ): Promise<Recorded> {
 	const used = await tx.usageEvent.count({
-		where: { userId, type, createdAt: { gte: startOfToday() } },
+		where: { userId, type, createdAt: { gte: startOfUsageDay() } },
 	})
 	if (used >= limits.perUser) return { allowed: false, reason: 'per-user' }
 
@@ -89,22 +94,25 @@ export async function claimAiUsage(
 
 /**
  * What to tell a user whose claim was refused, and the status to answer with.
- * `uses` names the feature's uses in the plural, as in "10 photo imports".
+ * `uses` names the feature's uses in the plural, as in "10 AI imports".
+ * `unavailable` says what couldn't start, as in "Couldn't start the import
+ * just now."
  */
 export function aiUsageRefusal(
 	reason: Extract<AiUsageClaim, { allowed: false }>['reason'],
-	{ limit, uses }: { limit: number; uses: string },
+	{
+		limit,
+		uses,
+		unavailable,
+	}: { limit: number; uses: string; unavailable: string },
 ): { error: string; status: 429 | 503 } {
 	switch (reason) {
 		case 'per-user':
 			return {
-				error: `That's ${limit} ${uses} today. Try again tomorrow.`,
+				error: `You've used today's ${limit} ${uses}. Try again tomorrow.`,
 				status: 429,
 			}
 		case 'unavailable':
-			return {
-				error: "Couldn't start that just now. Try again in a moment.",
-				status: 503,
-			}
+			return { error: `${unavailable} Try again in a minute.`, status: 503 }
 	}
 }

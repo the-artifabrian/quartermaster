@@ -206,9 +206,3 @@ export const photoTooLargeResult = {
 	initialValue: {},
 	error: { image: ['Photo is over 3 MB'] },
 }
-export const ACCEPTED_RECIPE_IMAGE_TYPES = [
-	'image/jpeg',
-	'image/jpg',
-	'image/png',
-	'image/webp',
-]

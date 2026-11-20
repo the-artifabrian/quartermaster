@@ -85,6 +85,23 @@ Photos are stored in object storage (Tigris) under
 id and an extension taken from the upload's checked type, never the browser's
 file name. A copy for a shared Recipe gets a new name of the same shape.
 
+An upload is checked before anything is saved, in
+`app/utils/recipe-photo.server.ts`, and storage takes only a photo that passed.
+The browser's type and the file name are ignored. The first bytes must be JPEG,
+PNG or WebP, the formats the form offers. sharp must then read the same format,
+with no more than 25 million pixels, and decode the whole file to a thumbnail,
+since a JPEG cut off partway still has a readable header. A file that fails gets
+"That file isn't a photo we can use. Choose a JPG, PNG or WebP." next to the
+photo field, and the Recipe isn't saved or changed.
+
+The pixel cap clears a 24 MP phone photo. Bigger photos are over the 3 MB
+limit, so the form shrinks them to 2048 px on the long edge before sending. The
+cap comes from the image route's full-size copy. Measured locally, a rotated JPEG
+at the cap peaks around 310 MB there, and one of 60 million pixels around
+650 MB, more than the production machine has. iPhone HEIC is refused: the
+prebuilt sharp reads its header but can't decode it. iOS Safari sends a JPEG
+when the file input doesn't list HEIC.
+
 Pages show them through `/resources/images`, which resizes with openimg and
 caches each resize on disk. Share pages and link previews use it too, so it has
 no login, and `app/utils/image-route.ts` sets what it accepts:
@@ -100,6 +117,8 @@ no login, and `app/utils/image-route.ts` sets what it accepts:
 - **Formats.** AVIF, WebP, or the original format. `fit` is `cover` or left
   out. Both mean the same crop, so they share one cached copy. A format needs a
   size: no page asks for a full-size AVIF or WebP.
+- **Pixels.** Its sharp pipeline has the upload's pixel cap, so a stored photo
+  that never passed the check gets an error before it is decoded.
 
 Per photo that is at most 21 resizes no larger than 1200×630, plus one
 full-size copy in the original format. Uploads are capped at 3 MB.

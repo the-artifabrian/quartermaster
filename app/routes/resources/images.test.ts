@@ -4,6 +4,9 @@
 // - a `src` naming another site must not make the server fetch it
 // - a stored object whose bytes aren't an image must answer with an error,
 //   not take the process down, and must keep doing so on a repeat
+// - a stored image with more pixels than an upload may have must answer with
+//   an error before it is decoded, in every format and with no size, since
+//   one got in before uploads were checked
 // - a valid stored image still serves, through the signed storage fetch
 //   production uses (its origin must match the allowlist), and its AVIF
 //   transform is cached under the source's own path
@@ -47,6 +50,7 @@ import path from 'node:path'
 import { RouterContextProvider } from 'react-router'
 import sharp from 'sharp'
 import { afterEach, describe, expect, test, vi } from 'vitest'
+import { MAX_PHOTO_PIXELS } from '#app/utils/recipe-photo.server.ts'
 import { deleteRecipeImage } from '#app/utils/storage.server.ts'
 import '#tests/setup/mocks-setup.ts'
 import { loader } from './images.tsx'
@@ -182,6 +186,46 @@ test('answers with an error for a stored object that is not an image, every time
 		await rm(directory, { recursive: true, force: true })
 	}
 })
+
+test.each([
+	['a resize', { w: '72', h: '72' }],
+	['a WebP resize', { w: '72', h: '72', format: 'webp' }],
+	['an AVIF resize', { w: '72', h: '72', format: 'avif' }],
+	['the original', {}],
+])(
+	'answers with an error for %s of a stored image over the pixel cap',
+	async (_, size) => {
+		const name = `over-cap-${Object.values(size).join('-') || 'original'}`
+		const objectKey = `users/image-route-${name}/recipes/r1/images/1732000000000-${name}.png`
+		const uploads = './tests/fixtures/uploaded'
+		await mkdir(path.join(uploads, path.dirname(objectKey)), {
+			recursive: true,
+		})
+		const edge = Math.floor(Math.sqrt(MAX_PHOTO_PIXELS))
+		await writeFile(
+			path.join(uploads, objectKey),
+			await sharp({
+				create: {
+					width: edge,
+					height: edge + 1,
+					channels: 3,
+					background: '#c86b3c',
+				},
+			})
+				.png()
+				.toBuffer(),
+		)
+		try {
+			expect(await storedImage(objectKey, size)).toBeInstanceOf(Error)
+		} finally {
+			await clearCachedResizes(objectKey)
+			await rm(path.join(uploads, `users/image-route-${name}`), {
+				recursive: true,
+				force: true,
+			})
+		}
+	},
+)
 
 // The AVIF pipeline is the route's own (a lower encoder effort), so the
 // cache must still file the result where openimg's default pipeline would:

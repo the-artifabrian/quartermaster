@@ -12,6 +12,10 @@ import { data, replace, type ShouldRevalidateFunctionArgs } from 'react-router'
 import { RECIPE_FORM_ID, RecipeForm } from '#app/components/recipe-form.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import {
+	checkRecipePhoto,
+	UNUSABLE_PHOTO_MESSAGE,
+} from '#app/utils/recipe-photo.server.ts'
+import {
 	clientLeaves,
 	type EditScreenDone,
 	isEditScreenDone,
@@ -30,7 +34,6 @@ import {
 	RecipeSchema,
 	MAX_RECIPE_IMAGE_SIZE,
 	photoTooLargeResult,
-	ACCEPTED_RECIPE_IMAGE_TYPES,
 } from '#app/utils/recipe-validation.ts'
 import { uploadRecipeImage } from '#app/utils/storage.server.ts'
 import { writeTransaction } from '#app/utils/write-transaction.server.ts'
@@ -83,9 +86,7 @@ export async function action({ request }: Route.ActionArgs) {
 					if (file.size > MAX_RECIPE_IMAGE_SIZE) {
 						return undefined
 					}
-					if (!ACCEPTED_RECIPE_IMAGE_TYPES.includes(file.type)) {
-						return undefined
-					}
+					// Its type is the browser's guess; checkRecipePhoto reads the bytes.
 					imageFile = file
 					return file
 				}
@@ -140,6 +141,20 @@ export async function action({ request }: Route.ActionArgs) {
 			instructions,
 		})),
 	})
+
+	// Checked before anything is saved, so a refused file leaves no Recipe
+	// behind.
+	const photo = imageFile ? await checkRecipePhoto(imageFile) : null
+	if (imageFile && !photo) {
+		return data(
+			{
+				result: submission.reply({
+					fieldErrors: { image: [UNUSABLE_PHOTO_MESSAGE] },
+				}),
+			},
+			{ status: 400 },
+		)
+	}
 
 	if (submission.status !== 'success') {
 		return data({ result: submission.reply() }, { status: 400 })
@@ -235,8 +250,8 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	// Upload image if provided
-	if (imageFile) {
-		const objectKey = await uploadRecipeImage(userId, recipe.id, imageFile)
+	if (photo) {
+		const objectKey = await uploadRecipeImage(userId, recipe.id, photo)
 		await prisma.recipeImage.create({
 			data: {
 				recipeId: recipe.id,

@@ -156,6 +156,64 @@ test('a phone photo over 3 MB is resized in the browser and saved', async ({
 	expect(stored.size).toBeLessThan(3 * 1024 * 1024)
 })
 
+test('a file that isn’t a photo is refused with a reason, and a real photo then saves', async ({
+	page,
+	login,
+}) => {
+	const { householdId } = await login()
+
+	await page.goto('/recipes/new')
+	await page.getByRole('textbox', { name: /title/i }).fill('Notes Pasta')
+	await page.getByPlaceholder('Ingredient name').fill('spaghetti')
+	await page.getByPlaceholder('Step 1').fill('Boil water and cook pasta')
+	await page.getByText('Photo', { exact: true }).click()
+	const photoInput = page.locator('input[type="file"][name="image"]')
+	// Text with a photo's name and type: only its bytes give it away.
+	await photoInput.setInputFiles({
+		name: 'pasta.jpg',
+		mimeType: 'image/jpeg',
+		buffer: Buffer.from('Boil the pasta for 9 minutes.'),
+	})
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
+
+	await expect(
+		page.getByText(
+			'That file isn’t a photo we can use. Choose a JPG, PNG or WebP.',
+		),
+	).toBeVisible()
+	await expect(page).toHaveURL(/\/recipes\/new$/)
+	await expect(page.getByRole('textbox', { name: /title/i })).toHaveValue(
+		'Notes Pasta',
+	)
+	expect(
+		await prisma.recipe.count({ where: { householdId, title: 'Notes Pasta' } }),
+	).toBe(0)
+
+	// A tiny real photo: encoding a big one is slow on CI runners.
+	const photo = await sharp({
+		create: { width: 64, height: 48, channels: 3, background: '#c86b3c' },
+	})
+		.jpeg()
+		.toBuffer()
+	await photoInput.setInputFiles({
+		name: 'IMG_0002.JPG',
+		mimeType: 'image/jpeg',
+		buffer: photo,
+	})
+	await page.getByRole('button', { name: 'Save', exact: true }).click()
+
+	await expect(page).toHaveURL(/\/recipes\/(?!new$)[a-z0-9]+$/)
+	const recipeId = new URL(page.url()).pathname.split('/').at(-1)!
+	await expect(page.getByRole('img', { name: 'Notes Pasta' })).toBeVisible()
+	const saved = await prisma.recipe.findMany({
+		where: { householdId, title: 'Notes Pasta' },
+		select: { id: true, image: { select: { objectKey: true } } },
+	})
+	expect(saved).toEqual([
+		{ id: recipeId, image: { objectKey: expect.stringMatching(/\.jpg$/) } },
+	])
+})
+
 test('a Pro user can extract with AI from text and from an image', async ({
 	page,
 	login,

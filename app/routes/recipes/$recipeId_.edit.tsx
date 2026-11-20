@@ -26,6 +26,10 @@ import { ConfirmSheet } from '#app/components/ui/confirm-sheet.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import {
+	checkRecipePhoto,
+	UNUSABLE_PHOTO_MESSAGE,
+} from '#app/utils/recipe-photo.server.ts'
+import {
 	clientLeaves,
 	type EditScreenDone,
 	isEditScreenDone,
@@ -47,7 +51,6 @@ import {
 	RecipeSchema,
 	MAX_RECIPE_IMAGE_SIZE,
 	photoTooLargeResult,
-	ACCEPTED_RECIPE_IMAGE_TYPES,
 } from '#app/utils/recipe-validation.ts'
 import { deleteRecipeImageUnlessShared } from '#app/utils/recipe-image.server.ts'
 import {
@@ -185,9 +188,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 					if (file.size > MAX_RECIPE_IMAGE_SIZE) {
 						return undefined
 					}
-					if (!ACCEPTED_RECIPE_IMAGE_TYPES.includes(file.type)) {
-						return undefined
-					}
+					// Its type is the browser's guess; checkRecipePhoto reads the bytes.
 					imageFile = file
 					return file
 				}
@@ -281,6 +282,20 @@ export async function action({ request, params }: Route.ActionArgs) {
 			instructions,
 		})),
 	})
+
+	// Checked before anything is saved, so a refused file leaves the Recipe
+	// and its photo as they were.
+	const photo = imageFile ? await checkRecipePhoto(imageFile) : null
+	if (imageFile && !photo) {
+		return data(
+			{
+				result: submission.reply({
+					fieldErrors: { image: [UNUSABLE_PHOTO_MESSAGE] },
+				}),
+			},
+			{ status: 400 },
+		)
+	}
 
 	if (submission.status !== 'success') {
 		return data({ result: submission.reply() }, { status: 400 })
@@ -380,12 +395,12 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	// Upload the new photo before touching the old one, so a failed upload
 	// leaves the Recipe with the photo it had.
-	if (imageFile) {
+	if (photo) {
 		const existingImage = await prisma.recipeImage.findUnique({
 			where: { recipeId },
 			select: { objectKey: true },
 		})
-		const objectKey = await uploadRecipeImage(userId, recipeId, imageFile)
+		const objectKey = await uploadRecipeImage(userId, recipeId, photo)
 		try {
 			await prisma.recipeImage.upsert({
 				where: { recipeId },

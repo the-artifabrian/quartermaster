@@ -1,10 +1,12 @@
 import { invariant, invariantResponse } from '@epic-web/invariant'
-import { getDefaultSharpPipeline, getImgResponse } from 'openimg/node'
+import { getImgResponse } from 'openimg/node'
+import sharp from 'sharp'
 import {
 	getImageCacheDir,
 	getStoredImageSource,
 } from '#app/utils/image-cache.server.ts'
 import { isRecipeImageKey, snapImageSize } from '#app/utils/image-route.ts'
+import { PHOTO_SHARP_OPTIONS } from '#app/utils/recipe-photo.server.ts'
 import { type Route } from './+types/images'
 
 function parseEdge(value: string | null) {
@@ -60,6 +62,25 @@ function getImgParams(searchParams: URLSearchParams) {
 	return { ...snapImageSize({ width, height }), format }
 }
 
+type ImgParams = ReturnType<typeof getImgParams>
+
+/**
+ * openimg's default pipeline with the upload's pixel cap, so a stored photo
+ * that never passed the upload check is refused before it is decoded.
+ *
+ * sharp's default AVIF effort (4) spends 250 ms per Recipe photo here and a
+ * few seconds on the production machine, which is what a Recipe page waits
+ * for on its first view after an import. Effort 1 encodes the same quality
+ * target in a fraction of the time for ~8% more bytes.
+ */
+function photoPipeline(params: ImgParams) {
+	const pipeline = sharp(PHOTO_SHARP_OPTIONS).autoOrient()
+	if (params.format === 'avif') pipeline.avif({ effort: 1 })
+	if (params.format === 'webp') pipeline.webp()
+	if ('width' in params) pipeline.resize(params.width, params.height)
+	return pipeline
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
 	const url = new URL(request.url)
 	const searchParams = url.searchParams
@@ -84,17 +105,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 	return getImgResponse(request, {
 		headers,
 		getImgParams: () => params,
-		// sharp's default AVIF effort (4) spends 250 ms per Recipe photo here and
-		// a few seconds on the production machine, which is what a Recipe page
-		// waits for on its first view after an import. Effort 1 encodes the same
-		// quality target in a fraction of the time for ~8% more bytes. The cache
-		// key stays the source's own, so the AVIFs already on disk keep serving.
-		getSharpPipeline: ({ params, source }) => {
-			if (params.format !== 'avif') return undefined
+		// The cache key stays the source's own, as openimg's default pipeline
+		// keys it, so the resizes already on disk keep serving.
+		getSharpPipeline: ({ source }) => {
 			// getImgSource below only ever answers with a file or a fetch.
 			invariant(source.type !== 'data', 'Unexpected data image source')
 			return {
-				pipeline: getDefaultSharpPipeline(params).avif({ effort: 1 }),
+				pipeline: photoPipeline(params),
 				cacheKey: source.type === 'fetch' ? source.url : source.path,
 			}
 		},

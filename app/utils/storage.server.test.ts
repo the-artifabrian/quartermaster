@@ -1,16 +1,19 @@
 // Failure list for the keys the storage writers produce (the image route
 // serves only keys of this shape, so a writer that strays breaks the photo):
-// - an upload's file name is the browser's (or a hand-made request's), so it
-//   can have no dot, a space, a slash or anything else after its last dot;
-//   the key must not carry any of that
+// - an upload's file name and type are the browser's (or a hand-made
+//   request's), so its name can have no dot, a space, a slash or anything
+//   else after its last dot; the key must not carry any of that, and its
+//   extension must be the one of the format the bytes are
 // - a copy names itself after its source, so a copy of a copy must not grow
 //   the key until it no longer fits
 // - an id that would break the shape must stop the write, so no page is
 //   left with an object it can't show
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import sharp from 'sharp'
 import { afterEach, expect, test } from 'vitest'
 import { isRecipeImageKey } from './image-route.ts'
+import { checkRecipePhoto } from './recipe-photo.server.ts'
 import { copyRecipeImage, uploadRecipeImage } from './storage.server.ts'
 import '#tests/setup/mocks-setup.ts'
 
@@ -24,16 +27,34 @@ afterEach(async () => {
 	})
 })
 
+const solid = () =>
+	sharp({ create: { width: 8, height: 8, channels: 3, background: '#fff' } })
+
+async function checkedPhoto(name: string, type: string, bytes?: Buffer) {
+	const part = new Uint8Array(bytes ?? (await solid().png().toBuffer()))
+	const file = new File([part], name, { type })
+	const photo = await checkRecipePhoto(file)
+	if (!photo) throw new Error('The fixture photo should pass the check')
+	return photo
+}
+
 test.each([
-	['no dot', 'photo', 'image/jpeg', '.jpg'],
-	['a space after the dot', 'photo.j pg', 'image/jpeg', '.jpg'],
-	['a slash after the dot', 'photo./../../evil', 'image/png', '.png'],
-	['an extension that is not its type', 'photo.JPG', 'image/webp', '.webp'],
-])(
+	['no dot', 'photo', 'image/jpeg', 'jpeg', '.jpg'],
+	['a space after the dot', 'photo.j pg', 'image/jpeg', 'jpeg', '.jpg'],
+	['a slash after the dot', 'photo./../../evil', 'image/png', 'png', '.png'],
+	[
+		'an extension that is not its type',
+		'photo.JPG',
+		'image/jpeg',
+		'webp',
+		'.webp',
+	],
+] as const)(
 	'stores an upload whose name has %s under a key the image route serves',
-	async (_, name, type, extension) => {
-		const file = new File([Buffer.from('bytes')], name, { type })
-		const key = await uploadRecipeImage(USER, 'recipe-1', file)
+	async (_, name, type, format, extension) => {
+		const bytes = await solid().toFormat(format).toBuffer()
+		const photo = await checkedPhoto(name, type, bytes)
+		const key = await uploadRecipeImage(USER, 'recipe-1', photo)
 		expect(isRecipeImageKey(key)).toBe(true)
 		expect(key.startsWith(`users/${USER}/recipes/recipe-1/images/`)).toBe(true)
 		expect(key.endsWith(extension)).toBe(true)
@@ -42,10 +63,8 @@ test.each([
 )
 
 test('keeps a copy of a copy the same shape and length as an upload', async () => {
-	const file = new File([Buffer.from('bytes')], 'photo.png', {
-		type: 'image/png',
-	})
-	const upload = await uploadRecipeImage(USER, 'recipe-1', file)
+	const photo = await checkedPhoto('photo.png', 'image/png')
+	const upload = await uploadRecipeImage(USER, 'recipe-1', photo)
 	const copy = await copyRecipeImage(upload, USER, 'recipe-2')
 	const copyOfCopy = await copyRecipeImage(copy, USER, 'recipe-3')
 	for (const key of [copy, copyOfCopy]) {
@@ -56,12 +75,10 @@ test('keeps a copy of a copy the same shape and length as an upload', async () =
 })
 
 test('refuses to store under an id that would break the key shape', async () => {
-	const file = new File([Buffer.from('bytes')], 'photo.png', {
-		type: 'image/png',
-	})
+	const photo = await checkedPhoto('photo.png', 'image/png')
 	const badUser = `${USER} 2`
 	try {
-		await expect(uploadRecipeImage(badUser, 'r1', file)).rejects.toThrow()
+		await expect(uploadRecipeImage(badUser, 'r1', photo)).rejects.toThrow()
 		await expect(
 			fs.stat(path.join(UPLOADS_DIR, 'users', badUser)),
 		).rejects.toThrow()

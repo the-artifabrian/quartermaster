@@ -1,29 +1,37 @@
 /**
- * Lists saved ingredient rows whose amount looks split or unreadable. It only
- * reads: the database is opened read-only, so it is safe against production.
+ * Lists saved ingredient rows whose amount looks split, or reads differently
+ * now. It only reads: the database is opened read-only, so it is safe against
+ * production.
  *
  *   bun scripts/find-split-amounts.ts [path/to/data.db] [--json]
  *
  * The path defaults to DATABASE_PATH. A database in WAL mode opens read-only
  * only while something else holds it open, as the running app does. Otherwise
- * run it against a copy: sqlite3 "$DATABASE_PATH" ".backup /tmp/check.db".
+ * run it against a copy:
  *
- * Before comma decimals and thousands
- * separators were understood, an import could cut "1,5 kg flour" into the
- * name "1" and the notes "5 kg flour", or "800–1,000 g flour" into the name
- * "800–1", and "2 x 400 g tomatoes" into the amount "2" and the name
- * "x 400 g tomatoes". Each row printed has one of these reasons:
+ *   sqlite3 "$DATABASE_PATH" ".backup /tmp/check.db"
+ *   sqlite3 /tmp/check.db "PRAGMA journal_mode=DELETE"
+ *
+ * Before comma decimals and thousands separators were understood, an import
+ * could cut "1,5 kg flour" into the name "1" and the notes "5 kg flour", or
+ * "800–1,000 g flour" into the name "800–1", and "2 x 400 g tomatoes" into the
+ * amount "2" and the name "x 400 g tomatoes". Each row printed has one of
+ * these reasons:
  *
  * - number-name: the name is only a number or range, so its amount ended up
  *   in the name and notes.
  * - split-thousands: the name ends in a digit and the notes start with three
  *   digits, the rest of a number cut at its comma.
  * - pack-size-name: the name starts with "x 400" or "× 400".
- * - amount-as-written: the amount has no single value ("1.000", "2 large",
- *   "2 x 400"). Totals and scaling leave it as written. Not broken, but worth
- *   a look, since the old reader took the number off its front.
+ * - reading-changed: the amount reads differently now ("1,5" was 1 and is
+ *   1.5; "1,250" and "2 large" were 1 and 2 and are now kept as written).
+ *   Not broken, but its totals and scaling changed.
  */
-import { isRangeAmount, parseAmount } from '#app/utils/fractions.ts'
+import {
+	isRangeAmount,
+	parseAmount,
+	parseRangeAmount,
+} from '#app/utils/fractions.ts'
 
 type Row = {
 	id: string
@@ -70,6 +78,39 @@ db.close()
 
 const NUMBER_ONLY = /^~?[\d.,/½⅓⅔¼¾⅛⅜⅝⅞]+(?:\s*[-–—]\s*[\d.,/½⅓⅔¼¾⅛⅜⅝⅞]+)?$/
 
+// How amounts were read before comma decimals were understood: a range
+// without commas, else a fraction, else whatever number started the string.
+const OLD_RANGE =
+	/^\s*(\d[\d\s./½⅓⅔¼¾⅛⅜⅝⅞]*?|[½⅓⅔¼¾⅛⅜⅝⅞])\s*([-–—~]|to)\s*(\d[\d\s./½⅓⅔¼¾⅛⅜⅝⅞]*|[½⅓⅔¼¾⅛⅜⅝⅞])\s*$/i
+
+function oldReading(amount: string): string {
+	const range = OLD_RANGE.exec(amount)
+	if (range) {
+		const low = oldNumber(range[1]!)
+		const high = oldNumber(range[3]!)
+		return low === null || high === null ? 'as written' : `${low} to ${high}`
+	}
+	return String(oldNumber(amount) ?? 'as written')
+}
+
+function oldNumber(amount: string): number | null {
+	const text = amount.trim()
+	// Fractions and mixed numbers read the same then as now.
+	if (/^[\d\s/½⅓⅔¼¾⅛⅜⅝⅞]+$/.test(text) && /[/½⅓⅔¼¾⅛⅜⅝⅞]/.test(text)) {
+		return parseAmount(text)
+	}
+	const value = parseFloat(text)
+	return Number.isNaN(value) ? null : value
+}
+
+function newReading(amount: string): string {
+	if (isRangeAmount(amount)) {
+		const range = parseRangeAmount(amount)
+		return range ? `${range.low} to ${range.high}` : 'as written'
+	}
+	return String(parseAmount(amount) ?? 'as written')
+}
+
 function reasonFor(row: Row): string | null {
 	const name = row.name.trim()
 	const notes = row.notes?.trim() ?? ''
@@ -77,8 +118,10 @@ function reasonFor(row: Row): string | null {
 	if (/\d$/.test(name) && /^\d{3}\b/.test(notes)) return 'split-thousands'
 	if (/^[x×]\s*\d/i.test(name)) return 'pack-size-name'
 	const amount = row.amount?.trim()
-	if (amount && !isRangeAmount(amount) && parseAmount(amount) === null) {
-		return 'amount-as-written'
+	if (amount) {
+		const before = oldReading(amount)
+		const now = newReading(amount)
+		if (before !== now) return `reading-changed: ${before} → ${now}`
 	}
 	return null
 }

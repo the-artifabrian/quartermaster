@@ -21,6 +21,10 @@
  * 10. Screenshot import with a file that is not an image spends a use.
  * 11. An image that passes the byte check but can't be prepared: the user
  *     can send these at will and each costs us CPU, so the use stays spent.
+ * 11a. A screenshot with more pixels than the cap: its header says so, so it
+ *     must be refused before a use is spent or the image decoded.
+ * 11b. An image over the cap that reaches the extraction anyway must not be
+ *     decoded or sent to the model.
  * 12. Enhance on a Recipe that does not exist spends a use.
  * 13. Enhance on another household's Recipe spends a use.
  * 14. Enhance gets a 429: the use must come back.
@@ -29,9 +33,14 @@
  */
 import { http, HttpResponse } from 'msw'
 import { RouterContextProvider } from 'react-router'
+import sharp from 'sharp'
 import { describe, expect, test, vi } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import {
+	extractRecipeFromImages,
+	MAX_SCREENSHOT_PIXELS,
+} from '#app/utils/recipe-extract-llm.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { server } from '#tests/setup/mocks-setup.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
@@ -413,6 +422,76 @@ test('an image that can’t be prepared keeps the use spent', async () => {
 	)
 	expect(modelCalls).toBe(0)
 	expect(await uses(session.userId)).toBe(1)
+})
+
+/** A small PNG one pixel row taller than the screenshot cap allows. */
+function screenshotOverCap() {
+	const width = 1000
+	return sharp({
+		create: {
+			width,
+			height: Math.floor(MAX_SCREENSHOT_PIXELS / width) + 1,
+			channels: 3,
+			background: '#ffffff',
+		},
+	})
+		.png()
+		.toBuffer()
+}
+
+test('a screenshot over the pixel cap is refused before it spends a use', async () => {
+	using _anthropic = withEnv('ANTHROPIC_API_KEY', 'test-key')
+	const session = await proUser()
+	let modelCalls = 0
+	server.use(
+		http.post(ANTHROPIC_URL, () => {
+			modelCalls++
+			return new HttpResponse(null, { status: 500 })
+		}),
+	)
+	const png = new Uint8Array(await screenshotOverCap())
+
+	const result = await call(
+		importAction,
+		'/recipes/import',
+		session,
+		form({
+			intent: 'extract-image',
+			image: new File([png], 'long.png', { type: 'image/png' }),
+		}),
+	)
+
+	expect(result.body.error).toBe(
+		'One of the screenshots is too big to read. Try a smaller one.',
+	)
+	expect(modelCalls).toBe(0)
+	expect(await uses(session.userId)).toBe(0)
+})
+
+test('the extraction refuses an image over the pixel cap without sending it', async () => {
+	using _anthropic = withEnv('ANTHROPIC_API_KEY', 'test-key')
+	consoleError.mockImplementation(() => {})
+	let modelCalls = 0
+	server.use(
+		http.post(ANTHROPIC_URL, () => {
+			modelCalls++
+			return new HttpResponse(null, { status: 500 })
+		}),
+	)
+
+	const result = await extractRecipeFromImages([
+		{
+			base64: (await screenshotOverCap()).toString('base64'),
+			mediaType: 'image/png',
+		},
+	])
+
+	expect(result).toEqual({
+		error:
+			'Could not process the image(s). Please try different images or formats.',
+		refundable: false,
+	})
+	expect(modelCalls).toBe(0)
 })
 
 describe('Recipe enhance', () => {

@@ -473,12 +473,23 @@ export async function extractRecipeFromText(
 const IMAGE_MAX_DIMENSION = 1568
 const IMAGE_JPEG_QUALITY = 88
 
+/**
+ * The most pixels a screenshot may have. A 5K display's screenshot is 14.7M
+ * px. A phone's scrolling screenshot reaches the cap at about 1290×12,400 px,
+ * well past the point where shrinking it to 1568 px keeps its text readable.
+ * Measured locally with one libvips thread, as on the production machine's
+ * one CPU, preparing a 16-bit RGBA PNG at the cap peaks around 170 MB.
+ */
+export const MAX_SCREENSHOT_PIXELS = 16_000_000
+
 async function prepareImage(
 	imageBase64: string,
 ): Promise<{ data: string; media_type: string }> {
 	const { default: sharp } = await import('sharp')
 	const buf = Buffer.from(imageBase64, 'base64')
-	const optimized = await sharp(buf)
+	const optimized = await sharp(buf, {
+		limitInputPixels: MAX_SCREENSHOT_PIXELS,
+	})
 		// Auto-orient first: sharp drops the EXIF orientation tag on write but
 		// does not turn the pixels, so a photo shot in portrait would otherwise
 		// reach the model on its side, with every line of the recipe vertical.

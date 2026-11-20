@@ -13,6 +13,7 @@ import { AI_FEATURE_USED } from '#app/utils/posthog-events.ts'
 import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import {
 	ALLOWED_IMAGE_MEDIA_TYPES,
+	MAX_SCREENSHOT_PIXELS,
 	extractRecipeFromImages,
 	extractRecipeFromText,
 	type RecipeMetadataVocabulary,
@@ -78,6 +79,16 @@ function matchedValueIds(
 			return id ? [id] : []
 		}),
 	)
+}
+
+async function hasTooManyPixels(buffer: ArrayBuffer) {
+	const { default: sharp } = await import('sharp')
+	// No limit here: metadata reads only the header, and the check is below.
+	const metadata = await sharp(buffer, { limitInputPixels: false })
+		.metadata()
+		.catch(() => null)
+	if (!metadata) return false
+	return metadata.width * metadata.height > MAX_SCREENSHOT_PIXELS
 }
 
 /**
@@ -154,6 +165,16 @@ export async function importWithAi(
 				return importFailure(
 					intentKey,
 					'Invalid image file. Please upload JPEG, PNG, or WebP images.',
+				)
+			}
+
+			// The header alone gives the size, so an oversized screenshot is
+			// refused before it spends a use or gets decoded. A header sharp
+			// can't read is left for the extraction to refuse, as before.
+			if (await hasTooManyPixels(buffer)) {
+				return importFailure(
+					intentKey,
+					'One of the screenshots is too big to read. Try a smaller one.',
 				)
 			}
 

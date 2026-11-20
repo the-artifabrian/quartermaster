@@ -3,13 +3,20 @@ import { styleText } from 'node:util'
 import { helmet } from '@nichtsam/helmet/node-http'
 import { ip as ipAddress } from 'address'
 import express from 'express'
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
+import rateLimit from 'express-rate-limit'
 import getPort, { portNumbers } from 'get-port'
 import morgan from 'morgan'
 import { checkAnthropicModels } from '#app/utils/anthropic-model-check.server.ts'
+import {
+	EDGE_SECRET_HEADER,
+	clientAddressKey,
+	warnIfEdgeSecretMissing,
+} from '#app/utils/client-address.server.ts'
+import { redactUrl } from '#app/utils/redact-url.ts'
 import { compressionMiddleware } from './compression.ts'
 import { httpsRedirect } from './https-redirect.ts'
 import { servePrecompressed } from './precompressed.ts'
+import { rateLimitTier } from './rate-limit.ts'
 import { startEventLoopWatchdog } from './event-loop-watchdog.ts'
 import { startMemoryWatchdog } from './memory-watchdog.ts'
 import { startScheduledMaintenance } from './scheduled-maintenance.ts'
@@ -93,9 +100,10 @@ app.use((_, res, next) => {
 })
 
 // originalUrl: servePrecompressed rewrites req.url to the asset's .br/.gz
-// twin, and the log should still name what the client asked for.
+// twin, and the log should still name what the client asked for. Codes,
+// tokens and email addresses are redacted before decoding for readability.
 morgan.token('url', (req) => {
-	const url = (req as express.Request).originalUrl ?? req.url ?? ''
+	const url = redactUrl((req as express.Request).originalUrl ?? req.url ?? '')
 	try {
 		return decodeURIComponent(url)
 	} catch {
@@ -116,75 +124,50 @@ app.use(
 // have to wait for the rate limit to reset between tests.
 const maxMultiple =
 	!IS_PROD || process.env.PLAYWRIGHT_TEST_BASE_URL ? 10_000 : 1
+warnIfEdgeSecretMissing({ isProduction: IS_PROD })
 const rateLimitDefault = {
 	windowMs: 60 * 1000,
 	limit: 1000 * maxMultiple,
 	standardHeaders: true,
 	legacyHeaders: false,
-	validate: { trustProxy: false },
-	// Malicious users can spoof their IP address which means we should not default
-	// to trusting req.ip when hosted on Fly.io. However, users cannot spoof Fly-Client-Ip.
-	// When sitting behind a CDN such as cloudflare, replace fly-client-ip with the CDN
-	// specific header such as cf-connecting-ip
-	keyGenerator: (req: express.Request) => {
-		const ip = req.ip ?? req.socket?.remoteAddress
-		return req.get('fly-client-ip') ?? ipKeyGenerator(ip ?? '0.0.0.0')
-	},
+	// clientAddressKey runs every address through ipKeyGenerator, which this
+	// check can't see from the keyGenerator's source.
+	validate: { trustProxy: false, keyGeneratorIpFallback: false },
+	// req.ip comes from X-Forwarded-For, which the client can write, so the key
+	// comes from the proxy headers instead.
+	keyGenerator: (req: express.Request) =>
+		clientAddressKey({
+			flyClientIp: req.get('fly-client-ip'),
+			cfConnectingIp: req.get('cf-connecting-ip'),
+			edgeSecret: req.get(EDGE_SECRET_HEADER),
+			ip: req.ip ?? req.socket?.remoteAddress,
+		}),
 }
 
-const strongestRateLimit = rateLimit({
-	...rateLimitDefault,
-	windowMs: 60 * 1000,
-	limit: 10 * maxMultiple,
-})
-
-const strongRateLimit = rateLimit({
-	...rateLimitDefault,
-	windowMs: 60 * 1000,
-	limit: 100 * maxMultiple,
-})
-
-const generalRateLimit = rateLimit(rateLimitDefault)
-// Apple's CDN fetches the app-site-association file from shared addresses; a
-// 429 there breaks passkey login and universal links for every iOS user.
-const unthrottledPaths = new Set([
-	'/.well-known/apple-app-site-association',
-	'/apple-app-site-association',
-])
+const rateLimits = {
+	auth: rateLimit({
+		...rateLimitDefault,
+		windowMs: 60 * 1000,
+		limit: 10 * maxMultiple,
+	}),
+	// Its own bucket, so importing Recipes doesn't use up the household's
+	// sign-in attempts. The daily AI limits cap the cost; this caps bursts.
+	ai: rateLimit({
+		...rateLimitDefault,
+		windowMs: 60 * 1000,
+		limit: 20 * maxMultiple,
+	}),
+	strong: rateLimit({
+		...rateLimitDefault,
+		windowMs: 60 * 1000,
+		limit: 100 * maxMultiple,
+	}),
+	general: rateLimit(rateLimitDefault),
+}
 app.use((req, res, next) => {
-	if (
-		(req.method === 'GET' || req.method === 'HEAD') &&
-		unthrottledPaths.has(req.path)
-	) {
-		return next()
-	}
-
-	const strongPaths = [
-		'/login',
-		'/signup',
-		'/verify',
-		'/admin',
-		'/onboarding',
-		'/reset-password',
-		'/forgot-password',
-		'/settings/profile',
-		'/resources/login',
-		'/resources/verify',
-	]
-	if (req.method !== 'GET' && req.method !== 'HEAD') {
-		if (strongPaths.some((p) => req.path.includes(p))) {
-			return strongestRateLimit(req, res, next)
-		}
-		return strongRateLimit(req, res, next)
-	}
-
-	// the verify route is a special case because it's a GET route that
-	// can have a token in the query string
-	if (req.path.includes('/verify')) {
-		return strongestRateLimit(req, res, next)
-	}
-
-	return generalRateLimit(req, res, next)
+	const tier = rateLimitTier(req.method, req.path)
+	if (tier === 'none') return next()
+	return rateLimits[tier](req, res, next)
 })
 
 if (!ALLOW_INDEXING) {

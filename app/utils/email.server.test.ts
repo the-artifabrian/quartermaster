@@ -191,3 +191,14 @@ test('a non-2xx with an unreadable body keeps the real HTTP status', async () =>
 	// A rate limit must stay distinguishable from a DNS failure.
 	expect(result.error.statusCode).toBe(429)
 })
+
+test('a failed send logs the recipient domain, not the address', async () => {
+	consoleError.mockImplementation(() => {})
+	server.use(http.post(RESEND_URL, () => HttpResponse.error()))
+
+	await sendEmail(message)
+
+	const logged = JSON.stringify(consoleError.mock.calls)
+	expect(logged).not.toContain('kody@')
+	expect(logged).toContain('example.com')
+})

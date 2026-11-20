@@ -15,6 +15,7 @@ import { setDefaultDynamicCacheControl } from './utils/headers.server.ts'
 import { getInstanceInfo } from './utils/litefs.server.ts'
 import { NonceProvider } from './utils/nonce-provider.ts'
 import { getPostHogAssetHost, getPostHogHost } from './utils/posthog-config.ts'
+import { redactUrl } from './utils/redact-url.ts'
 import { serializeError } from './utils/serialize-error.server.ts'
 import { makeTimings } from './utils/timing.server.ts'
 
@@ -159,7 +160,7 @@ export function handleError(
 			captureServerEvent('server', 'server_error', {
 				error: serializeError(error),
 				stack: error instanceof Error ? error.stack : undefined,
-				url: request.url,
+				url: redactUrl(request.url),
 			})
 		}),
 		'reporting a server error',

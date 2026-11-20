@@ -94,3 +94,12 @@ test('outside production APP_ORIGIN is optional', () => {
 	const { APP_ORIGIN: _, ...env } = productionEnv
 	expect(appOriginErrors({ ...env, NODE_ENV: 'development' })).toBeNull()
 })
+
+test('production boots without CF_EDGE_SECRET, unset or emptied', () => {
+	expect(
+		appOriginErrors({ ...productionEnv, CF_EDGE_SECRET: undefined }),
+	).toBeNull()
+	expect(appOriginErrors({ ...productionEnv, CF_EDGE_SECRET: '' })).toBeNull()
+	const parsed = parseEnv({ ...productionEnv, CF_EDGE_SECRET: '' })
+	expect(parsed.success && parsed.data.CF_EDGE_SECRET).toBeUndefined()
+})

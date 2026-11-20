@@ -35,6 +35,10 @@ const schema = z.object({
 			)
 			.optional(),
 	),
+	// The value our Cloudflare Transform Rule puts in x-qm-edge. Optional:
+	// without it rate limits key on fly-client-ip (docs/ARCHITECTURE.md,
+	// "Deployment and recovery").
+	CF_EDGE_SECRET: z.preprocess(emptyAsUndefined, z.string().optional()),
 	INTERNAL_COMMAND_TOKEN: z.string(),
 	// Everything that reads this compares === 'true' (index.ts,
 	// resources/images.tsx, the production guard below). Validating it here

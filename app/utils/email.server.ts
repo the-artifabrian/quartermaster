@@ -34,7 +34,9 @@ function reportEmailFailure(
 	cause?: unknown,
 ) {
 	console.error('❌ Email send failed:', {
-		to: email.to,
+		// The domain is enough to spot a provider-side block; the address
+		// itself stays out of the logs.
+		toDomain: email.to.split('@').pop(),
 		subject: email.subject,
 		name: error.name,
 		statusCode: error.statusCode,

@@ -1,3 +1,4 @@
+import { parseAmount, WRITTEN_NUMBER } from './fractions.ts'
 import { type ExtractedRecipe } from './import-recipe-types.ts'
 import {
 	detectIngredientHeading,
@@ -124,16 +125,19 @@ function parseTypedYield(value: unknown): {
 	return null
 }
 
+const YIELD_NUMBER = new RegExp(WRITTEN_NUMBER)
+
 function parseYieldEntry(value: unknown): {
 	amount: number
 	label: string
 } | null {
 	if (value == null) return null
 	const raw = cleanJsonLdText(String(value))
-	const amountMatch = raw.match(/\d+(?:[.,]\d+)?/)
+	const amountMatch = raw.match(YIELD_NUMBER)
 	if (!amountMatch || amountMatch.index == null) return null
-	const amount = Number(amountMatch[0].replace(',', '.'))
-	if (!Number.isFinite(amount) || amount <= 0) return null
+	// "1,000 cookies" could be 1 or 1000, so it gives no yield.
+	const amount = parseAmount(amountMatch[0])
+	if (amount === null || !Number.isFinite(amount) || amount <= 0) return null
 
 	const prefix = raw.slice(0, amountMatch.index).trim()
 	const rawSuffix = raw.slice(amountMatch.index + amountMatch[0].length)

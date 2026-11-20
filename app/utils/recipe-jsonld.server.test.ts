@@ -127,6 +127,36 @@ describe('yield', () => {
 		).toMatchObject({ yieldAmount: 4, yieldLabel: 'servings' })
 	})
 
+	// Failure list for the number in a yield, which parseAmount reads the way
+	// it reads an ingredient amount:
+	// - "1,000,000 cookies" is a million, not 1 with ",000 cookies" as label.
+	// - "1,000 cookies" has no single value (1 or 1000), so there is no yield.
+	// - "1 000 cookies", with a plain or no-break space, is a thousand.
+	// - "4 500 ml jars" could be 4500 or four 500 ml jars: no yield.
+	// - "1.5 litres" and "1,5 litres" are still 1.5.
+	test.each([
+		['1,000,000 cookies', 1_000_000, 'cookies'],
+		['1 000 cookies', 1000, 'cookies'],
+		['1\u00a0000 cookies', 1000, 'cookies'],
+		['1.5 litres', 1.5, 'litres'],
+		['Serves 1,5', 1.5, 'servings'],
+	])('"%s" reads its whole number', (recipeYield, amount, label) => {
+		expect(recipe({ recipeYield })).toMatchObject({
+			yieldAmount: amount,
+			yieldLabel: label,
+		})
+	})
+
+	test.each(['Makes 1,000 cookies', '1.000 cookies', '4 500 ml jars'])(
+		'"%s" has no single value, so there is no yield',
+		(recipeYield) => {
+			expect(recipe({ recipeYield })).toMatchObject({
+				yieldAmount: null,
+				yieldLabel: null,
+			})
+		},
+	)
+
 	test('with no recipeYield, a "(Serves 4)" title gives the yield', () => {
 		expect(recipe({ name: 'Weeknight Chili (Serves 4)' })).toMatchObject({
 			title: 'Weeknight Chili',

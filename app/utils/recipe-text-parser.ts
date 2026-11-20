@@ -1,3 +1,4 @@
+import { parseAmount, WRITTEN_NUMBER } from './fractions.ts'
 import {
 	APPLE_NOTES_LINK,
 	detectIngredientHeading,
@@ -38,8 +39,10 @@ const TITLE_SERVES_TAIL = 64
 // The start of a standalone explicit-yield line: "Serves 4", "Servings: 4",
 // "Yield: 4 servings", or "Makes 2 loaves". matchTypedYieldLine reads the
 // label after it.
-const YIELD_LINE_HEAD =
-	/^(serves?|servings?|yield|makes)\s*(?::\s*)?(?:about\s+|approximately\s+)?(\d+(?:[.,]\d+)?)/i
+const YIELD_LINE_HEAD = new RegExp(
+	`^(serves?|servings?|yield|makes)\\s*(?::\\s*)?(?:about\\s+|approximately\\s+)?(${WRITTEN_NUMBER})`,
+	'i',
+)
 const LINE_BREAK = /[\n\r\u2028\u2029]/
 
 /**
@@ -71,8 +74,9 @@ function matchTypedYieldLine(line: string): {
 	if (!match) return null
 	const written = yieldLineLabel(line.slice(match[0].length))
 	if (written === null) return null
-	const amount = Number(match[2]!.replace(',', '.'))
-	if (!Number.isFinite(amount) || amount <= 0) return null
+	// "Makes 1,000 cookies" could be 1 or 1000, so it gives no yield.
+	const amount = parseAmount(match[2]!)
+	if (amount === null || !Number.isFinite(amount) || amount <= 0) return null
 	const prefix = match[1]!.toLowerCase()
 	const explicitLabel = written?.replace(/(?<![.;:,])[.;:,]+$/, '').trim()
 	if (explicitLabel && /^(?:[-–—]|to)\s*\d/i.test(explicitLabel)) return null

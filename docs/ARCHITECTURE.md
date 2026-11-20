@@ -264,15 +264,21 @@ Amounts are saved as written, and `parseAmount()` in `app/utils/fractions.ts` is
 the one place that gives them a number. Anything that scales, sums, converts or
 counts an amount asks it. It reads the whole string or nothing: a fraction, a
 mixed number, a decimal with a dot or a comma (“1,5”), or thousands that can't
-be anything else (“1,000,000”, “1,000.5”). An amount it can't read as exactly
-one number stays as written and is never summed or scaled. That covers “2
-large” and a pack size like “2 x 400”. It also covers one to three digits, a
-single comma or dot, then three digits: a Romanian scale writes 1.25 kg as
-“1,250”, and “1.000” is one thousand in Romanian but one in English. Ranges
-such as “1,5–2” scale end by end and never sum; a range with an end like that,
-or with its low end above its high end, stays as written. The import, paste,
-voice and Shopping quick-add parsers only find where an amount starts and ends,
-and they never split a number at its comma.
+be anything else (“1,000,000”, “1,000.5”, or with spaces as French sites write
+them, “1 000” and “1 000 000”). An amount it can't read as exactly one number
+stays as written and is never summed or scaled. That covers “2 large” and a
+pack size like “2 x 400”. It also covers one to three digits, a single comma
+or dot, then three digits: a Romanian scale writes 1.25 kg as “1,250”, and
+“1.000” is one thousand in Romanian but one in English. One group after a
+space that doesn't start with 0 is the same: “2 400 g” can be two 400 g tins.
+Ranges such as “1,5–2” scale end by end and never sum; a range with an end
+like that, or with its low end above its high end, stays as written. Yields go
+through it too, so “Makes 1,000 cookies” gives no yield rather than 1. The
+import, paste, voice and Shopping quick-add parsers only find where an amount
+starts and ends, and they never split a number at its comma. The ingredient
+and quick-add parsers keep thousands split by spaces together when a unit
+follows, or when they read as one number; the voice parser doesn't, since a
+spoken count before a size is common.
 
 The paste, JSON-LD and ingredient parsers read text as long as a whole paste or
 a JSON-LD field, so their patterns must stay linear. Ingredient lines are cut at

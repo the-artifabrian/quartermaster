@@ -1,5 +1,7 @@
 import { type FileUpload } from '@mjackson/form-data-parser'
 import { createId } from '@paralleldrive/cuid2'
+import { removeCachedResizes } from '#app/utils/image-cache.server.ts'
+import { isRecipeImageKey } from '#app/utils/image-route.ts'
 import {
 	getS3CredentialsFromEnv,
 	signS3Request,
@@ -10,6 +12,11 @@ async function uploadToStorage(
 	key: string,
 	signal?: AbortSignal,
 ) {
+	// The image route serves only keys of this shape, so storing anything else
+	// would leave a photo no page can show.
+	if (!isRecipeImageKey(key)) {
+		throw new Error(`Refusing to store an image under an unexpected key`)
+	}
 	const { url, headers } = getSignedPutRequestInfo(file, key)
 
 	const uploadResponse = await fetch(url, {
@@ -48,7 +55,27 @@ async function deleteFromStorage(key: string) {
 }
 
 export async function deleteRecipeImage(objectKey: string) {
-	return deleteFromStorage(objectKey)
+	await deleteFromStorage(objectKey)
+	// The image route answers from its cache before it asks storage, so the
+	// cached resizes have to go too or the photo stays public.
+	if (isRecipeImageKey(objectKey)) {
+		await removeCachedResizes(objectKey).catch((error: unknown) => {
+			console.error('Failed to remove cached resizes of a deleted photo', error)
+		})
+	}
+	return true
+}
+
+const EXTENSION_BY_TYPE: Record<string, string> = {
+	'image/jpeg': 'jpg',
+	'image/jpg': 'jpg',
+	'image/png': 'png',
+	'image/webp': 'webp',
+}
+
+/** `<timestamp>-<id>.<ext>`: nothing from the uploaded file's own name. */
+function newImageKey(userId: string, recipeId: string, extension: string) {
+	return `users/${userId}/recipes/${recipeId}/images/${Date.now()}-${createId()}.${extension}`
 }
 
 export async function uploadRecipeImage(
@@ -56,11 +83,10 @@ export async function uploadRecipeImage(
 	recipeId: string,
 	file: File | FileUpload,
 ) {
-	const fileId = createId()
-	const fileExtension = file.name.split('.').pop() || ''
-	const timestamp = Date.now()
-	const key = `users/${userId}/recipes/${recipeId}/images/${timestamp}-${fileId}.${fileExtension}`
-	return uploadToStorage(file, key)
+	// The browser's file name can hold anything after its last dot, so the
+	// extension comes from the type the upload was checked against.
+	const extension = EXTENSION_BY_TYPE[file.type] ?? 'img'
+	return uploadToStorage(file, newImageKey(userId, recipeId, extension))
 }
 
 /** Copy bytes to a recipient-owned key before committing a shared bundle. */
@@ -82,7 +108,14 @@ export async function copyRecipeImage(
 			type: response.headers.get('Content-Type') || 'application/octet-stream',
 		},
 	)
-	const key = `users/${userId}/recipes/${recipeId}/images/${createId()}-${file.name}`
+	// A fresh name rather than the source's with an id in front, which grew
+	// with every copy of a copy.
+	const sourceExtension = /\.([A-Za-z0-9]{1,8})$/.exec(objectKey)?.[1]
+	const key = newImageKey(
+		userId,
+		recipeId,
+		sourceExtension?.toLowerCase() ?? EXTENSION_BY_TYPE[file.type] ?? 'img',
+	)
 	try {
 		return await uploadToStorage(file, key, AbortSignal.timeout(30_000))
 	} catch (error) {

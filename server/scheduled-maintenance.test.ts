@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
+import { type ImageCachePruneSummary } from '#app/utils/image-cache.server.ts'
 import {
 	pruneExpiredData,
 	startScheduledMaintenance,
@@ -14,6 +15,13 @@ const EMPTY_SUMMARY: MaintenanceSummary = {
 	usageEvents: 0,
 	householdEvents: 0,
 }
+
+const EMPTY_IMAGE_CACHE: ImageCachePruneSummary = {
+	removedFiles: 0,
+	removedBytes: 0,
+	keptBytes: 0,
+}
+const pruneImages = async () => EMPTY_IMAGE_CACHE
 
 afterEach(() => {
 	vi.useRealTimers()
@@ -162,6 +170,7 @@ describe('startScheduledMaintenance', () => {
 		const timer = startScheduledMaintenance({
 			intervalMs: 1_000,
 			prune,
+			pruneImages,
 			log,
 			logError,
 			reportFailure,
@@ -194,6 +203,7 @@ describe('startScheduledMaintenance', () => {
 		const timer = startScheduledMaintenance({
 			intervalMs: 1_000,
 			prune,
+			pruneImages,
 			log: vi.fn(),
 		})
 
@@ -212,6 +222,7 @@ describe('startScheduledMaintenance', () => {
 		const timer = startScheduledMaintenance({
 			intervalMs: 1_000,
 			prune: vi.fn().mockRejectedValue(new Error('prune failed')),
+			pruneImages,
 			logError,
 			reportFailure: () => {
 				throw new Error('telemetry failed')
@@ -222,6 +233,54 @@ describe('startScheduledMaintenance', () => {
 
 		expect(logError).toHaveBeenCalledWith(
 			expect.stringContaining('reporting_error=telemetry failed'),
+		)
+		clearInterval(timer)
+	})
+	// A full volume is when the cache most needs pruning, and also when the
+	// database's own deletes can fail.
+	test('prunes the image cache even when the database prune fails', async () => {
+		vi.useFakeTimers()
+		const prunedImages = vi.fn(async () => ({
+			removedFiles: 3,
+			removedBytes: 3_000,
+			keptBytes: 1_000,
+		}))
+		const log = vi.fn()
+		const timer = startScheduledMaintenance({
+			intervalMs: 1_000,
+			prune: vi.fn().mockRejectedValue(new Error('disk full')),
+			pruneImages: prunedImages,
+			log,
+			logError: vi.fn(),
+			reportFailure: vi.fn(),
+		})
+		await vi.advanceTimersByTimeAsync(0)
+
+		expect(prunedImages).toHaveBeenCalledOnce()
+		expect(log).toHaveBeenCalledWith(
+			'🧹 image cache: removed_files=3 removed_bytes=3000 kept_bytes=1000 duration_ms=0',
+		)
+		clearInterval(timer)
+	})
+
+	test('contains and reports a failed image cache prune', async () => {
+		vi.useFakeTimers()
+		const failure = new Error('cache unreadable')
+		const logError = vi.fn()
+		const reportFailure = vi.fn()
+		const timer = startScheduledMaintenance({
+			intervalMs: 1_000,
+			prune: async () => EMPTY_SUMMARY,
+			pruneImages: vi.fn().mockRejectedValue(failure),
+			log: vi.fn(),
+			logError,
+			reportFailure,
+		})
+		await vi.advanceTimersByTimeAsync(0)
+
+		expect(reportFailure).toHaveBeenCalledWith(failure)
+		expect(logError).toHaveBeenCalledWith(
+			expect.stringContaining('image cache: failed error=cache unreadable'),
 		)
 		clearInterval(timer)
 	})

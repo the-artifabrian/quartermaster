@@ -1,5 +1,7 @@
 // Pure utility functions and types extracted from recipe detail route
 
+import { getShareImageUrl } from './image-route.ts'
+
 export function toIsoDuration(
 	minutes: number | null | undefined,
 ): string | undefined {
@@ -54,7 +56,7 @@ export function getRecipeJsonLd(
 	}
 
 	if (origin && recipe.image?.objectKey) {
-		jsonLd.image = `${origin}/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}&w=1200&h=630&fit=cover`
+		jsonLd.image = getShareImageUrl(origin, recipe.image.objectKey)
 	}
 
 	return jsonLd

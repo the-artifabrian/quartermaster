@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { Form, useActionData } from 'react-router'
 import { useFitFileInput } from '#app/utils/downscale-image.ts'
 import { isEditScreenDone } from '#app/utils/edit-screen.ts'
+import { IMG_SIZES } from '#app/utils/image-route.ts'
 import { listErrors } from '#app/utils/list-errors.ts'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
 import { getHistoryLog, resolveAfterSave } from '#app/utils/nav-back.ts'
@@ -447,8 +448,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 								src={imagePreview}
 								alt="Recipe preview"
 								className="h-full w-full object-cover"
-								width={160}
-								height={120}
+								{...IMG_SIZES.formPreview}
 							/>
 						) : (
 							<div className="flex h-full w-full items-center justify-center">

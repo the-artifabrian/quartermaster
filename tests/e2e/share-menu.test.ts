@@ -45,7 +45,7 @@ test('share a dinner, sign in, save, edit, cook and plan an independent Menu on 
 				totalTime: 25,
 				image: {
 					create: {
-						objectKey: 'notes/0.png',
+						objectKey: 'users/fixture-user/recipes/fixture-recipe/images/0.png',
 						altText: 'Shared Recipe image fixture',
 					},
 				},

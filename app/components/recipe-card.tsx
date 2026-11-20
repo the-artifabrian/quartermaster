@@ -2,6 +2,7 @@ import { Img } from 'openimg/react'
 import { useViewTransitionState } from 'react-router'
 import { PushLink } from './push-link.tsx'
 import { formatDuration } from '#app/utils/format-duration.ts'
+import { IMG_SIZES } from '#app/utils/image-route.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { getRecipePlaceholder } from '#app/utils/recipe-placeholder.ts'
 import { Icon } from './ui/icon.tsx'
@@ -64,8 +65,7 @@ export function RecipeCard({
 						src={`/resources/images?objectKey=${encodeURIComponent(imageObjectKey)}`}
 						alt={title}
 						className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
-						width={400}
-						height={300}
+						{...IMG_SIZES.card}
 					/>
 				) : (
 					<div

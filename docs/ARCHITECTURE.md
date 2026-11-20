@@ -77,6 +77,36 @@ reaches the app at once. The two sides meet in three places:
   through a TestFlight build, so the Web side must keep working against the
   previous shell.
 
+### Recipe photos
+
+Photos are stored in object storage (Tigris) under
+`users/<userId>/recipes/<recipeId>/images/<file>`, and
+`app/utils/storage.server.ts` writes every key. The file name is a timestamp, an
+id and an extension taken from the upload's checked type, never the browser's
+file name. A copy for a shared Recipe gets a new name of the same shape.
+
+Pages show them through `/resources/images`, which resizes with openimg and
+caches each resize on disk. Share pages and link previews use it too, so it has
+no login, and `app/utils/image-route.ts` sets what it accepts:
+
+- **Keys.** Only keys of the shape above. Anything else gets a 400 before
+  storage or the disk is touched.
+- **Sizes.** Only the sizes the pages ask for: each `<Img>` size in `IMG_SIZES`,
+  its srcset widths, and the 1200×630 share image. Components take their width
+  and height from `IMG_SIZES`, so the page and the route use one list. An
+  unlisted size gets the next listed size up instead of an error, so a page
+  cached before a size changed still shows its photo. No size at all serves the
+  original, which the data export links to.
+- **Formats.** AVIF, WebP, or the original format. `fit` is `cover` or left out.
+
+The cache is `/data/images` in production, on the same volume as SQLite. It
+stays bounded in two ways. Deleting a photo also deletes its cached resizes,
+because the route answers from the cache before it asks storage. And the hourly
+maintenance in `server/scheduled-maintenance.ts` deletes the oldest resizes when
+the cache passes 100 MB. It skips files written in the last ten minutes and
+never removes folders, so a resize being written isn't pulled out from under
+openimg. A pruned resize is made again on its next view.
+
 ## Data model
 
 Most user data belongs to a Household, not an individual User.
@@ -108,8 +138,8 @@ Next shop or Later.
 
 `UsageEvent` records AI limits: one row per use of a paid AI feature, counted
 and written in one write transaction (`claimAiUsage`). A voice row covers the
-Whisper call and the parse that follows it. A row is deleted again when the
-call fails in a way the user can't cause, such as a provider outage.
+Whisper call and the parse that follows it. A row is deleted again when the call
+fails in a way the user can't cause, such as a provider outage.
 
 New household data must be authorized by household membership, included in
 export/import when durable, and handled in sole-member household moves.

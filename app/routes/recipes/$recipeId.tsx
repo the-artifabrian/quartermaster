@@ -61,6 +61,7 @@ import {
 	convertToMetric,
 	displayMetricAmount,
 } from '#app/utils/metric-conversion.ts'
+import { getShareImageUrl, IMG_SIZES } from '#app/utils/image-route.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { formatRecipeForCopy } from '#app/utils/recipe-copy.ts'
 import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
@@ -120,7 +121,7 @@ export const meta: Route.MetaFunction = ({ loaderData, matches }) => {
 	}
 
 	if (origin && recipe?.image?.objectKey) {
-		const imageUrl = `${origin}/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}&w=1200&h=630&fit=cover`
+		const imageUrl = getShareImageUrl(origin, recipe.image.objectKey)
 		meta.push(
 			{ property: 'og:image', content: imageUrl },
 			{ name: 'twitter:card', content: 'summary_large_image' },
@@ -816,8 +817,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									imageTransitionsFromList ? '' : undefined
 								}
 								className="md:border-border aspect-[16/10] w-full object-cover md:aspect-4/3 md:rounded-md md:border"
-								width={800}
-								height={600}
+								{...IMG_SIZES.hero}
 							/>
 						</div>
 					)}

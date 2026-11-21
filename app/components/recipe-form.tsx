@@ -7,6 +7,7 @@ import { useFitFileInput } from '#app/utils/downscale-image.ts'
 import { isEditScreenDone } from '#app/utils/edit-screen.ts'
 import { IMG_SIZES } from '#app/utils/image-route.ts'
 import { listErrors } from '#app/utils/list-errors.ts'
+import { loadedIdsValue } from '#app/utils/loaded-rows.ts'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
 import { getHistoryLog, resolveAfterSave } from '#app/utils/nav-back.ts'
 import { historyIndex } from '#app/utils/nav-direction.ts'
@@ -158,6 +159,18 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 			: [{ content: '' }],
 	)
 
+	// The rows this form loaded, from the same first render as the rows
+	// above. Save removes only these when they are left out, so a row another
+	// member added meanwhile stays (loaded-rows.ts).
+	const [loadedIds] = useState(() =>
+		recipe
+			? {
+					ingredients: loadedIdsValue(recipe.ingredients),
+					instructions: loadedIdsValue(recipe.instructions),
+				}
+			: null,
+	)
+
 	const savedPhoto = recipe?.image?.objectKey
 		? `/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`
 		: null
@@ -283,6 +296,20 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 			className="space-y-4"
 		>
 			<ClientLeavesField />
+			{loadedIds && (
+				<>
+					<input
+						type="hidden"
+						name="loadedIngredientIds"
+						value={loadedIds.ingredients}
+					/>
+					<input
+						type="hidden"
+						name="loadedInstructionIds"
+						value={loadedIds.instructions}
+					/>
+				</>
+			)}
 			<DiscardChangesGuard
 				formId={RECIPE_FORM_ID}
 				description={

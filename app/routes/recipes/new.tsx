@@ -1,4 +1,3 @@
-import { parseWithZod } from '@conform-to/zod/v4'
 import {
 	MaxFileSizeExceededError,
 	parseFormData,
@@ -30,6 +29,7 @@ import {
 import {
 	RecipeSchema,
 	MAX_RECIPE_IMAGE_SIZE,
+	parseRecipeForm,
 	photoTooLargeResult,
 	PHOTO_REFUSALS,
 } from '#app/utils/recipe-validation.ts'
@@ -98,47 +98,7 @@ export async function action({ request }: Route.ActionArgs) {
 		throw error
 	}
 
-	// Parse ingredients array from form data
-	const ingredients: Array<{
-		name: string
-		amount?: string
-		unit?: string
-		notes?: string
-		isHeading?: boolean
-		linkedRecipeId?: string
-	}> = []
-	let i = 0
-	while (formData.has(`ingredients[${i}].name`)) {
-		ingredients.push({
-			name: formData.get(`ingredients[${i}].name`) as string,
-			amount: (formData.get(`ingredients[${i}].amount`) as string) || undefined,
-			unit: (formData.get(`ingredients[${i}].unit`) as string) || undefined,
-			notes: (formData.get(`ingredients[${i}].notes`) as string) || undefined,
-			isHeading: formData.get(`ingredients[${i}].isHeading`) === 'true',
-			linkedRecipeId:
-				(formData.get(`ingredients[${i}].linkedRecipeId`) as string) ||
-				undefined,
-		})
-		i++
-	}
-
-	// Parse instructions array from form data
-	const instructions: Array<{ content: string }> = []
-	i = 0
-	while (formData.has(`instructions[${i}].content`)) {
-		instructions.push({
-			content: formData.get(`instructions[${i}].content`) as string,
-		})
-		i++
-	}
-
-	const submission = parseWithZod(formData, {
-		schema: RecipeSchema.transform((data) => ({
-			...data,
-			ingredients,
-			instructions,
-		})),
-	})
+	const { submission, ingredients, instructions } = parseRecipeForm(formData)
 
 	// Checked before anything is saved, so a refused file leaves no Recipe
 	// behind.
@@ -216,6 +176,7 @@ export async function action({ request }: Route.ActionArgs) {
 					metadataAssignments: {
 						create: metadataValueIds.map((valueId) => ({ valueId })),
 					},
+					// Every row is new here: the ids a form posts are ignored.
 					ingredients: {
 						create: ingredients
 							.filter((ing) => ing.name.trim() !== '')

@@ -1,4 +1,3 @@
-import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import {
 	MaxFileSizeExceededError,
@@ -44,12 +43,15 @@ import {
 	RecipeMetadataSelectionError,
 	resolveRecipeMetadataValueIds,
 } from '#app/utils/recipe-metadata.server.ts'
+import { readLoadedIds } from '#app/utils/loaded-rows.ts'
 import {
 	RecipeSchema,
 	MAX_RECIPE_IMAGE_SIZE,
+	parseRecipeForm,
 	photoTooLargeResult,
 	PHOTO_REFUSALS,
 } from '#app/utils/recipe-validation.ts'
+import { saveRecipeRows } from '#app/utils/recipe-rows.server.ts'
 import { deleteRecipeImageUnlessShared } from '#app/utils/recipe-image.server.ts'
 import {
 	LINKED_RECIPE_GONE_MESSAGE,
@@ -236,50 +238,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 		return redirect('/recipes')
 	}
 
-	// Parse ingredients array from form data
-	const ingredients: Array<{
-		id?: string
-		name: string
-		amount?: string
-		unit?: string
-		notes?: string
-		isHeading?: boolean
-		linkedRecipeId?: string
-	}> = []
-	let i = 0
-	while (formData.has(`ingredients[${i}].name`)) {
-		ingredients.push({
-			id: (formData.get(`ingredients[${i}].id`) as string) || undefined,
-			name: formData.get(`ingredients[${i}].name`) as string,
-			amount: (formData.get(`ingredients[${i}].amount`) as string) || undefined,
-			unit: (formData.get(`ingredients[${i}].unit`) as string) || undefined,
-			notes: (formData.get(`ingredients[${i}].notes`) as string) || undefined,
-			isHeading: formData.get(`ingredients[${i}].isHeading`) === 'true',
-			linkedRecipeId:
-				(formData.get(`ingredients[${i}].linkedRecipeId`) as string) ||
-				undefined,
-		})
-		i++
-	}
-
-	// Parse instructions array from form data
-	const instructions: Array<{ id?: string; content: string }> = []
-	i = 0
-	while (formData.has(`instructions[${i}].content`)) {
-		instructions.push({
-			id: (formData.get(`instructions[${i}].id`) as string) || undefined,
-			content: formData.get(`instructions[${i}].content`) as string,
-		})
-		i++
-	}
-
-	const submission = parseWithZod(formData, {
-		schema: RecipeSchema.transform((data) => ({
-			...data,
-			ingredients,
-			instructions,
-		})),
-	})
+	const { submission, ingredients, instructions } = parseRecipeForm(formData)
 
 	// Checked before anything is saved, so a refused file leaves the Recipe
 	// and its photo as they were.
@@ -334,9 +293,9 @@ export async function action({ request, params }: Route.ActionArgs) {
 		)
 	}
 
-	// Update recipe - delete all ingredients and instructions, then recreate.
-	// Classification identity resolves inside the same transaction, so a
-	// spoofed foreign-household value cannot partially change the Recipe.
+	// One transaction for the Recipe and its rows. Classification identity
+	// resolves inside it, so a spoofed foreign-household value cannot
+	// partially change the Recipe.
 	try {
 		await writeTransaction(prisma, async (tx) => {
 			const metadataValueIds = await resolveRecipeMetadataValueIds(
@@ -344,8 +303,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 				householdId,
 				recipeMetadata,
 			)
-			await tx.ingredient.deleteMany({ where: { recipeId } })
-			await tx.instruction.deleteMany({ where: { recipeId } })
 			await tx.recipe.update({
 				where: { id: recipeId },
 				data: {
@@ -361,29 +318,22 @@ export async function action({ request, params }: Route.ActionArgs) {
 						deleteMany: {},
 						create: metadataValueIds.map((valueId) => ({ valueId })),
 					},
-					ingredients: {
-						create: ingredients
-							.filter((ing) => ing.name.trim() !== '')
-							.map((ing, order) => ({
-								name: ing.name,
-								amount: ing.amount || null,
-								unit: ing.unit || null,
-								notes: ing.notes || null,
-								isHeading: ing.isHeading ?? false,
-								linkedRecipeId: ing.linkedRecipeId || null,
-								order,
-							})),
-					},
-					instructions: {
-						create: instructions
-							.filter((inst) => inst.content.trim() !== '')
-							.map((inst, order) => ({
-								content: inst.content,
-								order,
-							})),
-					},
 				},
 			})
+			await saveRecipeRows(
+				tx,
+				recipeId,
+				{
+					ingredients: ingredients.filter((ing) => ing.name.trim() !== ''),
+					instructions: instructions.filter(
+						(inst) => inst.content.trim() !== '',
+					),
+				},
+				{
+					ingredients: readLoadedIds(formData, 'loadedIngredientIds'),
+					instructions: readLoadedIds(formData, 'loadedInstructionIds'),
+				},
+			)
 		})
 	} catch (error) {
 		if (error instanceof RecipeMetadataSelectionError) {

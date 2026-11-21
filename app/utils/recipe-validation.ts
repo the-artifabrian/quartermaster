@@ -1,3 +1,4 @@
+import { parseWithZod } from '@conform-to/zod/v4'
 import { z } from 'zod'
 import { RecipeMetadataSelectionFieldSchema } from './recipe-metadata.ts'
 
@@ -183,6 +184,54 @@ export const RecipeSchema = z
 	})
 
 export type RecipeFormData = z.infer<typeof RecipeSchema>
+
+export type RecipeFormIngredient = {
+	id?: string
+	name: string
+	amount?: string
+	unit?: string
+	notes?: string
+	isHeading?: boolean
+	linkedRecipeId?: string
+}
+
+export type RecipeFormInstruction = { id?: string; content: string }
+
+/**
+ * Reads the Recipe form as New and Edit post it. The rows come by position
+ * (`ingredients[0].name`), each with the id of the row it was loaded from,
+ * if any. New saves every row as a new one, whatever id it carries.
+ */
+export function parseRecipeForm(formData: FormData) {
+	const text = (name: string) => (formData.get(name) as string) || undefined
+	const ingredients: RecipeFormIngredient[] = []
+	for (let i = 0; formData.has(`ingredients[${i}].name`); i++) {
+		ingredients.push({
+			id: text(`ingredients[${i}].id`),
+			name: formData.get(`ingredients[${i}].name`) as string,
+			amount: text(`ingredients[${i}].amount`),
+			unit: text(`ingredients[${i}].unit`),
+			notes: text(`ingredients[${i}].notes`),
+			isHeading: formData.get(`ingredients[${i}].isHeading`) === 'true',
+			linkedRecipeId: text(`ingredients[${i}].linkedRecipeId`),
+		})
+	}
+	const instructions: RecipeFormInstruction[] = []
+	for (let i = 0; formData.has(`instructions[${i}].content`); i++) {
+		instructions.push({
+			id: text(`instructions[${i}].id`),
+			content: formData.get(`instructions[${i}].content`) as string,
+		})
+	}
+	const submission = parseWithZod(formData, {
+		schema: RecipeSchema.transform((data) => ({
+			...data,
+			ingredients,
+			instructions,
+		})),
+	})
+	return { submission, ingredients, instructions }
+}
 
 export const ImportUrlSchema = z.object({
 	url: z

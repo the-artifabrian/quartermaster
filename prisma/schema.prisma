@@ -81,14 +81,17 @@ model Role {
   permissions Permission[]
 }
 
+/// Authenticator (TOTP) secrets for two-factor sign-in: `2fa` once set up,
+/// `2fa-verify` while setup waits for the first code. Emailed codes live in
+/// EmailCode.
 model Verification {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
 
-  /// The type of verification, e.g. "email" or "phone"
+  /// `2fa` or `2fa-verify`
   type String
 
-  /// The thing we're trying to verify, e.g. a user's email or phone number
+  /// The user id
   target String
 
   /// The secret key used to generate the otp
@@ -110,6 +113,38 @@ model Verification {
   expiresAt DateTime?
 
   @@unique([target, type])
+}
+
+/// One code emailed for signup, a password reset or an email change. Only
+/// hashes are stored. A target can hold a few live codes at once, and each
+/// works until it expires or one of them is used (see emailed codes in
+/// docs/ARCHITECTURE.md).
+model EmailCode {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  /// `onboarding`, `reset-password` or `change-email`
+  type String
+
+  /// The email address for signup, the user id for a reset or an email change
+  target String
+
+  /// SHA-256 of the typed code, hex
+  codeHash String
+
+  /// SHA-256 of the token in the emailed link, hex
+  linkTokenHash String
+
+  /// For an email change, the address the code was sent to and will set
+  address String?
+
+  /// Set once the email has gone out. Until then the row holds a place under
+  /// the cap and no code matches it.
+  sentAt DateTime?
+
+  expiresAt DateTime
+
+  @@index([target, type])
 }
 
 model Connection {

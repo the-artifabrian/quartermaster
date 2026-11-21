@@ -11,6 +11,7 @@ import {
 } from '#app/generated/prisma/client.ts'
 import { providers } from './connections.server.ts'
 import { prisma } from './db.server.ts'
+import { endResetCodes } from './email-code.server.ts'
 import { pagePathOf } from './page-path.ts'
 import { combineHeaders } from './misc.tsx'
 import { type ProviderUser } from './providers/provider.ts'
@@ -173,6 +174,7 @@ export async function resetUserPassword({
 	})
 	// The delete goes first, so the batch starts with a write. An upsert may
 	// read first (docs/ARCHITECTURE.md, Data model).
+	// It also ends reset codes asked for after the one that got here.
 	await prisma.$transaction([
 		prisma.session.deleteMany({ where: { userId: user.id } }),
 		prisma.password.upsert({
@@ -180,6 +182,7 @@ export async function resetUserPassword({
 			create: { userId: user.id, hash },
 			update: { hash },
 		}),
+		endResetCodes(prisma, user.id),
 	])
 	return user
 }

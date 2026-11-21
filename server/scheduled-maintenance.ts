@@ -15,6 +15,7 @@ export const MAINTENANCE_INTERVAL_MS = 60 * 60 * 1000
 export type MaintenanceSummary = {
 	sessions: number
 	verifications: number
+	emailCodes: number
 	usageEvents: number
 	householdEvents: number
 }
@@ -28,12 +29,15 @@ export async function pruneExpiredData(
 		now.getTime() - HOUSEHOLD_EVENT_RETENTION_DAYS * DAY_MS,
 	)
 
-	const [sessions, verifications, usageEvents, householdEvents] =
+	const [sessions, verifications, emailCodes, usageEvents, householdEvents] =
 		await prisma.$transaction([
 			prisma.session.deleteMany({
 				where: { expirationDate: { lte: now } },
 			}),
 			prisma.verification.deleteMany({
+				where: { expiresAt: { lte: now } },
+			}),
+			prisma.emailCode.deleteMany({
 				where: { expiresAt: { lte: now } },
 			}),
 			prisma.usageEvent.deleteMany({
@@ -47,6 +51,7 @@ export async function pruneExpiredData(
 	return {
 		sessions: sessions.count,
 		verifications: verifications.count,
+		emailCodes: emailCodes.count,
 		usageEvents: usageEvents.count,
 		householdEvents: householdEvents.count,
 	}
@@ -107,7 +112,7 @@ export function startScheduledMaintenance({
 		try {
 			await step('maintenance', async () => {
 				const result = await prune()
-				return `sessions=${result.sessions} verifications=${result.verifications} usage_events=${result.usageEvents} household_events=${result.householdEvents}`
+				return `sessions=${result.sessions} verifications=${result.verifications} email_codes=${result.emailCodes} usage_events=${result.usageEvents} household_events=${result.householdEvents}`
 			})
 			await step('image cache', async () => {
 				const result = await pruneImages()

@@ -168,7 +168,7 @@ Most user data belongs to a Household, not an individual User.
 
 ```text
 User
-├── auth: Password, Session, Passkey, Connection, Verification
+├── auth: Password, Session, Passkey, Connection, Verification, EmailCode
 ├── access: Role, Permission, Subscription
 └── HouseholdMember → Household
     ├── Recipe → Ingredient, Instruction, RecipeImage
@@ -367,6 +367,59 @@ changing the email or turning 2FA off asks for a code again when the session
 last verified more than two hours ago (`requireRecentVerification` in
 `app/routes/_auth/verify.server.ts`).
 
+**Emailed codes.** Signup, password reset and email change email a code and a
+link (`app/utils/email-code.server.ts`, called through `prepareVerification` in
+`app/routes/_auth/verify.server.ts`). A code is 8 characters from
+`ABCDEFGHJKLMNPQRSTUVWXYZ123456789`, picked with `crypto.randomInt`, so there
+are 33^8 ≈ 1.4 × 10^12 of them. Case doesn't matter, and the code field drops
+spaces and dashes from a pasted code. The link carries a separate 32-byte token
+rather than the code. The `EmailCode` table keeps only HMAC-SHA-256 digests of
+both, keyed with the first `SESSION_SECRET` and compared with `timingSafeEqual`.
+A plain hash of a code this short could be reversed by trying every code; the
+digest can't be checked without the secret. Rotating the secret makes codes in
+flight stop working. Authenticator codes for 2FA stay in `Verification` on
+`@epic-web/totp`. The verify page sends each kind down its own check, so an
+emailed type never reaches the TOTP check and `2fa` never reaches the emailed
+codes.
+
+Each code works for 10 minutes, or until one of the target's codes is used. A
+new request adds a code and leaves the earlier ones alone, so a stranger asking
+for codes can't stop the owner using one already in their inbox. Each (type,
+target) holds at most 5 live codes. Past that nothing is sent, the
+forgot-password answer doesn't change, and nothing a stranger can do ends a live
+code early. There are no wrong-guess counters for the same reason. The cap is
+checked and a place taken in one write transaction, so a burst of requests can't
+overshoot it. The place matches no code until the email has gone out, and a
+failed send removes it. If the code can't be marked as sent after its email went
+out, its place is removed too and the person is told the send failed. A reset is
+keyed by the account's id, whichever of its username or email was typed, and a
+signup by the lowercased address.
+
+Using a code finds and deletes its row, then the target's other codes of that
+type, in one write transaction. The transaction holds SQLite's write lock from
+its first statement, so of two submits of the same code the second finds no row,
+and only one succeeds. The check that exactly one row was deleted is a backstop.
+A new email or password ends the user's reset codes in the same transaction that
+changes it: changing the email, changing or creating a password in Settings, and
+the reset itself. Change email checks the code first, may send the user through
+reverify, and uses it later in the same transaction as the email update. An
+email-change code stores the address it was sent to, and that address is the one
+it sets. The verify cookie keeps the addresses this device asked for, and the
+code's address must be one of them. GET `/verify` only fills in the form; mail
+scanners fetch links, so nothing is used until the form is posted.
+
+The guessing bound: a guess is one POST to `/verify`, checked against at most
+the 5 live codes of the target it names. The auth tier allows 10 POSTs a minute
+per address (IPv6 counts per /64), so one address gets 100 guesses in a code's
+10 minutes, a chance of at most 100 × 5 ÷ 33^8 ≈ 3.6 × 10^-10 per 10-minute
+window, about 5 × 10^-8 a day and 2 × 10^-5 a year. An attacker with many
+addresses isn't held back by the rate limit, only by the cap, the code space and
+how fast the server answers. Assuming it answered 1,000 guesses a second, far
+more than the one shared-CPU machine serves, that is 600,000 × 5 ÷ 33^8 ≈ 2.1 ×
+10^-6 per window, about 3 × 10^-4 a day and 11% a year of guessing without a
+break. Keeping 5 codes live costs the owner 5 emails a window, 720 a day, which
+they would notice long before that.
+
 **Pro.** `app/utils/subscription.server.ts` is the source of truth:
 `getUserTier` reads the Stripe-backed `Subscription` row, `requireProTier`
 guards Pro-only loaders and actions (redirecting to `/upgrade`, or a 403 in the
@@ -422,9 +475,10 @@ on in the PostHog project would replace that list with the SDK's, which leaves
 hidden inputs out, so they stay off. The hidden inputs that carry a secret are
 blocked with `ph-no-capture` as well, so they stay out of replays whatever the
 remote settings are: the invite token on the join page, and `redirectTo` and the
-verify page's `target` on the sign-in forms. A page that shows a secret marks it
-with PostHog's `ph-no-capture` class, and the recording keeps only an empty box
-of its size: the 2FA setup's QR code and URI, and the Household invite link.
+verify page's `target` and link `token` on the sign-in forms. A page that shows
+a secret marks it with PostHog's `ph-no-capture` class, and the recording keeps
+only an empty box of its size: the 2FA setup's QR code and URI, and the
+Household invite link.
 posthog-js has no browser-side setting to stop recording on chosen URLs; the URL
 blocklist for recordings lives in the PostHog project's settings. Log a user id,
 never an email address or token.

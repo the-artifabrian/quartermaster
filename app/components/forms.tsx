@@ -155,37 +155,48 @@ export function OTPField({
 	inputProps,
 	errors,
 	className,
+	length = 6,
 }: {
 	labelProps: React.LabelHTMLAttributes<HTMLLabelElement>
 	inputProps: Partial<OTPInputProps & { render: never }>
 	errors?: ListOfErrors
 	className?: string
+	/** Characters in the code, shown as two equal groups of boxes. */
+	length?: 6 | 8
 }) {
 	const fallbackId = useId()
 	const id = inputProps.id ?? fallbackId
 	const errorId = errors?.length ? `${id}-error` : undefined
+	const half = length / 2
+	// Eight boxes at full size are wider than a small phone's column, so they
+	// share the width instead and stop growing at 40px each.
+	const flexible = length > 6
+	const groupClass = flexible ? 'flex-1' : undefined
+	const slotClass = flexible ? 'size-auto h-10 min-w-0 flex-1' : undefined
+	const slots = (from: number) =>
+		Array.from({ length: half }, (_, i) => (
+			<InputOTPSlot key={from + i} index={from + i} className={slotClass} />
+		))
 	return (
 		<div className={className}>
 			<Label htmlFor={id} {...labelProps} />
 			<InputOTP
 				pattern={REGEXP_ONLY_DIGITS_AND_CHARS}
-				maxLength={6}
+				maxLength={length}
 				id={id}
 				aria-invalid={errorId ? true : undefined}
 				aria-describedby={errorId}
+				containerClassName={flexible ? 'w-full max-w-80' : undefined}
+				// A code copied from an email can carry spaces or a dash, which
+				// the pattern would refuse.
+				pasteTransformer={(pasted) =>
+					pasted.replace(/[\s-]/g, '').toUpperCase()
+				}
 				{...inputProps}
 			>
-				<InputOTPGroup>
-					<InputOTPSlot index={0} />
-					<InputOTPSlot index={1} />
-					<InputOTPSlot index={2} />
-				</InputOTPGroup>
-				<InputOTPSeparator />
-				<InputOTPGroup>
-					<InputOTPSlot index={3} />
-					<InputOTPSlot index={4} />
-					<InputOTPSlot index={5} />
-				</InputOTPGroup>
+				<InputOTPGroup className={groupClass}>{slots(0)}</InputOTPGroup>
+				{flexible ? null : <InputOTPSeparator />}
+				<InputOTPGroup className={groupClass}>{slots(half)}</InputOTPGroup>
 			</InputOTP>
 			<div className="min-h-[32px] px-4 pt-1 pb-3">
 				{errorId ? <ErrorList id={errorId} errors={errors} /> : null}

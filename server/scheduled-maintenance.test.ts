@@ -12,6 +12,7 @@ import '#tests/setup/db-setup.ts'
 const EMPTY_SUMMARY: MaintenanceSummary = {
 	sessions: 0,
 	verifications: 0,
+	emailCodes: 0,
 	usageEvents: 0,
 	householdEvents: 0,
 }
@@ -92,6 +93,23 @@ describe('pruneExpiredData', () => {
 				},
 			],
 		})
+		const emailCode = {
+			type: 'reset-password',
+			target: 'maintenance-test',
+			codeHash: 'hash',
+			linkTokenHash: 'hash',
+			sentAt: now,
+		}
+		await prisma.emailCode.createMany({
+			data: [
+				{ ...emailCode, id: 'expired-email-code', expiresAt: now },
+				{
+					...emailCode,
+					id: 'active-email-code',
+					expiresAt: new Date(now.getTime() + 1),
+				},
+			],
+		})
 		await prisma.usageEvent.createMany({
 			data: [
 				{
@@ -132,6 +150,7 @@ describe('pruneExpiredData', () => {
 		await expect(pruneExpiredData(now)).resolves.toEqual({
 			sessions: 1,
 			verifications: 1,
+			emailCodes: 1,
 			usageEvents: 1,
 			householdEvents: 1,
 		})
@@ -147,6 +166,9 @@ describe('pruneExpiredData', () => {
 			{ id: 'active-verification' },
 			{ id: 'nonexpiring-verification' },
 		])
+		await expect(
+			prisma.emailCode.findMany({ select: { id: true } }),
+		).resolves.toEqual([{ id: 'active-email-code' }])
 		await expect(
 			prisma.usageEvent.findMany({ select: { id: true } }),
 		).resolves.toEqual([{ id: 'current-usage' }])
@@ -187,7 +209,7 @@ describe('startScheduledMaintenance', () => {
 
 		expect(prune).toHaveBeenCalledTimes(2)
 		expect(log).toHaveBeenCalledWith(
-			'🧹 maintenance: sessions=0 verifications=0 usage_events=0 household_events=0 duration_ms=0',
+			'🧹 maintenance: sessions=0 verifications=0 email_codes=0 usage_events=0 household_events=0 duration_ms=0',
 		)
 		clearInterval(timer)
 	})

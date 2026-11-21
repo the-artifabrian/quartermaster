@@ -184,10 +184,11 @@ async function createMealRow(
  * them. Newly introduced groups start unchecked even when the ordinary
  * initial-add availability seam would have pre-checked them.
  *
- * A checked row is a purchase and keeps showing what was bought. When this
- * Meal's demand on it changed or went away, its share stays on that row
- * without a Meal, and any current demand is placed as new demand, on an
- * unchecked row of the same ingredient, or a new one (#226).
+ * A checked row is a purchase, so Update leaves it alone. Whether this
+ * Meal's demand on it grew, shrank or went away, the row and the share stay
+ * as they are and nothing is added elsewhere for that ingredient. Such rows
+ * are reported so the person knows. Once the row is unchecked, the next
+ * Update applies the new amount to it.
  */
 export function replaceMealShoppingContributions(
 	db: PrismaClient,
@@ -212,6 +213,8 @@ export function replaceMealShoppingContributions(
 	updatedContributionCount: number
 	removedContributionCount: number
 	promotedRowCount: number
+	/** Checked rows whose share from this Meal would have changed. */
+	skippedCheckedNames: string[]
 }> {
 	return writeTransaction(db, async (tx) => {
 		const existingItems = await tx.shoppingListItem.findMany({
@@ -261,6 +264,7 @@ export function replaceMealShoppingContributions(
 		let updatedContributionCount = 0
 		let removedContributionCount = 0
 		const possiblyEmptyMealRows = new Set<string>()
+		const skippedCheckedNames: string[] = []
 
 		// New demand reuses only an outstanding row (Next shop first, a Later
 		// row moves up) or gets its own row, the #226 rule for every Meal add.
@@ -287,20 +291,11 @@ export function replaceMealShoppingContributions(
 				contribution.quantity !== line.quantity ||
 				contribution.unit !== line.unit
 
-			if (row?.checked && changed) {
-				// A checked row shows what was bought, so this Meal's share stays
-				// on it as it was, no longer tied to the Meal. The Meal's current
-				// demand, if any, is new demand like any other Meal's (#226).
-				await tx.mealShoppingContribution.update({
-					where: { id: contribution.id },
-					data: { mealId: null },
-				})
-				if (line) {
-					await placeNewDemand(line)
-					updatedContributionCount++
-				} else {
-					removedContributionCount++
-				}
+			if (row?.checked) {
+				// A checked row is a purchase. Update leaves it and this Meal's
+				// share on it alone, and adds nothing elsewhere for it, until
+				// someone unchecks the row.
+				if (changed) skippedCheckedNames.push(row.name)
 				continue
 			}
 
@@ -326,7 +321,7 @@ export function replaceMealShoppingContributions(
 			}
 
 			await promote(row)
-			if (row?.source === 'meal' && !row.checked) {
+			if (row?.source === 'meal') {
 				await tx.shoppingListItem.update({
 					where: { id: row.id },
 					data: {
@@ -361,6 +356,7 @@ export function replaceMealShoppingContributions(
 			updatedContributionCount,
 			removedContributionCount,
 			promotedRowCount: promote.count(),
+			skippedCheckedNames,
 		}
 	})
 }

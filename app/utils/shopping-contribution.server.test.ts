@@ -19,17 +19,20 @@
  * - Remove generated amount is offered and works on it.
  * - Legacy week-generated rows still show only their own amount.
  *
- * Checked rows on Update Shopping (#226 rule):
- * - The Meal's demand on a checked row changed. The checked row keeps what it
- *   showed, and the Meal's current demand goes on an unchecked row.
- * - Two Meals fed the checked row and one of them changed. The row still
- *   shows both amounts, and the other Meal's share is untouched.
- * - The changed demand finds an unchecked row of the same ingredient in
- *   Later. It joins that row, which moves to Next shop.
- * - Unchanged demand on a checked row stays where it is.
- * - The Meal no longer needs the ingredient. The checked row stays as bought.
- * - A checked row left with no live Meal share is not cleaned up as empty.
- *
+ * Checked rows on Update Shopping (left alone):
+ * - This Meal's share on a checked row grew, shrank or was dropped. The
+ *   row is not changed, nothing is added elsewhere for it, and Update
+ *   reports the row as skipped.
+ * - Unchanged demand on a checked row is left alone and not reported.
+ * - A checked Meal row two Meals fed keeps its stored amount when one of
+ *   them updates with unchanged demand.
+ * - Update twice in a row changes nothing the second time.
+ * - Once the row is unchecked, the next Update applies the new amount.
+ * - A first add of a new Meal still goes beside a checked match (#226).
+ * - After a skipped Update, deleting the Meal with its Shopping amounts and
+ *   undoing it behave as before: the share still belongs to the Meal, so the
+ *   checked Meal row goes with it and comes back with it.
+
  * Row Edit and Remove generated amount carry the version the person saw:
  * - Another Meal's demand joined the row after Edit opened. Saving must not
  *   delete that share; the save is refused as a conflict.
@@ -58,6 +61,7 @@ import {
 	replaceMealShoppingContributions,
 } from './shopping-contribution.server.ts'
 import { combineRowDisplay, demandIdentity } from './shopping-demand.server.ts'
+import { deleteMeal, restoreMeal } from './undo-delete.server.ts'
 
 type Db = PrismaClient | Prisma.TransactionClient
 
@@ -321,15 +325,18 @@ describe('Meal add reads and writes in one transaction', () => {
 		await check.committed()
 
 		const rows = await displayed(wal, list.id)
-		const checked = rows.filter((row) => row.checked)
-		// A checked row only ever shows the amount the shopper saw.
-		for (const row of checked) {
-			expect(row.display.quantity).toBe('2')
+		// Either Update landed first and the check, made against the older
+		// version, changed nothing; or the check landed first and Update left
+		// the checked row alone. A checked row never shows the new amount.
+		if (rows[0]!.checked) {
+			expect(rows).toEqual([
+				expect.objectContaining({
+					display: expect.objectContaining({ quantity: '2' }),
+				}),
+			])
+		} else {
+			expect(rows.map((row) => row.display.quantity)).toEqual(['4'])
 		}
-		// And the Meal's current demand is on Shopping, unchecked.
-		expect(
-			rows.filter((row) => !row.checked).map((row) => row.display.quantity),
-		).toEqual(['4'])
 	})
 })
 
@@ -395,7 +402,7 @@ describe('rows added from Recipe detail', () => {
 	})
 })
 
-describe('Update Shopping keeps checked purchases as bought', () => {
+describe('Update Shopping leaves checked rows alone', () => {
 	async function setup() {
 		const seeded = await seedHousehold(prisma)
 		const mealA = await seeded.meal(0)
@@ -411,132 +418,167 @@ describe('Update Shopping keeps checked purchases as bought', () => {
 				listId: seeded.list.id,
 				lines,
 			})
-		const check = (id: string) =>
-			prisma.shoppingListItem.update({ where: { id }, data: { checked: true } })
-		return { ...seeded, mealA, add, update, check }
+		const setChecked = (id: string, checked: boolean) =>
+			prisma.shoppingListItem.update({ where: { id }, data: { checked } })
+		const snapshot = async () => ({
+			rows: await prisma.shoppingListItem.findMany({
+				orderBy: { id: 'asc' },
+			}),
+			shares: await prisma.mealShoppingContribution.findMany({
+				orderBy: { id: 'asc' },
+			}),
+		})
+		return { ...seeded, mealA, add, update, setChecked, snapshot }
 	}
 
-	test('changed demand on a checked row goes on an unchecked row', async () => {
-		const { list, mealA, add, update, check } = await setup()
+	test.each([
+		['grew', [line('onion', '4', null), line('carrot', '1', null)]],
+		['shrank', [line('onion', '1', null), line('carrot', '1', null)]],
+		['was dropped', [line('carrot', '1', null)]],
+	])(
+		'a checked row whose share %s is not changed, and nothing is added for it',
+		async (_, lines) => {
+			const { list, mealA, add, update, setChecked, snapshot } = await setup()
+			await add(mealA.id, [line('onion', '2', null), line('carrot', '1', null)])
+			const onion = await prisma.shoppingListItem.findFirstOrThrow({
+				where: { listId: list.id, name: 'onion' },
+			})
+			await setChecked(onion.id, true)
+			const before = await snapshot()
+
+			const result = await update(mealA.id, lines)
+
+			expect(result).toMatchObject({
+				createdRowCount: 0,
+				attachedCount: 0,
+				updatedContributionCount: 0,
+				removedContributionCount: 0,
+				skippedCheckedNames: ['onion'],
+			})
+			expect(await snapshot()).toEqual(before)
+		},
+	)
+
+	test('unchanged demand on a checked row is left alone and not reported', async () => {
+		const { list, mealA, add, update, setChecked, snapshot } = await setup()
 		await add(mealA.id, [line('onion', '2', null)])
-		const [bought] = await displayed(prisma, list.id)
-		await check(bought!.id)
-
-		await update(mealA.id, [line('onion', '4', null)])
-
-		const rows = await displayed(prisma, list.id)
-		expect(rows).toEqual([
-			{ ...bought, checked: true },
-			expect.objectContaining({
-				checked: false,
-				horizon: 'next',
-				display: { quantity: '4', unit: null, combined: false },
-			}),
-		])
-		const share = await prisma.mealShoppingContribution.findFirstOrThrow({
-			where: { mealId: mealA.id },
-		})
-		expect(share).toMatchObject({ itemId: rows[1]!.id, quantity: '4' })
-	})
-
-	test('a checked row two Meals fed still shows both after one of them changes', async () => {
-		const { list, meal, mealA, add, update, check } = await setup()
-		const mealB = await meal(1)
-		await add(mealA.id, [line('onion', '2', null)])
-		await add(mealB.id, [line('onion', '3', null)])
-		const [bought] = await displayed(prisma, list.id)
-		expect(bought!.display.quantity).toBe('5')
-		await check(bought!.id)
-		const mealBShare = await prisma.mealShoppingContribution.findFirstOrThrow({
-			where: { mealId: mealB.id },
-		})
-
-		await update(mealA.id, [line('onion', '4', null)])
-
-		const rows = await displayed(prisma, list.id)
-		expect(rows[0]).toEqual({ ...bought, checked: true })
-		expect(rows[1]).toMatchObject({
-			checked: false,
-			display: { quantity: '4' },
-		})
-		expect(
-			await prisma.mealShoppingContribution.findUniqueOrThrow({
-				where: { id: mealBShare.id },
-			}),
-		).toEqual(mealBShare)
-	})
-
-	test('changed demand joins an unchecked Later row of the same ingredient and moves it to Next shop', async () => {
-		const { list, mealA, add, update, check } = await setup()
-		await add(mealA.id, [line('onion', '2', null)])
-		const [bought] = await displayed(prisma, list.id)
-		await check(bought!.id)
-		const later = await prisma.shoppingListItem.create({
-			data: {
-				listId: list.id,
-				name: 'onion',
-				quantity: '1',
-				source: 'manual',
-				horizon: 'later',
-			},
-		})
-
-		const result = await update(mealA.id, [line('onion', '4', null)])
-
-		expect(result.promotedRowCount).toBe(1)
-		const rows = await displayed(prisma, list.id)
-		expect(rows).toHaveLength(2)
-		expect(rows[0]).toEqual({ ...bought, checked: true })
-		expect(rows[1]).toMatchObject({
-			id: later.id,
-			checked: false,
-			horizon: 'next',
-			display: { quantity: '5', combined: true },
-		})
-	})
-
-	test('unchanged demand on a checked row stays where it is', async () => {
-		const { list, mealA, add, update, check } = await setup()
-		await add(mealA.id, [line('onion', '2', null)])
-		const [bought] = await displayed(prisma, list.id)
-		await check(bought!.id)
-		const before = await prisma.mealShoppingContribution.findMany()
+		const [onion] = await displayed(prisma, list.id)
+		await setChecked(onion!.id, true)
+		const before = await snapshot()
 
 		const result = await update(mealA.id, [line('onion', '2', null)])
 
-		expect(result).toMatchObject({
+		expect(result.skippedCheckedNames).toEqual([])
+		expect(await snapshot()).toEqual(before)
+	})
+
+	test('a checked Meal row two Meals fed keeps its stored amount when one updates unchanged', async () => {
+		const { list, meal, mealA, add, update, setChecked, snapshot } =
+			await setup()
+		const mealB = await meal(1)
+		await add(mealA.id, [line('onion', '2', null)])
+		await add(mealB.id, [line('onion', '3', null)])
+		const [onion] = await displayed(prisma, list.id)
+		expect(onion!.display.quantity).toBe('5')
+		await setChecked(onion!.id, true)
+		const before = await snapshot()
+
+		await update(mealB.id, [line('onion', '3', null)])
+
+		expect(await snapshot()).toEqual(before)
+	})
+
+	test('Update twice changes nothing the second time', async () => {
+		const { list, mealA, add, update, setChecked, snapshot } = await setup()
+		await add(mealA.id, [line('onion', '2', null), line('carrot', '1', null)])
+		const onion = await prisma.shoppingListItem.findFirstOrThrow({
+			where: { listId: list.id, name: 'onion' },
+		})
+		await setChecked(onion.id, true)
+		const lines = [line('onion', '4', null), line('carrot', '3', null)]
+		await update(mealA.id, lines)
+		const after = await snapshot()
+
+		const again = await update(mealA.id, lines)
+
+		expect(again).toMatchObject({
 			createdRowCount: 0,
 			attachedCount: 0,
 			updatedContributionCount: 0,
 			removedContributionCount: 0,
 		})
-		expect(await displayed(prisma, list.id)).toEqual([
-			{ ...bought, checked: true },
-		])
-		expect(await prisma.mealShoppingContribution.findMany()).toEqual(before)
+		expect(await snapshot()).toEqual(after)
 	})
 
-	test('demand the Meal no longer has leaves a checked row as bought', async () => {
-		const { list, mealA, add, update, check } = await setup()
-		await add(mealA.id, [line('onion', '2', null), line('carrot', '1', null)])
-		const bought = (await displayed(prisma, list.id)).find(
-			(row) => row.name === 'onion',
-		)!
-		await check(bought.id)
+	test('once the row is unchecked, the next Update applies the new amount to it', async () => {
+		const { list, mealA, add, update, setChecked } = await setup()
+		await add(mealA.id, [line('onion', '2', null)])
+		const [onion] = await displayed(prisma, list.id)
+		await setChecked(onion!.id, true)
+		await update(mealA.id, [line('onion', '4', null)])
+		await setChecked(onion!.id, false)
 
-		await update(mealA.id, [line('carrot', '1', null)])
+		const result = await update(mealA.id, [line('onion', '4', null)])
+
+		expect(result.skippedCheckedNames).toEqual([])
+		expect(await displayed(prisma, list.id)).toEqual([
+			expect.objectContaining({
+				id: onion!.id,
+				checked: false,
+				display: expect.objectContaining({ quantity: '4' }),
+			}),
+		])
+	})
+
+	test('after a skipped Update, deleting the Meal with its amounts and Undo work as before', async () => {
+		const { household, list, mealA, add, update, setChecked } = await setup()
+		await add(mealA.id, [line('onion', '2', null)])
+		const [onion] = await displayed(prisma, list.id)
+		await setChecked(onion!.id, true)
+		await update(mealA.id, [line('onion', '4', null)])
+		const shown = await displayed(prisma, list.id)
+		const shares = () =>
+			prisma.mealShoppingContribution.findMany({
+				select: { mealId: true, itemId: true, quantity: true },
+			})
+		const sharesBefore = await shares()
+		expect(sharesBefore).toEqual([
+			{ mealId: mealA.id, itemId: onion!.id, quantity: '2' },
+		])
+
+		const deleted = await deleteMeal(prisma, {
+			householdId: household.id,
+			mealId: mealA.id,
+			removeShoppingContributions: true,
+		})
+		expect(deleted.status).toBe('deleted')
+		expect(await displayed(prisma, list.id)).toEqual([])
+
+		if (deleted.status !== 'deleted' || deleted.snapshot.kind !== 'meal') {
+			throw new Error('expected a Meal snapshot')
+		}
+		await restoreMeal(prisma, {
+			householdId: household.id,
+			snapshot: deleted.snapshot.meal,
+		})
+		expect(await displayed(prisma, list.id)).toEqual(shown)
+		expect(await shares()).toEqual(sharesBefore)
+	})
+
+	test('a first add of a new Meal still goes beside a checked match', async () => {
+		const { list, meal, mealA, add, setChecked } = await setup()
+		await add(mealA.id, [line('onion', '2', null)])
+		const [onion] = await displayed(prisma, list.id)
+		await setChecked(onion!.id, true)
+		const mealB = await meal(1)
+
+		await add(mealB.id, [line('onion', '3', null)])
 
 		const rows = await displayed(prisma, list.id)
-		expect(rows.find((row) => row.id === bought.id)).toEqual({
-			...bought,
-			checked: true,
-		})
-		expect(
-			await prisma.mealShoppingContribution.findMany({
-				where: { mealId: mealA.id },
-				select: { canonicalName: true },
-			}),
-		).toEqual([{ canonicalName: 'carrot' }])
+		expect(rows.map((row) => [row.checked, row.display.quantity])).toEqual([
+			[true, '2'],
+			[false, '3'],
+		])
 	})
 })
 

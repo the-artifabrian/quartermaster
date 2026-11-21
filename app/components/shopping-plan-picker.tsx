@@ -12,6 +12,7 @@ import {
 } from '#app/components/ui/popover.tsx'
 import { isPast, parseDate } from '#app/utils/date.ts'
 import { HouseholdClientInput } from '#app/utils/household-client.tsx'
+import { addedToExistingMessage } from '#app/utils/meal-shopping-messages.ts'
 import { cn } from '#app/utils/misc.tsx'
 import {
 	defaultPickedLines,
@@ -182,7 +183,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 				)
 			} else if (attachedCount > 0) {
 				// The amounts joined rows already there, which now show more.
-				toast.success('Added to items already on Shopping')
+				toast.success(addedToExistingMessage(attachedCount))
 			} else if (alreadyContributedCount > 0) {
 				toast.info('Everything picked is already on your list')
 			} else {

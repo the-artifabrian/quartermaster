@@ -1,6 +1,10 @@
 import { type SubmissionResult } from '@conform-to/react'
 import { useEffect, useRef, useState } from 'react'
 import { useFetcher, useSearchParams } from 'react-router'
+import {
+	addedToExistingMessage,
+	skippedCheckedMessage,
+} from '#app/utils/meal-shopping-messages.ts'
 import { getHouseholdClientId } from '#app/utils/household-client.tsx'
 import { toast } from 'sonner'
 import { ErrorList } from '#app/components/forms.tsx'
@@ -532,6 +536,7 @@ export function MealCard({
 			updatedContributionCount?: number
 			removedContributionCount?: number
 			promotedRowCount?: number
+			skippedCheckedNames?: string[]
 		}
 	}>()
 	const [addingRecipe, setAddingRecipe] = useState(false)
@@ -644,7 +649,14 @@ export function MealCard({
 						(data.shopping.updatedContributionCount ?? 0) +
 						(data.shopping.removedContributionCount ?? 0) +
 						(data.shopping.promotedRowCount ?? 0)
-					if (changed > 0) toast.success('Shopping updated')
+					const skipped = skippedCheckedMessage(
+						data.shopping.skippedCheckedNames ?? [],
+					)
+					if (changed > 0) {
+						toast.success(
+							skipped ? `Shopping updated. ${skipped}` : 'Shopping updated',
+						)
+					} else if (skipped) toast.info(skipped)
 					else toast.info('Shopping is up to date')
 					prevShoppingState.current = addToShoppingFetcher.state
 					return
@@ -657,7 +669,7 @@ export function MealCard({
 					)
 				} else if ((attachedCount ?? 0) > 0) {
 					// The amounts joined rows already there, which now show more.
-					toast.success('Added to items already on Shopping')
+					toast.success(addedToExistingMessage(attachedCount ?? 0))
 				} else if ((alreadyContributedCount ?? 0) > 0) {
 					toast.info('This Meal is already on Shopping')
 				} else {

@@ -175,7 +175,7 @@ test('a Meal joining a row added from Recipe detail shows the summed amount', as
 	await page.getByRole('button', { name: 'Meal actions for Leek soup' }).click()
 	await page.getByRole('menuitem', { name: 'Add to Shopping' }).click()
 	await expect(
-		page.getByText('Added to items already on Shopping'),
+		page.getByText('Added to 1 item already on Shopping'),
 	).toBeVisible()
 
 	await page

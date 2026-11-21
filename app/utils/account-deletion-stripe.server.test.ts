@@ -1,7 +1,9 @@
 // Failure list for cancelling Pro when an account is deleted:
 // - the user has a live Stripe subscription: Stripe is asked to cancel that
 //   subscription, by the id the local row held before the delete removed it,
-//   and the account is deleted
+//   and only once the account is gone
+// - the delete itself fails: Stripe is never asked, so nobody is left with an
+//   account whose Pro was cancelled under them
 // - Stripe refuses or errors: the account is still deleted, and the failure
 //   is logged and captured with the subscription id, so it can be cancelled
 //   by hand
@@ -29,6 +31,23 @@ vi.mock('#app/utils/posthog.server.ts', async (importOriginal) => ({
 	captureServerEvent: vi.fn(),
 }))
 
+const failingDelete = vi.hoisted(() => ({ on: false }))
+vi.mock('#app/utils/write-transaction.server.ts', async (importOriginal) => {
+	const original =
+		await importOriginal<
+			typeof import('#app/utils/write-transaction.server.ts')
+		>()
+	return {
+		...original,
+		writeTransaction: ((
+			...args: Parameters<typeof original.writeTransaction>
+		) => {
+			if (failingDelete.on) throw new Error('The delete failed')
+			return original.writeTransaction(...args)
+		}) as typeof original.writeTransaction,
+	}
+})
+
 // Stripe's Node HTTP client never reaches MSW under Vitest (the request
 // hangs), so the cancel call is replaced on the client itself.
 let cancel: ReturnType<typeof vi.fn>
@@ -42,6 +61,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+	failingDelete.on = false
 	vi.unstubAllEnvs()
 	vi.restoreAllMocks()
 	vi.mocked(captureServerEvent).mockClear()
@@ -67,13 +87,28 @@ async function userWithSubscription(stripeSubscriptionId: string | null) {
 const userGone = async (userId: string) =>
 	(await prisma.user.findUnique({ where: { id: userId } })) === null
 
-test('a live subscription is cancelled with Stripe, and the account is deleted', async () => {
+test('a live subscription is cancelled with Stripe once the account is gone', async () => {
 	const user = await userWithSubscription('sub_live_one')
+	const goneWhenCancelled: Array<boolean> = []
+	cancel.mockImplementation(async (id: string) => {
+		goneWhenCancelled.push(await userGone(user.id))
+		return { id, status: 'canceled' }
+	})
 
 	await deleteAccount(user.id)
 
 	expect(cancel.mock.calls.map(([id]) => id)).toEqual(['sub_live_one'])
-	expect(await userGone(user.id)).toBe(true)
+	expect(goneWhenCancelled).toEqual([true])
+})
+
+test('a delete that fails leaves the subscription alone', async () => {
+	const user = await userWithSubscription('sub_kept')
+	failingDelete.on = true
+
+	await expect(deleteAccount(user.id)).rejects.toThrow('The delete failed')
+
+	expect(cancel).not.toHaveBeenCalled()
+	expect(await userGone(user.id)).toBe(false)
 })
 
 test('a hung Stripe holds the delete for seconds, not minutes', async () => {

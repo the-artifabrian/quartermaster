@@ -58,24 +58,21 @@ export async function getAccountDeletionOutcome(
  * owner, or an earlier delete already left it without one). A sole member
  * takes the Household and everything in it with them.
  *
- * A Pro subscription is cancelled with Stripe first, while the Subscription
- * row that names it still exists. If Stripe fails, the deletion goes ahead
- * and the failure is logged and captured.
- *
- * Row changes happen in one transaction. Stored photos are removed after it
- * commits, and only when no remaining Recipe shows them; a failed storage
- * delete is logged and does not undo the account deletion.
+ * Row changes happen in one transaction. A Pro subscription is cancelled
+ * with Stripe only after it commits, by the id the transaction read before
+ * the Subscription row went with the user. A deletion that fails then leaves
+ * Pro running, never cancelled under an account that still exists. If Stripe
+ * fails, the account stays deleted and the failure is logged and captured.
+ * Stored photos are removed last, and only when no remaining Recipe shows
+ * them; a failed storage delete is logged and does not undo the account
+ * deletion.
  */
 export async function deleteAccount(userId: string) {
-	const subscription = await prisma.subscription.findUnique({
-		where: { userId },
-		select: { stripeSubscriptionId: true },
-	})
-	if (subscription?.stripeSubscriptionId) {
-		await cancelSubscriptionOfDeletedAccount(subscription.stripeSubscriptionId)
-	}
-
-	const objectKeys = await writeTransaction(prisma, async (tx) => {
+	const deleted = await writeTransaction(prisma, async (tx) => {
+		const subscription = await tx.subscription.findUnique({
+			where: { userId },
+			select: { stripeSubscriptionId: true },
+		})
 		// Every Household the user still has rows in: their own, plus any they
 		// left, where leaveHousehold kept the original Recipes under their id.
 		const [recipeHouseholds, listHouseholds, inviteHouseholds, membership] =
@@ -157,10 +154,17 @@ export async function deleteAccount(userId: string) {
 		}
 		await tx.user.delete({ where: { id: userId } })
 
-		return images.map((image) => image.objectKey)
+		return {
+			objectKeys: images.map((image) => image.objectKey),
+			stripeSubscriptionId: subscription?.stripeSubscriptionId ?? null,
+		}
 	})
 
-	for (const objectKey of objectKeys) {
+	if (deleted.stripeSubscriptionId) {
+		await cancelSubscriptionOfDeletedAccount(deleted.stripeSubscriptionId)
+	}
+
+	for (const objectKey of deleted.objectKeys) {
 		try {
 			await deleteRecipeImageUnlessShared(objectKey)
 		} catch (error) {

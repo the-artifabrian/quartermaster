@@ -13,6 +13,7 @@ import {
 	convertSetCookieToCookie,
 	getSessionCookieHeader,
 } from '#tests/utils.ts'
+import { loader as passkeysPageLoader } from '#app/routes/settings/profile/passkeys.tsx'
 import { action } from './registration.ts'
 import { passkeyCookie, webauthnUserHandle } from './utils.server.ts'
 import '#tests/setup/db-setup.ts'
@@ -37,6 +38,8 @@ import '#tests/setup/db-setup.ts'
 // 12. A response that fails WebAuthn verification. Nothing saved, no email.
 // 13. A passkey that is already saved. No second row, no email.
 // 14. A signed-out request is sent to log in.
+// 15. A 2FA user past the window who opens the Passkeys page is sent to
+//     reverify before typing a password, and comes back to the page.
 
 vi.mock('@simplewebauthn/server', async (importOriginal) => ({
 	...(await importOriginal<typeof SimpleWebAuthnServer>()),
@@ -370,4 +373,28 @@ test('a signed-out request is sent to log in', async () => {
 	)
 	expect(thrown).toBeInstanceOf(Response)
 	expect((thrown as Response).headers.get('location')).toMatch(/^\/login/)
+})
+
+test('a 2FA user past the reverify window opening the Passkeys page reverifies first', async () => {
+	const { cookie } = await signedInUser({ twoFA: true })
+	const url = `${BASE_URL}/settings/profile/passkeys.data`
+	const thrown = await passkeysPageLoader({
+		request: new Request(url, { headers: { cookie } }),
+		url: new URL(url),
+		params: {},
+		pattern: '/settings/profile/passkeys',
+		context: new RouterContextProvider(),
+	}).then(
+		() => null,
+		(error: unknown) => error,
+	)
+	expect(thrown).toBeInstanceOf(Response)
+	const location = new URL(
+		(thrown as Response).headers.get('location')!,
+		BASE_URL,
+	)
+	expect(location.pathname).toBe('/verify')
+	expect(location.searchParams.get('redirectTo')).toBe(
+		'/settings/profile/passkeys',
+	)
 })

@@ -367,6 +367,14 @@ changing the email or turning 2FA off asks for a code again when the session
 last verified more than two hours ago (`requireRecentVerification` in
 `app/routes/_auth/verify.server.ts`).
 
+Adding a passkey asks for the current password
+(`app/routes/_auth/webauthn/registration.ts`). The request for the passkey
+options checks it, and only then sets the challenge cookie. That cookie is
+signed, names the account and lasts five minutes, and the request that saves the
+passkey needs it. With 2FA on, adding a passkey also follows the two-hour rule.
+An account with no password is asked to create one first. A notice goes to the
+account's email once the passkey is saved.
+
 **Emailed codes.** Signup, password reset and email change email a code and a
 link (`app/utils/email-code.server.ts`, called through `prepareVerification` in
 `app/routes/_auth/verify.server.ts`). A code is 8 characters from

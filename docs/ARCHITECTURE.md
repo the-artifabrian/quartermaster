@@ -77,6 +77,11 @@ reaches the app at once. The two sides meet in three places:
   through a TestFlight build, so the Web side must keep working against the
   previous shell.
 
+The apple-app-site-association file claims every path, so on a phone with the
+app installed a link in an email, such as a sign-up or password reset link,
+opens the app, with the app's own cookies rather than Safari's. The typed code
+from the same email works in either place.
+
 ### Recipe photos
 
 Photos are stored in object storage (Tigris) under
@@ -204,6 +209,11 @@ owner, else the longest-standing member) and promotes that member when the
 Household would have no owner, so a deleted member's data stays with the
 Household. Only a sole member's deletion removes the Household. New data owned
 by a User and a Household needs the same handover.
+
+A Recipe's share link is `/share/<recipe id>`. It works until the Recipe is
+deleted and can't be revoked on its own. Saving from it copies the sender's
+Recipe as it stands, including the text it was imported from (`rawText`), and
+gives the photo its own copy.
 
 An interactive transaction that reads, or decides what to write, before its
 first write runs through `writeTransaction` in

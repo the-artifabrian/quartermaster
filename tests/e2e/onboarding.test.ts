@@ -471,6 +471,17 @@ test('reset password with a link', async ({
 	await page.getByRole('button', { name: /reset password/i }).click()
 
 	await expect(page).toHaveURL('/login')
+
+	// The used link no longer works, and the page asks for the code instead.
+	await navigate(resetPasswordUrl)
+	await page
+		.getByRole('main')
+		.getByRole('button', { name: /submit/i })
+		.click()
+	await expect(page.getByText(/this link didn't work/i)).toBeVisible()
+	await expect(page.getByRole('textbox', { name: /code/i })).toBeVisible()
+
+	await navigate('/login')
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
 	await page.getByLabel(/^password$/i).fill(originalPassword)
 	await page.getByRole('button', { name: 'Log in', exact: true }).click()

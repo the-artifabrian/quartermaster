@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { http, HttpResponse } from 'msw'
 import { RouterContextProvider } from 'react-router'
 import { afterEach, describe, expect, test, vi } from 'vitest'
@@ -560,6 +561,53 @@ describe('code kinds', () => {
 		expect(
 			await isCodeValid({ code: totp, type: '2fa', target: user.id }),
 		).toBe(true)
+	})
+})
+
+describe('code kinds, with a stored code of the other kind', () => {
+	// These rows can't arise from the app; they check that each kind of code
+	// goes only through its own check even if one did.
+	test('an emailed type never reaches the authenticator check', async () => {
+		const email = `totp-${Date.now()}@example.com`
+		const { otp, ...totpConfig } = await generateTOTP()
+		await prisma.verification.create({
+			data: { ...totpConfig, type: 'onboarding', target: email },
+		})
+		expect(
+			await isCodeValid({
+				code: otp,
+				type: 'onboarding' as never,
+				target: email,
+			}),
+		).toBe(false)
+	})
+
+	test('a 2FA type never reaches the emailed codes', async () => {
+		const user = await createAccount()
+		const code = '123456'
+		await prisma.emailCode.create({
+			data: {
+				type: twoFAVerificationType,
+				target: user.id,
+				codeHash: createHash('sha256').update(code).digest('hex'),
+				linkTokenHash: 'unused',
+				sentAt: new Date(),
+				expiresAt: new Date(Date.now() + CODE_LIFETIME_MS),
+			},
+		})
+		const outcome = await submitVerify({
+			code,
+			type: twoFAVerificationType,
+			target: user.id,
+		})
+		expect(outcome.status).toBe(400)
+		expect(
+			await checkEmailCode({
+				type: twoFAVerificationType as never,
+				target: user.id,
+				code,
+			}),
+		).toBeNull()
 	})
 })
 

@@ -95,14 +95,14 @@ export async function action({ request }: Route.ActionArgs) {
 			const verifySession = await verifySessionStorage.getSession(
 				request.headers.get('cookie'),
 			)
+			// The newest goes last, so trimming to the cap drops the oldest.
 			const addresses = [
-				...requestedAddresses(verifySession.get(newEmailAddressSessionKey)),
+				...requestedAddresses(
+					verifySession.get(newEmailAddressSessionKey),
+				).filter((requested) => requested !== address),
 				address,
-			]
-			verifySession.set(
-				newEmailAddressSessionKey,
-				[...new Set(addresses)].slice(-MAX_LIVE_EMAIL_CODES),
-			)
+			].slice(-MAX_LIVE_EMAIL_CODES)
+			verifySession.set(newEmailAddressSessionKey, addresses)
 			return redirect(result.redirectTo, {
 				headers: {
 					'set-cookie': await verifySessionStorage.commitSession(verifySession),

@@ -217,7 +217,11 @@ export async function validateRequest(
 				ctx.addIssue({
 					path: [codeQueryParam],
 					code: 'custom',
-					message: `Invalid code`,
+					// Only the link was sent, so say what to do instead.
+					message:
+						code === undefined && data[tokenQueryParam]
+							? `This link didn't work. Type the code from the email, or ask for a new one.`
+							: `Invalid code`,
 				})
 				return z.NEVER
 			}

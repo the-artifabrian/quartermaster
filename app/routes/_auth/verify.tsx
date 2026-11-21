@@ -134,12 +134,12 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 	const codeLength = isEmailedType(type)
 		? EMAILED_CODE_LENGTH
 		: TWO_FA_CODE_LENGTH
-	// Arriving from the emailed link, there's nothing to type unless the link
-	// didn't work.
+	// Arriving from the emailed link, there's nothing to type. Once the
+	// server has answered (the link didn't work), the code field shows.
 	const linkReady =
 		Boolean(searchParams.get(tokenQueryParam)) &&
 		!searchParams.get(codeQueryParam) &&
-		!fields[codeQueryParam].errors?.length
+		!actionData
 
 	return (
 		<main className="container flex flex-col justify-center pt-20 pb-32">

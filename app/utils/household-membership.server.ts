@@ -6,8 +6,8 @@ import { deleteRecipeImageUnlessShared } from './recipe-image.server.ts'
  * owner first, else the member who joined longest ago, with the row id
  * breaking a tie. Null when nobody else is in the Household.
  *
- * Every way out of a Household uses this rule: joining another, leaving, and
- * deleting the account.
+ * Every way out of a Household uses this rule, removal by the owner and
+ * account deletion included.
  */
 export async function findHeir(
 	db: Pick<Prisma.TransactionClient, 'householdMember'>,
@@ -65,7 +65,7 @@ export async function removeMembership(
  *
  * Recipes and the Shopping list only lose their Household when it is deleted
  * (their relation is SetNull), so they are deleted here first. Left alone they
- * would outlive it, keep their photos, and stay open by share link. Everything
+ * would outlive it with their photos, still open by share link. Everything
  * else that belongs to a Household cascades with it.
  *
  * Returns the distinct photo keys the deleted Recipes showed. The files go

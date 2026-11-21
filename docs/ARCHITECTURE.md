@@ -721,7 +721,7 @@ high-value AI path.
 - Data-risky changes require a current backup/export and rehearsal on a
   disposable database copy.
 - Full JSON import accepts older exports and restores durable household data
-  on every tier. It takes files up to 10 MB, sent as multipart, and refuses a
+  on every tier. It takes files up to 32 MB, sent as multipart, and refuses a
   file whose totals pass the limits in `RESTORE_LIMITS`. What the Household
   already has counts as skipped. Anything else that doesn't land counts as
   failed and is logged with where it sits in the file. A write error it

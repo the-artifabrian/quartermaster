@@ -340,22 +340,26 @@ type ImportRecipe = z.infer<typeof ImportRecipeSchema>
 
 /**
  * The largest export file a restore takes. The form checks it before sending
- * and the action before parsing. Real full exports are well under 1 MB, and
- * parsing costs several times a file's size in memory on a 512 MB server.
+ * and the action before parsing. It fits an export of 500 Recipes that each
+ * keep 50,000 characters of source text, the most the export holds of its
+ * largest field. Restoring a 34 MB file of that shape took about 85 MB of
+ * extra memory locally, which the 512 MB server can spare.
  */
-export const RESTORE_MAX_FILE_BYTES = 10 * 1024 * 1024
-const FILE_TOO_BIG = 'That file is too big. A restore takes files up to 10 MB.'
+export const RESTORE_MAX_FILE_BYTES = 32 * 1024 * 1024
+const FILE_TOO_BIG = 'That file is too big. A restore takes files up to 32 MB.'
 
 /**
  * Totals across the whole file. Each list already has its own limit, but
- * nested lists multiply, and every Meal is its own write. These sit far above
- * what a Household builds up, so only a crafted file reaches them.
+ * nested lists multiply, and every Meal is its own write: 5,000 Meals took
+ * about 6 seconds locally, which is about a minute on the server. These sit
+ * well above what a Household builds up (a busy one plans about 600 Meals a
+ * year), so only a crafted file reaches them.
  */
 export const RESTORE_LIMITS = {
 	recipeLines: 50_000,
 	menuCards: 5_000,
-	meals: 5_000,
-	mealCards: 20_000,
+	meals: 3_000,
+	mealCards: 12_000,
 	shoppingItems: 2_000,
 	shoppingMealLinks: 10_000,
 }
@@ -530,11 +534,13 @@ interface RestoreFailure {
 type RecordFailure = (failure: RestoreFailure) => void
 
 /**
- * The write errors a restore counts as one failed item: a row it points at
- * was deleted while the restore ran (P2003, P2025), or the same unique row
- * was saved at the same moment (P2002). Anything else is unexpected, and the
- * restore stops with it. Running the restore again skips what it already
- * saved and picks up the rest.
+ * The write errors a restore counts as one failed item: the database refused
+ * the row over a constraint. Mostly that is a row it points at being deleted
+ * while the restore ran (P2003, P2025), or the same unique row saved at the
+ * same moment (P2002). The libSQL adapter reports every SQLite constraint
+ * failure as P2003, a trigger's abort included. Anything else is unexpected,
+ * and the restore stops with it. Running the restore again skips what it
+ * already saved and picks up the rest.
  */
 function refusedWriteCode(error: unknown) {
 	const code = (error as { code?: unknown } | null)?.code

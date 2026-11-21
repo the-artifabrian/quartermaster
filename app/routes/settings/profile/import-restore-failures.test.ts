@@ -433,6 +433,43 @@ describe('skipped and failed', () => {
 		expect(await countMeals(session)).toBe(2)
 	})
 
+	test.each([
+		{
+			section: 'Recipe',
+			table: 'Recipe',
+			when: `NEW."title" = 'Boom'`,
+			file: fullExport({
+				recipes: [{ title: 'Boom', ingredients: [], instructions: [] }],
+			}),
+		},
+		{
+			section: 'Menu',
+			table: 'Menu',
+			when: `NEW."title" = 'Boom'`,
+			file: fullExport({ menus: [{ title: 'Boom' }] }),
+		},
+		{
+			section: 'Shopping',
+			table: 'ShoppingListItem',
+			when: `NEW."name" = 'boom'`,
+			file: fullExport({
+				shoppingLists: [{ name: 'Shopping', items: [{ name: 'boom' }] }],
+			}),
+		},
+	])(
+		'an unexpected database error in the $section step stops the restore',
+		async ({ table, when, file }) => {
+			const session = await setupUser()
+			await prisma.$executeRawUnsafe(
+				`CREATE TRIGGER restore_test_fault BEFORE INSERT ON "${table}"
+				WHEN ${when} BEGIN SELECT abs(-9223372036854775808); END`,
+			)
+			await expect(restoreText(session, JSON.stringify(file))).rejects.toThrow(
+				/integer overflow/,
+			)
+		},
+	)
+
 	test('each failure is logged with where it was, never with what the user wrote', async () => {
 		const session = await setupUser()
 		consoleError.mockImplementation(() => {})

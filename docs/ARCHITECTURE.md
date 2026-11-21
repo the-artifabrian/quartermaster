@@ -391,13 +391,13 @@ pending `Session` row, and once that row's `createdAt` is more than 10 minutes
 old the server refuses it and deletes the row (`findPendingSignIn` in
 `app/routes/_auth/login.server.ts`), so a kept copy of the cookie can't outlast
 it. The age comes from the row rather than the cookie because the row is read
-anyway and is what gets deleted. Finishing the sign-in moves the session to a new
-id, so the pending id stops existing. On a shared browser that pending sign-in is someone else's business once another
-person signs in. A sign-in without 2FA clears it, and so does every way a
-session ends on the browser (`endSessionCookies` in `app/utils/auth.server.ts`):
-logging out, deleting the account, and a session that has expired or gone. The
-two-hour check and the reverify step only count a pending sign-in that belongs
-to the signed-in user.
+anyway and is what gets deleted. Finishing the sign-in moves the session to a
+new id, so the pending id stops existing. On a shared browser that pending
+sign-in is someone else's business once another person signs in. A sign-in
+without 2FA clears it, and so does every way a session ends on the browser
+(`endSessionCookies` in `app/utils/auth.server.ts`): logging out, deleting the
+account, and a session that has expired or gone. The two-hour check and the
+reverify step only count a pending sign-in that belongs to the signed-in user.
 
 The 2FA guessing bound: a code is 6 digits, and the check accepts the code for
 the current 30 seconds and for one step either side, so a guess matches with a
@@ -475,7 +475,9 @@ in `app/utils/background.server.ts`. Tests wait for that work with
 `backgroundWorkSettled`, and so does graceful shutdown (`server/shutdown.ts`),
 for up to 3 of its 4 seconds, alongside the PostHog flush. An event that
 background work captures after the flush has started can be lost, and work
-still running after 3 seconds is cut off and logged.
+still running after 3 seconds is cut off and logged. A send cut off by a deploy
+this way can leave its code's place taken, matching no code, until it expires
+10 minutes later; the target has one place fewer of its 5 until then.
 
 Using a code finds and deletes its row, then the target's other codes of that
 type, in one write transaction. The transaction holds SQLite's write lock from

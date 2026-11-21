@@ -38,6 +38,11 @@ test('Users can add 2FA to their account and use it when logging in', async ({
 	const otpUri = new URL(otpUriString)
 	const options = Object.fromEntries(otpUri.searchParams)
 
+	// Authenticator codes are digits, so phones show the number pad.
+	await expect(main.getByRole('textbox', { name: /code/i })).toHaveAttribute(
+		'inputmode',
+		'numeric',
+	)
 	await main.getByRole('textbox', { name: /code/i }).fill(
 		(
 			await generateTOTP({
@@ -62,6 +67,10 @@ test('Users can add 2FA to their account and use it when logging in', async ({
 	await page.getByLabel(/^password$/i).fill(password)
 	await page.getByRole('button', { name: 'Log in', exact: true }).click()
 
+	await expect(page.getByRole('textbox', { name: /code/i })).toHaveAttribute(
+		'inputmode',
+		'numeric',
+	)
 	await page.getByRole('textbox', { name: /code/i }).fill(
 		(
 			await generateTOTP({

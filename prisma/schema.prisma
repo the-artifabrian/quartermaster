@@ -129,10 +129,10 @@ model EmailCode {
   /// The email address for signup, the user id for a reset or an email change
   target String
 
-  /// SHA-256 of the typed code, hex
+  /// HMAC-SHA-256 of the typed code, keyed with SESSION_SECRET, hex
   codeHash String
 
-  /// SHA-256 of the token in the emailed link, hex
+  /// HMAC-SHA-256 of the token in the emailed link, keyed with SESSION_SECRET, hex
   linkTokenHash String
 
   /// For an email change, the address the code was sent to and will set

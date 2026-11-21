@@ -118,7 +118,8 @@ plan into Shopping.
 
 ### Households and recovery
 
-- One household per user with owner/member roles and invite links.
+- One household per user with owner/member roles and invite links. Only the
+  owner gets the live invite links; other members never receive them.
 - Household-scoped Recipes, Menus, Plans, Staples, and Shopping.
 - Household-record JSON export/import, older-export compatibility, and household
   move handling. Recipe image files are not embedded in JSON.
@@ -129,7 +130,8 @@ plan into Shopping.
 - Delete my account: while another member remains, the Recipes and Shopping list
   pass to them (an owner first) and the Household stays; a sole member's
   deletion removes the Household and everything in it. Settings says which
-  before the confirming tap.
+  before the confirming tap. Deleting an account also cancels its Pro
+  subscription.
 - Optional Free/Pro subscription limits with graceful downgrade.
 
 ### Sign-in and security
@@ -142,6 +144,10 @@ plan into Shopping.
   page or tries that passkey.
 - Two-factor auth with an authenticator app (TOTP), turned on and off in
   Settings; login then asks for the code.
+- Signup, password reset, and email change email an 8-character code and a link.
+  Asking again sends another code, and every code sent works until it expires
+  after 10 minutes or one of them is used.
+- Changing the email asks for the current password before the code goes out.
 - Changing the password signs out every other device; resetting it signs out all
   of them.
 

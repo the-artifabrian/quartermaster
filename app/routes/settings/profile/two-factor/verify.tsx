@@ -182,6 +182,7 @@ export default function TwoFactorRoute({
 									...getInputProps(fields.code, { type: 'text' }),
 									autoFocus: true,
 									autoComplete: 'one-time-code',
+									inputMode: 'numeric',
 								}}
 								errors={fields.code.errors}
 							/>

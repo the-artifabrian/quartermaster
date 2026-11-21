@@ -201,6 +201,8 @@ test('onboarding with a short code', async ({
 	expect(code).toHaveLength(8)
 	// Pasted from somewhere that added a space and a dash, in lowercase.
 	const codeBox = page.getByRole('textbox', { name: /code/i })
+	// Emailed codes have letters, so the keyboard stays a full one.
+	await expect(codeBox).toHaveAttribute('inputmode', 'text')
 	await codeBox.focus()
 	const pasted = `${code.slice(0, 4)} - ${code.slice(4)}`.toLowerCase()
 	await codeBox.evaluate((input, text) => {

@@ -202,6 +202,9 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 									inputProps={{
 										...getInputProps(fields[codeQueryParam], { type: 'text' }),
 										autoComplete: 'one-time-code',
+										// Emailed codes have letters; 2FA codes are digits.
+										inputMode:
+											codeLength === EMAILED_CODE_LENGTH ? 'text' : 'numeric',
 										autoFocus: true,
 									}}
 									errors={fields[codeQueryParam].errors}

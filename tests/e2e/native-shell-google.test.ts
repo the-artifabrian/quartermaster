@@ -74,7 +74,9 @@ test.describe('in a browser', () => {
 	}) => {
 		await login()
 		await navigate('/settings/profile/connections')
-		await expect(page.getByText(/google sign-in is going away/i)).toBeVisible()
+		await expect(
+			page.getByText(/logging in with google is going away/i),
+		).toBeVisible()
 		await expect(
 			page.getByRole('button', { name: /connect with google/i }),
 		).toHaveCount(0)

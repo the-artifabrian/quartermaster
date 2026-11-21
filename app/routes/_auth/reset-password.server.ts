@@ -113,9 +113,8 @@ export async function requireResetPasswordUser(request: Request) {
 		throw await redirectWithToast(
 			'/forgot-password',
 			{
-				title: 'Ask for a new code',
-				description:
-					'That reset has run out, or your password or email has changed since.',
+				title: 'This reset has expired',
+				description: 'Ask for a new code to reset your password.',
 			},
 			{
 				headers: {

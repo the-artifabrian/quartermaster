@@ -138,8 +138,8 @@ export default function Connections({ loaderData }: Route.ComponentProps) {
 			{/* Google sign-in is going away (#439), so no new connections. */}
 			{isNativeShell ? null : (
 				<p className="text-muted-foreground mt-5">
-					Google sign-in is going away, so you can’t connect a Google account.
-					One that’s already connected still works for logging in.
+					Logging in with Google is going away, so you can’t connect a Google
+					account. One that’s already connected still works for logging in.
 				</p>
 			)}
 		</div>

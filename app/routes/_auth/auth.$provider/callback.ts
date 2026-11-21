@@ -108,7 +108,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			'/settings/profile/connections',
 			{
 				title: 'Not connected',
-				description: `${label} sign-in is going away, so new ${label} connections are turned off.`,
+				description: `Logging in with ${label} is going away, so new ${label} connections are turned off.`,
 			},
 			{ headers: destroyRedirectTo },
 		)

@@ -225,12 +225,12 @@ const logInAgainToasts: Record<
 		description: 'Could not find session to verify. Please try again.',
 	},
 	ended: {
-		title: 'Log in again',
-		description: 'This sign-in has ended.',
+		title: 'Login expired',
+		description: 'Log in again, then enter the code from your app.',
 	},
 	'too-many-tries': {
-		title: 'Log in again',
-		description: 'That was too many wrong codes for one sign-in.',
+		title: 'Too many wrong codes',
+		description: 'Log in again, then enter the code from your app.',
 	},
 }
 

@@ -1,12 +1,18 @@
 import crypto from 'node:crypto'
 import { createId } from '@paralleldrive/cuid2'
+import { type Prisma, type PrismaClient } from '#app/generated/prisma/client.ts'
 import { createOwnHousehold, requireUserId } from './auth.server.ts'
 import { prisma } from './db.server.ts'
+import {
+	deleteDissolvedPhotos,
+	removeMembership,
+} from './household-membership.server.ts'
 import { menuTitleKey } from './menu-validation.ts'
 import {
 	ensureRecipeMetadataValues,
 	moveRecipeMetadataValues,
 } from './recipe-metadata.server.ts'
+import { writeTransaction } from './write-transaction.server.ts'
 
 /**
  * Returns the current user's household info.
@@ -66,8 +72,11 @@ export async function createHouseholdInvite(
 	})
 }
 
-export async function getInviteByToken(token: string) {
-	const invite = await prisma.householdInvite.findUnique({
+export async function getInviteByToken(
+	token: string,
+	db: Pick<Prisma.TransactionClient, 'householdInvite'> = prisma,
+) {
+	const invite = await db.householdInvite.findUnique({
 		where: { token },
 		select: {
 			id: true,
@@ -86,25 +95,35 @@ export async function getInviteByToken(token: string) {
 	return invite
 }
 
-export async function acceptInvite(token: string, userId: string) {
-	const invite = await getInviteByToken(token)
-	if (!invite) throw new Error('Invalid or expired invite')
+/**
+ * Move `userId` into the invite's Household.
+ *
+ * A sole member brings everything along and their old Household goes. One
+ * who shares a Household takes copies of their own Recipes and leaves the
+ * rest; an owner leaving that way hands ownership on (see `removeMembership`).
+ * Every read that decides the move happens inside one write transaction, so a
+ * join or leave by someone else can't change the picture halfway.
+ *
+ * Returns the joined Household, and the old one when it is still there.
+ */
+export async function acceptInvite(
+	token: string,
+	userId: string,
+	db: PrismaClient = prisma,
+) {
+	const { objectKeys, ...result } = await writeTransaction(db, async (tx) => {
+		const invite = await getInviteByToken(token, tx)
+		if (!invite) throw new Error('Invalid or expired invite')
+		const targetHouseholdId = invite.householdId
 
-	// Check if user is already a member of this household
-	const existingMember = await prisma.householdMember.findUnique({
-		where: {
-			householdId_userId: {
-				householdId: invite.householdId,
-				userId,
+		const existingMember = await tx.householdMember.findUnique({
+			where: {
+				householdId_userId: { householdId: targetHouseholdId, userId },
 			},
-		},
-	})
-	if (existingMember) throw new Error('Already a member of this household')
+		})
+		if (existingMember) throw new Error('Already a member of this household')
 
-	const targetHouseholdId = invite.householdId
-
-	await prisma.$transaction(async (tx) => {
-		// Atomically mark invite as used — guards against concurrent accepts
+		// Mark the invite used, so a second accept of the same link fails.
 		const updated = await tx.householdInvite.updateMany({
 			where: { id: invite.id, usedAt: null },
 			data: { usedAt: new Date() },
@@ -261,8 +280,8 @@ export async function acceptInvite(token: string, userId: string) {
 			// people who both used the app before joining each bring one. The
 			// source rows join the target list whole and unmerged, like Meals
 			// above; with no target list the source list just changes household.
-			// The source list is deleted explicitly: its Household relation is
-			// SetNull, so the Household delete below would orphan it instead.
+			// The emptied source list goes too, before the old Household
+			// dissolves.
 			const [sourceList, targetList] = await Promise.all([
 				tx.shoppingList.findUnique({
 					where: { householdId: currentHouseholdId },
@@ -337,25 +356,17 @@ export async function acceptInvite(token: string, userId: string) {
 					},
 				})
 			}
-			// Delete old household (cascades HouseholdMember)
-			await tx.household.delete({
-				where: { id: currentHouseholdId },
-			})
 		} else if (currentHouseholdId) {
 			// Multi-member: deep-copy recipes only
 			await deepCopyRecipes(tx, userId, currentHouseholdId, targetHouseholdId)
-			// Remove from old household
-			await tx.householdMember.delete({
-				where: {
-					householdId_userId: {
-						householdId: currentHouseholdId,
-						userId,
-					},
-				},
-			})
 		}
 
-		// Create membership in target household
+		// A sole member's Household is empty now and dissolves. Otherwise an
+		// owner leaving hands ownership on.
+		const left = currentHouseholdId
+			? await removeMembership(tx, currentHouseholdId, userId)
+			: null
+
 		await tx.householdMember.create({
 			data: {
 				householdId: targetHouseholdId,
@@ -363,86 +374,92 @@ export async function acceptInvite(token: string, userId: string) {
 				role: 'member',
 			},
 		})
-	})
-}
 
-export async function leaveHousehold(userId: string) {
-	const membership = await prisma.householdMember.findFirst({
-		where: { userId },
-		select: { householdId: true, role: true },
-	})
-	if (!membership) throw new Error('Not a member of any household')
-
-	if (membership.role === 'owner') {
-		throw new Error('Owner cannot leave the household')
-	}
-
-	const oldHouseholdId = membership.householdId
-
-	// Get user info for naming the new household
-	const user = await prisma.user.findUniqueOrThrow({
-		where: { id: userId },
-		select: { name: true, username: true },
-	})
-
-	await prisma.$transaction(async (tx) => {
-		// Create new solo household
-		const newHousehold = await createOwnHousehold(tx, { id: userId, ...user })
-
-		// Deep-copy user's recipes to new household
-		await deepCopyRecipes(tx, userId, oldHouseholdId, newHousehold.id)
-
-		// Remove from old household
-		await tx.householdMember.delete({
-			where: {
-				householdId_userId: {
-					householdId: oldHouseholdId,
-					userId,
-				},
-			},
-		})
-
-		// If old household is now empty, delete it
-		const remaining = await tx.householdMember.count({
-			where: { householdId: oldHouseholdId },
-		})
-		if (remaining === 0) {
-			await tx.household.delete({ where: { id: oldHouseholdId } })
+		return {
+			householdId: targetHouseholdId,
+			leftHouseholdId: left && !left.dissolved ? currentHouseholdId! : null,
+			objectKeys: left?.objectKeys ?? [],
 		}
 	})
+	await deleteDissolvedPhotos(objectKeys)
+	return result
 }
 
+/**
+ * Move a member who isn't the owner into a new Household of their own, with
+ * copies of their Recipes. The originals stay behind.
+ */
+export async function leaveHousehold(
+	userId: string,
+	db: PrismaClient = prisma,
+) {
+	const { objectKeys } = await writeTransaction(db, (tx) =>
+		leaveInTransaction(tx, userId),
+	)
+	await deleteDissolvedPhotos(objectKeys)
+}
+
+/**
+ * The checks run in the same transaction as the leave, so an owner who has
+ * just left can't remove anyone, and a member who has just become owner
+ * isn't removed.
+ */
 export async function removeMember(
 	ownerId: string,
 	targetUserId: string,
 	householdId: string,
+	db: PrismaClient = prisma,
 ) {
-	// Verify the requester is the owner
-	const ownerMember = await prisma.householdMember.findUnique({
-		where: { householdId_userId: { householdId, userId: ownerId } },
-		select: { role: true },
+	const { objectKeys } = await writeTransaction(db, async (tx) => {
+		const ownerMember = await tx.householdMember.findUnique({
+			where: { householdId_userId: { householdId, userId: ownerId } },
+			select: { role: true },
+		})
+		if (!ownerMember || ownerMember.role !== 'owner') {
+			throw new Error('Only the household owner can remove members')
+		}
+
+		if (ownerId === targetUserId) {
+			throw new Error('Owner cannot remove themselves')
+		}
+
+		// A leave acts on whatever household the target is in, so the target
+		// must be checked against the owner's household first.
+		const targetMember = await tx.householdMember.findUnique({
+			where: { householdId_userId: { householdId, userId: targetUserId } },
+			select: { userId: true },
+		})
+		if (!targetMember) {
+			throw new Error('That user is not a member of this household')
+		}
+
+		return leaveInTransaction(tx, targetUserId)
 	})
-	if (!ownerMember || ownerMember.role !== 'owner') {
-		throw new Error('Only the household owner can remove members')
-	}
+	await deleteDissolvedPhotos(objectKeys)
+}
 
-	// Cannot remove yourself via this method
-	if (ownerId === targetUserId) {
-		throw new Error('Owner cannot remove themselves')
-	}
-
-	// leaveHousehold acts on whatever household the target is in, so the
-	// target must be checked against the owner's household first.
-	const targetMember = await prisma.householdMember.findUnique({
-		where: { householdId_userId: { householdId, userId: targetUserId } },
-		select: { userId: true },
+async function leaveInTransaction(
+	tx: Prisma.TransactionClient,
+	userId: string,
+) {
+	const membership = await tx.householdMember.findFirst({
+		where: { userId },
+		select: { householdId: true, role: true },
 	})
-	if (!targetMember) {
-		throw new Error('That user is not a member of this household')
+	if (!membership) throw new Error('Not a member of any household')
+	if (membership.role === 'owner') {
+		throw new Error('Owner cannot leave the household')
 	}
+	const user = await tx.user.findUniqueOrThrow({
+		where: { id: userId },
+		select: { name: true, username: true },
+	})
 
-	// Delegate to leaveHousehold for the target user
-	await leaveHousehold(targetUserId)
+	const newHousehold = await createOwnHousehold(tx, { id: userId, ...user })
+	await deepCopyRecipes(tx, userId, membership.householdId, newHousehold.id)
+	// Only a Household already without an owner can be left empty here. It
+	// dissolves; otherwise its heir becomes owner if it has none.
+	return removeMembership(tx, membership.householdId, userId)
 }
 
 export async function revokeInvite(

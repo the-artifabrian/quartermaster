@@ -76,14 +76,20 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	try {
-		const invite = await getInviteByToken(token)
-		await acceptInvite(token, userId)
-		if (invite) {
+		const { householdId, leftHouseholdId } = await acceptInvite(token, userId)
+		void emitHouseholdEvent({
+			type: 'household_member_joined',
+			payload: {},
+			userId,
+			householdId,
+		})
+		// The people left behind hear about it, as they do when someone leaves.
+		if (leftHouseholdId) {
 			void emitHouseholdEvent({
-				type: 'household_member_joined',
+				type: 'household_member_left',
 				payload: {},
 				userId,
-				householdId: invite.householdId,
+				householdId: leftHouseholdId,
 			})
 		}
 		return redirectWithToast('/recipes', {

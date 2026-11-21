@@ -1,6 +1,7 @@
 import { type Prisma } from '#app/generated/prisma/client.ts'
 import { prisma } from './db.server.ts'
 import { deleteRecipeImageUnlessShared } from './recipe-image.server.ts'
+import { cancelSubscriptionOfDeletedAccount } from './stripe.server.ts'
 import { writeTransaction } from './write-transaction.server.ts'
 
 /**
@@ -57,11 +58,23 @@ export async function getAccountDeletionOutcome(
  * owner, or an earlier delete already left it without one). A sole member
  * takes the Household and everything in it with them.
  *
+ * A Pro subscription is cancelled with Stripe first, while the Subscription
+ * row that names it still exists. If Stripe fails, the deletion goes ahead
+ * and the failure is logged and captured.
+ *
  * Row changes happen in one transaction. Stored photos are removed after it
  * commits, and only when no remaining Recipe shows them; a failed storage
  * delete is logged and does not undo the account deletion.
  */
 export async function deleteAccount(userId: string) {
+	const subscription = await prisma.subscription.findUnique({
+		where: { userId },
+		select: { stripeSubscriptionId: true },
+	})
+	if (subscription?.stripeSubscriptionId) {
+		await cancelSubscriptionOfDeletedAccount(subscription.stripeSubscriptionId)
+	}
+
 	const objectKeys = await writeTransaction(prisma, async (tx) => {
 		// Every Household the user still has rows in: their own, plus any they
 		// left, where leaveHousehold kept the original Recipes under their id.

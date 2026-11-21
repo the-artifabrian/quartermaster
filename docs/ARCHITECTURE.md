@@ -471,6 +471,13 @@ place a user sees Pro, search rather than trust a list:
 grep -rlw Pro app --include='*.tsx'
 ```
 
+Checkout takes its price from `STRIPE_PRO_YEARLY_PRICE_ID`. The upgrade form
+names a plan (`yearly` is the only one), never a price, and an unknown plan or
+a missing price is refused before Stripe is asked. Deleting an account cancels
+its Stripe subscription first. If Stripe fails, the account is deleted anyway
+and the failure is logged and captured as `stripe_cancel_failed` with the
+subscription id, to cancel by hand.
+
 **Rate limits.** Express limits requests per client address before React Router
 sees them, and nothing a client sends can choose its own bucket.
 `app/utils/client-address.server.ts` picks the address. Production traffic comes

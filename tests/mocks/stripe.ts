@@ -56,6 +56,20 @@ export const handlers: Array<HttpHandler> = [
 		})
 	}),
 
+	http.delete(
+		'https://api.stripe.com/v1/subscriptions/:id',
+		async ({ params }) => {
+			if (passthroughStripe) return HttpResponse.error()
+
+			return json({
+				id: params.id,
+				object: 'subscription',
+				status: 'canceled',
+				customer: 'cus_mock_customer',
+			})
+		},
+	),
+
 	http.get('https://api.stripe.com/v1/subscriptions/:id', async () => {
 		if (passthroughStripe) return HttpResponse.error()
 

@@ -1,5 +1,6 @@
 import Stripe from 'stripe'
 import { prisma } from './db.server.ts'
+import { captureServerEvent } from './posthog.server.ts'
 
 let stripeClient: Stripe | null = null
 
@@ -123,6 +124,38 @@ export async function createPortalSession({
 		customer: stripeCustomerId,
 		return_url: returnUrl,
 	})
+}
+
+/** Stripe's own default is 80 seconds, far too long to hold a request. */
+const CANCEL_TIMEOUT_MS = 10_000
+
+/**
+ * Cancels a subscription at once, for an account being deleted. It never
+ * throws: someone deleting their account shouldn't be stopped by Stripe. A
+ * failure is logged and captured with the subscription id, so it can be
+ * cancelled by hand in the Stripe dashboard.
+ */
+export async function cancelSubscriptionOfDeletedAccount(
+	subscriptionId: string,
+) {
+	try {
+		const stripe = getStripeClient()
+		if (!stripe) throw new Error('Stripe is not configured')
+		await stripe.subscriptions.cancel(
+			subscriptionId,
+			{},
+			{ timeout: CANCEL_TIMEOUT_MS },
+		)
+	} catch (error) {
+		console.error(
+			`Could not cancel Stripe subscription ${subscriptionId} of a deleted account`,
+			error,
+		)
+		captureServerEvent('server', 'stripe_cancel_failed', {
+			subscription_id: subscriptionId,
+			message: error instanceof Error ? error.message : String(error),
+		})
+	}
 }
 
 type SubscriptionRetriever = (id: string) => Promise<{

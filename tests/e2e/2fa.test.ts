@@ -159,6 +159,8 @@ test('A change of email survives a reverify in the middle', async ({
 		await page
 			.getByRole('textbox', { name: /new email/i })
 			.fill(newEmailAddress)
+		// The login fixture's password is the username.
+		await page.getByLabel(/^current password$/i).fill(user.username)
 		await page.getByRole('button', { name: /send confirmation/i }).click()
 		await expect(page.getByText(/check your email/i)).toBeVisible()
 		const email = await waitFor(() => readEmail(newEmailAddress), {

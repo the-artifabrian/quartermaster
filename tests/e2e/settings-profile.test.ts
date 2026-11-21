@@ -92,6 +92,20 @@ test('Users can change their email address', async ({
 	await navigate('/settings/profile')
 	await page.getByRole('link', { name: /^email/i }).click()
 	await page.getByRole('textbox', { name: /new email/i }).fill(newEmailAddress)
+
+	// A wrong password sends nothing.
+	await page.getByLabel(/^current password$/i).fill('not-the-password')
+	await page.getByRole('button', { name: /send confirmation/i }).click()
+	await expect(page.getByText('Incorrect password.')).toBeVisible()
+	await expect(page).toHaveURL('/settings/profile/change-email')
+	expect(
+		await prisma.emailCode.count({
+			where: { target: preUpdateUser.id, type: 'change-email' },
+		}),
+	).toBe(0)
+
+	// The login fixture's password is the username.
+	await page.getByLabel(/^current password$/i).fill(preUpdateUser.username)
 	await page.getByRole('button', { name: /send confirmation/i }).click()
 	await expect(page.getByText(/check your email/i)).toBeVisible()
 	const email = await waitFor(() => readEmail(newEmailAddress), {

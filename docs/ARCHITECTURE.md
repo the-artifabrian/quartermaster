@@ -379,9 +379,12 @@ because WKWebView drops session cookies when iOS kills the app.
 
 Changing the password in Settings signs out every other session of the user and
 keeps the current one; a password reset signs out all of them. With 2FA on,
-changing the email or turning 2FA off asks for a code again when the session
-last verified more than two hours ago (`requireRecentVerification` in
-`app/routes/_auth/verify.server.ts`).
+changing the email, turning 2FA off and the Passkeys page ask for a code again
+when the session last verified more than two hours ago
+(`requireRecentVerification` in `app/routes/_auth/verify.server.ts`). Changing
+the email also asks for the current password before any code is sent, as adding
+a passkey does, so a session alone can't move the account to another address. An
+account with no password is asked to create one first.
 
 A 2FA sign-in waits in the verify cookie for its code. The cookie names a
 pending `Session` row, and once that row's `createdAt` is more than 10 minutes

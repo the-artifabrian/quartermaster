@@ -1,7 +1,7 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { data, redirect, Form } from 'react-router'
+import { data, redirect, Form, Link } from 'react-router'
 import { z } from 'zod'
 import { ErrorList, Field } from '#app/components/forms.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
@@ -10,7 +10,7 @@ import {
 	prepareVerification,
 	requireRecentVerification,
 } from '#app/routes/_auth/verify.server.ts'
-import { requireUserId } from '#app/utils/auth.server.ts'
+import { requireUserId, verifyUserPassword } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { MAX_LIVE_EMAIL_CODES } from '#app/utils/email-code.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
@@ -32,6 +32,7 @@ export const newEmailAddressSessionKey = 'new-email-address'
 
 const ChangeEmailSchema = z.object({
 	email: EmailSchema,
+	password: z.string({ error: 'Enter your current password' }),
 })
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -39,7 +40,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const userId = await requireUserId(request)
 	const user = await prisma.user.findUnique({
 		where: { id: userId },
-		select: { email: true },
+		select: { email: true, password: { select: { userId: true } } },
 	})
 	if (!user) {
 		const params = new URLSearchParams({
@@ -47,14 +48,25 @@ export async function loader({ request }: Route.LoaderArgs) {
 		})
 		throw redirect(`/login?${params}`)
 	}
-	return { user }
+	return { user: { email: user.email }, hasPassword: Boolean(user.password) }
 }
 
 export async function action({ request }: Route.ActionArgs) {
+	await requireRecentVerification(request)
 	const userId = await requireUserId(request)
 	const formData = await request.formData()
 	const submission = await parseWithZod(formData, {
 		schema: ChangeEmailSchema.superRefine(async (data, ctx) => {
+			// The password comes first, so without it the answer says nothing
+			// about the address. An account with no password can't pass.
+			if (!(await verifyUserPassword({ id: userId }, data.password))) {
+				ctx.addIssue({
+					path: ['password'],
+					code: 'custom',
+					message: 'Incorrect password.',
+				})
+				return
+			}
 			const existingUser = await prisma.user.findUnique({
 				where: { email: data.email },
 			})
@@ -71,7 +83,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 	if (submission.status !== 'success') {
 		return data(
-			{ result: submission.reply() },
+			{ result: submission.reply({ hideFields: ['password'] }) },
 			{ status: submission.status === 'error' ? 400 : 200 },
 		)
 	}
@@ -118,6 +130,7 @@ export async function action({ request }: Route.ActionArgs) {
 				{
 					result: submission.reply({
 						formErrors: [result.error.message],
+						hideFields: ['password'],
 					}),
 				},
 				{ status: 500 },
@@ -156,24 +169,45 @@ export default function ChangeEmailIndex({
 				{loaderData.user.email}.
 			</p>
 			<div className="mx-auto mt-5 max-w-sm">
-				<Form method="POST" {...getFormProps(form)}>
-					<Field
-						labelProps={{ children: 'New Email' }}
-						inputProps={{
-							...getInputProps(fields.email, { type: 'email' }),
-							autoComplete: 'email',
-						}}
-						errors={fields.email.errors}
-					/>
-					<ErrorList id={form.errorId} errors={form.errors} />
-					<div className="mt-8">
-						<StatusButton
-							status={isPending ? 'pending' : (form.status ?? 'idle')}
+				{loaderData.hasPassword ? (
+					<Form method="POST" {...getFormProps(form)}>
+						<Field
+							labelProps={{ children: 'New Email' }}
+							inputProps={{
+								...getInputProps(fields.email, { type: 'email' }),
+								autoComplete: 'email',
+							}}
+							errors={fields.email.errors}
+						/>
+						<Field
+							labelProps={{ children: 'Current password' }}
+							inputProps={{
+								...getInputProps(fields.password, { type: 'password' }),
+								autoComplete: 'current-password',
+							}}
+							errors={fields.password.errors}
+						/>
+						<ErrorList id={form.errorId} errors={form.errors} />
+						<div className="mt-8">
+							<StatusButton
+								status={isPending ? 'pending' : (form.status ?? 'idle')}
+							>
+								Send Confirmation
+							</StatusButton>
+						</div>
+					</Form>
+				) : (
+					<p className="text-muted-foreground">
+						Changing your email asks for your password.{' '}
+						<Link
+							to="/settings/profile/password/create"
+							className="text-foreground underline"
 						>
-							Send Confirmation
-						</StatusButton>
-					</div>
-				</Form>
+							Create a password
+						</Link>{' '}
+						first.
+					</p>
+				)}
 			</div>
 		</div>
 	)

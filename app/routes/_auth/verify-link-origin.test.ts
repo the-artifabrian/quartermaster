@@ -5,7 +5,7 @@ import { twoFAVerificationType } from '#app/routes/settings/profile/two-factor/_
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { generateTOTP } from '#app/utils/totp.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createPassword, createUser } from '#tests/db-utils.ts'
 import { requireEmail } from '#tests/mocks/utils.ts'
 import { getSessionCookieHeader } from '#tests/utils.ts'
 import { action as signupAction } from './signup.tsx'
@@ -85,11 +85,18 @@ function expectRelativeVerifyRedirect(response: Response) {
 	expect(location).toMatch(/^\/verify\?/)
 }
 
+const password = 'current-password-1234'
+
 async function signedInSession({ twoFA = false } = {}) {
 	const session = await prisma.session.create({
 		data: {
 			expirationDate: getSessionExpirationDate(),
-			user: { create: createUser() },
+			user: {
+				create: {
+					...createUser(),
+					password: { create: createPassword(password) },
+				},
+			},
 		},
 	})
 	if (twoFA) {
@@ -143,7 +150,7 @@ test('Change Email sends the browser to the verify page with a relative redirect
 		request: new Request(url, {
 			method: 'POST',
 			headers: { cookie },
-			body: new URLSearchParams({ email: uniqueEmail() }),
+			body: new URLSearchParams({ email: uniqueEmail(), password }),
 		}),
 		url,
 		params: {},

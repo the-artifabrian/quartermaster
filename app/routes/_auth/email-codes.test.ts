@@ -832,11 +832,18 @@ describe('sending', () => {
 })
 
 describe('email change', () => {
+	const password = 'current-password-1234'
+
 	async function signedIn() {
 		const session = await prisma.session.create({
 			data: {
 				expirationDate: getSessionExpirationDate(),
-				user: { create: createUser() },
+				user: {
+					create: {
+						...createUser(),
+						password: { create: createPassword(password) },
+					},
+				},
 			},
 			select: { id: true, userId: true, expirationDate: true },
 		})
@@ -850,7 +857,7 @@ describe('email change', () => {
 		const result = await callAction(
 			changeEmailAction,
 			'/settings/profile/change-email',
-			{ email },
+			{ email, password },
 			cookie,
 		)
 		const outcome = visible(result)
@@ -1065,7 +1072,9 @@ describe('a new password or email ends reset codes', () => {
 
 	test('a reset code sent to the old address stops working once the email changes', async () => {
 		const sent = captureEmails()
-		const { user, cookie: signedInCookie } = await signedInWithPassword()
+		const password = 'current-password-1234'
+		const { user, cookie: signedInCookie } =
+			await signedInWithPassword(password)
 		await forgotPassword(user.email)
 		const resetCode = readCode(sent[0])
 
@@ -1074,7 +1083,7 @@ describe('a new password or email ends reset codes', () => {
 			await callAction(
 				changeEmailAction,
 				'/settings/profile/change-email',
-				{ email: address },
+				{ email: address, password },
 				signedInCookie,
 			),
 		)

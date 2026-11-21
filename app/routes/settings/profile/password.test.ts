@@ -1,10 +1,7 @@
-import bcrypt from 'bcryptjs'
 import { RouterContextProvider } from 'react-router'
-import { afterEach, expect, test, vi } from 'vitest'
-import { action as addPasskeyAction } from '#app/routes/_auth/webauthn/registration.ts'
+import { expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { SIGNED_IN_PASSWORD_LIMIT } from '#app/utils/signed-in-password.server.ts'
 import { createPassword, createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action } from './password.tsx'
@@ -16,11 +13,6 @@ import '#tests/setup/mocks-setup.ts'
 //    the session that made the change stays.
 // 2. Another user's sessions are untouched.
 // 3. A change refused for a wrong current password ends no session.
-// 4. Ten wrong current passwords, then the right one. The change is refused
-//    with a message saying why, bcrypt doesn't run for it, and the stored
-//    password stays as it was.
-// 5. Wrong passwords typed here and in the add-passkey step are counted
-//    apart, so each form gets its own ten.
 
 const oldPassword = 'old-password-1234'
 const newPassword = 'new-password-5678'
@@ -113,77 +105,4 @@ test('a refused password change ends no session', async () => {
 	expect(await remainingSessionIds()).toEqual(
 		[current.id, otherDevice.id, thirdDevice.id, otherUsersSession.id].sort(),
 	)
-})
-
-afterEach(() => {
-	vi.restoreAllMocks()
-})
-
-async function storedHash(userId: string) {
-	const row = await prisma.password.findUniqueOrThrow({
-		where: { userId },
-		select: { hash: true },
-	})
-	return row.hash
-}
-
-function currentPasswordErrors(response: Awaited<ReturnType<typeof action>>) {
-	expect(response).not.toBeInstanceOf(Response)
-	const { data, init } = response as {
-		data: { result: { error?: Record<string, string[] | null> } }
-		init: ResponseInit | null
-	}
-	expect(init?.status).toBe(400)
-	return data.result.error?.currentPassword
-}
-
-test('after ten wrong current passwords the right one is refused and the password stays', async () => {
-	const { user, current } = await setUp()
-	const hashBefore = await storedHash(user.id)
-	for (let i = 0; i < SIGNED_IN_PASSWORD_LIMIT; i++) {
-		expect(
-			currentPasswordErrors(await changePassword(current, `wrong-${i}`)),
-		).toEqual(['Incorrect password.'])
-	}
-	const compare = vi.spyOn(bcrypt, 'compare')
-
-	const response = await changePassword(current, oldPassword)
-
-	expect(currentPasswordErrors(response)).toEqual([
-		'Too many wrong passwords. Try again in an hour.',
-	])
-	expect(compare).not.toHaveBeenCalled()
-	expect(await storedHash(user.id)).toBe(hashBefore)
-})
-
-test('wrong passwords here and in the add-passkey step count toward one limit', async () => {
-	const { user, current } = await setUp()
-	const hashBefore = await storedHash(user.id)
-	const half = SIGNED_IN_PASSWORD_LIMIT / 2
-	for (let i = 0; i < half; i++) {
-		await changePassword(current, `wrong-${i}`)
-	}
-	const url = `${BASE_URL}/webauthn/registration`
-	for (let i = 0; i < SIGNED_IN_PASSWORD_LIMIT - half; i++) {
-		const response = await addPasskeyAction({
-			request: new Request(url, {
-				method: 'POST',
-				headers: {
-					'content-type': 'application/json',
-					cookie: await getSessionCookieHeader(current),
-				},
-				body: JSON.stringify({ intent: 'options', password: `nope-${i}` }),
-			}),
-			url: new URL(url),
-			params: {},
-			pattern: '/webauthn/registration',
-			context: new RouterContextProvider(),
-		})
-		expect(response.status).toBe(400)
-	}
-
-	expect(
-		currentPasswordErrors(await changePassword(current, oldPassword)),
-	).toEqual(['Too many wrong passwords. Try again in an hour.'])
-	expect(await storedHash(user.id)).toBe(hashBefore)
 })

@@ -481,33 +481,19 @@ listed path is a real route, and that every action under `_auth`, every other
 action that checks a password or code, takes an invite or sends an email, and
 every route that reaches a paid AI helper is on a strict tier.
 
-**Password guessing.** Sign-in is limited per address only: 10 tries a minute
-from one address, which is 600 an hour. There is no per-account count on the
-sign-in form, because anyone who knows a username could use it up and lock the
-owner out. An attacker with many addresses is held back by bcrypt alone.
-Passwords are hashed with bcryptjs at cost 10, and one `bcrypt.compare` took 68
-to 71 ms under Bun on an M1 Mac, about 14 a second. Comparing in parallel
-doesn't help, since bcryptjs runs on the one JavaScript thread. Production CPU
-is roughly ten times slower per request, measured in an earlier speed pass, so
-the estimate there is about 0.7 s a compare: some 1.4 guesses a second, 5,000 an
-hour, 120,000 a day. Guessing that fast would leave the server time for nothing
-else. Passwords are at least 6 characters, and new ones are checked against the
-Pwned Passwords list.
-
-A password check made while signed in has a per-account limit
-(`checkSignedInPassword` in `app/utils/signed-in-password.server.ts`). Changing
-the password and adding a passkey share it: 10 wrong passwords in a rolling
-hour, then "Too many wrong passwords. Try again in an hour." without running
-bcrypt. Only someone holding a session for the account can use it up, so a
-stranger can't block anyone. A right password clears the count, and a refused
-check doesn't add to it. Each try is counted before bcrypt runs, so checks sent
-at once can't slip past the limit. The counts live in memory, since production
-runs one machine. A restart forgets them, which gives a user near the limit 10
-more tries. The map holds at most 1,000 users. When it is full, expired counts go
-first, then the user under the limit whose last wrong password is oldest. A user
-at the limit is never dropped, so filling the map with other accounts doesn't
-reset their count. If all 1,000 are at the limit, a new user is refused as if
-limited until counts expire.
+**Password guessing.** Sign-in is limited per address only: 10 tries a minute,
+so 600 an hour from one address, with IPv6 counted per /64. There is no
+per-account count anywhere. On the sign-in form, a stranger who knows the
+username could use it up and lock the owner out. In Settings it would add
+nothing, because someone holding a session can read the username and guess on
+the sign-in form at the same rate. An attacker with many addresses is held back
+only by how fast the server runs bcrypt. Passwords use bcryptjs at cost 10, and
+one compare took about 68 ms under Bun on an M1 Mac. That is about 14 guesses a
+second, 50,000 an hour and 1.2 million a day. Comparing in parallel doesn't
+help, since bcryptjs runs on the one JavaScript thread. Production's CPU hasn't
+been timed and is probably slower, so the real figure is likely lower. Passwords
+are at least 6 characters. New ones are checked against Pwned Passwords when it
+answers within a second; on a timeout or an error the check is skipped.
 
 **Logs and analytics.** `redactUrl` in `app/utils/redact-url.ts` replaces the
 values of `code`, `token`, `target`, `session_id`, `otp`, `state` and similar

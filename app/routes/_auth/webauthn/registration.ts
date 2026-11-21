@@ -6,15 +6,11 @@ import {
 import { createElement } from 'react'
 import { z } from 'zod'
 import { requireRecentVerification } from '#app/routes/_auth/verify.server.ts'
-import { requireUserId } from '#app/utils/auth.server.ts'
+import { requireUserId, verifyUserPassword } from '#app/utils/auth.server.ts'
 import { runInBackground } from '#app/utils/background.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
 import { getErrorMessage } from '#app/utils/misc.tsx'
-import {
-	TOO_MANY_WRONG_PASSWORDS,
-	checkSignedInPassword,
-} from '#app/utils/signed-in-password.server.ts'
 import { type Route } from './+types/registration.ts'
 import { PasskeyAddedEmail } from './passkey-added-email.server.tsx'
 import {
@@ -128,16 +124,12 @@ async function startAddingPasskey(
 			{ status: 400 },
 		)
 	}
-	const check = await checkSignedInPassword(userId, password)
-	if (check !== 'ok') {
+	if (!(await verifyUserPassword({ id: userId }, password))) {
 		return Response.json(
 			{
 				status: 'error',
 				field: 'password',
-				error:
-					check === 'limited'
-						? TOO_MANY_WRONG_PASSWORDS
-						: 'Incorrect password.',
+				error: 'Incorrect password.',
 			} as const,
 			{ status: 400 },
 		)

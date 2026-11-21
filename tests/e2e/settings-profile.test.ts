@@ -81,56 +81,6 @@ test('Users can update their password', async ({ page, navigate, login }) => {
 	).toEqual({ id: user.id })
 })
 
-test('Too many wrong current passwords stop the password change for an hour', async ({
-	page,
-	navigate,
-	login,
-}) => {
-	const oldPassword = faker.internet.password()
-	const newPassword = faker.internet.password()
-	const user = await login({ password: oldPassword })
-	await navigate('/settings/profile/password')
-
-	const currentPassword = page.getByRole('textbox', {
-		name: /^current password/i,
-	})
-	async function submit(current: string) {
-		await currentPassword.fill(current)
-		await page
-			.getByRole('textbox', { name: /^new password/i })
-			.fill(newPassword)
-		await page
-			.getByRole('textbox', { name: /^confirm new password/i })
-			.fill(newPassword)
-		const posted = page.waitForResponse(
-			(response) =>
-				response.request().method() === 'POST' &&
-				new URL(response.url()).pathname.startsWith(
-					'/settings/profile/password',
-				),
-		)
-		await page.getByRole('button', { name: /^change password/i }).click()
-		// The server has counted the try once its answer is back.
-		await posted
-	}
-
-	for (let i = 0; i < 10; i++) {
-		await submit(`wrong-password-${i}`)
-		await expect(page.getByText('Incorrect password.')).toBeVisible()
-	}
-	await submit(oldPassword)
-
-	await expect(
-		page.getByText('Too many wrong passwords. Try again in an hour.'),
-	).toBeVisible()
-	await expect(page).toHaveURL('/settings/profile/password')
-	const { username } = user
-	expect(await verifyUserPassword({ username }, oldPassword)).toEqual({
-		id: user.id,
-	})
-	expect(await verifyUserPassword({ username }, newPassword)).toBeNull()
-})
-
 test('Users can change their email address', async ({
 	page,
 	navigate,

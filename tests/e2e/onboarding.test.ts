@@ -126,7 +126,10 @@ test('onboarding with link', async ({ page, navigate, getOnboardingData }) => {
 
 	await expect(page).toHaveURL(/\/verify/)
 	await expectHiddenFieldsBlocked(page, ['target', 'redirectTo', 'token'])
-	await expect(page.getByText(/your link is ready/i)).toBeVisible()
+	await expect(
+		page.getByRole('heading', { name: /your link is ready/i }),
+	).toBeVisible()
+	await expect(page.getByText(/check your email/i)).toBeHidden()
 	// Mail scanners fetch links, so opening one uses nothing up.
 	await page.reload()
 	await expect(page.getByText(/your link is ready/i)).toBeVisible()
@@ -195,8 +198,22 @@ test('onboarding with a short code', async ({
 	const code = codeMatch?.groups?.code
 	invariant(code, 'Onboarding code not found')
 	expect(code).toHaveLength(8)
-	// Typed in lowercase, it still counts.
-	await page.getByRole('textbox', { name: /code/i }).fill(code.toLowerCase())
+	// Pasted from somewhere that added a space and a dash, in lowercase.
+	const codeBox = page.getByRole('textbox', { name: /code/i })
+	await codeBox.focus()
+	const pasted = `${code.slice(0, 4)} - ${code.slice(4)}`.toLowerCase()
+	await codeBox.evaluate((input, text) => {
+		const clipboardData = new DataTransfer()
+		clipboardData.setData('text/plain', text)
+		input.dispatchEvent(
+			new ClipboardEvent('paste', {
+				clipboardData,
+				bubbles: true,
+				cancelable: true,
+			}),
+		)
+	}, pasted)
+	await expect(codeBox).toHaveValue(code)
 	await page.getByRole('button', { name: /submit/i }).click()
 
 	await expect(page).toHaveURL(`/onboarding`)
@@ -480,6 +497,9 @@ test('reset password with a link', async ({
 		.click()
 	await expect(page.getByText(/this link didn't work/i)).toBeVisible()
 	await expect(page.getByRole('textbox', { name: /code/i })).toBeVisible()
+	await expect(
+		page.getByRole('link', { name: /ask for a new code/i }),
+	).toHaveAttribute('href', '/forgot-password')
 
 	await navigate('/login')
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)

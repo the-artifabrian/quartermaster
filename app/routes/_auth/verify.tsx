@@ -1,7 +1,7 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { Form, useSearchParams } from 'react-router'
+import { Form, Link, useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { ErrorList, OTPField } from '#app/components/forms.tsx'
@@ -17,7 +17,14 @@ export const handle: SEOHandle = {
 
 /** Shown wherever someone waits for an emailed code, sent or not. */
 export const SEVERAL_CODES_NOTE =
-	'Asked more than once? Any code we sent in the last 10 minutes works.'
+	'Asked more than once? Each code we sent works for 10 minutes, or until you use one of them.'
+
+/** Where to ask for a new code of each emailed kind. */
+const newCodePaths = {
+	onboarding: '/signup',
+	'reset-password': '/forgot-password',
+	'change-email': '/settings/profile/change-email',
+} as const
 
 export const codeQueryParam = 'code'
 /** The emailed link's token, which stands in for the typed code. */
@@ -141,10 +148,26 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 		!searchParams.get(codeQueryParam) &&
 		!actionData
 
+	const newCodePath =
+		type && type !== '2fa' && fields[codeQueryParam].errors?.length
+			? newCodePaths[type]
+			: null
+
 	return (
 		<main className="container flex flex-col justify-center pt-20 pb-32">
 			<div className="text-center">
-				{type ? headings[type] : 'Invalid Verification Type'}
+				{linkReady ? (
+					<>
+						<h1 className="font-serif text-2xl">Your link is ready</h1>
+						<p className="text-muted-foreground mt-3 text-lg">
+							Press Submit to carry on.
+						</p>
+					</>
+				) : type ? (
+					headings[type]
+				) : (
+					'Invalid Verification Type'
+				)}
 			</div>
 
 			<Spacer size="xs" />
@@ -155,11 +178,7 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 				</div>
 				<div className="flex w-full gap-2">
 					<Form method="POST" {...getFormProps(form)} className="flex-1">
-						{linkReady ? (
-							<p className="mb-6 text-center">
-								Your link is ready. Press Submit to carry on.
-							</p>
-						) : (
+						{linkReady ? null : (
 							<div className="flex items-center justify-center">
 								<OTPField
 									// Eight boxes share the column's width; six keep their size.
@@ -210,6 +229,14 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 						</StatusButton>
 					</Form>
 				</div>
+				{newCodePath ? (
+					<Link
+						to={newCodePath}
+						className="mt-6 text-center text-base font-bold"
+					>
+						Ask for a new code
+					</Link>
+				) : null}
 			</div>
 		</main>
 	)

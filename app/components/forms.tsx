@@ -187,6 +187,11 @@ export function OTPField({
 				aria-invalid={errorId ? true : undefined}
 				aria-describedby={errorId}
 				containerClassName={flexible ? 'w-full max-w-80' : undefined}
+				// A code copied from an email can carry spaces or a dash, which
+				// the pattern would refuse.
+				pasteTransformer={(pasted) =>
+					pasted.replace(/[\s-]/g, '').toUpperCase()
+				}
 				{...inputProps}
 			>
 				<InputOTPGroup className={groupClass}>{slots(0)}</InputOTPGroup>

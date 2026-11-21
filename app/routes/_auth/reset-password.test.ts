@@ -42,8 +42,10 @@ import '#tests/setup/mocks-setup.ts'
 // 12. Logged in as a different account. The reset goes to the account the
 //     code was for. This device's session of the other account ends and its
 //     cookie is cleared; that account's sessions elsewhere stay.
-// 13. The device's session cookie names a session that has gone. The page
-//     opens instead of bouncing to the homepage.
+// 13. The device's session cookie names a session that has gone. The reset
+//     route's own loader and action don't refuse or redirect because of it.
+//     (In a real request the root loader ends the dead session first; this
+//     checks only that the route adds no bounce of its own.)
 
 const newPassword = 'new-password-5678'
 const url = `${BASE_URL}/reset-password`
@@ -311,7 +313,7 @@ test('a reset opened while logged in as another account resets the right one and
 	).toEqual([{ id: otherElsewhere.id }])
 })
 
-test('a reset opened with a session cookie whose session has gone still opens', async () => {
+test('the reset route works with a session cookie whose session has gone', async () => {
 	const user = await createAccount()
 	const gone = await createSession(user.id)
 	await prisma.session.delete({ where: { id: gone.id } })

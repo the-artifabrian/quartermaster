@@ -11,12 +11,15 @@ import {
 	getPasswordHash,
 	requireUserId,
 	sessionKey,
-	verifyUserPassword,
 } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { endResetCodes } from '#app/utils/email-code.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
 import { authSessionStorage } from '#app/utils/session.server.ts'
+import {
+	TOO_MANY_WRONG_PASSWORDS,
+	checkSignedInPassword,
+} from '#app/utils/signed-in-password.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { PasswordSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/password.ts'
@@ -68,12 +71,15 @@ export async function action({ request }: Route.ActionArgs) {
 		schema: ChangePasswordForm.superRefine(
 			async ({ currentPassword, newPassword }, ctx) => {
 				if (currentPassword && newPassword) {
-					const user = await verifyUserPassword({ id: userId }, currentPassword)
-					if (!user) {
+					const check = await checkSignedInPassword(userId, currentPassword)
+					if (check !== 'ok') {
 						ctx.addIssue({
 							path: ['currentPassword'],
 							code: z.ZodIssueCode.custom,
-							message: 'Incorrect password.',
+							message:
+								check === 'limited'
+									? TOO_MANY_WRONG_PASSWORDS
+									: 'Incorrect password.',
 						})
 					}
 					const isCommonPassword = await checkIsCommonPassword(newPassword)

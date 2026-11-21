@@ -1,11 +1,13 @@
 import type * as SimpleWebAuthnServer from '@simplewebauthn/server'
 import { verifyRegistrationResponse } from '@simplewebauthn/server'
+import bcrypt from 'bcryptjs'
 import { RouterContextProvider } from 'react-router'
 import { beforeEach, expect, test, vi } from 'vitest'
 import { twoFAVerificationType } from '#app/routes/settings/profile/two-factor/_layout.tsx'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
+import { SIGNED_IN_PASSWORD_LIMIT } from '#app/utils/signed-in-password.server.ts'
 import { generateTOTP } from '#app/utils/totp.server.ts'
 import { createPassword, createUser } from '#tests/db-utils.ts'
 import {
@@ -55,6 +57,9 @@ import '#tests/setup/db-setup.ts'
 //     passkey exists without its notice.
 // 20. A save that worked is sent again (its answer was lost). It says the
 //     passkey is already registered, not that the password is needed.
+// 21. Ten wrong passwords, then the right one. No challenge is handed out,
+//     bcrypt doesn't run for it, and the error on the password field says
+//     why.
 
 vi.mock('@simplewebauthn/server', async (importOriginal) => ({
 	...(await importOriginal<typeof SimpleWebAuthnServer>()),
@@ -568,4 +573,28 @@ test('a save that worked, sent again, says the passkey is already registered', a
 	})
 	expect(await savedPasskeyCount(user.id)).toBe(1)
 	expect(sendEmail).toHaveBeenCalledTimes(1)
+})
+
+test('after ten wrong passwords the right one gets no challenge and says why', async () => {
+	const { cookie } = await signedInUser()
+	for (let i = 0; i < SIGNED_IN_PASSWORD_LIMIT; i++) {
+		const response = await post(
+			{ intent: 'options', password: `nope-${i}` },
+			cookie,
+		)
+		expect(response.status).toBe(400)
+	}
+	const compare = vi.spyOn(bcrypt, 'compare')
+
+	const response = await post({ intent: 'options', password }, cookie)
+
+	expect(response.status).toBe(400)
+	expect(await response.json()).toEqual({
+		status: 'error',
+		field: 'password',
+		error: 'Too many wrong passwords. Try again in an hour.',
+	})
+	expect(challengeCookieOf(response)).toBeNull()
+	expect(compare).not.toHaveBeenCalled()
+	compare.mockRestore()
 })

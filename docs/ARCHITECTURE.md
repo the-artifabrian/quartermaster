@@ -721,11 +721,14 @@ high-value AI path.
 - Data-risky changes require a current backup/export and rehearsal on a
   disposable database copy.
 - Full JSON import accepts older exports and restores durable household data
-  on every tier. It takes files up to 32 MB, sent as multipart, and refuses a
-  file whose totals pass the limits in `RESTORE_LIMITS`. What the Household
-  already has counts as skipped. Anything else that doesn't land counts as
-  failed and is logged with where it sits in the file. A write error it
-  doesn't expect stops the restore, and running it again picks up the rest.
+  on every tier, one restore at a time per process. It takes files up to
+  10 MB, sent as a multipart file part. Before parsing it checks the JSON's
+  depth and its count of objects, arrays and commas against
+  `RESTORE_JSON_LIMITS`, and after parsing it checks the totals in
+  `RESTORE_LIMITS`. What the Household already has counts as skipped. Anything
+  else that doesn't land counts as failed and is logged with where it sits in
+  the file. A write error it doesn't expect stops the restore with a reply on
+  the page, and running it again picks up the rest.
 - LiteFS migration details and restore commands live in
   [RESTORE.md](./RESTORE.md).
 - Production requires the `APP_ORIGIN` secret (`https://useqm.app`).

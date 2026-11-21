@@ -250,6 +250,9 @@ test('a Free user restores Plan and Shopping from a full export, and sees which 
 	const mealsRow = page.getByText('Meals', { exact: true }).locator('..')
 	await expect(mealsRow).toContainText('1 imported')
 	await expect(mealsRow).toContainText('1 failed')
+	await expect(
+		page.getByText('Imported 3 items. 1 Meal couldn’t be restored.'),
+	).toBeVisible()
 
 	const meals = await prisma.meal.findMany({
 		where: { mealPlan: { householdId: user.householdId } },

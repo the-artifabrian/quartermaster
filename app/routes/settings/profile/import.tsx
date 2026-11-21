@@ -33,6 +33,7 @@ import {
 	NEXT_SHOP,
 	ShoppingHorizonSchema,
 } from '#app/utils/shopping-horizon.ts'
+import { serializeError } from '#app/utils/serialize-error.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { writeTransaction } from '#app/utils/write-transaction.server.ts'
 import { type Route } from './+types/import.ts'
@@ -340,13 +341,13 @@ type ImportRecipe = z.infer<typeof ImportRecipeSchema>
 
 /**
  * The largest export file a restore takes. The form checks it before sending
- * and the action before parsing. It fits an export of 500 Recipes that each
- * keep 50,000 characters of source text, the most the export holds of its
- * largest field. Restoring a 34 MB file of that shape took about 85 MB of
- * extra memory locally, which the 512 MB server can spare.
+ * and the action before parsing. The largest Household in production exports
+ * about 3 MB. The server has 512 MB, and the worst-shaped 10 MB file that
+ * passes the checks before parsing (one object with 368,000 keys) took about
+ * 140 MB of extra memory locally.
  */
-export const RESTORE_MAX_FILE_BYTES = 32 * 1024 * 1024
-const FILE_TOO_BIG = 'That file is too big. A restore takes files up to 32 MB.'
+export const RESTORE_MAX_FILE_BYTES = 10 * 1024 * 1024
+const FILE_TOO_BIG = 'That file is too big. A restore takes files up to 10 MB.'
 
 /**
  * Totals across the whole file. Each list already has its own limit, but
@@ -387,9 +388,10 @@ function countRestoreTotals(
 		menuCards: sum(full?.menus, (menu) =>
 			sum(menu.sections, (section) => section.items?.length ?? 0),
 		),
-		meals: sum(
-			full?.mealPlans,
-			(plan) => (plan.meals?.length ?? 0) + (plan.entries?.length ?? 0),
+		// A plan that carries Meals restores only them; its entries are their
+		// mirrors.
+		meals: sum(full?.mealPlans, (plan) =>
+			plan.meals?.length ? plan.meals.length : (plan.entries?.length ?? 0),
 		),
 		mealCards: sum(full?.mealPlans, (plan) =>
 			sum(
@@ -419,13 +421,57 @@ function overLimitError(recipes: ImportRecipe[], full: FullExport | null) {
 	return null
 }
 
+/** What a schema path points at, in words, for the paths that map easily. */
+function describeFilePath(path: PropertyKey[]) {
+	const [section, first, list, second] = path
+	const n = (index: unknown) => Number(index) + 1
+	if (typeof first !== 'number') return null
+	if (section === 'recipes') return `Recipe ${n(first)}`
+	if (section === 'menus') return `Menu ${n(first)}`
+	if (section === 'shoppingLists') {
+		return list === 'items' && typeof second === 'number'
+			? `Item ${n(second)} in your Shopping list`
+			: 'Your Shopping list'
+	}
+	if (section === 'mealPlans') {
+		if (list === 'meals' && typeof second === 'number') {
+			return `Meal ${n(second)} in week ${n(first)}`
+		}
+		return `Week ${n(first)} of your Plan`
+	}
+	return null
+}
+
+const MISSING_FIELD_WORDS: Record<string, string> = {
+	name: 'name',
+	title: 'title',
+	date: 'date',
+	weekStart: 'week',
+}
+
+/**
+ * A schema error in words, with where it is in the file after it for anyone
+ * who edits export files by hand.
+ */
 function invalidDataError(error: z.ZodError) {
 	const issue = error.issues[0]
-	if (!issue) return 'Invalid data: validation failed'
+	const general = 'Part of this file isn’t in the format Quartermaster exports.'
+	if (!issue) return general
 	const at = issue.path.join('.')
-	return at
-		? `Invalid data at ${at}: ${issue.message}`
-		: `Invalid data: ${issue.message}`
+	const where = at ? ` (at ${at})` : ''
+	if (issue.code === 'custom') return `${issue.message}.${where}`
+	const subject = describeFilePath(issue.path)
+	const field = issue.path.at(-1)
+	const missing =
+		issue.code === 'invalid_type' &&
+		issue.message.endsWith('received undefined') &&
+		typeof field === 'string'
+			? MISSING_FIELD_WORDS[field]
+			: undefined
+	if (subject && missing) return `${subject} has no ${missing}.${where}`
+	if (subject)
+		return `${subject} isn’t in the format Quartermaster exports.${where}`
+	return `${general}${where}`
 }
 
 function parseImportData(
@@ -525,6 +571,8 @@ interface RestoreFailure {
 		| 'nothing-to-restore'
 		| 'recipe-not-in-file'
 		| 'write-refused'
+		// A Shopping item's link to a Meal deleted while the restore ran.
+		| 'meal-gone'
 	/** How many items it stands for, when a whole week fails at once. */
 	count?: number
 	/** The Prisma error code, for a write the database refused. */
@@ -574,119 +622,131 @@ async function importRecipes(
 		ref: string
 	}> = []
 
-	for (const [index, recipe] of recipes.entries()) {
-		const lowerTitle = recipe.title.toLowerCase()
-		const existingId = titleToIdMap.get(lowerTitle)
-		if (existingId != null) {
-			// A skipped duplicate still resolves its reference key — Menus that
-			// point at it reconnect to the existing household Recipe.
-			if (recipe.ref) refToIdMap.set(recipe.ref, existingId)
-			stats.skipped++
-			continue
-		}
-		try {
-			// Older exports may carry only Prep/Cook. Match #121's conservative
-			// one-way rule: both parts must be present, non-negative, and form a
-			// positive total. Legacy servings is accepted at this boundary only and
-			// never becomes typed yield.
-			const legacyTotal =
-				recipe.prepTime != null &&
-				recipe.cookTime != null &&
-				recipe.prepTime >= 0 &&
-				recipe.cookTime >= 0 &&
-				recipe.prepTime + recipe.cookTime > 0
-					? recipe.prepTime + recipe.cookTime
-					: undefined
-			const instructions = recipe.instructions.map((inst, order) => ({
-				content: typeof inst === 'string' ? inst : inst.content,
-				order,
-			}))
-			const ingredientIds = recipe.ingredients.map(() => createId())
+	try {
+		for (const [index, recipe] of recipes.entries()) {
+			const lowerTitle = recipe.title.toLowerCase()
+			const existingId = titleToIdMap.get(lowerTitle)
+			if (existingId != null) {
+				// A skipped duplicate still resolves its reference key — Menus that
+				// point at it reconnect to the existing household Recipe.
+				if (recipe.ref) refToIdMap.set(recipe.ref, existingId)
+				stats.skipped++
+				continue
+			}
+			try {
+				// Older exports may carry only Prep/Cook. Match #121's conservative
+				// one-way rule: both parts must be present, non-negative, and form a
+				// positive total. Legacy servings is accepted at this boundary only and
+				// never becomes typed yield.
+				const legacyTotal =
+					recipe.prepTime != null &&
+					recipe.cookTime != null &&
+					recipe.prepTime >= 0 &&
+					recipe.cookTime >= 0 &&
+					recipe.prepTime + recipe.cookTime > 0
+						? recipe.prepTime + recipe.cookTime
+						: undefined
+				const instructions = recipe.instructions.map((inst, order) => ({
+					content: typeof inst === 'string' ? inst : inst.content,
+					order,
+				}))
+				const ingredientIds = recipe.ingredients.map(() => createId())
 
-			const created = await writeTransaction(prisma, async (tx) => {
-				const metadataValueIds = await ensureRecipeMetadataValues(
-					tx,
-					householdId,
-					recipe.metadataValues ?? [],
-				)
-				return tx.recipe.create({
-					data: {
-						title: recipe.title,
-						description: recipe.description || null,
-						activeTime: recipe.activeTime ?? undefined,
-						totalTime: recipe.totalTime ?? legacyTotal,
-						yieldAmount: recipe.yieldAmount ?? undefined,
-						yieldLabel: recipe.yieldLabel ?? undefined,
-						isFavorite: recipe.isFavorite ?? false,
-						sourceUrl: recipe.sourceUrl || null,
-						rawText: recipe.rawText ?? null,
-						notes: recipe.notes || null,
-						userId,
+				const created = await writeTransaction(prisma, async (tx) => {
+					const metadataValueIds = await ensureRecipeMetadataValues(
+						tx,
 						householdId,
-						metadataAssignments: {
-							create: metadataValueIds.map((valueId) => ({ valueId })),
+						recipe.metadataValues ?? [],
+					)
+					return tx.recipe.create({
+						data: {
+							title: recipe.title,
+							description: recipe.description || null,
+							activeTime: recipe.activeTime ?? undefined,
+							totalTime: recipe.totalTime ?? legacyTotal,
+							yieldAmount: recipe.yieldAmount ?? undefined,
+							yieldLabel: recipe.yieldLabel ?? undefined,
+							isFavorite: recipe.isFavorite ?? false,
+							sourceUrl: recipe.sourceUrl || null,
+							rawText: recipe.rawText ?? null,
+							notes: recipe.notes || null,
+							userId,
+							householdId,
+							metadataAssignments: {
+								create: metadataValueIds.map((valueId) => ({ valueId })),
+							},
+							ingredients: {
+								create: recipe.ingredients.map((ing, order) => ({
+									id: ingredientIds[order],
+									name: ing.name,
+									amount: ing.amount || null,
+									unit: ing.unit || null,
+									notes: ing.notes || null,
+									isHeading: ing.isHeading ?? false,
+									order,
+								})),
+							},
+							instructions: { create: instructions },
 						},
-						ingredients: {
-							create: recipe.ingredients.map((ing, order) => ({
-								id: ingredientIds[order],
-								name: ing.name,
-								amount: ing.amount || null,
-								unit: ing.unit || null,
-								notes: ing.notes || null,
-								isHeading: ing.isHeading ?? false,
-								order,
-							})),
-						},
-						instructions: { create: instructions },
-					},
-					select: { id: true },
-				})
-			})
-			titleToIdMap.set(lowerTitle, created.id)
-			titleById.set(created.id, recipe.title)
-			if (recipe.ref) refToIdMap.set(recipe.ref, created.id)
-			// The editor never links a heading, so a file cannot either.
-			recipe.ingredients.forEach((ing, order) => {
-				if (ing.linkedRecipeRef && !ing.isHeading)
-					pendingLinks.push({
-						recipeId: created.id,
-						ingredientId: ingredientIds[order]!,
-						ref: ing.linkedRecipeRef,
+						select: { id: true },
 					})
-			})
-			stats.created++
-		} catch (error) {
-			const code = refusedWriteCode(error)
-			if (!code) throw error
-			recordFailure({ at: `recipes[${index}]`, reason: 'write-refused', code })
-			stats.errored++
+				})
+				titleToIdMap.set(lowerTitle, created.id)
+				titleById.set(created.id, recipe.title)
+				if (recipe.ref) refToIdMap.set(recipe.ref, created.id)
+				// The editor never links a heading, so a file cannot either.
+				recipe.ingredients.forEach((ing, order) => {
+					if (ing.linkedRecipeRef && !ing.isHeading)
+						pendingLinks.push({
+							recipeId: created.id,
+							ingredientId: ingredientIds[order]!,
+							ref: ing.linkedRecipeRef,
+						})
+				})
+				stats.created++
+			} catch (error) {
+				const code = refusedWriteCode(error)
+				if (!code) throw error
+				recordFailure({
+					at: `recipes[${index}]`,
+					reason: 'write-refused',
+					code,
+				})
+				stats.errored++
+			}
 		}
-	}
-
-	// Links resolve only once every Recipe in the file has a household row, so
-	// a Recipe can link to one later in the file. A ref resolves through this
-	// file's Recipes alone; one that names no Recipe here stays plain. So does
-	// one that resolves back to its own Recipe, which the picker never offers.
-	for (const link of pendingLinks) {
-		const linkedRecipeId = refToIdMap.get(link.ref)
-		if (!linkedRecipeId || linkedRecipeId === link.recipeId) continue
-		try {
-			await prisma.ingredient.update({
-				where: { id: link.ingredientId },
-				data: { linkedRecipeId },
-			})
-		} catch (error) {
-			// The link is dropped either way, so the Recipes already restored
-			// still count as created. Only the expected race is silent: P2025 when
-			// the linking Recipe was deleted mid-import, P2003 when the linked
-			// one was. Anything else is logged.
-			const code = (error as { code?: unknown } | null)?.code
-			if (code !== 'P2025' && code !== 'P2003')
-				console.error('Unable to restore a sub-Recipe link', error)
-		}
+	} finally {
+		// Also after an unexpected error: a rerun skips the Recipes saved so far
+		// as duplicates, so this is their only chance to get their links.
+		await restorePendingLinks()
 	}
 
 	return stats
+
+	async function restorePendingLinks() {
+		// Links resolve only once every Recipe in the file has a household row, so
+		// a Recipe can link to one later in the file. A ref resolves through this
+		// file's Recipes alone; one that names no Recipe here stays plain. So does
+		// one that resolves back to its own Recipe, which the picker never offers.
+		for (const link of pendingLinks) {
+			const linkedRecipeId = refToIdMap.get(link.ref)
+			if (!linkedRecipeId || linkedRecipeId === link.recipeId) continue
+			try {
+				await prisma.ingredient.update({
+					where: { id: link.ingredientId },
+					data: { linkedRecipeId },
+				})
+			} catch (error) {
+				// The link is dropped either way, so the Recipes already restored
+				// still count as created. Only the expected race is silent: P2025 when
+				// the linking Recipe was deleted mid-import, P2003 when the linked
+				// one was. Anything else is logged.
+				const code = (error as { code?: unknown } | null)?.code
+				if (code !== 'P2025' && code !== 'P2003')
+					console.error('Unable to restore a sub-Recipe link', error)
+			}
+		}
+	}
 }
 
 type ImportMenu = z.infer<typeof ImportMenuSchema>
@@ -1435,6 +1495,7 @@ async function importShopping(
 	mealIdByRef: Map<string, string>,
 	userId: string,
 	householdId: string,
+	recordFailure: RecordFailure,
 ) {
 	const stats = { created: 0, skipped: 0 }
 	const shoppingList = await ensureShoppingList(prisma, {
@@ -1581,28 +1642,84 @@ async function importShopping(
 		newContributions.push(candidate)
 	}
 	if (newContributions.length > 0) {
-		await prisma.mealShoppingContribution.createMany({
-			data: newContributions,
-		})
+		try {
+			await prisma.mealShoppingContribution.createMany({
+				data: newContributions,
+			})
+		} catch (error) {
+			const code = refusedWriteCode(error)
+			if (!code) throw error
+			// A Meal restored above was deleted before its links were written, or
+			// someone saved the same link meanwhile. Drop the links to Meals that
+			// are gone and the ones already there, and write the rest once more.
+			const mealIds = [
+				...new Set(
+					newContributions.flatMap((c) => (c.mealId ? [c.mealId] : [])),
+				),
+			]
+			const liveMealIds = new Set(
+				(
+					await prisma.meal.findMany({
+						where: { id: { in: mealIds } },
+						select: { id: true },
+					})
+				).map((meal) => meal.id),
+			)
+			const savedKeys = new Set(
+				(
+					await prisma.mealShoppingContribution.findMany({
+						where: { item: { listId: shoppingList.id }, mealId: { not: null } },
+						select: { itemId: true, mealId: true, canonicalName: true },
+					})
+				).map((entry) =>
+					contributionKey({ ...entry, name: '', quantity: null, unit: null }),
+				),
+			)
+			const toMissingMeals = newContributions.filter(
+				(c) => c.mealId != null && !liveMealIds.has(c.mealId),
+			)
+			const retry = newContributions.filter(
+				(c) =>
+					c.mealId == null ||
+					(liveMealIds.has(c.mealId) && !savedKeys.has(contributionKey(c))),
+			)
+			if (toMissingMeals.length > 0) {
+				recordFailure({
+					at: 'shoppingLists',
+					reason: 'meal-gone',
+					count: toMissingMeals.length,
+					code,
+				})
+			}
+			if (retry.length > 0) {
+				await prisma.mealShoppingContribution.createMany({ data: retry })
+			}
+		}
 	}
 
 	return stats
 }
 
-// Room for the multipart boundary and part headers around the file.
-const RESTORE_MAX_BODY_BYTES = RESTORE_MAX_FILE_BYTES + 64 * 1024
+// Room for the multipart boundary and part headers around the file. The form
+// sends the file itself as the part, so its bytes arrive unchanged.
+const RESTORE_MAX_BODY_BYTES = RESTORE_MAX_FILE_BYTES + 16 * 1024
+
+// A tab still running the page from before the form sent multipart posts the
+// old encoding.
+const OLD_PAGE = 'This page is out of date. Reload the page and try again.'
+const NO_FILE = 'No import data provided'
 
 /**
  * Reads the export file from the form, refusing one over the cap before
- * anything parses it. The form sends it as multipart, so the body is about the
- * file's own size. Nothing else is accepted, since urlencoding can triple it.
+ * anything parses it. Nothing but multipart is accepted, since urlencoding
+ * can triple the size.
  */
 async function readRestoreFile(
 	request: Request,
 ): Promise<{ text: string } | { error: string; status: number }> {
 	const contentType = request.headers.get('Content-Type') ?? ''
 	if (!contentType.startsWith('multipart/form-data')) {
-		return { error: 'No import data provided', status: 400 }
+		return { error: OLD_PAGE, status: 400 }
 	}
 	if (Number(request.headers.get('Content-Length')) > RESTORE_MAX_BODY_BYTES) {
 		return { error: FILE_TOO_BIG, status: 413 }
@@ -1628,17 +1745,81 @@ async function readRestoreFile(
 			headers: { 'Content-Type': contentType },
 		}).formData()
 	} catch {
-		return { error: 'No import data provided', status: 400 }
+		return { error: NO_FILE, status: 400 }
 	}
-	const text = formData.get('importData')
-	if (typeof text !== 'string') {
-		return { error: 'No import data provided', status: 400 }
-	}
+	const file = formData.get('importData')
+	if (file == null) return { error: NO_FILE, status: 400 }
+	const text = typeof file === 'string' ? file : await file.text()
 	if (Buffer.byteLength(text) > RESTORE_MAX_FILE_BYTES) {
 		return { error: FILE_TOO_BIG, status: 413 }
 	}
 	return { text }
 }
+
+// Bounds on the shape of the JSON text, checked before JSON.parse builds it.
+// The deepest a real export nests is about 11 levels. The other two allow
+// twice and four times every object a file within RESTORE_LIMITS holds,
+// which leaves room for the lists without a total of their own. The largest
+// Household in production is far below both.
+const RESTORE_LIMITS_TOTAL =
+	RESTORE_LIMITS.recipeLines +
+	RESTORE_LIMITS.menuCards +
+	RESTORE_LIMITS.meals +
+	RESTORE_LIMITS.mealCards +
+	RESTORE_LIMITS.shoppingItems +
+	2 * RESTORE_LIMITS.shoppingMealLinks
+export const RESTORE_JSON_LIMITS = {
+	depth: 16,
+	containers: 2 * RESTORE_LIMITS_TOTAL,
+	separators: 4 * RESTORE_LIMITS_TOTAL,
+}
+const TOO_COMPLEX =
+	'This file holds far more than a Quartermaster export can, so it can’t be restored.'
+
+/**
+ * Scans the JSON text for its nesting depth and its count of objects, arrays
+ * and commas, without parsing it. JSON.parse builds every value before the
+ * schema sees any of them, so a file of nested empty brackets near the size
+ * cap would build millions of objects.
+ */
+function jsonShapeError(text: string) {
+	let depth = 0
+	let containers = 0
+	let separators = 0
+	let inString = false
+	for (let i = 0; i < text.length; i++) {
+		const char = text.charCodeAt(i)
+		if (inString) {
+			if (char === 0x5c)
+				i++ // a backslash escapes the next character
+			else if (char === 0x22) inString = false
+		} else if (char === 0x22) {
+			inString = true
+		} else if (char === 0x7b || char === 0x5b) {
+			depth++
+			containers++
+			if (
+				depth > RESTORE_JSON_LIMITS.depth ||
+				containers > RESTORE_JSON_LIMITS.containers
+			) {
+				return TOO_COMPLEX
+			}
+		} else if (char === 0x7d || char === 0x5d) {
+			depth--
+		} else if (char === 0x2c) {
+			separators++
+			if (separators > RESTORE_JSON_LIMITS.separators) return TOO_COMPLEX
+		}
+	}
+	return null
+}
+
+// One restore at a time in this process: each holds a parsed file in memory
+// and makes thousands of writes.
+let restoreRunning = false
+const RESTORE_BUSY = 'Another restore is running. Try again in a minute.'
+const RESTORE_STOPPED =
+	'The restore stopped partway. What it restored is kept. Import the same file again to finish.'
 
 export async function action({ request }: Route.ActionArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
@@ -1646,22 +1827,59 @@ export async function action({ request }: Route.ActionArgs) {
 	if ('error' in file) {
 		return data({ error: file.error, results: null }, { status: file.status })
 	}
-
-	let parsed: unknown
+	if (restoreRunning) {
+		return data({ error: RESTORE_BUSY, results: null }, { status: 409 })
+	}
+	restoreRunning = true
 	try {
-		parsed = JSON.parse(file.text)
-	} catch {
-		return data(
-			{ error: 'Invalid JSON format', results: null },
-			{ status: 400 },
-		)
-	}
+		const shapeError = jsonShapeError(file.text)
+		if (shapeError) {
+			return data({ error: shapeError, results: null }, { status: 400 })
+		}
 
-	const importResult = parseImportData(parsed)
-	if ('error' in importResult) {
-		return data({ error: importResult.error, results: null }, { status: 400 })
-	}
+		let parsed: unknown
+		try {
+			parsed = JSON.parse(file.text)
+		} catch {
+			return data(
+				{ error: 'Invalid JSON format', results: null },
+				{ status: 400 },
+			)
+		}
 
+		const importResult = parseImportData(parsed)
+		if ('error' in importResult) {
+			return data({ error: importResult.error, results: null }, { status: 400 })
+		}
+
+		try {
+			return await restore(importResult, { userId, householdId })
+		} catch (error) {
+			// The route's error boundary would replace the page, so the error is
+			// reported here and the page stays with a reply the user can act on.
+			if (!request.signal.aborted) {
+				console.error('Restore stopped by an unexpected error', error)
+				captureServerEvent(userId, 'server_error', {
+					error: serializeError(error),
+					stack: error instanceof Error ? error.stack : undefined,
+					operation: 'restore',
+				})
+			}
+			return data({ error: RESTORE_STOPPED, results: null }, { status: 500 })
+		}
+	} finally {
+		restoreRunning = false
+	}
+}
+
+/**
+ * Writes a parsed export into the Household, section by section. Each item is
+ * its own write, so an unexpected error leaves what came before it saved.
+ */
+async function restore(
+	importResult: Exclude<ReturnType<typeof parseImportData>, { error: string }>,
+	{ userId, householdId }: { userId: string; householdId: string },
+) {
 	const recipes = importResult.data.recipes
 	// Everything in a full export restores on every tier.
 	const fullData = importResult.type === 'full' ? importResult.data : null
@@ -1797,13 +2015,13 @@ export async function action({ request }: Route.ActionArgs) {
 			mealIdByRef,
 			userId,
 			householdId,
+			recordFailure,
 		)
 	}
 
 	if (failures.length > 0) {
-		captureServerEvent(userId, 'server_error', {
-			error: 'Some items in a restore failed',
-			operation: 'restore',
+		// Its own event: a user's file with bad parts isn't a server error.
+		captureServerEvent(userId, 'restore_failed_items', {
 			householdId,
 			failureCount: failures.length,
 			// Enough to find the pattern without sending thousands of rows.
@@ -1850,7 +2068,7 @@ export default function ImportData() {
 	const fileInputRef = useRef<HTMLInputElement>(null)
 	const [preview, setPreview] = useState<ImportPreview | null>(null)
 	const [fileError, setFileError] = useState<string | null>(null)
-	const [rawJson, setRawJson] = useState<string | null>(null)
+	const [exportFile, setExportFile] = useState<File | null>(null)
 
 	const isSubmitting = fetcher.state === 'submitting'
 	const [cleared, setCleared] = useState(false)
@@ -1873,13 +2091,8 @@ export default function ImportData() {
 				r.mealPlans.created +
 				r.meals.created +
 				r.shoppingLists.created
-			const failed =
-				r.recipes.errored +
-				r.menus.errored +
-				r.mealPlans.errored +
-				r.meals.errored
-			if (failed > 0) {
-				const notRestored = `${failed} couldn’t be restored.`
+			const notRestored = notRestoredMessage(r)
+			if (notRestored) {
 				toast.warning(
 					total > 0 ? `Imported ${total} items. ${notRestored}` : notRestored,
 				)
@@ -1900,7 +2113,7 @@ export default function ImportData() {
 
 		setFileError(null)
 		setPreview(null)
-		setRawJson(null)
+		setExportFile(null)
 
 		if (!file.name.endsWith('.json')) {
 			setFileError('Please select a .json file')
@@ -1934,7 +2147,7 @@ export default function ImportData() {
 				return
 			}
 
-			setRawJson(text)
+			setExportFile(file)
 			setPreview(previewData)
 		}
 		reader.onerror = () => setFileError('Could not read file')
@@ -1942,11 +2155,11 @@ export default function ImportData() {
 	}
 
 	function handleSubmit() {
-		if (!rawJson) return
+		if (!exportFile) return
 		const formData = new FormData()
-		formData.set('importData', rawJson)
-		// Multipart keeps the request the size of the file. The action takes
-		// nothing else.
+		// The file itself, as a multipart part: its bytes go as they are. Sent as
+		// text, every line break would grow to two bytes on the way.
+		formData.set('importData', exportFile)
 		void fetcher.submit(formData, {
 			method: 'POST',
 			encType: 'multipart/form-data',
@@ -1956,7 +2169,7 @@ export default function ImportData() {
 	function handleReset() {
 		setPreview(null)
 		setFileError(null)
-		setRawJson(null)
+		setExportFile(null)
 		setCleared(true)
 		if (fileInputRef.current) fileInputRef.current.value = ''
 	}
@@ -2138,6 +2351,26 @@ export default function ImportData() {
 			)}
 		</div>
 	)
+}
+
+/** "2 Recipes and 1 Meal couldn’t be restored.", or null when all landed. */
+function notRestoredMessage(results: ImportResults) {
+	const parts = (
+		[
+			[results.recipes.errored, 'Recipe', 'Recipes'],
+			[results.menus.errored, 'Menu', 'Menus'],
+			[results.mealPlans.errored, 'Plan entry', 'Plan entries'],
+			[results.meals.errored, 'Meal', 'Meals'],
+		] as const
+	)
+		.filter(([count]) => count > 0)
+		.map(([count, one, many]) => `${count} ${count === 1 ? one : many}`)
+	if (parts.length === 0) return null
+	const list =
+		parts.length === 1
+			? parts[0]
+			: `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`
+	return `${list} couldn’t be restored.`
 }
 
 function PreviewRow({ label, count }: { label: string; count: number }) {

@@ -26,27 +26,64 @@
  * - A database error that isn't one of the expected write failures is
  *   swallowed and the restore reports success, and a second run then
  *   duplicates what the first one saved.
- * - A failure is logged with the user's own text in it, or isn't logged.
+ * - A failure is logged with the user's own text in it, or isn't logged,
+ *   or reaches analytics as a server error.
+ * - An unexpected error replaces the page with the root error screen.
+ * - An unexpected Recipe error skips the sub-Recipe links of the Recipes
+ *   already saved, and a rerun skips those Recipes, so the links are lost.
+ * - A Meal deleted before its Shopping links are written fails the whole
+ *   restore after everything else is saved.
  *
  * Size and count limits
  * - A body over the cap is read whole before anything checks its size, when
  *   it declares no Content-Length.
  * - A body that declares a Content-Length over the cap is read at all.
- * - A urlencoded body skips the cap that applies to the form's own encoding.
- * - A file within every per-list limit still carries thousands of Meals or
- *   Shopping items and keeps the server writing for minutes.
+ * - A urlencoded body skips the cap that applies to the form's own encoding,
+ *   and a tab on the old page gets no hint to reload.
+ * - A file right at the cap, full of line breaks, grows on the way and gets
+ *   refused.
+ * - Nested empty arrays or objects within the size cap make JSON.parse build
+ *   millions of values; brackets inside strings get counted as structure.
+ * - Two restores run at once and hold two parsed files in memory.
+ * - A file within every per-list limit still carries thousands of Meals,
+ *   cards, lines, Shopping items or links, and keeps the server writing for
+ *   minutes.
+ * - A window-era plan's Meals are counted twice, once more as entries.
  * - A file right at a count cap gets refused.
  */
 import { RouterContextProvider } from 'react-router'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader as recipesLoader } from '../../recipes/index.tsx'
-import { action, RESTORE_LIMITS, RESTORE_MAX_FILE_BYTES } from './import.tsx'
+import {
+	action,
+	RESTORE_JSON_LIMITS,
+	RESTORE_LIMITS,
+	RESTORE_MAX_FILE_BYTES,
+} from './import.tsx'
 import '#tests/setup/db-setup.ts'
+
+const posthog = vi.hoisted(() => ({
+	captureServerEvent:
+		vi.fn<
+			(
+				userId: string,
+				event: string,
+				properties?: Record<string, unknown>,
+			) => void
+		>(),
+}))
+vi.mock('#app/utils/posthog.server.ts', async (importOriginal) => ({
+	...(await importOriginal<object>()),
+	captureServerEvent: posthog.captureServerEvent,
+}))
+
+const RESTORE_STOPPED =
+	'The restore stopped partway. What it restored is kept. Import the same file again to finish.'
 
 const ARGS_BASE = {
 	params: {},
@@ -82,7 +119,7 @@ async function setupUser({ tier = 'pro' as string | null } = {}) {
 
 type Session = Awaited<ReturnType<typeof setupUser>>
 
-async function restoreText(session: Session, text: string) {
+async function restoreText(session: Session, text: string | File) {
 	const form = new FormData()
 	form.set('importData', text)
 	const request = new Request(IMPORT_URL, {
@@ -383,7 +420,9 @@ describe('skipped and failed', () => {
 			}),
 		)
 		expect(status).toBe(400)
-		expect(body.error).toContain('shoppingLists.0.items.1.name')
+		expect(body.error).toBe(
+			'Item 2 in your Shopping list has no name. (at shoppingLists.0.items.1.name)',
+		)
 		expect(
 			await prisma.recipe.count({
 				where: { householdId: session.householdId },
@@ -391,7 +430,8 @@ describe('skipped and failed', () => {
 		).toBe(0)
 	})
 
-	test('an unexpected database error stops the restore, and a second run finishes it without duplicates', async () => {
+	test('an unexpected database error stops the restore with a reply the page can show, and a second run finishes it without duplicates', async () => {
+		consoleError.mockImplementation(() => {})
 		const session = await setupUser()
 		const file = fullExport({
 			recipes: [{ title: 'Kofta', ingredients: [], instructions: [] }],
@@ -415,8 +455,18 @@ describe('skipped and failed', () => {
 			BEGIN SELECT abs(-9223372036854775808); END`,
 		)
 
-		await expect(restoreText(session, JSON.stringify(file))).rejects.toThrow(
-			/integer overflow/,
+		const stopped = await restore(session, file)
+		expect(stopped).toEqual({
+			status: 500,
+			body: { error: RESTORE_STOPPED, results: null },
+		})
+		expect(posthog.captureServerEvent).toHaveBeenCalledWith(
+			session.userId,
+			'server_error',
+			expect.objectContaining({
+				operation: 'restore',
+				error: expect.stringMatching(/integer overflow/),
+			}),
 		)
 		expect(await countMeals(session)).toBe(1)
 		expect(
@@ -459,19 +509,116 @@ describe('skipped and failed', () => {
 	])(
 		'an unexpected database error in the $section step stops the restore',
 		async ({ table, when, file }) => {
+			consoleError.mockImplementation(() => {})
 			const session = await setupUser()
 			await prisma.$executeRawUnsafe(
 				`CREATE TRIGGER restore_test_fault BEFORE INSERT ON "${table}"
 				WHEN ${when} BEGIN SELECT abs(-9223372036854775808); END`,
 			)
-			await expect(restoreText(session, JSON.stringify(file))).rejects.toThrow(
-				/integer overflow/,
-			)
+			expect(await restore(session, file)).toEqual({
+				status: 500,
+				body: { error: RESTORE_STOPPED, results: null },
+			})
 		},
 	)
 
+	test('Recipes saved before an unexpected error keep their sub-Recipe links after a rerun', async () => {
+		consoleError.mockImplementation(() => {})
+		const session = await setupUser()
+		const file = fullExport({
+			recipes: [
+				{
+					title: 'Alpha',
+					ingredients: [{ name: 'beta sauce', linkedRecipeRef: 'beta' }],
+					instructions: [],
+				},
+				{ ref: 'beta', title: 'Beta', ingredients: [], instructions: [] },
+				{ title: 'Gamma', ingredients: [], instructions: [] },
+			],
+		})
+		await prisma.$executeRawUnsafe(
+			`CREATE TRIGGER restore_test_fault BEFORE INSERT ON "Recipe"
+			WHEN NEW."title" = 'Gamma' BEGIN SELECT abs(-9223372036854775808); END`,
+		)
+		expect((await restore(session, file)).status).toBe(500)
+		await prisma.$executeRawUnsafe(`DROP TRIGGER restore_test_fault`)
+
+		const { body } = await restore(session, file)
+		expect(body.results.recipes).toEqual({ created: 1, skipped: 2, errored: 0 })
+		const beta = await prisma.recipe.findFirstOrThrow({
+			where: { householdId: session.householdId, title: 'Beta' },
+			select: { id: true },
+		})
+		expect(
+			await prisma.ingredient.findMany({
+				where: { recipe: { householdId: session.householdId, title: 'Alpha' } },
+				select: { linkedRecipeId: true },
+			}),
+		).toEqual([{ linkedRecipeId: beta.id }])
+	})
+
+	test('a Meal deleted before its Shopping links are written loses only its links', async () => {
+		consoleError.mockImplementation(() => {})
+		const session = await setupUser()
+		const link = (ref: string) => ({
+			sourceMealRef: ref,
+			orphaned: false,
+			fingerprint: {
+				canonicalName: `leeks ${ref}`,
+				name: 'leeks',
+				quantity: null,
+				unit: null,
+			},
+		})
+		// The Soup Meal goes once the Shopping items are in, after the Plan pass
+		// restored it and before the links to it are written.
+		await prisma.$executeRawUnsafe(
+			`CREATE TRIGGER restore_test_delete_meal AFTER INSERT ON "ShoppingListItem"
+			BEGIN DELETE FROM "Meal" WHERE "genericText" = 'Soup'; END`,
+		)
+		const { status, body } = await restore(
+			session,
+			fullExport({
+				mealPlans: [
+					{
+						weekStart: WEEK,
+						meals: [
+							{ ref: 'm1', date: WEDNESDAY, genericText: 'Soup' },
+							{ ref: 'm2', date: WEDNESDAY, genericText: 'Stew' },
+						],
+					},
+				],
+				shoppingLists: [
+					{
+						name: 'Shopping',
+						items: [
+							{ name: 'leeks', mealContributions: [link('m1'), link('m2')] },
+						],
+					},
+				],
+			}),
+		)
+		expect(status).toBe(200)
+		expect(body.results.shoppingLists).toEqual({ created: 1, skipped: 0 })
+		expect(
+			await prisma.mealShoppingContribution.findMany({
+				where: { item: { list: { householdId: session.householdId } } },
+				select: {
+					canonicalName: true,
+					meal: { select: { genericText: true } },
+				},
+			}),
+		).toEqual([{ canonicalName: 'leeks m2', meal: { genericText: 'Stew' } }])
+		expect(
+			consoleError.mock.calls.some((call) =>
+				JSON.stringify(call).includes('meal-gone'),
+			),
+		).toBe(true)
+	})
+
 	test('each failure is logged with where it was, never with what the user wrote', async () => {
 		const session = await setupUser()
+		posthog.captureServerEvent.mockClear()
 		consoleError.mockImplementation(() => {})
 		await restore(
 			session,
@@ -497,6 +644,20 @@ describe('skipped and failed', () => {
 		expect(lines[1]).toContain('mealPlans[1].meals[0]')
 		expect(lines[1]).toContain('invalid-date')
 		expect(lines.join('\n')).not.toMatch(/Secret/)
+
+		// Analytics gets the same, under its own event: a user's bad file isn't
+		// a server error.
+		const events = posthog.captureServerEvent.mock.calls
+		expect(events.map(([, event]) => event)).toEqual(['restore_failed_items'])
+		expect(events[0]![0]).toBe(session.userId)
+		expect(events[0]![2]).toMatchObject({
+			failureCount: 2,
+			failures: [
+				{ at: 'mealPlans[0]', reason: 'invalid-week', count: 1 },
+				{ at: 'mealPlans[1].meals[0]', reason: 'invalid-date' },
+			],
+		})
+		expect(JSON.stringify(events)).not.toMatch(/Secret/)
 	})
 })
 
@@ -577,6 +738,117 @@ describe('size and count limits', () => {
 		})
 		const result = (await action({ request, ...ARGS_BASE })) as any
 		expect(result.init.status).toBe(400)
+		// Only a tab on the page from before the form sent multipart posts this.
+		expect(result.data.error).toContain('Reload the page and try again.')
+	})
+
+	test('a file right at the cap, full of line breaks, is taken whole when sent as the file itself', async () => {
+		const session = await setupUser()
+		const head = JSON.stringify({ recipeCount: 0, recipes: [] })
+		const text = head + '\n'.repeat(RESTORE_MAX_FILE_BYTES - head.length)
+		const result = (await restoreText(
+			session,
+			new File([text], 'export.json', { type: 'application/json' }),
+		)) as any
+		expect(result.error).toBeNull()
+		expect(result.results.recipes).toEqual({
+			created: 0,
+			skipped: 0,
+			errored: 0,
+		})
+	})
+
+	test.each([
+		{
+			shape: 'nesting',
+			extra:
+				'['.repeat(RESTORE_JSON_LIMITS.depth + 1) +
+				']'.repeat(RESTORE_JSON_LIMITS.depth + 1),
+		},
+		{
+			shape: 'arrays',
+			extra: `[${Array(RESTORE_JSON_LIMITS.containers).fill('[]').join(',')}]`,
+		},
+		{
+			shape: 'values',
+			extra: `[${Array(RESTORE_JSON_LIMITS.separators + 2)
+				.fill('0')
+				.join(',')}]`,
+		},
+	])(
+		'a file with more $shape than any export is refused before it is parsed',
+		async ({ extra }) => {
+			const session = await setupUser()
+			const parse = vi.spyOn(JSON, 'parse')
+			try {
+				const result = (await restoreText(
+					session,
+					`{"recipeCount":0,"recipes":[],"padding":${extra}}`,
+				)) as any
+				expect(result.init.status).toBe(400)
+				expect(result.data.error).toMatch(/more than a Quartermaster export/)
+				expect(
+					parse.mock.calls.filter(([text]) => String(text).includes('padding')),
+				).toEqual([])
+			} finally {
+				parse.mockRestore()
+			}
+		},
+	)
+
+	test('brackets and quotes inside text are not counted as structure', async () => {
+		const session = await setupUser()
+		const tricky = `${'['.repeat(40)} "quoted" \\ ${'{'.repeat(40)}`
+		const { body } = await restore(session, {
+			recipeCount: 1,
+			recipes: [
+				{
+					title: 'Brackets',
+					description: tricky,
+					ingredients: [],
+					instructions: [],
+				},
+			],
+		})
+		expect(body.results.recipes).toEqual({ created: 1, skipped: 0, errored: 0 })
+		expect(
+			await prisma.recipe.findFirstOrThrow({
+				where: { householdId: session.householdId },
+				select: { description: true },
+			}),
+		).toEqual({ description: tricky })
+	})
+
+	test('a second restore while one is running is told to wait, and the next one runs', async () => {
+		const session = await setupUser()
+		const file = { recipeCount: 0, recipes: [] }
+		let release!: () => void
+		const held = new Promise<void>((resolve) => (release = resolve))
+		const findMany = prisma.recipe.findMany.bind(prisma.recipe)
+		const spy = vi
+			.spyOn(prisma.recipe, 'findMany')
+			.mockImplementationOnce((async (...args: any[]) => {
+				await held
+				return (findMany as any)(...args)
+			}) as any)
+		try {
+			const first = restore(session, file)
+			await vi.waitFor(() => expect(spy).toHaveBeenCalled())
+
+			expect(await restore(session, file)).toEqual({
+				status: 409,
+				body: {
+					error: 'Another restore is running. Try again in a minute.',
+					results: null,
+				},
+			})
+
+			release()
+			expect((await first).status).toBe(200)
+			expect((await restore(session, file)).status).toBe(200)
+		} finally {
+			spy.mockRestore()
+		}
 	})
 
 	test('a file with more Meals than a restore takes is refused, naming the limit, with nothing written', async () => {
@@ -604,6 +876,136 @@ describe('size and count limits', () => {
 				where: { householdId: session.householdId },
 			}),
 		).toBe(0)
+	})
+
+	const contribution = {
+		sourceMealRef: null,
+		orphaned: true,
+		fingerprint: { canonicalName: 'a', name: 'a', quantity: null, unit: null },
+	}
+	const chunks = <T>(all: T[], size: number) =>
+		Array.from({ length: Math.ceil(all.length / size) }, (_, i) =>
+			all.slice(i * size, (i + 1) * size),
+		)
+	test.each([
+		{
+			cap: 'recipeLines' as const,
+			label: /Recipe ingredients and steps/,
+			file: () => ({
+				recipeCount: 1,
+				recipes: chunks(
+					Array(RESTORE_LIMITS.recipeLines + 1).fill('a'),
+					200,
+				).map((instructions, i) => ({
+					title: `R${i}`,
+					ingredients: [],
+					instructions,
+				})),
+			}),
+		},
+		{
+			cap: 'menuCards' as const,
+			label: /cards on Menus/,
+			file: () =>
+				fullExport({
+					menus: chunks(
+						chunks(Array(RESTORE_LIMITS.menuCards + 1).fill({}), 100).map(
+							(items) => ({ name: 'Course', items }),
+						),
+						20,
+					).map((sections, i) => ({ title: `Menu ${i}`, sections })),
+				}),
+		},
+		{
+			cap: 'meals' as const,
+			label: /Meals/,
+			file: () =>
+				fullExport({
+					mealPlans: chunks(
+						Array(RESTORE_LIMITS.meals + 1).fill({ date: WEDNESDAY }),
+						200,
+					).map((meals) => ({ weekStart: WEEK, meals })),
+				}),
+		},
+		{
+			cap: 'mealCards' as const,
+			label: /cards on Meals/,
+			file: () =>
+				fullExport({
+					mealPlans: chunks(
+						chunks(Array(RESTORE_LIMITS.mealCards + 1).fill({}), 100).map(
+							(items) => ({ date: WEDNESDAY, items }),
+						),
+						200,
+					).map((meals) => ({ weekStart: WEEK, meals })),
+				}),
+		},
+		{
+			cap: 'shoppingItems' as const,
+			label: /Shopping items/,
+			file: () =>
+				fullExport({
+					shoppingLists: chunks(
+						Array(RESTORE_LIMITS.shoppingItems + 1).fill({ name: 'a' }),
+						500,
+					).map((items) => ({ name: 'Shopping', items })),
+				}),
+		},
+		{
+			cap: 'shoppingMealLinks' as const,
+			label: /Meal links on Shopping items/,
+			file: () =>
+				fullExport({
+					shoppingLists: [
+						{
+							name: 'Shopping',
+							items: chunks(
+								Array(RESTORE_LIMITS.shoppingMealLinks + 1).fill(contribution),
+								500,
+							).map((mealContributions, i) => ({
+								name: `item ${i}`,
+								mealContributions,
+							})),
+						},
+					],
+				}),
+		},
+	])(
+		'a file one over the $cap total is refused, naming the limit',
+		async ({ cap, label, file }) => {
+			const session = await setupUser()
+			const { status, body } = await restore(session, file())
+			expect(status).toBe(400)
+			expect(body.error).toContain(
+				`A restore takes up to ${RESTORE_LIMITS[cap].toLocaleString('en-US')}.`,
+			)
+			expect(body.error).toMatch(label)
+		},
+	)
+
+	test('a plan that carries both Meals and their mirrored entries counts its Meals once', async () => {
+		// Every Meal here has nothing to restore, so the restore is quick and
+		// logs each one as a failure.
+		consoleError.mockImplementation(() => {})
+		const session = await setupUser()
+		const perPlan = 100
+		const plans = Math.ceil((RESTORE_LIMITS.meals / perPlan) * 0.6)
+		const { status, body } = await restore(
+			session,
+			fullExport({
+				mealPlans: Array.from({ length: plans }, () => ({
+					weekStart: WEEK,
+					meals: Array(perPlan).fill({ date: WEDNESDAY }),
+					entries: Array(perPlan).fill({
+						date: WEDNESDAY,
+						mealType: 'dinner',
+						recipe: 'Ghost',
+					}),
+				})),
+			}),
+		)
+		expect(status).toBe(200)
+		expect(body.results.meals.errored).toBe(plans * perPlan)
 	})
 
 	test('Shopping items right at the cap restore, and one more is refused', async () => {

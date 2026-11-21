@@ -4,21 +4,33 @@ import { RouterContextProvider } from 'react-router'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { action as changeEmailAction } from '#app/routes/settings/profile/change-email.tsx'
 import { twoFAVerificationType } from '#app/routes/settings/profile/two-factor/_layout.tsx'
-import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
+import { action as createPasswordAction } from '#app/routes/settings/profile/password_.create.tsx'
+import { action as changePasswordAction } from '#app/routes/settings/profile/password.tsx'
+import {
+	getSessionExpirationDate,
+	resetUserPassword,
+} from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { checkEmailCode } from '#app/utils/email-code.server.ts'
+import {
+	checkEmailCode,
+	emailCodeDigest,
+} from '#app/utils/email-code.server.ts'
 import { redactUrl } from '#app/utils/redact-url.ts'
 import { toastKey, toastSessionStorage } from '#app/utils/toast.server.ts'
 import { generateTOTP } from '#app/utils/totp.server.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createPassword, createUser } from '#tests/db-utils.ts'
 import { server } from '#tests/setup/mocks-setup.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action as forgotPasswordAction } from './forgot-password.tsx'
 import { onboardingEmailSessionKey } from './onboarding/index.tsx'
 import { action as signupAction } from './signup.tsx'
-import { isCodeValid, validateRequest } from './verify.server.ts'
+import {
+	isCodeValid,
+	prepareVerification,
+	validateRequest,
+} from './verify.server.ts'
 import '#tests/setup/db-setup.ts'
 
 // Failure list for emailed codes (signup, password reset, email change).
@@ -76,6 +88,25 @@ import '#tests/setup/db-setup.ts'
 //
 // Logs:
 // 23. The link token is redacted, including inside redirectTo.
+//
+// A new password or email ends reset codes:
+// 24. A reset code sent to the old address stops working once the email
+//     changes.
+// 25. Changing the password in Settings ends reset codes.
+// 26. Creating a first password ends reset codes.
+// 27. The reset itself ends codes asked for after the verify step.
+//
+// More:
+// 28. A code sent from one device can't be used on another device that
+//     asked for a different address.
+// 29. In a burst of requests each one ends as sent or as past the cap; none
+//     fails on the database.
+// 30. A stored hash can't be checked without the server's secret: it isn't a
+//     plain SHA-256 of the code or token, and a code stops checking under
+//     another secret.
+// 31. If the code can't be marked as sent after its email went out, the
+//     person is told the send failed, and no half-made code holds a place
+//     under the cap.
 //
 // GET /verify consuming nothing is checked in tests/e2e/onboarding.test.ts,
 // through the real page.
@@ -328,14 +359,27 @@ describe('someone asking for codes for another person', () => {
 		expect((await useCode(readCode(sent[0]))).location).toBe(RESET_DONE)
 	})
 
-	test('requests sent all at once stop at the cap', async () => {
+	test('requests sent all at once stop at the cap, and each one ends as sent or capped', async () => {
 		const sent = captureEmails()
 		const user = await createAccount()
-		await Promise.all(
-			Array.from({ length: CAP + 4 }, (_, i) =>
-				forgotPassword(i % 2 ? user.email : user.username),
+		// prepareVerification directly: forgot-password hides any error.
+		const outcomes = await Promise.allSettled(
+			Array.from({ length: CAP + 4 }, () =>
+				prepareVerification({
+					type: 'reset-password',
+					target: user.id,
+					send: async ({ otp }) => {
+						sent.push({ to: user.email, text: otp })
+						return { status: 'success' as const }
+					},
+				}),
 			),
 		)
+		const statuses = outcomes.map((outcome) =>
+			outcome.status === 'fulfilled' ? outcome.value.status : 'threw',
+		)
+		expect(statuses.filter((status) => status === 'sent')).toHaveLength(CAP)
+		expect(statuses.filter((status) => status === 'capped')).toHaveLength(4)
 		expect(sent).toHaveLength(CAP)
 		expect(
 			await prisma.emailCode.count({ where: { type: 'reset-password' } }),
@@ -500,9 +544,30 @@ describe('using codes', () => {
 		await forgotPassword(user.username)
 		const emailed = readCode(sent[0])
 		expect(emailed.code).toMatch(/^[A-HJ-NP-Z1-9]{8}$/)
-		const stored = JSON.stringify(await prisma.emailCode.findMany())
+		const rows = await prisma.emailCode.findMany()
+		const stored = JSON.stringify(rows)
 		expect(stored).not.toContain(emailed.code)
 		expect(stored).not.toContain(emailed.token)
+		// Without the server's secret, a stored hash can't be checked against
+		// guesses.
+		const sha256 = (value: string) =>
+			createHash('sha256').update(value).digest('hex')
+		expect(rows[0]!.codeHash).not.toBe(sha256(emailed.code))
+		expect(rows[0]!.linkTokenHash).not.toBe(sha256(emailed.token!))
+	})
+
+	test('a stored code checks only with the secret it was stored under', async () => {
+		const sent = captureEmails()
+		const user = await createAccount()
+		await forgotPassword(user.username)
+		const emailed = readCode(sent[0])
+		vi.stubEnv('SESSION_SECRET', 'a-different-secret')
+		try {
+			expect((await useCode(emailed)).status).toBe(400)
+		} finally {
+			vi.unstubAllEnvs()
+		}
+		expect((await useCode(emailed)).location).toBe(RESET_DONE)
 	})
 
 	test('a code can’t be used while its email is still going out', async () => {
@@ -589,7 +654,7 @@ describe('code kinds, with a stored code of the other kind', () => {
 			data: {
 				type: twoFAVerificationType,
 				target: user.id,
-				codeHash: createHash('sha256').update(code).digest('hex'),
+				codeHash: emailCodeDigest(code),
 				linkTokenHash: 'unused',
 				sentAt: new Date(),
 				expiresAt: new Date(Date.now() + CODE_LIFETIME_MS),
@@ -619,6 +684,26 @@ describe('sending', () => {
 		failEmails()
 		const failed = visible(await signup(email))
 		expect(failed.status).toBe(500)
+		expect(await prisma.emailCode.count()).toBe(1)
+		expect((await useCode(readCode(sent[0]))).location).toBe('/onboarding')
+	})
+
+	test('a code that can’t be marked as sent is reported as a failed send and holds no place', async () => {
+		const sent = captureEmails()
+		const email = `mark-fails-${Date.now()}@example.com`
+		await signup(email)
+		consoleError.mockImplementation(() => {})
+		// Marking the code as sent, after its email has gone out, fails.
+		const spy = vi
+			.spyOn(prisma.emailCode, 'updateMany')
+			.mockRejectedValueOnce(new Error('database is locked'))
+		try {
+			const failed = visible(await signup(email))
+			expect(failed.status).toBe(500)
+		} finally {
+			spy.mockRestore()
+		}
+		expect(sent).toHaveLength(2)
 		expect(await prisma.emailCode.count()).toBe(1)
 		expect((await useCode(readCode(sent[0]))).location).toBe('/onboarding')
 	})
@@ -707,6 +792,27 @@ describe('email change', () => {
 		expect(await prisma.emailCode.count()).toBe(1)
 	})
 
+	test('a code asked for on one device can’t be used on another', async () => {
+		const sent = captureEmails()
+		const { userId, cookie: device1 } = await signedIn()
+		const device2 = await getSessionCookieHeader(
+			await prisma.session.create({
+				data: { expirationDate: getSessionExpirationDate(), userId },
+				select: { id: true, expirationDate: true },
+			}),
+		)
+		const before = await emailOf(userId)
+		const a = `device-a-${Date.now()}@example.com`
+		const b = `device-b-${Date.now()}@example.com`
+		const onDevice1 = (await requestChange(device1, a)).cookie
+		await requestChange(device2, b)
+
+		const toB = readCode(sent.find((e) => e.to === b))
+		const outcome = await submitWithCookie(toB, onDevice1)
+		expect(outcome.status).toBe(400)
+		expect(await emailOf(userId)).toBe(before)
+	})
+
 	test('past the cap it says no new email went out, and earlier codes still work', async () => {
 		const sent = captureEmails()
 		const { userId, cookie: signedInCookie } = await signedIn()
@@ -761,4 +867,110 @@ test('the link token is redacted from logged URLs, also inside redirectTo', () =
 	expect(redactUrl(link)).not.toContain('secret-token-value')
 	const bounce = `/verify?type=2fa&target=u1&redirectTo=${encodeURIComponent(link)}`
 	expect(redactUrl(bounce)).not.toContain('secret-token-value')
+})
+
+describe('a new password or email ends reset codes', () => {
+	async function signedInWithPassword(password?: string) {
+		const session = await prisma.session.create({
+			data: {
+				expirationDate: getSessionExpirationDate(),
+				user: {
+					create: {
+						...createUser(),
+						...(password
+							? { password: { create: createPassword(password) } }
+							: {}),
+					},
+				},
+			},
+			select: {
+				id: true,
+				expirationDate: true,
+				user: { select: { id: true, email: true, username: true } },
+			},
+		})
+		return { user: session.user, cookie: await getSessionCookieHeader(session) }
+	}
+
+	test('a reset code sent to the old address stops working once the email changes', async () => {
+		const sent = captureEmails()
+		const { user, cookie: signedInCookie } = await signedInWithPassword()
+		await forgotPassword(user.email)
+		const resetCode = readCode(sent[0])
+
+		const address = `moved-${Date.now()}@example.com`
+		const requested = visible(
+			await callAction(
+				changeEmailAction,
+				'/settings/profile/change-email',
+				{ email: address },
+				signedInCookie,
+			),
+		)
+		const cookie = applySetCookies(signedInCookie, requested.setCookies)
+		const changeCode = readCode(sent.find((e) => e.to === address))
+		const changed = await submitVerify(
+			{
+				code: changeCode.code,
+				type: changeCode.type,
+				target: changeCode.target,
+			},
+			{ cookie },
+		)
+		expect(changed.location).toBe('/settings/profile')
+
+		expect((await useCode(resetCode)).status).toBe(400)
+	})
+
+	test('changing the password in Settings ends reset codes', async () => {
+		const sent = captureEmails()
+		const { user, cookie } = await signedInWithPassword('old-password-1')
+		await forgotPassword(user.username)
+		const newPassword = `new-${Date.now()}-password`
+		const result = visible(
+			await callAction(
+				changePasswordAction,
+				'/settings/profile/password',
+				{
+					currentPassword: 'old-password-1',
+					newPassword,
+					confirmNewPassword: newPassword,
+				},
+				cookie,
+			),
+		)
+		expect(result.status).toBe(302)
+		expect((await useCode(readCode(sent[0]))).status).toBe(400)
+	})
+
+	test('creating a first password ends reset codes', async () => {
+		const sent = captureEmails()
+		const { user, cookie } = await signedInWithPassword()
+		await forgotPassword(user.username)
+		const password = `first-${Date.now()}-password`
+		const result = visible(
+			await callAction(
+				createPasswordAction,
+				'/settings/profile/password/create',
+				{ password, confirmPassword: password },
+				cookie,
+			),
+		)
+		expect(result.status).toBe(302)
+		expect((await useCode(readCode(sent[0]))).status).toBe(400)
+	})
+
+	test('the reset itself ends codes asked for after the verify step', async () => {
+		const sent = captureEmails()
+		const user = await createAccount()
+		await forgotPassword(user.username)
+		expect((await useCode(readCode(sent[0]))).location).toBe(RESET_DONE)
+		await forgotPassword(user.email)
+
+		await resetUserPassword({
+			username: user.username,
+			password: `reset-${Date.now()}-password`,
+		})
+		expect((await useCode(readCode(sent[1]))).status).toBe(400)
+	})
 })

@@ -116,9 +116,7 @@ export async function emailCodeTarget(type: EmailCodeType, target: string) {
  * `target` must already be canonical (see emailCodeTarget). `address` is
  * where an email-change code goes, and the address it will set.
  */
-export async function prepareVerification<
-	SendResult extends { status: 'success' | 'error' },
->({
+export async function prepareVerification({
 	type,
 	target,
 	address,
@@ -129,8 +127,13 @@ export async function prepareVerification<
 	target: string
 	address?: string
 	redirectTo?: string
-	send: (email: { otp: string; verifyUrl: URL }) => Promise<SendResult>
-}): Promise<{ redirectTo: string } & IssueResult<SendResult>> {
+	send: (email: {
+		otp: string
+		verifyUrl: URL
+	}) => Promise<
+		{ status: 'success' } | { status: 'error'; error: { message: string } }
+	>
+}): Promise<{ redirectTo: string } & IssueResult> {
 	const verifyUrl = getRedirectToUrl({
 		type,
 		target,
@@ -220,7 +223,7 @@ export async function validateRequest(
 					// Only the link was sent, so say what to do instead.
 					message:
 						code === undefined && data[tokenQueryParam]
-							? `This link didn't work. Type the code from the email, or ask for a new one.`
+							? `This link didn't work. Type the code from the email instead.`
 							: `Invalid code`,
 				})
 				return z.NEVER

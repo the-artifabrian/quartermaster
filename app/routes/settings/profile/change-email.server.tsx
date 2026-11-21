@@ -11,6 +11,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import {
 	checkEmailCode,
 	consumeEmailCode,
+	endResetCodes,
 } from '#app/utils/email-code.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
@@ -76,13 +77,15 @@ export async function handleVerification({
 	})
 	// The code is used and the email changed together, or neither happens.
 	// Of two submits of the same code only one changes anything.
-	const user = await consumeEmailCode(code, (tx, row) =>
-		tx.user.update({
+	// Reset codes sent to the old address end with it.
+	const user = await consumeEmailCode(code, async (tx, row) => {
+		await endResetCodes(tx, userId)
+		return tx.user.update({
 			where: { id: userId },
 			select: { id: true, email: true, username: true },
 			data: { email: row.address! },
-		}),
-	)
+		})
+	})
 	if (!user) {
 		return data(
 			{ result: submission.reply({ fieldErrors: { code: ['Invalid code'] } }) },

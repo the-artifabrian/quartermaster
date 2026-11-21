@@ -10,6 +10,7 @@ import {
 	requireUserId,
 } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { endResetCodes } from '#app/utils/email-code.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
 import { PasswordAndConfirmPasswordSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/password_.create.ts'
@@ -68,17 +69,16 @@ export async function action({ request }: Route.ActionArgs) {
 
 	const { password } = submission.value
 
-	await prisma.user.update({
-		select: { username: true },
-		where: { id: userId },
-		data: {
-			password: {
-				create: {
-					hash: await getPasswordHash(password),
-				},
-			},
-		},
-	})
+	const hash = await getPasswordHash(password)
+	// A first password also ends any reset codes still waiting in an inbox.
+	await prisma.$transaction([
+		prisma.user.update({
+			select: { username: true },
+			where: { id: userId },
+			data: { password: { create: { hash } } },
+		}),
+		endResetCodes(prisma, userId),
+	])
 
 	return redirect(`/settings/profile`, { status: 302 })
 }

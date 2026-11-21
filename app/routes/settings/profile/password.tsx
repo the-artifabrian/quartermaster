@@ -14,6 +14,7 @@ import {
 	verifyUserPassword,
 } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { endResetCodes } from '#app/utils/email-code.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
@@ -107,10 +108,12 @@ export async function action({ request }: Route.ActionArgs) {
 	// Without an id the filter below would drop out and end this session too.
 	invariantResponse(sessionId, 'You must be signed in to change your password')
 	const hash = await getPasswordHash(newPassword)
-	// A changed password signs out every other session of the user.
+	// A changed password signs out every other session of the user, and ends
+	// any reset codes still waiting in an inbox.
 	await prisma.$transaction([
 		prisma.password.update({ where: { userId }, data: { hash } }),
 		prisma.session.deleteMany({ where: { userId, id: { not: sessionId } } }),
+		endResetCodes(prisma, userId),
 	])
 
 	return redirectWithToast(

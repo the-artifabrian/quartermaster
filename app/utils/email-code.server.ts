@@ -33,13 +33,24 @@ function newCode() {
 	return code
 }
 
-function hash(value: string) {
-	return crypto.createHash('sha256').update(value).digest('hex')
+/**
+ * The stored form of a code or link token: HMAC-SHA-256 keyed with the first
+ * SESSION_SECRET, hex. A plain hash of an 8-character code could be reversed
+ * by trying every code; this one can't be checked without the secret.
+ * Rotating the secret makes codes in flight stop working.
+ */
+export function emailCodeDigest(value: string) {
+	const [secret] = process.env.SESSION_SECRET.split(',').filter(Boolean)
+	if (!secret) throw new Error('SESSION_SECRET is required for emailed codes')
+	return crypto
+		.createHmac('sha256', secret)
+		.update(`email-code\n${value}`)
+		.digest('hex')
 }
 
 function hashesMatch(storedHex: string, value: string) {
 	const stored = Buffer.from(storedHex, 'hex')
-	const given = Buffer.from(hash(value), 'hex')
+	const given = Buffer.from(emailCodeDigest(value), 'hex')
 	return stored.length === given.length && crypto.timingSafeEqual(stored, given)
 }
 
@@ -48,9 +59,12 @@ export function normaliseEmailCode(code: string) {
 	return code.replace(/[\s-]/g, '').toUpperCase()
 }
 
-export type IssueResult<SendResult> =
-	| { status: 'sent'; sent: Extract<SendResult, { status: 'success' }> }
-	| { status: 'failed'; sent: Extract<SendResult, { status: 'error' }> }
+type SendOutcome =
+	{ status: 'success' } | { status: 'error'; error: { message: string } }
+
+export type IssueResult =
+	| { status: 'sent' }
+	| { status: 'failed'; error: { message: string } }
 	| { status: 'capped' }
 
 /**
@@ -61,9 +75,7 @@ export type IssueResult<SendResult> =
  * code until `send` succeeds; if it fails or throws, the place is removed.
  * Earlier codes are never touched. Past the cap nothing is made or sent.
  */
-export async function issueEmailCode<
-	SendResult extends { status: 'success' | 'error' },
->({
+export async function issueEmailCode({
 	type,
 	target,
 	address,
@@ -72,8 +84,8 @@ export async function issueEmailCode<
 	type: EmailCodeType
 	target: string
 	address?: string
-	send: (code: { code: string; token: string }) => Promise<SendResult>
-}): Promise<IssueResult<SendResult>> {
+	send: (code: { code: string; token: string }) => Promise<SendOutcome>
+}): Promise<IssueResult> {
 	if (!isEmailCodeType(type)) throw new Error(`Not an emailed code: ${type}`)
 	const code = newCode()
 	const token = crypto.randomBytes(32).toString('base64url')
@@ -89,8 +101,8 @@ export async function issueEmailCode<
 				type,
 				target,
 				address: address ?? null,
-				codeHash: hash(code),
-				linkTokenHash: hash(token),
+				codeHash: emailCodeDigest(code),
+				linkTokenHash: emailCodeDigest(token),
 				expiresAt: new Date(now.getTime() + EMAIL_CODE_LIFETIME_MS),
 			},
 			select: { id: true },
@@ -99,7 +111,7 @@ export async function issueEmailCode<
 	})
 	if (id === null) return { status: 'capped' }
 
-	let sent: SendResult
+	let sent: SendOutcome
 	try {
 		sent = await send({ code, token })
 	} catch (error) {
@@ -108,21 +120,37 @@ export async function issueEmailCode<
 	}
 	if (sent.status !== 'success') {
 		await prisma.emailCode.deleteMany({ where: { id } })
+		return { status: 'failed', error: sent.error }
+	}
+	try {
+		// updateMany: the place is gone if one of the target's codes was used
+		// while this email went out, and then this code shouldn't work either.
+		await prisma.emailCode.updateMany({
+			where: { id },
+			data: { sentAt: new Date() },
+		})
+	} catch (error) {
+		// The email went out, but its code will never work. Free its place
+		// and say the send failed, so the person asks again.
+		console.error('Failed to mark an emailed code as sent:', error)
+		await prisma.emailCode.deleteMany({ where: { id } }).catch(() => {})
 		return {
 			status: 'failed',
-			sent: sent as Extract<SendResult, { status: 'error' }>,
+			error: { message: "We couldn't send the code. Please try again." },
 		}
 	}
-	// updateMany: the place is gone if one of the target's codes was used
-	// while this email went out, and then this code shouldn't work either.
-	await prisma.emailCode.updateMany({
-		where: { id },
-		data: { sentAt: new Date() },
+	return { status: 'sent' }
+}
+
+/**
+ * Ends the user's live reset codes. A new password or email makes a reset
+ * code sent earlier, maybe to an old address, pointless; run it in the same
+ * transaction as that change.
+ */
+export function endResetCodes(db: Db, userId: string) {
+	return db.emailCode.deleteMany({
+		where: { type: 'reset-password', target: userId },
 	})
-	return {
-		status: 'sent',
-		sent: sent as Extract<SendResult, { status: 'success' }>,
-	}
 }
 
 type CodeQuery = {

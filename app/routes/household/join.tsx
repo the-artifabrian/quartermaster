@@ -77,7 +77,8 @@ export async function action({ request }: Route.ActionArgs) {
 
 	try {
 		const { householdId, leftHouseholdId } = await acceptInvite(token, userId)
-		void emitHouseholdEvent({
+		// Neither throws: a failed event is dropped and the join stands.
+		await emitHouseholdEvent({
 			type: 'household_member_joined',
 			payload: {},
 			userId,
@@ -85,7 +86,7 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 		// The people left behind hear about it, as they do when someone leaves.
 		if (leftHouseholdId) {
-			void emitHouseholdEvent({
+			await emitHouseholdEvent({
 				type: 'household_member_left',
 				payload: {},
 				userId,
@@ -101,7 +102,6 @@ export async function action({ request }: Route.ActionArgs) {
 		const knownMessages = [
 			'Invalid or expired invite',
 			'Already a member of this household',
-			'Invite already used',
 		]
 		const isKnown =
 			error instanceof Error && knownMessages.includes(error.message)

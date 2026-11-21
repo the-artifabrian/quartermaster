@@ -308,8 +308,20 @@ Staples logic.
 
 A Meal contribution stores current generated provenance, not event history.
 Updating one Meal replaces only that Meal’s contribution with its current
-demand, so a deleted Recipe’s lines leave the list. Manual rows, other Meals,
-and compatible checked state are preserved.
+demand, so a deleted Recipe’s lines leave the list. Manual rows and other Meals
+are preserved. A checked row is a purchase: new demand never joins it, and when
+an update changes or drops the Meal's demand on a checked row, the old share
+stays on that row without a Meal while the current demand goes on an unchecked
+row, as any new Meal's would. The Meal writers read the list and write in one
+`writeTransaction`.
+
+Rows typed in Shopping and rows added from Recipe detail keep their own amount.
+Meal demand that joins one adds to it on display, Edit changes only the row's
+own amount, and Remove generated amount takes the Meal share off again.
+
+A cooked Recipe item adds no demand on any path. On Update Shopping, amounts it
+already put on Shopping stay as they are, checked or not. The rule lives in
+`loadMealShoppingDemand`.
 
 Shopping checks submit an explicit state and the observed purchase version.
 SQLite triggers advance that version for row and Meal-contribution changes, so
@@ -318,7 +330,9 @@ request ID permits safe checkbox retries without an operation history. The open
 page reconciles uncertain writes before replay and excludes pending checks from
 Clear checked; it does not retain an offline queue. JSON recovery creates fresh
 write identities while preserving purchase data. Table-rebuild migrations must
-retain the version triggers.
+retain the version triggers. Row Edit and Remove generated amount also send the
+version the person saw; the server checks it inside the write transaction and
+answers 409 with the row's current state when it moved.
 
 ## Staples
 

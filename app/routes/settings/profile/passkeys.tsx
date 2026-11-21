@@ -24,10 +24,11 @@ import { requireRecentVerification } from '#app/routes/_auth/verify.server.ts'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
+	addPasskeyRetryWindowMs,
+	isAddPasskeyRetryStale,
 	isPasskeyPromptDismissed,
 	passkeyErrorName,
 	signalAcceptedPasskeys,
-	signalUnknownPasskey,
 } from '#app/utils/passkeys.ts'
 import { type Route } from './+types/passkeys.ts'
 import { type SettingsPageHandle } from './_layout.tsx'
@@ -174,6 +175,7 @@ const FinishResponseSchema = z.discriminatedUnion('status', [
 ])
 
 type RegistrationOptions = z.infer<typeof RegistrationOptionsSchema>['options']
+type ReadyOptions = { options: RegistrationOptions; receivedAt: number }
 
 const couldNotAdd = 'Couldn’t create the passkey. Try again.'
 
@@ -193,10 +195,9 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 	// Kept in state so a cancelled prompt leaves it filled in; React resets
 	// the uncontrolled fields of a form after its action.
 	const [password, setPassword] = useState('')
-	// Options whose prompt didn't finish, ready for another tap.
-	const [readyOptions, setReadyOptions] = useState<RegistrationOptions | null>(
-		null,
-	)
+	// Options whose prompt didn't finish, ready for another tap while the
+	// password check behind them holds.
+	const [ready, setReady] = useState<ReadyOptions | null>(null)
 	const { rpId, userHandle } = loaderData
 	const acceptedIds = loaderData.passkeys.map((passkey) => passkey.id).join(' ')
 
@@ -209,6 +210,17 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 			credentialIds: acceptedIds ? acceptedIds.split(' ') : [],
 		})
 	}, [rpId, userHandle, acceptedIds])
+
+	// Back to the password step before the server's check runs out. A tap
+	// checks the age too, since a phone can sleep through the timer.
+	useEffect(() => {
+		if (!ready) return
+		const timer = setTimeout(
+			() => setReady(null),
+			ready.receivedAt + addPasskeyRetryWindowMs - Date.now(),
+		)
+		return () => clearTimeout(timer)
+	}, [ready])
 
 	async function addPasskey() {
 		setError(null)
@@ -234,11 +246,15 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 			else setError(started.error)
 			return
 		}
-		await createPasskey(started.options)
+		await createPasskey({ options: started.options, receivedAt: Date.now() })
 	}
 
-	async function createPasskey(options: RegistrationOptions) {
+	async function createPasskey({ options, receivedAt }: ReadyOptions) {
 		setError(null)
+		if (isAddPasskeyRetryStale(receivedAt, Date.now())) {
+			setReady(null)
+			return
+		}
 		let registration: Awaited<ReturnType<typeof startRegistration>>
 		try {
 			registration = await startRegistration({ optionsJSON: options })
@@ -248,10 +264,10 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 				// too long ago (the password check sits in between). Either way
 				// the password checked out and the challenge still holds, so a
 				// fresh tap can try again without the password.
-				setReadyOptions(options)
+				setReady({ options, receivedAt })
 				return
 			}
-			setReadyOptions(null)
+			setReady(null)
 			setError(
 				passkeyErrorName(err) === 'InvalidStateError'
 					? 'This device already has a passkey for your account.'
@@ -260,7 +276,7 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 			return
 		}
 		// The challenge is spent by the save below, whatever its answer.
-		setReadyOptions(null)
+		setReady(null)
 
 		const finished = await postRegistration({
 			intent: 'verify',
@@ -269,21 +285,17 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 			.then(async (response) =>
 				FinishResponseSchema.parse(await response.json()),
 			)
-			// A lost answer may hide a saved passkey; say nothing to the browser.
 			.catch(() => null)
+		// No signalUnknownCredential after a refused save: a resend of a save
+		// that worked is refused too, and the phone would drop a passkey the
+		// server kept. A passkey left on the device is dropped by the full list
+		// sent above, the next time this page loads.
 		if (!finished) {
 			setError(couldNotAdd)
 			return
 		}
 		if (finished.status === 'error') {
 			setError(finished.code === 'not-saved' ? couldNotAdd : finished.error)
-			if (finished.code !== 'already-registered') {
-				// The device made a passkey the server didn't keep.
-				void signalUnknownPasskey({
-					rpId: options.rp.id,
-					credentialId: registration.id,
-				})
-			}
 			return
 		}
 		setPassword('')
@@ -292,15 +304,15 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="flex flex-col gap-6">
-			{readyOptions ? (
+			{ready ? (
 				<form
-					action={() => createPasskey(readyOptions)}
+					action={() => createPasskey(ready)}
 					className="flex flex-col items-end gap-3"
 				>
 					<p className="text-muted-foreground self-start">
 						Your password is confirmed. Add the passkey to finish.
 					</p>
-					<AddPasskeyButton label="Add passkey" />
+					<AddPasskeyButton />
 				</form>
 			) : loaderData.hasPassword ? (
 				<form action={addPasskey}>
@@ -376,11 +388,7 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 	)
 }
 
-function AddPasskeyButton({
-	label = 'Register new passkey',
-}: {
-	label?: string
-}) {
+function AddPasskeyButton() {
 	const { pending } = useFormStatus()
 	return (
 		<StatusButton
@@ -390,7 +398,7 @@ function AddPasskeyButton({
 			disabled={pending}
 			className="flex items-center gap-2"
 		>
-			<Icon name="plus">{label}</Icon>
+			<Icon name="plus">Add passkey</Icon>
 		</StatusButton>
 	)
 }

@@ -8,6 +8,7 @@ import { expect, test, waitFor } from '#tests/playwright-utils.ts'
 // - Closing the passkey prompt shows an error, or clears the password.
 // - After a closed prompt (or one iOS refused because the tap was too long
 //   ago), there's no way to try again without retyping the password.
+// - That second try is still offered after the password check has run out.
 // - A wrong password still opens the prompt, or shows no error.
 // - The right password doesn't save the passkey, or sends no notice.
 // - Adding the same device twice gives a vague error.
@@ -37,7 +38,7 @@ async function setupWebAuthn(
 
 async function addPasskey(page: Page, password: string) {
 	await page.getByLabel('Current password').fill(password)
-	await page.getByRole('button', { name: /register new passkey/i }).click()
+	await page.getByRole('button', { name: 'Add passkey', exact: true }).click()
 }
 
 test('Users can register and use passkeys', async ({
@@ -259,6 +260,31 @@ test('Closing the passkey prompt shows no error, and one tap tries again', async
 	await expect
 		.poll(() => prisma.passkey.count({ where: { userId: user.id } }))
 		.toBe(1)
+})
+
+test('The second try goes back to the password before the check runs out', async ({
+	page,
+	navigate,
+	login,
+}) => {
+	const password = faker.internet.password()
+	await login({ password })
+	await page.clock.install()
+	const { client, authenticatorId } = await setupWebAuthn(page)
+	await client.send('WebAuthn.setUserVerified', {
+		authenticatorId,
+		isUserVerified: false,
+	})
+	await navigate('/settings/profile/passkeys')
+
+	await addPasskey(page, password)
+	await expect(page.getByText(/password is confirmed/i)).toBeVisible()
+
+	await page.clock.fastForward('04:31')
+
+	await expect(page.getByText(/password is confirmed/i)).toHaveCount(0)
+	await expect(page.getByLabel('Current password')).toHaveValue(password)
+	await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
 test('Adding a passkey from the same device again says it already has one', async ({

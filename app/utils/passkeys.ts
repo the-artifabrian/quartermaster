@@ -26,6 +26,37 @@ function publicKeyCredential(): PublicKeyCredentialExtras | null {
 /** The sign-in error for a passkey the server has no record of. */
 export const unknownPasskeyError = 'Passkey not found'
 
+/**
+ * Whether a sign-in answer says the server has no record of the passkey,
+ * which lets the page tell the browser to forget it. Only a 404 carrying the
+ * sign-in route's own error counts; a 404 page from a proxy doesn't.
+ */
+export function isUnknownPasskeyAnswer(status: number, body: unknown) {
+	return (
+		status === 404 &&
+		typeof body === 'object' &&
+		body !== null &&
+		'status' in body &&
+		body.status === 'error' &&
+		'error' in body &&
+		body.error === unknownPasskeyError
+	)
+}
+
+/**
+ * How long Settings offers another tap after a passkey prompt didn't finish.
+ * The server's password check lasts five minutes from when it sent the
+ * options; this stops 30 seconds short, so a tap never makes a passkey the
+ * server will refuse.
+ */
+export const addPasskeyRetryWindowMs = 4.5 * 60 * 1000
+
+/** Whether options that arrived at `receivedAt` are too old to try again. */
+export function isAddPasskeyRetryStale(receivedAt: number, now: number) {
+	const age = now - receivedAt
+	return age < 0 || age >= addPasskeyRetryWindowMs
+}
+
 /** Unpadded base64url, which the Signal API checks in native code. */
 function isBase64Url(value: string) {
 	return value.length > 0 && value.length % 4 !== 1 && /^[\w-]+$/.test(value)

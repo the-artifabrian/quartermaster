@@ -2,11 +2,15 @@ import { WebAuthnError } from '@simplewebauthn/browser'
 import { afterEach, expect, test, vi } from 'vitest'
 import { consoleWarn } from '#tests/setup/setup-test-env.ts'
 import {
+	addPasskeyRetryWindowMs,
+	isAddPasskeyRetryStale,
 	isPasskeyPromptDismissed,
+	isUnknownPasskeyAnswer,
 	passkeyErrorName,
 	signalAcceptedPasskeys,
 	signalUnknownPasskey,
 	supportsPasskeyAutofill,
+	unknownPasskeyError,
 } from './passkeys.ts'
 
 // Failure list for the browser-side passkey helpers:
@@ -25,6 +29,13 @@ import {
 // 8. A cancelled or timed-out prompt (NotAllowedError) and a prompt cancelled
 //    by the app (AbortError) count as dismissed, also when SimpleWebAuthn
 //    wraps them. InvalidStateError and other errors don't.
+// 9. A sign-in answer counts as "unknown passkey" only as a 404 with the
+//    route's own "Passkey not found" body. A 404 with another body (a proxy
+//    page, a missing route), a 400 with that message, or a body that isn't
+//    the route's JSON doesn't.
+// 10. Another tap after an unfinished prompt is offered while the options are
+//     fresh and stops before the server's five minutes run out. A clock that
+//     went backwards counts as stale.
 
 afterEach(() => {
 	vi.unstubAllGlobals()
@@ -208,4 +219,32 @@ test('a cancel, a timeout or an app abort counts as dismissed; other errors donâ
 	expect(isPasskeyPromptDismissed(new Error('Passkey not found'))).toBe(false)
 	expect(isPasskeyPromptDismissed('NotAllowedError')).toBe(false)
 	expect(isPasskeyPromptDismissed(null)).toBe(false)
+})
+
+test('only a 404 with the routeâ€™s own body means the passkey is unknown', () => {
+	const body = { status: 'error', error: unknownPasskeyError }
+	expect(isUnknownPasskeyAnswer(404, body)).toBe(true)
+	expect(isUnknownPasskeyAnswer(400, body)).toBe(false)
+	expect(
+		isUnknownPasskeyAnswer(404, { status: 'error', error: 'Not Found' }),
+	).toBe(false)
+	expect(isUnknownPasskeyAnswer(404, { status: 'error' })).toBe(false)
+	expect(isUnknownPasskeyAnswer(404, '<html>Not Found</html>')).toBe(false)
+	expect(isUnknownPasskeyAnswer(404, null)).toBe(false)
+})
+
+test('another tap is offered only while the password check still holds', () => {
+	const receivedAt = 1_000_000
+	expect(isAddPasskeyRetryStale(receivedAt, receivedAt)).toBe(false)
+	expect(
+		isAddPasskeyRetryStale(
+			receivedAt,
+			receivedAt + addPasskeyRetryWindowMs - 1,
+		),
+	).toBe(false)
+	expect(
+		isAddPasskeyRetryStale(receivedAt, receivedAt + addPasskeyRetryWindowMs),
+	).toBe(true)
+	expect(addPasskeyRetryWindowMs).toBeLessThan(5 * 60 * 1000)
+	expect(isAddPasskeyRetryStale(receivedAt, receivedAt - 1000)).toBe(true)
 })

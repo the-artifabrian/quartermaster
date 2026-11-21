@@ -6,6 +6,7 @@ import {
 	startAuthentication,
 } from '@simplewebauthn/browser'
 import { useEffect, useOptimistic, useRef, useState } from 'react'
+import { useFormStatus } from 'react-dom'
 import { data, Form, Link, useNavigate, useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
@@ -24,7 +25,7 @@ import {
 	passkeyErrorName,
 	signalUnknownPasskey,
 	supportsPasskeyAutofill,
-	unknownPasskeyError,
+	isUnknownPasskeyAnswer,
 } from '#app/utils/passkeys.ts'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { PasswordSchema, UsernameSchema } from '#app/utils/user-validation.ts'
@@ -279,7 +280,6 @@ function PasskeyLogin({
 	const armAutofill = useRef<() => void>(() => {})
 	const autofillOptions = useRef<Promise<unknown> | null>(null)
 	const buttonActive = useRef(false)
-	const [buttonBusy, setButtonBusy] = useState(false)
 
 	// Throws with the server's message when the passkey isn't accepted.
 	async function finishLogin(
@@ -302,8 +302,7 @@ function PasskeyLogin({
 			throw new Error(parsedResult.error.message)
 		} else if (parsedResult.data.status === 'error') {
 			if (
-				verificationResponse.status === 404 &&
-				parsedResult.data.error === unknownPasskeyError &&
+				isUnknownPasskeyAnswer(verificationResponse.status, verificationJson) &&
 				rpId
 			) {
 				// The server has no such passkey; the browser can stop offering it.
@@ -384,7 +383,6 @@ function PasskeyLogin({
 		// A second tap while a passkey request runs would cancel it.
 		if (buttonActive.current) return
 		buttonActive.current = true
-		setButtonBusy(true)
 		let loggedIn = false
 		try {
 			setError(null)
@@ -408,30 +406,48 @@ function PasskeyLogin({
 			setError(`Failed to authenticate with passkey: ${getErrorMessage(e)}`)
 		} finally {
 			buttonActive.current = false
-			setButtonBusy(false)
 			if (!loggedIn) armAutofill.current()
 		}
 	}
 
 	return (
 		<form action={handlePasskeyLogin}>
+			<PasskeyLoginButton error={error} message={passkeyMessage} />
+		</form>
+	)
+}
+
+// Reads the form's pending state: state set inside a form action only shows
+// once the action ends.
+function PasskeyLoginButton({
+	error,
+	message,
+}: {
+	error: string | null
+	message: string | null
+}) {
+	const { pending } = useFormStatus()
+	// A new attempt hides the last one's error.
+	const shownError = pending ? null : error
+	return (
+		<>
 			<StatusButton
 				id="passkey-login-button"
 				aria-describedby="passkey-login-button-error"
 				className="w-full"
-				status={buttonBusy ? 'pending' : error ? 'error' : 'idle'}
+				status={pending ? 'pending' : shownError ? 'error' : 'idle'}
 				type="submit"
-				disabled={buttonBusy}
+				disabled={pending}
 			>
 				<span className="inline-flex items-center gap-1.5">
 					<Icon name="passkey" />
-					<span>{passkeyMessage}</span>
+					<span>{message}</span>
 				</span>
 			</StatusButton>
 			<div className="mt-2">
-				<ErrorList errors={[error]} id="passkey-login-button-error" />
+				<ErrorList errors={[shownError]} id="passkey-login-button-error" />
 			</div>
-		</form>
+		</>
 	)
 }
 

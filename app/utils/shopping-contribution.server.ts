@@ -186,7 +186,7 @@ async function createMealRow(
  *
  * A checked row is a purchase and keeps showing what was bought. When this
  * Meal's demand on it changed or went away, its share stays on that row
- * without a Meal, and any current demand is placed as new demand: on an
+ * without a Meal, and any current demand is placed as new demand, on an
  * unchecked row of the same ingredient, or a new one (#226).
  */
 export function replaceMealShoppingContributions(
@@ -202,7 +202,7 @@ export function replaceMealShoppingContributions(
 		lines: ShoppingDemandLine[]
 		/**
 		 * Identities whose existing contribution stays exactly as it is, neither
-		 * updated nor withdrawn: the ones a cooked Recipe item needs.
+		 * updated nor withdrawn. These are the ones a cooked item needs.
 		 */
 		keepIdentities?: ReadonlySet<string>
 	},
@@ -263,7 +263,7 @@ export function replaceMealShoppingContributions(
 		const possiblyEmptyMealRows = new Set<string>()
 
 		// New demand reuses only an outstanding row (Next shop first, a Later
-		// row moves up) or gets its own row: the #226 rule for every Meal add.
+		// row moves up) or gets its own row, the #226 rule for every Meal add.
 		async function placeNewDemand(line: ShoppingDemandLine) {
 			const existingRow = rowByCanonical.get(line.canonicalName)
 			if (existingRow) {
@@ -367,8 +367,8 @@ export function replaceMealShoppingContributions(
 
 /**
  * What a row Edit or Remove generated amount did. `conflict`: the row changed
- * since the person saw it (its version moved: new Meal demand, a check, an
- * edit), so nothing was written. `missing`: no such row in this Household.
+ * since the person saw it (its version moved after new Meal demand, a check
+ * or an edit), so nothing was written. `missing`: no such row in this Household.
  */
 export type ShoppingRowWriteResult = {
 	status: 'success' | 'conflict' | 'missing'
@@ -437,7 +437,7 @@ export function editShoppingDisplayGroup(
 		const { item } = read
 
 		const generatedOnly = !keepsOwnAmount(item.source)
-		// The row's own write goes first and carries the version: the
+		// The row's own write goes first and carries the version, because the
 		// contribution writes below advance it.
 		const written = await tx.shoppingListItem.updateMany({
 			where: { id: item.id, checkVersion: observedVersion },
@@ -511,7 +511,7 @@ export function editShoppingDisplayGroup(
 }
 
 /**
- * Remove only the generated component of a mixed group: a typed or
+ * Remove only the generated component of a mixed group, meaning a typed or
  * Recipe-detail row that Meal demand joined. It applies only at the version
  * the person saw, so Meal demand that joined since is not removed unseen.
  */

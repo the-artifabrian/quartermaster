@@ -59,7 +59,7 @@ type RowWriteData =
 				checkVersion: number
 				checked: boolean
 				display: ShoppingItemDisplay
-			} | null
+			}
 	  }
 
 /** The row changed while it was open in Edit; it shows the new amount. */
@@ -123,20 +123,16 @@ export function ShoppingListItemCard({
 			if (data?.status === 'conflict') {
 				// A refused save does not reload the list by itself.
 				void revalidator.revalidate()
-				if (!data.item || data.item.checked) {
-					// Checked rows have no Edit: what was bought stays as it is.
+				if (data.item.checked) {
+					// Checked rows have no Edit, so what was bought stays.
 					setIsEditing(false)
 					toast.warning(
-						data.item
-							? `${item.name} was checked off, so your edit wasn’t saved.`
-							: `${item.name} is no longer on your list.`,
+						`${item.name} was checked off, so your edit wasn’t saved.`,
 					)
 				} else {
 					setEditVersion(data.item.checkVersion)
 					setEditNotice(rowChangedMessage(data.item.display))
 				}
-			} else if (data?.status === 'invalid') {
-				setEditNotice(data.message)
 			} else if (isEditing && data?.status !== 'error') {
 				setIsEditing(false)
 			}
@@ -144,8 +140,8 @@ export function ShoppingListItemCard({
 		prevEditFetcherState.current = editFetcher.state
 	}, [editFetcher.state, editFetcher.data, isEditing, item.name, revalidator])
 
-	// Remove generated amount refused because the row changed: show the row
-	// as it is now and say so.
+	// When Remove generated amount is refused because the row changed, show
+	// the row as it is now and say so.
 	const prevRemoveGeneratedState = useRef(removeGeneratedFetcher.state)
 	useEffect(() => {
 		if (

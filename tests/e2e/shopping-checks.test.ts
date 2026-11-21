@@ -656,6 +656,12 @@ test('an edit saved after the row changed is refused, then saves once the new am
 			unit: 'g',
 		},
 	})
+	// The open page hears about another device's change and reloads the list
+	// under the sheet. The save still answers to the row Edit opened on.
+	await page.request.post('/shopping', {
+		form: { intent: 'add', name: 'Apples', originClientId: 'another-device' },
+	})
+	await expect(riceRow(page)).toContainText('500 g')
 	const quantity = sheet.getByRole('textbox', { name: 'Quantity' })
 	await quantity.fill('250')
 	await sheet.getByRole('button', { name: 'Save' }).click()
@@ -675,7 +681,8 @@ test('an edit saved after the row changed is refused, then saves once the new am
 		}),
 	).toEqual({ quantity: '200', _count: { mealContributions: 1 } })
 
-	// Seen now: saving again changes the typed amount and keeps the Meal's.
+	// With the new amount shown, saving again changes the typed amount and
+	// keeps the Meal's.
 	await sheet.getByRole('button', { name: 'Save' }).click()
 	await expect(sheet).toBeHidden()
 	await expect(riceRow(page)).toContainText('550 g')

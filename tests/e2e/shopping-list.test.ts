@@ -187,8 +187,8 @@ test('a Meal joining a row added from Recipe detail shows the summed amount', as
 	await expect(row).toContainText('4')
 	await expect(row).toContainText('incl. meals')
 
-	// Saved: the Recipe-detail row keeps its own 2, and the Meal's 2 is
-	// recorded against it.
+	// In the database the Recipe-detail row keeps its own 2, and the Meal's
+	// 2 is recorded against it.
 	const saved = await prisma.shoppingListItem.findFirstOrThrow({
 		where: { list: { householdId: user.householdId } },
 		include: {

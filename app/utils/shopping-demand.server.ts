@@ -399,7 +399,7 @@ function sumGroup(group: SummableGroup): {
  * - A manual row's own quantity is the manual component; compatible
  *   generated demand combines with it, incompatible demand stays visible as
  *   separate parts. A row added from Recipe detail ('recipe') works the same
- *   way: its amount is one someone asked for.
+ *   way, since its amount is one someone asked for.
  * - A row the contribution seam created (source 'meal') duplicates its first
  *   contribution's quantity, so its display is the contributions alone —
  *   counting the row too would double it.

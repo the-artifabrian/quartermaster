@@ -309,7 +309,7 @@ Staples logic.
 A Meal contribution stores current generated provenance, not event history.
 Updating one Meal replaces only that Meal’s contribution with its current
 demand, so a deleted Recipe’s lines leave the list. Manual rows and other Meals
-are preserved. A checked row is a purchase: new demand never joins it, and when
+are preserved. A checked row is a purchase, so new demand never joins it, and when
 an update changes or drops the Meal's demand on a checked row, the old share
 stays on that row without a Meal while the current demand goes on an unchecked
 row, as any new Meal's would. The Meal writers read the list and write in one

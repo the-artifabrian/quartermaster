@@ -480,7 +480,16 @@ export async function action({ request }: Route.ActionArgs) {
 			return { status: 'error' as const, submission: submission.reply() }
 		}
 		const observedVersion = parseObservedVersion(formData)
-		if (observedVersion == null) return reloadToChange()
+		if (observedVersion == null) {
+			// The answer an older page already shows in its editor.
+			return data(
+				{
+					status: 'error' as const,
+					submission: submission.reply({ formErrors: [RELOAD_TO_CHANGE] }),
+				},
+				{ status: 400 },
+			)
+		}
 
 		const result = await editShoppingDisplayGroup(prisma, {
 			householdId,
@@ -654,13 +663,12 @@ function parseObservedVersion(formData: FormData) {
 	return parsed.success ? parsed.data : null
 }
 
-/** A page from before row versions: it has to reload to change a row. */
+const RELOAD_TO_CHANGE = 'Reload Shopping, then try again.'
+
+/** A page loaded before row versions has to reload to change a row. */
 function reloadToChange() {
 	return data(
-		{
-			status: 'invalid' as const,
-			message: 'Reload Shopping, then try again.',
-		},
+		{ status: 'invalid' as const, message: RELOAD_TO_CHANGE },
 		{ status: 400 },
 	)
 }
@@ -672,16 +680,15 @@ function reloadToChange() {
  */
 async function rowChanged(householdId: string, itemId: string) {
 	const item = await readShoppingCheck(prisma, householdId, itemId)
+	if (!item) throw new Response('Item not found', { status: 404 })
 	return data(
 		{
 			status: 'conflict' as const,
-			item: item
-				? {
-						checkVersion: item.checkVersion,
-						checked: item.checked,
-						display: item.display,
-					}
-				: null,
+			item: {
+				checkVersion: item.checkVersion,
+				checked: item.checked,
+				display: item.display,
+			},
 		},
 		{ status: 409 },
 	)

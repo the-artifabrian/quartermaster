@@ -622,8 +622,8 @@ describe('Shopping generated-group conversion (#110)', () => {
 })
 
 describe('Shopping row Edit and Remove generated amount answer a changed row', () => {
-	// The route's side of the version check: the status codes the Shopping
-	// page acts on. The write rules themselves are covered next to
+	// The route's side of the version check, meaning the status codes the
+	// Shopping page acts on. The write rules themselves are covered next to
 	// shopping-contribution.server.ts.
 	async function setupMixedRow() {
 		const session = await setupUser()
@@ -1678,7 +1678,7 @@ describe('cooked Recipe items never add Shopping amounts', () => {
 			mealId: meal.id,
 		})
 
-		// The salad's onion alone: the curry has been made.
+		// Only the salad's onion, since the curry has been made.
 		expect(await amounts(session.householdId)).toEqual({
 			cucumber: '1',
 			onion: '1',

@@ -103,8 +103,8 @@ test.describe('Move a Meal', () => {
 		await expect(page.getByText('Added 1 item to Shopping')).toBeVisible()
 		const shopping = await readShopping()
 		expect(shopping).toHaveLength(1)
-		// Cooked after its Shopping was added: a cooked item adds nothing, and
-		// the move must keep the cooked state too.
+		// Cooked after its Shopping was added, since a cooked item adds
+		// nothing. The move must keep the cooked state too.
 		await prisma.mealRecipeItem.updateMany({
 			where: { mealId: meal.id },
 			data: { cooked: true },

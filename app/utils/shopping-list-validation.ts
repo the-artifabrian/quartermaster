@@ -31,7 +31,7 @@ export const ShoppingListItemSchema = z.object({
 export type ShoppingListItemFormData = z.infer<typeof ShoppingListItemSchema>
 
 /**
- * The most items one bulk add takes: far more than a household picks from
+ * The most items one bulk add takes, far more than a household picks from
  * its Staples or says in one voice add.
  */
 export const BULK_ADD_MAX_ITEMS = 200

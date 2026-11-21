@@ -22,10 +22,10 @@ export type MealShoppingDemand = {
  * Build Shopping demand for one or more Meals: Recipe items at their stored
  * batch multipliers, and note cards' Shopping lines (#109).
  *
- * The cooked rule lives here so every path follows it: a cooked Recipe item
+ * The cooked rule lives here so every path follows it. A cooked Recipe item
  * has been made, so it never adds new amounts anywhere (Add to Shopping,
  * From Plan, the picker, Update Shopping). On Update Shopping, amounts it
- * already put on Shopping stay as they are, checked or not: the caller
+ * already put on Shopping stay as they are, checked or not. The caller
  * passes `cookedIdentities` on, and an identity in it is neither added to
  * nor withdrawn. An ingredient a cooked and an uncooked item share counts as
  * cooked there, so an existing amount stays; with none on Shopping, only the

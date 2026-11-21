@@ -242,6 +242,8 @@ async function check(dir: string) {
 		['[64:ff9b::a00:1]', false],
 		['[64:ff9b::5db8:d822]', true],
 		['[64:ff9b:1::5db8:d822]', false],
+		['[::ffff:0:5db8:d822]', false],
+		['[fec0::1]', false],
 		['[2606:4700::6810:84e5]', true],
 	] as const) {
 		const result = await isPublicUrl(`http://${address}/`)

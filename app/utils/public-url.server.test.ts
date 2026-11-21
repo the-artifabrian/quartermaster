@@ -6,6 +6,9 @@
 // - discard-only 100::/64: refused
 // - local-use NAT64 64:ff9b:1::/48: refused; the well-known 64:ff9b::/96 is
 //   still judged by the IPv4 address inside
+// - IPv4-translated ::ffff:0:a.b.c.d (::ffff:0:0:0/96): refused, while the
+//   neighbouring IPv4-mapped ::ffff:a.b.c.d still goes by the IPv4 rules
+// - deprecated site-local fec0::/10: refused
 // - a DNS answer in any of these ranges makes the whole name non-public
 // - ordinary global IPv6 next to them (2001:4860::, 2606:4700::) and
 //   IPv4-mapped public addresses still pass
@@ -99,6 +102,10 @@ test('IPv6 ranges that carry or stand in for another address are refused', async
 		'100::1',
 		'100::ffff:ffff:ffff:ffff',
 		'64:ff9b:1::5db8:d822',
+		'::ffff:0:93.184.216.34',
+		'::ffff:0:a00:1',
+		'fec0::1',
+		'feff::1',
 	]) {
 		expect(
 			await isPublicUrl(`http://[${address}]/`, resolveHost),

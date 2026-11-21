@@ -437,7 +437,10 @@ Forgot-password answers the same way for an account that exists and one that
 doesn't, and at about the same speed. Both make one lookup before answering; a
 known account's code is made and emailed afterwards, through `runInBackground`
 in `app/utils/background.server.ts`. Tests wait for that work with
-`backgroundWorkSettled`.
+`backgroundWorkSettled`, and so does graceful shutdown (`server/shutdown.ts`),
+for up to 3 of its 4 seconds, alongside the PostHog flush. An event that
+background work captures after the flush has started can be lost, and work
+still running after 3 seconds is cut off and logged.
 
 Using a code finds and deletes its row, then the target's other codes of that
 type, in one write transaction. The transaction holds SQLite's write lock from

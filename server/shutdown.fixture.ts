@@ -1,8 +1,24 @@
 import { createServer } from 'node:http'
+import { runInBackground } from '../app/utils/background.server.ts'
 import { registerEventStream } from '../app/utils/event-streams.server.ts'
 import { registerGracefulShutdown } from './shutdown.ts'
 
 const server = createServer((request, response) => {
+	// Background work, as a reset email is: one that ends soon, and one that
+	// never does.
+	if (request.url === '/slow-work' || request.url === '/stuck-work') {
+		runInBackground(
+			request.url === '/slow-work'
+				? new Promise((resolve) => setTimeout(resolve, 800)).then(() =>
+						console.log('BACKGROUND_DONE'),
+					)
+				: new Promise(() => {}),
+			request.url,
+		)
+		response.writeHead(200).end('started')
+		console.log('WORK_STARTED')
+		return
+	}
 	if (request.url !== '/events') {
 		response.writeHead(404).end()
 		return

@@ -43,6 +43,9 @@
  * - A row id from another Household, or one deleted meanwhile, answers
  *   missing and writes nothing.
  * - At the current version both still save.
+ * - Renaming a typed row that holds a Meal share moves the share to an
+ *   unchecked row of the old name, never onto a checked one; with none, to a
+ *   new unchecked row.
  */
 import { describe, expect, test } from 'vitest'
 import { type Prisma, type PrismaClient } from '#app/generated/prisma/client.ts'
@@ -791,5 +794,85 @@ describe('row Edit and Remove generated amount check the version', () => {
 				where: { itemId: garlic.id },
 			}),
 		).toBe(0)
+	})
+})
+
+describe('Edit renaming a row with a Meal share', () => {
+	test('the share moves to an unchecked row of the old name, never a checked one', async () => {
+		const { household, list, meal } = await seedHousehold(prisma)
+		const mealA = await meal(0)
+		const bought = await prisma.shoppingListItem.create({
+			data: { listId: list.id, name: 'onion', quantity: '1', checked: true },
+		})
+		const typed = await prisma.shoppingListItem.create({
+			data: { listId: list.id, name: 'onion', quantity: '2', source: 'manual' },
+		})
+		await reconcileMealShoppingContributions(prisma, {
+			mealId: mealA.id,
+			listId: list.id,
+			lines: [line('onion', '3', null)],
+		})
+		const seen = await prisma.shoppingListItem.findUniqueOrThrow({
+			where: { id: typed.id },
+		})
+
+		expect(
+			await editShoppingDisplayGroup(prisma, {
+				householdId: household.id,
+				itemId: typed.id,
+				observedVersion: seen.checkVersion,
+				name: 'garlic',
+				quantity: '2',
+				unit: null,
+			}),
+		).toEqual({ status: 'success' })
+
+		const rows = await displayed(prisma, list.id)
+		expect(rows.find((row) => row.id === bought.id)).toMatchObject({
+			checked: true,
+			display: { quantity: '1', combined: false },
+		})
+		const share = await prisma.mealShoppingContribution.findFirstOrThrow({
+			include: { item: true },
+		})
+		expect(share.item).toMatchObject({
+			name: 'onion',
+			checked: false,
+			source: 'meal',
+		})
+		expect(share.itemId).not.toBe(bought.id)
+		expect(share.itemId).not.toBe(typed.id)
+
+		// A later rename finds that unchecked row and joins it.
+		const later = await prisma.shoppingListItem.create({
+			data: {
+				listId: list.id,
+				name: 'onions',
+				quantity: '1',
+				source: 'manual',
+			},
+		})
+		await prisma.mealShoppingContribution.update({
+			where: { id: share.id },
+			data: { itemId: later.id },
+		})
+		await prisma.shoppingListItem.delete({ where: { id: share.itemId } })
+		const target = await prisma.shoppingListItem.create({
+			data: { listId: list.id, name: 'onion', quantity: '5', source: 'manual' },
+		})
+		const laterSeen = await prisma.shoppingListItem.findUniqueOrThrow({
+			where: { id: later.id },
+		})
+		await editShoppingDisplayGroup(prisma, {
+			householdId: household.id,
+			itemId: later.id,
+			observedVersion: laterSeen.checkVersion,
+			name: 'leek',
+			quantity: '1',
+			unit: null,
+		})
+		expect(
+			(await prisma.mealShoppingContribution.findFirstOrThrow()).itemId,
+		).toBe(target.id)
 	})
 })

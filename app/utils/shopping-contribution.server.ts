@@ -399,8 +399,8 @@ async function readRowAtVersion(
  * overwrite the user's correction. Generated-only groups become one manual
  * row and shed every represented contribution. A mixed group's own component
  * (a typed or Recipe-detail row's amount) alone is edited; if its name moves
- * to another identity, the generated component is split back into its own
- * checked-state-preserving group.
+ * to another identity, the generated component goes back to an unchecked
+ * row of its own ingredient, or a new one.
  *
  * The edit applies only at the version the person saw. Otherwise it would
  * drop Meal demand that joined since, or change a row someone just checked.
@@ -456,17 +456,17 @@ export function editShoppingDisplayGroup(
 			return { status: 'success' }
 		}
 
+		// The share goes back to an outstanding row of its own ingredient, by
+		// the same rule as new Meal demand, so a checked purchase never grows.
 		const otherRows = await tx.shoppingListItem.findMany({
 			where: { listId: item.listId, id: { not: item.id } },
-			select: { id: true, name: true },
+			orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+			select: { id: true, name: true, checked: true, horizon: true },
 		})
-		const existingByIdentity = new Map<string, string>()
-		for (const row of otherRows) {
-			const identity = demandIdentity(row.name)
-			if (!existingByIdentity.has(identity)) {
-				existingByIdentity.set(identity, row.id)
-			}
-		}
+		const targetByIdentity = selectNextShopDemandTargets(
+			otherRows,
+			item.mealContributions.map((c) => c.canonicalName),
+		)
 
 		const contributionsByIdentity = new Map<
 			string,
@@ -479,7 +479,7 @@ export function editShoppingDisplayGroup(
 			contributionsByIdentity.set(contribution.canonicalName, group)
 		}
 		for (const [identity, contributions] of contributionsByIdentity) {
-			let targetId = existingByIdentity.get(identity)
+			let targetId = targetByIdentity.get(identity)?.id
 			if (!targetId) {
 				targetId = createId()
 				const first = contributions[0]!
@@ -491,7 +491,7 @@ export function editShoppingDisplayGroup(
 						quantity: first.quantity,
 						unit: first.unit,
 						category: guessCategory(first.name),
-						checked: item.checked,
+						checked: false,
 						source: 'meal',
 						horizon: item.horizon,
 					},

@@ -7,9 +7,32 @@ import { closeEventStreams } from '../app/utils/event-streams.server.ts'
 // comfortably below that platform window so cleanup failures are bounded too.
 export const SHUTDOWN_GRACE_PERIOD_MS = 4_000
 
+// Background work, such as a reset email going out, gets most of the grace
+// period. It runs alongside the telemetry flush, which has its own 3 seconds.
+const BACKGROUND_WORK_WAIT_MS = 3_000
+
 type ShutdownOptions = {
 	flushTelemetry?: () => Promise<void>
 	closeStreams?: () => void
+	finishBackgroundWork?: () => Promise<void>
+}
+
+async function waitForBackgroundWork() {
+	const { backgroundWorkSettled, backgroundTaskCount } =
+		await import('../app/utils/background.server.ts')
+	let timer: ReturnType<typeof setTimeout> | undefined
+	const settled = await Promise.race([
+		backgroundWorkSettled().then(() => true),
+		new Promise<false>((resolve) => {
+			timer = setTimeout(() => resolve(false), BACKGROUND_WORK_WAIT_MS)
+		}),
+	])
+	clearTimeout(timer)
+	if (!settled) {
+		console.error(
+			`Shutting down with ${backgroundTaskCount()} background tasks unfinished`,
+		)
+	}
 }
 
 async function flushPostHog() {
@@ -22,6 +45,7 @@ export function registerGracefulShutdown(
 	{
 		flushTelemetry = flushPostHog,
 		closeStreams = closeEventStreams,
+		finishBackgroundWork = waitForBackgroundWork,
 	}: ShutdownOptions = {},
 ) {
 	return closeWithGrace(
@@ -38,7 +62,11 @@ export function registerGracefulShutdown(
 			})
 			closeStreams()
 
-			const results = await Promise.allSettled([serverClosed, flushTelemetry()])
+			const results = await Promise.allSettled([
+				serverClosed,
+				flushTelemetry(),
+				finishBackgroundWork(),
+			])
 			const failures = results.filter(
 				(result): result is PromiseRejectedResult =>
 					result.status === 'rejected',

@@ -50,24 +50,22 @@ export async function loader({ request }: Route.LoaderArgs) {
 					},
 				},
 			},
-			invites: {
-				where: {
-					usedAt: null,
-					expiresAt: { gt: new Date() },
-				},
-				select: {
-					id: true,
-					token: true,
-					expiresAt: true,
-					createdAt: true,
-				},
-				orderBy: { createdAt: 'desc' },
-			},
 		},
 	})
 
+	// A live invite's token is the invite: whoever holds it can join. Only the
+	// owner, who makes and revokes invites, gets them.
+	const invites =
+		role === 'owner'
+			? await prisma.householdInvite.findMany({
+					where: { householdId, usedAt: null, expiresAt: { gt: new Date() } },
+					select: { id: true, token: true, expiresAt: true, createdAt: true },
+					orderBy: { createdAt: 'desc' },
+				})
+			: []
+
 	return {
-		household,
+		household: { ...household, invites },
 		currentUserId: userId,
 		currentRole: role,
 	}

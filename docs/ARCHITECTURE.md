@@ -77,6 +77,11 @@ reaches the app at once. The two sides meet in three places:
   through a TestFlight build, so the Web side must keep working against the
   previous shell.
 
+The apple-app-site-association file claims every path, so on a phone with the
+app installed a link in an email, such as a sign-up or password reset link,
+opens the app, with the app's own cookies rather than Safari's. The typed code
+from the same email works in either place.
+
 ### Recipe photos
 
 Photos are stored in object storage (Tigris) under
@@ -156,11 +161,13 @@ A resize that is already being made when its photo is deleted can land in the
 cache after the delete has cleared it. The cache is far under the prune limit in
 production (about half a megabyte), so the prune would never reach it. The
 delete therefore clears the photo's resizes again two minutes later, from an
-unref'd timer that logs a failure and moves on. Two gaps are known and accepted.
-A restart inside those two minutes loses the second clear, and a resize that
-lands then is served until the cache passes the limit. And a browser or the
-service worker that already holds a deleted photo keeps showing it from its own
-cache.
+unref'd timer that logs a failure and moves on. Three gaps are known and
+accepted. A restart inside those two minutes loses the second clear, and a
+resize that lands then is served until the cache passes the limit. A browser or
+the service worker that already holds a deleted photo keeps showing it from its
+own cache. And when the storage delete itself fails, the delete is logged and
+the Recipe goes anyway, but the photo stays in storage, so it and its resizes
+keep serving to anyone who has the key.
 
 ## Data model
 
@@ -204,6 +211,11 @@ owner, else the longest-standing member) and promotes that member when the
 Household would have no owner, so a deleted member's data stays with the
 Household. Only a sole member's deletion removes the Household. New data owned
 by a User and a Household needs the same handover.
+
+A Recipe's share link is `/share/<recipe id>`. It works until the Recipe is
+deleted and can't be revoked on its own. Saving from it copies the sender's
+Recipe as it stands, including the text it was imported from (`rawText`), and
+gives the photo its own copy.
 
 An interactive transaction that reads, or decides what to write, before its
 first write runs through `writeTransaction` in
@@ -367,6 +379,14 @@ changing the email or turning 2FA off asks for a code again when the session
 last verified more than two hours ago (`requireRecentVerification` in
 `app/routes/_auth/verify.server.ts`).
 
+A 2FA sign-in waits in the verify cookie for its code, for up to ten minutes.
+On a shared browser that pending sign-in is someone else's business once another
+person signs in. A sign-in without 2FA clears it, and so does every way a
+session ends on the browser (`endSessionCookies` in `app/utils/auth.server.ts`):
+logging out, deleting the account, and a session that has expired or gone. The
+two-hour check and the reverify step only count a pending sign-in that belongs
+to the signed-in user.
+
 Adding a passkey asks for the current password
 (`app/routes/_auth/webauthn/registration.ts`). The request for the passkey
 options checks it, and only then sets the challenge cookie. That cookie is
@@ -417,6 +437,15 @@ out, its place is removed too and the person is told the send failed. A reset is
 keyed by the account's id, whichever of its username or email was typed, and a
 signup by the lowercased address.
 
+Forgot-password answers the same way for an account that exists and one that
+doesn't, and at about the same speed. Both make one lookup before answering; a
+known account's code is made and emailed afterwards, through `runInBackground`
+in `app/utils/background.server.ts`. Tests wait for that work with
+`backgroundWorkSettled`, and so does graceful shutdown (`server/shutdown.ts`),
+for up to 3 of its 4 seconds, alongside the PostHog flush. An event that
+background work captures after the flush has started can be lost, and work
+still running after 3 seconds is cut off and logged.
+
 Using a code finds and deletes its row, then the target's other codes of that
 type, in one write transaction. The transaction holds SQLite's write lock from
 its first statement, so of two submits of the same code the second finds no row,
@@ -454,6 +483,15 @@ place a user sees Pro, search rather than trust a list:
 ```sh
 grep -rlw Pro app --include='*.tsx'
 ```
+
+Checkout takes its price from `STRIPE_PRO_YEARLY_PRICE_ID`. The upgrade form
+names a plan (`yearly` is the only one), never a price, and an unknown plan or
+a missing price is refused before Stripe is asked. Deleting an account cancels
+its Stripe subscription once the deletion has committed, so a deletion that
+fails never leaves an account whose Pro was cancelled under it. The delete
+reads the subscription id before the row goes. If Stripe then fails, the account
+stays deleted and the failure is logged and captured as `stripe_cancel_failed`
+with the subscription id, to cancel by hand.
 
 **Rate limits.** Express limits requests per client address before React Router
 sees them, and nothing a client sends can choose its own bucket.
@@ -713,7 +751,12 @@ pinning relies on Bun using `tls.serverName` for SNI, the certificate check and
 the keep-alive pool key, so a Bun upgrade must pass it. CI runs it in the lint
 job on CI's Bun version, so upgrade that version together with the Dockerfile's.
 Only this check may import `unguardedFetchFrom`, which skips the public-address
-guard.
+guard. It also runs a few address literals through that guard, whose ranges rest
+on Bun's own `BlockList` in production. The guard refuses the IPv6 ranges that
+wrap or relay to another address (IPv4-compatible `::/96`, IPv4-translated
+`::ffff:0:0:0/96`, 6to4, Teredo, the discard prefix and local-use NAT64)
+outright, along with the old site-local `fec0::/10`, and judges well-known NAT64
+by the IPv4 address inside.
 
 The Playwright `login` fixture signs in a user who already has a Household,
 created the same way signup creates one, and returns its `householdId`. Seed
@@ -738,4 +781,4 @@ the images sent, or nothing found when the Household has a metadata value named
 first result, even `false`. To wait on async page state such as Cache Storage,
 use `expect.poll(() => page.evaluate(async () => …))`.
 
-_Updated 20 November 2026._
+_Updated 21 November 2026._

@@ -17,6 +17,7 @@ import { combineHeaders } from './misc.tsx'
 import { type ProviderUser } from './providers/provider.ts'
 import { DEFAULT_RECIPE_METADATA_VALUE_CREATE } from './recipe-metadata.ts'
 import { authSessionStorage } from './session.server.ts'
+import { verifySessionStorage } from './verification.server.ts'
 
 export const AUTO_TRIAL_DAYS = 14
 
@@ -49,12 +50,36 @@ export async function getUserId(request: Request) {
 	})
 	if (!session?.userId) {
 		throw redirect('/', {
-			headers: {
-				'set-cookie': await authSessionStorage.destroySession(authSession),
-			},
+			headers: await endSessionCookies(request, authSession),
 		})
 	}
 	return session.userId
+}
+
+/**
+ * Set-Cookie headers for a session that ends on this browser: the auth cookie
+ * and the verify cookie both go, so a 2FA sign-in or other code step left
+ * pending here doesn't carry over to whoever signs in next.
+ */
+export async function endSessionCookies(
+	request: Request,
+	authSession?: Awaited<ReturnType<typeof authSessionStorage.getSession>>,
+) {
+	const cookie = request.headers.get('cookie')
+	const headers = new Headers()
+	headers.append(
+		'set-cookie',
+		await authSessionStorage.destroySession(
+			authSession ?? (await authSessionStorage.getSession(cookie)),
+		),
+	)
+	headers.append(
+		'set-cookie',
+		await verifySessionStorage.destroySession(
+			await verifySessionStorage.getSession(cookie),
+		),
+	)
+	return headers
 }
 
 /**
@@ -337,7 +362,7 @@ export async function logout(
 	throw redirect(safeRedirect(redirectTo), {
 		...responseInit,
 		headers: combineHeaders(
-			{ 'set-cookie': await authSessionStorage.destroySession(authSession) },
+			await endSessionCookies(request, authSession),
 			responseInit?.headers,
 		),
 	})

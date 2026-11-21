@@ -14,7 +14,11 @@ import {
 	deleteAccount,
 	getAccountDeletionOutcome,
 } from '#app/utils/account-deletion.server.ts'
-import { requireUserId, sessionKey } from '#app/utils/auth.server.ts'
+import {
+	endSessionCookies,
+	requireUserId,
+	sessionKey,
+} from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { useIsNativeShell, useRequestInfo } from '#app/utils/request-info.ts'
@@ -414,13 +418,17 @@ function SignOutOfSessions({
 	)
 }
 
-async function deleteDataAction({ userId }: ProfileActionArgs) {
+async function deleteDataAction({ request, userId }: ProfileActionArgs) {
 	await deleteAccount(userId)
-	return redirectWithToast('/', {
-		type: 'success',
-		title: 'Account deleted',
-		description: 'Your account has been deleted',
-	})
+	return redirectWithToast(
+		'/',
+		{
+			type: 'success',
+			title: 'Account deleted',
+			description: 'Your account has been deleted',
+		},
+		{ headers: await endSessionCookies(request) },
+	)
 }
 
 function DeleteData({ outcome }: { outcome: AccountDeletionOutcome }) {

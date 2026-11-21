@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { ErrorList, Field } from '#app/components/forms.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
+import { runInBackground } from '#app/utils/background.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
 import { EmailSchema, UsernameSchema } from '#app/utils/user-validation.ts'
@@ -34,40 +35,37 @@ export async function action({ request }: Route.ActionArgs) {
 	const { usernameOrEmail } = submission.value
 
 	// The answer is the same whether or not the account exists, and whether
-	// or not an email went out (past the cap, none does).
+	// or not an email went out (past the cap, none does). Both cases make the
+	// same one lookup before answering: making the code and sending the email
+	// happen after the answer, so a known account doesn't answer slower.
 	const target = await emailCodeTarget('reset-password', usernameOrEmail)
-	const user = target
-		? await prisma.user.findUnique({
-				where: { id: target },
-				select: { email: true },
-			})
-		: null
-
-	if (target && user) {
-		try {
-			// Keyed by the account, whichever of username or email was typed,
-			// so all of one account's codes share one cap.
-			await prepareVerification({
-				type: 'reset-password',
-				target,
-				send: ({ verifyUrl, otp }) =>
-					sendEmail({
-						to: user.email,
-						subject: `Quartermaster Password Reset`,
-						react: (
-							<ForgotPasswordEmail
-								onboardingUrl={verifyUrl.toString()}
-								otp={otp}
-							/>
-						),
-					}),
-			})
-		} catch {
-			// Swallow errors to prevent user enumeration via error responses
-		}
+	if (target) {
+		runInBackground(sendResetCode(target), 'sending a password reset code')
 	}
 
 	return data({ result: submission.reply(), status: 'sent' as const })
+}
+
+async function sendResetCode(target: string) {
+	const user = await prisma.user.findUnique({
+		where: { id: target },
+		select: { email: true },
+	})
+	if (!user) return
+	// Keyed by the account, whichever of username or email was typed, so all
+	// of one account's codes share one cap.
+	await prepareVerification({
+		type: 'reset-password',
+		target,
+		send: ({ verifyUrl, otp }) =>
+			sendEmail({
+				to: user.email,
+				subject: `Quartermaster Password Reset`,
+				react: (
+					<ForgotPasswordEmail onboardingUrl={verifyUrl.toString()} otp={otp} />
+				),
+			}),
+	})
 }
 
 function ForgotPasswordEmail({

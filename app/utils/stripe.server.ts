@@ -1,5 +1,6 @@
 import Stripe from 'stripe'
 import { prisma } from './db.server.ts'
+import { captureServerEvent } from './posthog.server.ts'
 
 let stripeClient: Stripe | null = null
 
@@ -27,6 +28,25 @@ export function isStripeConfigured(): boolean {
 }
 
 /**
+ * The plans checkout offers. The browser may name a plan, never a price: the
+ * price for each comes from the server's own config.
+ */
+export const CHECKOUT_PLANS = ['yearly'] as const
+export type CheckoutPlan = (typeof CHECKOUT_PLANS)[number]
+
+export function isCheckoutPlan(value: unknown): value is CheckoutPlan {
+	return CHECKOUT_PLANS.some((plan) => plan === value)
+}
+
+/** The configured Stripe price for a plan, or null when there is none. */
+export function getPlanPriceId(plan: CheckoutPlan): string | null {
+	switch (plan) {
+		case 'yearly':
+			return process.env.STRIPE_PRO_YEARLY_PRICE_ID || null
+	}
+}
+
+/**
  * Maps a Stripe Price ID to a subscription tier.
  * All Stripe subscriptions map to 'pro' (single paid tier).
  */
@@ -48,19 +68,22 @@ function getPeriodEndFromSubscription(subscription: Stripe.Subscription): Date {
 }
 
 /**
- * Creates a Stripe Checkout Session for a subscription purchase.
+ * Creates a Stripe Checkout Session for a subscription purchase, at the
+ * configured price of `plan`.
  */
 export async function createCheckoutSession({
 	userId,
-	priceId,
+	plan,
 	returnUrl,
 }: {
 	userId: string
-	priceId: string
+	plan: CheckoutPlan
 	returnUrl: string
 }): Promise<Stripe.Checkout.Session> {
 	const stripe = getStripeClient()
 	if (!stripe) throw new Error('Stripe is not configured')
+	const priceId = getPlanPriceId(plan)
+	if (!priceId) throw new Error(`No Stripe price is configured for ${plan}`)
 
 	// Look up existing Stripe customer ID for this user
 	const subscription = await prisma.subscription.findUnique({
@@ -101,6 +124,38 @@ export async function createPortalSession({
 		customer: stripeCustomerId,
 		return_url: returnUrl,
 	})
+}
+
+/**
+ * Stripe's defaults (80 seconds a try, two retries, and a timeout counts as a
+ * reason to retry) could hold a deletion for minutes. One retry of 5 seconds
+ * keeps a hung Stripe to about 11 seconds, backoff included.
+ */
+const CANCEL_REQUEST = { timeout: 5_000, maxNetworkRetries: 1 }
+
+/**
+ * Cancels a subscription at once, for an account being deleted. It never
+ * throws: someone deleting their account shouldn't be stopped by Stripe. A
+ * failure is logged and captured with the subscription id, so it can be
+ * cancelled by hand in the Stripe dashboard.
+ */
+export async function cancelSubscriptionOfDeletedAccount(
+	subscriptionId: string,
+) {
+	try {
+		const stripe = getStripeClient()
+		if (!stripe) throw new Error('Stripe is not configured')
+		await stripe.subscriptions.cancel(subscriptionId, {}, CANCEL_REQUEST)
+	} catch (error) {
+		console.error(
+			`Could not cancel Stripe subscription ${subscriptionId} of a deleted account`,
+			error,
+		)
+		captureServerEvent('server', 'stripe_cancel_failed', {
+			subscription_id: subscriptionId,
+			message: error instanceof Error ? error.message : String(error),
+		})
+	}
 }
 
 type SubscriptionRetriever = (id: string) => Promise<{

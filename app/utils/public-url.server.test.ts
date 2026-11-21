@@ -1,3 +1,17 @@
+// Failure list for IPv6 ranges that carry or stand in for another address:
+// - IPv4-compatible ::a.b.c.d (::/96), in dotted and hex spelling, private
+//   or public inside: refused, since it is deprecated and never a real host
+// - 6to4 2002::/16, with a private or a public IPv4 inside: refused
+// - Teredo 2001::/32: refused, its client address is obscured
+// - discard-only 100::/64: refused
+// - local-use NAT64 64:ff9b:1::/48: refused; the well-known 64:ff9b::/96 is
+//   still judged by the IPv4 address inside
+// - IPv4-translated ::ffff:0:a.b.c.d (::ffff:0:0:0/96): refused, while the
+//   neighbouring IPv4-mapped ::ffff:a.b.c.d still goes by the IPv4 rules
+// - deprecated site-local fec0::/10: refused
+// - a DNS answer in any of these ranges makes the whole name non-public
+// - ordinary global IPv6 next to them (2001:4860::, 2606:4700::) and
+//   IPv4-mapped public addresses still pass
 import { isIP } from 'node:net'
 import { http, HttpResponse } from 'msw'
 import { expect, test, vi } from 'vitest'
@@ -74,6 +88,60 @@ test('private and reserved address literals are refused in any spelling', async 
 	}
 	expect(await isPublicUrl(`http://${PUBLIC_IP}/`, resolveHost)).toBe(true)
 	expect(lookups).toEqual([])
+})
+
+test('IPv6 ranges that carry or stand in for another address are refused', async () => {
+	const { resolveHost, lookups } = resolverFor({})
+	for (const address of [
+		'::10.0.0.1',
+		'::a00:1',
+		'::93.184.216.34',
+		'2002:a00:1::1',
+		'2002:5db8:d822::1',
+		'2001:0:4136:e378:8000:63bf:3fff:fdd2',
+		'100::1',
+		'100::ffff:ffff:ffff:ffff',
+		'64:ff9b:1::5db8:d822',
+		'::ffff:0:93.184.216.34',
+		'::ffff:0:a00:1',
+		'fec0::1',
+		'feff::1',
+	]) {
+		expect(
+			await isPublicUrl(`http://[${address}]/`, resolveHost),
+			address,
+		).toBe(false)
+	}
+	for (const address of [
+		'2001:4860:4860::8888',
+		PUBLIC_IPV6,
+		'::ffff:93.184.216.34',
+		'64:ff9b::5db8:d822',
+		'100:0:0:1::1',
+	]) {
+		expect(
+			await isPublicUrl(`http://[${address}]/`, resolveHost),
+			address,
+		).toBe(true)
+	}
+	expect(lookups).toEqual([])
+})
+
+test('a name answering with one of those IPv6 ranges is not public', async () => {
+	const { resolveHost } = resolverFor({
+		'compat.example': [PUBLIC_IP, '::a00:1'],
+		'sixtofour.example': ['2002:5db8:d822::1'],
+		'teredo.example': ['2001:0:4136:e378:8000:63bf:3fff:fdd2'],
+		'discard.example': ['100::1'],
+	})
+	for (const name of [
+		'compat.example',
+		'sixtofour.example',
+		'teredo.example',
+		'discard.example',
+	]) {
+		expect(await isPublicUrl(`https://${name}/`, resolveHost), name).toBe(false)
+	}
 })
 
 test('internal names are refused without a lookup', async () => {

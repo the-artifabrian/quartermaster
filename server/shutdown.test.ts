@@ -1,3 +1,12 @@
+// Failure list for graceful shutdown:
+// - an open SSE connection holds the server open: shutdown must close it and
+//   still exit cleanly, inside the grace period
+// - telemetry queued in memory is lost unless it is flushed before exit
+// - background work still running (a reset email going out) is cut off at
+//   exit: shutdown waits for it to finish
+// - background work that never finishes must not hold the exit past the
+//   grace period
+// - the grace period must fit inside Fly's kill window
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { get } from 'node:http'
@@ -51,7 +60,84 @@ function waitForExit(process: ChildProcessWithoutNullStreams) {
 	)
 }
 
+function startFixture() {
+	const fixture = fileURLToPath(
+		new URL('./shutdown.fixture.ts', import.meta.url),
+	)
+	const process = spawn('bun', [fixture], { stdio: ['pipe', 'pipe', 'pipe'] })
+	const output = { text: '' }
+	process.stdout.on('data', (chunk: Buffer) => {
+		output.text += chunk.toString()
+	})
+	process.stderr.on('data', (chunk: Buffer) => {
+		output.text += chunk.toString()
+	})
+	return { process, output }
+}
+
+async function shutDown(process: ChildProcessWithoutNullStreams) {
+	const exit = waitForExit(process)
+	process.kill('SIGINT')
+	return Promise.race([
+		exit,
+		new Promise<'timeout'>((resolve) =>
+			setTimeout(() => resolve('timeout'), TEST_DEADLINE_MS),
+		),
+	])
+}
+
+async function startWork(
+	process: ChildProcessWithoutNullStreams,
+	path: '/slow-work' | '/stuck-work',
+) {
+	const listening = await waitForOutput(process, /LISTENING:(\d+)/)
+	const started = waitForOutput(process, /WORK_STARTED/)
+	get(`http://127.0.0.1:${listening[1]}${path}`).end()
+	await started
+}
+
 describe('graceful shutdown', () => {
+	test(
+		'waits for background work that is still running',
+		async () => {
+			const started = startFixture()
+			child = started.process
+			await startWork(child, '/slow-work')
+
+			const result = await shutDown(child)
+
+			if (result === 'timeout') {
+				throw new Error(
+					`Shutdown exceeded ${TEST_DEADLINE_MS}ms:\n${started.output.text}`,
+				)
+			}
+			expect(result).toEqual({ code: 0, signal: null })
+			expect(started.output.text).toContain('BACKGROUND_DONE')
+			expect(started.output.text).toContain('TELEMETRY_FLUSHED')
+		},
+		TEST_DEADLINE_MS + 1_000,
+	)
+
+	test(
+		'stops waiting for background work that never ends, inside the grace period',
+		async () => {
+			const started = startFixture()
+			child = started.process
+			await startWork(child, '/stuck-work')
+
+			const result = await shutDown(child)
+
+			if (result === 'timeout') {
+				throw new Error(
+					`Shutdown exceeded ${TEST_DEADLINE_MS}ms:\n${started.output.text}`,
+				)
+			}
+			expect(result).toEqual({ code: 0, signal: null })
+			expect(started.output.text).toContain('TELEMETRY_FLUSHED')
+		},
+		TEST_DEADLINE_MS + 1_000,
+	)
+
 	test('application grace period fits inside the platform kill window', () => {
 		expect(SHUTDOWN_GRACE_PERIOD_MS).toBeLessThan(FLY_KILL_TIMEOUT_MS)
 	})

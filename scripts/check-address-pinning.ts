@@ -6,6 +6,9 @@
  * the keep-alive pool. Run it after upgrading Bun:
  * `bun run test:address-pinning`.
  *
+ * It also checks the address guard's ranges, which rest on node:net's
+ * BlockList: under Bun that is Bun's own implementation.
+ *
  * It makes a throwaway CA and a certificate for on-cert.test, then runs itself
  * again with NODE_EXTRA_CA_CERTS, which Bun reads only at startup. Requests go
  * to 127.0.0.1 by address, so no .test name is ever looked up.
@@ -17,7 +20,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import tls from 'node:tls'
 import { fileURLToPath } from 'node:url'
-import { unguardedFetchFrom } from '#app/utils/public-url.server.ts'
+import {
+	isPublicUrl,
+	unguardedFetchFrom,
+} from '#app/utils/public-url.server.ts'
 
 const ON_CERT = 'on-cert.test'
 const OFF_CERT = 'off-cert.test'
@@ -220,6 +226,33 @@ async function check(dir: string) {
 		`${OFF_CERT} is still refused with ${NAME_MISMATCH} right after that pooled success`,
 		afterPool,
 	)
+
+	// Address literals are judged without a lookup. IPv4-mapped addresses go
+	// by the IPv4 rules, and the IPv6 ranges that wrap another address are
+	// refused whole.
+	for (const [address, isPublic] of [
+		['10.0.0.1', false],
+		['93.184.216.34', true],
+		['[::ffff:10.0.0.1]', false],
+		['[::ffff:93.184.216.34]', true],
+		['[::a00:1]', false],
+		['[2002:5db8:d822::1]', false],
+		['[2001:0:4136:e378:8000:63bf:3fff:fdd2]', false],
+		['[100::1]', false],
+		['[64:ff9b::a00:1]', false],
+		['[64:ff9b::5db8:d822]', true],
+		['[64:ff9b:1::5db8:d822]', false],
+		['[::ffff:0:5db8:d822]', false],
+		['[fec0::1]', false],
+		['[2606:4700::6810:84e5]', true],
+	] as const) {
+		const result = await isPublicUrl(`http://${address}/`)
+		verify(
+			result === isPublic,
+			`${address} is ${isPublic ? 'public' : 'refused'} by the address guard`,
+			{ result },
+		)
+	}
 
 	return failures === 0 ? 0 : 1
 }

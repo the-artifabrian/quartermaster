@@ -247,9 +247,20 @@ export async function action({ request, params }: Route.ActionArgs) {
 	const intent = formData.get('intent')
 
 	if (intent === 'toggleFavorite') {
+		// The tap says which state it wants, so two taps, or two people,
+		// can't cancel out. A page loaded before taps said so sends nothing,
+		// and flips it as it used to.
+		const wanted = formData.get('isFavorite')
+		invariantResponse(
+			wanted === null || wanted === 'true' || wanted === 'false',
+			'isFavorite must be true or false',
+			{ status: 400 },
+		)
 		await prisma.recipe.update({
 			where: { id: recipeId },
-			data: { isFavorite: !recipe.isFavorite },
+			data: {
+				isFavorite: wanted === null ? !recipe.isFavorite : wanted === 'true',
+			},
 		})
 		return { success: true }
 	}
@@ -466,9 +477,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		)
 	}, [searchParams, setSearchParams, location.state])
 	const favoriteFetcher = useFetcher()
+	// While a tap is on its way, show the state it asked for.
 	const isFavorite =
 		favoriteFetcher.formData?.get('intent') === 'toggleFavorite'
-			? !recipe.isFavorite
+			? favoriteFetcher.formData.get('isFavorite') === 'true'
 			: recipe.isFavorite
 	const {
 		checkedIngredients,

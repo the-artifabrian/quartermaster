@@ -44,6 +44,11 @@ export function RecipeActionBar({
 			{/* Favorite */}
 			<favoriteFetcher.Form method="POST">
 				<input type="hidden" name="intent" value="toggleFavorite" />
+				<input
+					type="hidden"
+					name="isFavorite"
+					value={isFavorite ? 'false' : 'true'}
+				/>
 				<Tooltip>
 					<TooltipTrigger asChild>
 						<Button

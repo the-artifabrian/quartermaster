@@ -29,6 +29,17 @@
  * - Unchanged demand on a checked row stays where it is.
  * - The Meal no longer needs the ingredient. The checked row stays as bought.
  * - A checked row left with no live Meal share is not cleaned up as empty.
+ *
+ * Row Edit and Remove generated amount carry the version the person saw:
+ * - Another Meal's demand joined the row after Edit opened. Saving must not
+ *   delete that share; the save is refused as a conflict.
+ * - Someone checked the row while it was being edited. The save is refused,
+ *   and the checked row keeps the amount it was checked at.
+ * - Remove generated amount on a row whose Meal share changed since it was
+ *   shown is refused, and the shares stay.
+ * - A row id from another Household, or one deleted meanwhile, answers
+ *   missing and writes nothing.
+ * - At the current version both still save.
  */
 import { describe, expect, test } from 'vitest'
 import { type Prisma, type PrismaClient } from '#app/generated/prisma/client.ts'
@@ -43,6 +54,7 @@ import { prisma } from './db.server.ts'
 import {
 	editShoppingDisplayGroup,
 	reconcileMealShoppingContributions,
+	removeGeneratedShoppingAmount,
 	replaceMealShoppingContributions,
 } from './shopping-contribution.server.ts'
 import { combineRowDisplay, demandIdentity } from './shopping-demand.server.ts'
@@ -356,12 +368,19 @@ describe('rows added from Recipe detail', () => {
 			lines: [line('onion', '3', null)],
 		})
 
-		await editShoppingDisplayGroup(prisma, {
-			itemId: onion.id,
-			name: 'onion',
-			quantity: '2',
-			unit: null,
+		const current = await prisma.shoppingListItem.findUniqueOrThrow({
+			where: { id: onion.id },
 		})
+		expect(
+			await editShoppingDisplayGroup(prisma, {
+				householdId: list.householdId!,
+				itemId: onion.id,
+				observedVersion: current.checkVersion,
+				name: 'onion',
+				quantity: '2',
+				unit: null,
+			}),
+		).toEqual({ status: 'success' })
 
 		expect(
 			await prisma.mealShoppingContribution.findMany({
@@ -518,5 +537,217 @@ describe('Update Shopping keeps checked purchases as bought', () => {
 				select: { canonicalName: true },
 			}),
 		).toEqual([{ canonicalName: 'carrot' }])
+	})
+})
+
+describe('row Edit and Remove generated amount check the version', () => {
+	async function setup() {
+		const seeded = await seedHousehold(prisma)
+		const householdId = seeded.household.id
+		const mealA = await seeded.meal(0)
+		const mealB = await seeded.meal(1)
+		const onion = await prisma.shoppingListItem.create({
+			data: {
+				listId: seeded.list.id,
+				name: 'onion',
+				quantity: '1',
+				source: 'manual',
+			},
+		})
+		await reconcileMealShoppingContributions(prisma, {
+			mealId: mealA.id,
+			listId: seeded.list.id,
+			lines: [line('onion', '2', null)],
+		})
+		const seen = await prisma.shoppingListItem.findUniqueOrThrow({
+			where: { id: onion.id },
+		})
+		const edit = (
+			observedVersion: number,
+			id = onion.id,
+			household = householdId,
+		) =>
+			editShoppingDisplayGroup(prisma, {
+				householdId: household,
+				itemId: id,
+				observedVersion,
+				name: 'onion',
+				quantity: '5',
+				unit: null,
+			})
+		const removeGenerated = (
+			observedVersion: number,
+			id = onion.id,
+			household = householdId,
+		) =>
+			removeGeneratedShoppingAmount(prisma, {
+				householdId: household,
+				itemId: id,
+				observedVersion,
+			})
+		return { ...seeded, householdId, mealB, onion, seen, edit, removeGenerated }
+	}
+	const shares = () =>
+		prisma.mealShoppingContribution.findMany({
+			orderBy: { createdAt: 'asc' },
+			select: { mealId: true, itemId: true, quantity: true },
+		})
+
+	test('another Meal joining the row after Edit opened makes the save a conflict', async () => {
+		const { list, mealB, onion, seen, edit } = await setup()
+		await reconcileMealShoppingContributions(prisma, {
+			mealId: mealB.id,
+			listId: list.id,
+			lines: [line('onion', '3', null)],
+		})
+		const before = await shares()
+		const rowBefore = await prisma.shoppingListItem.findUniqueOrThrow({
+			where: { id: onion.id },
+		})
+
+		expect(await edit(seen.checkVersion)).toEqual({ status: 'conflict' })
+
+		expect(await shares()).toEqual(before)
+		expect(before).toHaveLength(2)
+		expect(
+			await prisma.shoppingListItem.findUniqueOrThrow({
+				where: { id: onion.id },
+			}),
+		).toEqual(rowBefore)
+	})
+
+	test('a generated-only row edited at a stale version keeps its Meal shares', async () => {
+		const { list, mealB, edit } = await setup()
+		const peppers = await reconcileMealShoppingContributions(prisma, {
+			mealId: mealB.id,
+			listId: list.id,
+			lines: [line('pepper', '2', null)],
+		})
+		expect(peppers.createdRowCount).toBe(1)
+		const row = await prisma.shoppingListItem.findFirstOrThrow({
+			where: { name: 'pepper' },
+		})
+		// The row as Edit saw it, then another Meal's share joined.
+		const mealC = await prisma.meal.create({
+			data: { mealPlanId: mealB.mealPlanId, date: mealB.date, order: 2 },
+		})
+		await reconcileMealShoppingContributions(prisma, {
+			mealId: mealC.id,
+			listId: list.id,
+			lines: [line('pepper', '1', null)],
+		})
+
+		expect(await edit(row.checkVersion, row.id)).toEqual({ status: 'conflict' })
+		expect(
+			await prisma.mealShoppingContribution.count({
+				where: { itemId: row.id },
+			}),
+		).toBe(2)
+		expect(
+			await prisma.shoppingListItem.findUniqueOrThrow({
+				where: { id: row.id },
+			}),
+		).toMatchObject({ source: 'meal' })
+	})
+
+	test('a row checked while it was being edited keeps the amount it was checked at', async () => {
+		const { onion, seen, edit } = await setup()
+		await prisma.shoppingListItem.update({
+			where: { id: onion.id },
+			data: { checked: true },
+		})
+
+		expect(await edit(seen.checkVersion)).toEqual({ status: 'conflict' })
+		expect(
+			await prisma.shoppingListItem.findUniqueOrThrow({
+				where: { id: onion.id },
+			}),
+		).toMatchObject({ checked: true, quantity: '1' })
+	})
+
+	test('Remove generated amount at a stale version keeps the shares', async () => {
+		const { list, mealB, seen, removeGenerated } = await setup()
+		await reconcileMealShoppingContributions(prisma, {
+			mealId: mealB.id,
+			listId: list.id,
+			lines: [line('onion', '3', null)],
+		})
+
+		expect(await removeGenerated(seen.checkVersion)).toEqual({
+			status: 'conflict',
+		})
+		expect(await shares()).toHaveLength(2)
+	})
+
+	test('a row from another Household, or one deleted meanwhile, is missing and nothing is written', async () => {
+		const { onion, seen, edit, removeGenerated } = await setup()
+		const other = await seedHousehold(prisma)
+		const before = await shares()
+
+		expect(await edit(seen.checkVersion, onion.id, other.household.id)).toEqual(
+			{
+				status: 'missing',
+			},
+		)
+		expect(
+			await removeGenerated(seen.checkVersion, onion.id, other.household.id),
+		).toEqual({ status: 'missing' })
+		expect(await shares()).toEqual(before)
+		expect(
+			await prisma.shoppingListItem.findUniqueOrThrow({
+				where: { id: onion.id },
+			}),
+		).toEqual(seen)
+
+		await prisma.shoppingListItem.delete({ where: { id: onion.id } })
+		expect(await edit(seen.checkVersion)).toEqual({ status: 'missing' })
+		expect(await removeGenerated(seen.checkVersion)).toEqual({
+			status: 'missing',
+		})
+	})
+
+	test('at the current version Edit and Remove generated amount save', async () => {
+		const { onion, seen, edit, removeGenerated } = await setup()
+
+		expect(await edit(seen.checkVersion)).toEqual({ status: 'success' })
+		const edited = await prisma.shoppingListItem.findUniqueOrThrow({
+			where: { id: onion.id },
+		})
+		expect(edited).toMatchObject({ quantity: '5', source: 'manual' })
+		expect(await removeGenerated(edited.checkVersion)).toEqual({
+			status: 'success',
+			name: 'onion',
+		})
+		expect(await shares()).toEqual([])
+	})
+
+	test('Remove generated amount works on a Recipe-detail row', async () => {
+		const { list, mealB, removeGenerated } = await setup()
+		const garlic = await prisma.shoppingListItem.create({
+			data: {
+				listId: list.id,
+				name: 'garlic',
+				quantity: '1',
+				source: 'recipe',
+			},
+		})
+		await reconcileMealShoppingContributions(prisma, {
+			mealId: mealB.id,
+			listId: list.id,
+			lines: [line('garlic', '2', null)],
+		})
+		const seen = await prisma.shoppingListItem.findUniqueOrThrow({
+			where: { id: garlic.id },
+		})
+
+		expect(await removeGenerated(seen.checkVersion, garlic.id)).toEqual({
+			status: 'success',
+			name: 'garlic',
+		})
+		expect(
+			await prisma.mealShoppingContribution.count({
+				where: { itemId: garlic.id },
+			}),
+		).toBe(0)
 	})
 })

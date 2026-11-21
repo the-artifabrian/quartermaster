@@ -2,8 +2,15 @@ import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useFetcher, useFetchers, useRevalidator } from 'react-router'
+import {
+	data,
+	Link,
+	useFetcher,
+	useFetchers,
+	useRevalidator,
+} from 'react-router'
 import { toast } from 'sonner'
+import { z } from 'zod'
 import { OfflineErrorBoundary } from '#app/components/offline-error-boundary.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import {
@@ -37,6 +44,7 @@ import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { loadMealShoppingDemand } from '#app/utils/meal-shopping.server.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { parseTypedItem } from '#app/utils/parse-speech-item.ts'
+import { readShoppingCheck } from '#app/utils/shopping-check.server.ts'
 import {
 	editShoppingDisplayGroup,
 	reconcileMealShoppingContributions,
@@ -58,7 +66,6 @@ import {
 	ShoppingListItemSchema,
 	guessCategory,
 } from '#app/utils/shopping-list-validation.ts'
-import { OWN_AMOUNT_SOURCES } from '#app/utils/shopping-row-source.ts'
 import {
 	type DisplayShoppingItem,
 	makeOptimisticShoppingItem,
@@ -467,27 +474,29 @@ export async function action({ request }: Route.ActionArgs) {
 		const itemId = formData.get('itemId')
 		invariantResponse(typeof itemId === 'string', 'Item ID is required')
 
-		const item = await prisma.shoppingListItem.findFirst({
-			where: {
-				id: itemId,
-				list: { householdId },
-			},
-		})
-		invariantResponse(item, 'Item not found', { status: 404 })
-
 		const submission = parseWithZod(formData, {
 			schema: ShoppingListItemSchema,
 		})
 		if (submission.status !== 'success') {
 			return { status: 'error' as const, submission: submission.reply() }
 		}
+		const observedVersion = parseObservedVersion(formData)
+		if (observedVersion == null) return reloadToChange()
 
-		await editShoppingDisplayGroup(prisma, {
+		const result = await editShoppingDisplayGroup(prisma, {
+			householdId,
 			itemId,
+			observedVersion,
 			name: submission.value.name,
 			quantity: submission.value.quantity ?? null,
 			unit: submission.value.unit ?? null,
 		})
+		if (result.status === 'missing') {
+			throw new Response('Item not found', { status: 404 })
+		}
+		if (result.status === 'conflict') {
+			return rowChanged(householdId, itemId)
+		}
 
 		void emitHouseholdEvent({
 			originClientId: formData.get('originClientId'),
@@ -503,21 +512,22 @@ export async function action({ request }: Route.ActionArgs) {
 	if (intent === 'removeGeneratedAmount') {
 		const itemId = formData.get('itemId')
 		invariantResponse(typeof itemId === 'string', 'Item ID is required')
-		const item = await prisma.shoppingListItem.findFirst({
-			where: {
-				id: itemId,
-				list: { householdId },
-				source: { in: [...OWN_AMOUNT_SOURCES] },
-				mealContributions: { some: {} },
-			},
-		})
-		invariantResponse(item, 'Mixed Shopping group not found', { status: 404 })
+		const observedVersion = parseObservedVersion(formData)
+		if (observedVersion == null) return reloadToChange()
 
-		await removeGeneratedShoppingAmount(prisma, { itemId })
+		const result = await removeGeneratedShoppingAmount(prisma, {
+			householdId,
+			itemId,
+			observedVersion,
+		})
+		if (result.status !== 'success') {
+			if (result.status === 'conflict') return rowChanged(householdId, itemId)
+			throw new Response('Mixed Shopping group not found', { status: 404 })
+		}
 		void emitHouseholdEvent({
 			originClientId: formData.get('originClientId'),
 			type: 'shopping_list_item_edited',
-			payload: { name: item.name },
+			payload: { name: result.name },
 			userId,
 			householdId,
 		})
@@ -626,6 +636,52 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	return { status: 'error' as const }
+}
+
+const ObservedVersionSchema = z
+	.string()
+	.regex(/^\d{1,15}$/)
+	.transform(Number)
+
+/** The row version the person saw when they opened Edit or the row menu. */
+function parseObservedVersion(formData: FormData) {
+	const parsed = ObservedVersionSchema.safeParse(
+		formData.get('observedVersion'),
+	)
+	return parsed.success ? parsed.data : null
+}
+
+/** A page from before row versions: it has to reload to change a row. */
+function reloadToChange() {
+	return data(
+		{
+			status: 'invalid' as const,
+			message: 'Reload Shopping, then try again.',
+		},
+		{ status: 400 },
+	)
+}
+
+/**
+ * The row changed since the person saw it, so nothing was saved. The answer
+ * carries the row as it is now, so the page can show it and a second save
+ * applies to what they have seen.
+ */
+async function rowChanged(householdId: string, itemId: string) {
+	const item = await readShoppingCheck(prisma, householdId, itemId)
+	return data(
+		{
+			status: 'conflict' as const,
+			item: item
+				? {
+						checkVersion: item.checkVersion,
+						checked: item.checked,
+						display: item.display,
+					}
+				: null,
+		},
+		{ status: 409 },
+	)
 }
 
 /**

@@ -359,92 +359,128 @@ export function replaceMealShoppingContributions(
 }
 
 /**
+ * What a row Edit or Remove generated amount did. `conflict`: the row changed
+ * since the person saw it (its version moved: new Meal demand, a check, an
+ * edit), so nothing was written. `missing`: no such row in this Household.
+ */
+export type ShoppingRowWriteResult = {
+	status: 'success' | 'conflict' | 'missing'
+}
+
+/**
+ * Read one row of the Household inside a write transaction and confirm it is
+ * still at the version the person saw. The transaction holds the write lock,
+ * so the row cannot change again before this write commits.
+ */
+async function readRowAtVersion(
+	tx: Tx,
+	{
+		householdId,
+		itemId,
+		observedVersion,
+	}: { householdId: string; itemId: string; observedVersion: number },
+) {
+	const item = await tx.shoppingListItem.findFirst({
+		where: { id: itemId, list: { householdId } },
+		include: { mealContributions: { orderBy: { id: 'asc' } } },
+	})
+	if (!item) return { status: 'missing' as const }
+	if (item.checkVersion !== observedVersion) {
+		return { status: 'conflict' as const }
+	}
+	return { status: 'current' as const, item }
+}
+
+/**
  * Edit one displayed Shopping group without letting later Meal refreshes
  * overwrite the user's correction. Generated-only groups become one manual
  * row and shed every represented contribution. A mixed group's own component
- * (a typed or Recipe-detail row's amount) alone is edited; if its name moves to another identity,
- * the generated component is split back into its own checked-state-preserving
- * group.
+ * (a typed or Recipe-detail row's amount) alone is edited; if its name moves
+ * to another identity, the generated component is split back into its own
+ * checked-state-preserving group.
+ *
+ * The edit applies only at the version the person saw. Otherwise it would
+ * drop Meal demand that joined since, or change a row someone just checked.
  */
-export async function editShoppingDisplayGroup(
+export function editShoppingDisplayGroup(
 	db: PrismaClient,
 	{
+		householdId,
 		itemId,
+		observedVersion,
 		name,
 		quantity,
 		unit,
 	}: {
+		householdId: string
 		itemId: string
+		observedVersion: number
 		name: string
 		quantity: string | null
 		unit: string | null
 	},
-) {
-	const item = await db.shoppingListItem.findUniqueOrThrow({
-		where: { id: itemId },
-		include: {
-			mealContributions: { orderBy: { id: 'asc' } },
-		},
-	})
-
-	if (!keepsOwnAmount(item.source)) {
-		await db.$transaction([
-			db.shoppingListItem.update({
-				where: { id: item.id },
-				data: { name, quantity, unit, source: 'manual' },
-			}),
-			db.mealShoppingContribution.deleteMany({
-				where: { itemId: item.id },
-			}),
-		])
-		return
-	}
-
-	const oldIdentity = demandIdentity(item.name)
-	const newIdentity = demandIdentity(name)
-	if (item.mealContributions.length === 0 || oldIdentity === newIdentity) {
-		await db.shoppingListItem.update({
-			where: { id: item.id },
-			data: { name, quantity, unit },
+): Promise<ShoppingRowWriteResult> {
+	return writeTransaction(db, async (tx) => {
+		const read = await readRowAtVersion(tx, {
+			householdId,
+			itemId,
+			observedVersion,
 		})
-		return
-	}
+		if (read.status !== 'current') return { status: read.status }
+		const { item } = read
 
-	const otherRows = await db.shoppingListItem.findMany({
-		where: { listId: item.listId, id: { not: item.id } },
-		select: { id: true, name: true },
-	})
-	const existingByIdentity = new Map<string, string>()
-	for (const row of otherRows) {
-		const identity = demandIdentity(row.name)
-		if (!existingByIdentity.has(identity)) {
-			existingByIdentity.set(identity, row.id)
+		const generatedOnly = !keepsOwnAmount(item.source)
+		// The row's own write goes first and carries the version: the
+		// contribution writes below advance it.
+		const written = await tx.shoppingListItem.updateMany({
+			where: { id: item.id, checkVersion: observedVersion },
+			data: generatedOnly
+				? { name, quantity, unit, source: 'manual' }
+				: { name, quantity, unit },
+		})
+		if (written.count === 0) return { status: 'conflict' }
+
+		if (generatedOnly) {
+			await tx.mealShoppingContribution.deleteMany({
+				where: { itemId: item.id },
+			})
+			return { status: 'success' }
 		}
-	}
 
-	const writes = []
-	writes.push(
-		db.shoppingListItem.update({
-			where: { id: item.id },
-			data: { name, quantity, unit },
-		}),
-	)
-	const contributionsByIdentity = new Map<
-		string,
-		typeof item.mealContributions
-	>()
-	for (const contribution of item.mealContributions) {
-		const group = contributionsByIdentity.get(contribution.canonicalName) ?? []
-		group.push(contribution)
-		contributionsByIdentity.set(contribution.canonicalName, group)
-	}
-	for (const [identity, contributions] of contributionsByIdentity) {
-		let targetId = existingByIdentity.get(identity)
-		if (!targetId) {
-			targetId = createId()
-			const first = contributions[0]!
-			writes.push(
-				db.shoppingListItem.create({
+		const oldIdentity = demandIdentity(item.name)
+		const newIdentity = demandIdentity(name)
+		if (item.mealContributions.length === 0 || oldIdentity === newIdentity) {
+			return { status: 'success' }
+		}
+
+		const otherRows = await tx.shoppingListItem.findMany({
+			where: { listId: item.listId, id: { not: item.id } },
+			select: { id: true, name: true },
+		})
+		const existingByIdentity = new Map<string, string>()
+		for (const row of otherRows) {
+			const identity = demandIdentity(row.name)
+			if (!existingByIdentity.has(identity)) {
+				existingByIdentity.set(identity, row.id)
+			}
+		}
+
+		const contributionsByIdentity = new Map<
+			string,
+			typeof item.mealContributions
+		>()
+		for (const contribution of item.mealContributions) {
+			const group =
+				contributionsByIdentity.get(contribution.canonicalName) ?? []
+			group.push(contribution)
+			contributionsByIdentity.set(contribution.canonicalName, group)
+		}
+		for (const [identity, contributions] of contributionsByIdentity) {
+			let targetId = existingByIdentity.get(identity)
+			if (!targetId) {
+				targetId = createId()
+				const first = contributions[0]!
+				await tx.shoppingListItem.create({
 					data: {
 						id: targetId,
 						listId: item.listId,
@@ -456,25 +492,46 @@ export async function editShoppingDisplayGroup(
 						source: 'meal',
 						horizon: item.horizon,
 					},
-				}),
-			)
-		}
-		writes.push(
-			db.mealShoppingContribution.updateMany({
+				})
+			}
+			await tx.mealShoppingContribution.updateMany({
 				where: { id: { in: contributions.map((entry) => entry.id) } },
 				data: { itemId: targetId },
-			}),
-		)
-	}
-	await db.$transaction(writes)
+			})
+		}
+		return { status: 'success' }
+	})
 }
 
-/** Remove only the generated component of a mixed manual/display group. */
-export async function removeGeneratedShoppingAmount(
+/**
+ * Remove only the generated component of a mixed group: a typed or
+ * Recipe-detail row that Meal demand joined. It applies only at the version
+ * the person saw, so Meal demand that joined since is not removed unseen.
+ */
+export function removeGeneratedShoppingAmount(
 	db: PrismaClient,
-	{ itemId }: { itemId: string },
-) {
-	await db.mealShoppingContribution.deleteMany({ where: { itemId } })
+	{
+		householdId,
+		itemId,
+		observedVersion,
+	}: { householdId: string; itemId: string; observedVersion: number },
+): Promise<
+	{ status: 'success'; name: string } | { status: 'conflict' | 'missing' }
+> {
+	return writeTransaction(db, async (tx) => {
+		const read = await readRowAtVersion(tx, {
+			householdId,
+			itemId,
+			observedVersion,
+		})
+		if (read.status !== 'current') return { status: read.status }
+		const { item } = read
+		if (!keepsOwnAmount(item.source) || item.mealContributions.length === 0) {
+			return { status: 'missing' as const }
+		}
+		await tx.mealShoppingContribution.deleteMany({ where: { itemId } })
+		return { status: 'success' as const, name: item.name }
+	})
 }
 
 /** Delete a Meal and its chosen generated Shopping component atomically. */

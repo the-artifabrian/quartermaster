@@ -504,6 +504,7 @@ describe('Shopping generated-group conversion (#110)', () => {
 		await runShoppingAction(session, {
 			intent: 'edit',
 			itemId: lamb.id,
+			observedVersion: String(lamb.checkVersion),
 			name: 'ground lamb',
 			quantity: '1600',
 			unit: 'g',
@@ -559,6 +560,7 @@ describe('Shopping generated-group conversion (#110)', () => {
 		await runShoppingAction(session, {
 			intent: 'edit',
 			itemId: lamb.id,
+			observedVersion: String(lamb.checkVersion),
 			name: 'ground lamb',
 			quantity: '300',
 			unit: 'g',
@@ -574,9 +576,13 @@ describe('Shopping generated-group conversion (#110)', () => {
 			)!.display,
 		).toMatchObject({ quantity: '800', unit: 'g', combined: true })
 
+		const edited = await prisma.shoppingListItem.findUniqueOrThrow({
+			where: { id: lamb.id },
+		})
 		await runShoppingAction(session, {
 			intent: 'removeGeneratedAmount',
 			itemId: lamb.id,
+			observedVersion: String(edited.checkVersion),
 		})
 		expect(
 			await prisma.shoppingListItem.findUniqueOrThrow({
@@ -588,6 +594,131 @@ describe('Shopping generated-group conversion (#110)', () => {
 				where: { itemId: lamb.id },
 			}),
 		).toBe(0)
+	})
+})
+
+describe('Shopping row Edit and Remove generated amount answer a changed row', () => {
+	// The route's side of the version check: the status codes the Shopping
+	// page acts on. The write rules themselves are covered next to
+	// shopping-contribution.server.ts.
+	async function setupMixedRow() {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const meal = await setupMeal(session.householdId, recipe)
+		await runShoppingAction(session, {
+			intent: 'add',
+			name: 'ground lamb',
+			quantity: '250',
+			unit: 'g',
+		})
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+		const lamb = (await getShoppingRows(session.householdId)).find((row) =>
+			row.name.includes('lamb'),
+		)!
+		return { session, recipe, lamb }
+	}
+	const status = (result: unknown) =>
+		(result as { init?: { status?: number } }).init?.status
+
+	test('a stale version answers 409 with the row as it is now and saves nothing', async () => {
+		const { session, recipe, lamb } = await setupMixedRow()
+		const otherMeal = await setupMeal(session.householdId, recipe, {
+			scaleMultiplier: 2,
+		})
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: otherMeal.id,
+		})
+		const now = await prisma.shoppingListItem.findUniqueOrThrow({
+			where: { id: lamb.id },
+		})
+
+		const edit = await runShoppingAction(session, {
+			intent: 'edit',
+			itemId: lamb.id,
+			observedVersion: String(lamb.checkVersion),
+			name: 'ground lamb',
+			quantity: '300',
+			unit: 'g',
+		})
+		expect(status(edit)).toBe(409)
+		expect((edit as { data: unknown }).data).toEqual({
+			status: 'conflict',
+			item: {
+				checkVersion: now.checkVersion,
+				checked: false,
+				display: { quantity: '1.75', unit: 'kg', combined: true },
+			},
+		})
+
+		const remove = await runShoppingAction(session, {
+			intent: 'removeGeneratedAmount',
+			itemId: lamb.id,
+			observedVersion: String(lamb.checkVersion),
+		})
+		expect(status(remove)).toBe(409)
+		expect(
+			await prisma.shoppingListItem.findUniqueOrThrow({
+				where: { id: lamb.id },
+			}),
+		).toEqual(now)
+		expect(
+			await prisma.mealShoppingContribution.count({
+				where: { itemId: lamb.id },
+			}),
+		).toBe(2)
+	})
+
+	test('a page that sends no version is asked to reload', async () => {
+		const { session, lamb } = await setupMixedRow()
+		const edit = await runShoppingAction(session, {
+			intent: 'edit',
+			itemId: lamb.id,
+			name: 'ground lamb',
+			quantity: '300',
+			unit: 'g',
+		})
+		expect(status(edit)).toBe(400)
+		const remove = await runShoppingAction(session, {
+			intent: 'removeGeneratedAmount',
+			itemId: lamb.id,
+		})
+		expect(status(remove)).toBe(400)
+		expect(
+			await prisma.mealShoppingContribution.count({
+				where: { itemId: lamb.id },
+			}),
+		).toBe(1)
+	})
+
+	test("another Household's row is not found", async () => {
+		const { lamb } = await setupMixedRow()
+		const stranger = await setupUser()
+		await expect(
+			runShoppingAction(stranger, {
+				intent: 'edit',
+				itemId: lamb.id,
+				observedVersion: String(lamb.checkVersion),
+				name: 'ground lamb',
+				quantity: '300',
+				unit: 'g',
+			}),
+		).rejects.toMatchObject({ status: 404 })
+		await expect(
+			runShoppingAction(stranger, {
+				intent: 'removeGeneratedAmount',
+				itemId: lamb.id,
+				observedVersion: String(lamb.checkVersion),
+			}),
+		).rejects.toMatchObject({ status: 404 })
+		expect(
+			await prisma.shoppingListItem.findUniqueOrThrow({
+				where: { id: lamb.id },
+			}),
+		).toEqual(lamb)
 	})
 })
 

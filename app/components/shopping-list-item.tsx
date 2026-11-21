@@ -20,6 +20,7 @@ import {
 	isWeightUnit,
 } from '#app/utils/produce-weights.ts'
 import { LATER, NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
+import { keepsOwnAmount } from '#app/utils/shopping-row-source.ts'
 import { type ShoppingItemDisplay } from '#app/utils/shopping-optimistic.ts'
 import { useSwipeRow } from '#app/hooks/use-swipe-row.ts'
 import { type useShoppingChecks } from '#app/hooks/use-shopping-checks.tsx'
@@ -181,7 +182,7 @@ export function ShoppingListItemCard({
 							id={`edit-${item.id}-quantity`}
 							name="quantity"
 							defaultValue={
-								item.source === 'manual'
+								keepsOwnAmount(item.source)
 									? (item.quantity ?? '')
 									: (display.quantity ?? '')
 							}
@@ -201,7 +202,7 @@ export function ShoppingListItemCard({
 							id={`edit-${item.id}-unit`}
 							name="unit"
 							defaultValue={
-								item.source === 'manual'
+								keepsOwnAmount(item.source)
 									? (item.unit ?? '')
 									: (display.unit ?? '')
 							}
@@ -456,7 +457,7 @@ export function ShoppingListItemCard({
 									<Icon name="pencil-1" size="sm" />
 									Edit
 								</DropdownMenuItem>
-								{item.source === 'manual' && display.combined && (
+								{keepsOwnAmount(item.source) && display.combined && (
 									<DropdownMenuItem
 										onSelect={() =>
 											submitRowIntent(removeGeneratedFetcher, {

@@ -180,7 +180,10 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 				toast.success(
 					`Added ${createdRowCount} item${createdRowCount === 1 ? '' : 's'} to Next shop`,
 				)
-			} else if (attachedCount > 0 || alreadyContributedCount > 0) {
+			} else if (attachedCount > 0) {
+				// The amounts joined rows already there, which now show more.
+				toast.success('Added to items already on Shopping')
+			} else if (alreadyContributedCount > 0) {
 				toast.info('Everything picked is already on your list')
 			} else {
 				toast.info('Nothing to add')

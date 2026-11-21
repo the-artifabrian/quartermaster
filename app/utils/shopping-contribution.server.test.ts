@@ -12,6 +12,13 @@
  *   second add's new lines are not lost.
  * - Update Shopping races a check the same way.
  *
+ * Rows added from Recipe detail (source 'recipe'):
+ * - A Meal's demand joins a Recipe-detail row. The row shows both amounts
+ *   summed, as a typed row does, not its own amount alone.
+ * - Editing that row changes its own amount and keeps the Meal's share.
+ * - Remove generated amount is offered and works on it.
+ * - Legacy week-generated rows still show only their own amount.
+ *
  * Checked rows on Update Shopping (#226 rule):
  * - The Meal's demand on a checked row changed. The checked row keeps what it
  *   showed, and the Meal's current demand goes on an unchecked row.
@@ -26,12 +33,15 @@
 import { describe, expect, test } from 'vitest'
 import { type Prisma, type PrismaClient } from '#app/generated/prisma/client.ts'
 import { createUser } from '#tests/db-utils.ts'
+import '#tests/setup/db-setup.ts'
 import {
 	createWalDatabase,
 	settlesWithin,
 	writeFromAnotherConnection,
 } from '#tests/sqlite-concurrency.ts'
+import { prisma } from './db.server.ts'
 import {
+	editShoppingDisplayGroup,
 	reconcileMealShoppingContributions,
 	replaceMealShoppingContributions,
 } from './shopping-contribution.server.ts'
@@ -308,5 +318,60 @@ describe('Meal add reads and writes in one transaction', () => {
 		expect(
 			rows.filter((row) => !row.checked).map((row) => row.display.quantity),
 		).toEqual(['4'])
+	})
+})
+
+describe('rows added from Recipe detail', () => {
+	test('a Meal joining a Recipe-detail row shows the summed amount', async () => {
+		const { list, meal } = await seedHousehold(prisma)
+		const mealA = await meal(0)
+		const onion = await prisma.shoppingListItem.create({
+			data: { listId: list.id, name: 'onion', quantity: '1', source: 'recipe' },
+		})
+
+		const result = await reconcileMealShoppingContributions(prisma, {
+			mealId: mealA.id,
+			listId: list.id,
+			lines: [line('onion', '3', null)],
+		})
+
+		expect(result).toMatchObject({ attachedCount: 1, createdRowCount: 0 })
+		expect(await displayed(prisma, list.id)).toEqual([
+			expect.objectContaining({
+				id: onion.id,
+				display: { quantity: '4', unit: null, combined: true },
+			}),
+		])
+	})
+
+	test('editing a Recipe-detail row changes its own amount and keeps the Meal share', async () => {
+		const { list, meal } = await seedHousehold(prisma)
+		const mealA = await meal(0)
+		const onion = await prisma.shoppingListItem.create({
+			data: { listId: list.id, name: 'onion', quantity: '1', source: 'recipe' },
+		})
+		await reconcileMealShoppingContributions(prisma, {
+			mealId: mealA.id,
+			listId: list.id,
+			lines: [line('onion', '3', null)],
+		})
+
+		await editShoppingDisplayGroup(prisma, {
+			itemId: onion.id,
+			name: 'onion',
+			quantity: '2',
+			unit: null,
+		})
+
+		expect(
+			await prisma.mealShoppingContribution.findMany({
+				select: { itemId: true, quantity: true },
+			}),
+		).toEqual([{ itemId: onion.id, quantity: '3' }])
+		expect((await displayed(prisma, list.id))[0]!.display).toEqual({
+			quantity: '5',
+			unit: null,
+			combined: true,
+		})
 	})
 })

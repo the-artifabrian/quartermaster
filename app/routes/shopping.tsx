@@ -58,6 +58,7 @@ import {
 	ShoppingListItemSchema,
 	guessCategory,
 } from '#app/utils/shopping-list-validation.ts'
+import { OWN_AMOUNT_SOURCES } from '#app/utils/shopping-row-source.ts'
 import {
 	type DisplayShoppingItem,
 	makeOptimisticShoppingItem,
@@ -506,7 +507,7 @@ export async function action({ request }: Route.ActionArgs) {
 			where: {
 				id: itemId,
 				list: { householdId },
-				source: 'manual',
+				source: { in: [...OWN_AMOUNT_SOURCES] },
 				mealContributions: { some: {} },
 			},
 		})

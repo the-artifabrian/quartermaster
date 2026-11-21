@@ -7,6 +7,7 @@ import {
 import { selectNextShopDemandTargets } from './shopping-horizon.server.ts'
 import { LATER, NEXT_SHOP } from './shopping-horizon.ts'
 import { guessCategory } from './shopping-list-validation.ts'
+import { keepsOwnAmount } from './shopping-row-source.ts'
 import { writeTransaction } from './write-transaction.server.ts'
 
 type Tx = Prisma.TransactionClient
@@ -332,8 +333,8 @@ export function replaceMealShoppingContributions(
 /**
  * Edit one displayed Shopping group without letting later Meal refreshes
  * overwrite the user's correction. Generated-only groups become one manual
- * row and shed every represented contribution. A mixed group's existing
- * manual component alone is edited; if its name moves to another identity,
+ * row and shed every represented contribution. A mixed group's own component
+ * (a typed or Recipe-detail row's amount) alone is edited; if its name moves to another identity,
  * the generated component is split back into its own checked-state-preserving
  * group.
  */
@@ -358,7 +359,7 @@ export async function editShoppingDisplayGroup(
 		},
 	})
 
-	if (item.source !== 'manual') {
+	if (!keepsOwnAmount(item.source)) {
 		await db.$transaction([
 			db.shoppingListItem.update({
 				where: { id: item.id },

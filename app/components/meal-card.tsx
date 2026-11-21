@@ -655,7 +655,8 @@ export function MealCard({
 						`Added ${createdRowCount} item${createdRowCount === 1 ? '' : 's'} to Shopping`,
 					)
 				} else if ((attachedCount ?? 0) > 0) {
-					toast.success('Everything is already on Shopping')
+					// The amounts joined rows already there, which now show more.
+					toast.success('Added to items already on Shopping')
 				} else if ((alreadyContributedCount ?? 0) > 0) {
 					toast.info('This Meal is already on Shopping')
 				} else {

@@ -30,8 +30,7 @@ import {
 } from '#app/utils/user-validation.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
 import { type Route } from './+types/index.ts'
-
-export const onboardingEmailSessionKey = 'onboardingEmail'
+import { getOnboardingEmail } from './onboarding-email.server.ts'
 
 const SignupFormSchema = z
 	.object({
@@ -53,10 +52,8 @@ async function requireOnboardingEmail(request: Request) {
 	const verifySession = await verifySessionStorage.getSession(
 		request.headers.get('cookie'),
 	)
-	const email = verifySession.get(onboardingEmailSessionKey)
-	if (typeof email !== 'string' || !email) {
-		throw redirect('/signup')
-	}
+	const email = getOnboardingEmail(verifySession)
+	if (!email) throw redirect('/signup')
 	return email
 }
 

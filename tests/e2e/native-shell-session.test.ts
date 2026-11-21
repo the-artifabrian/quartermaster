@@ -1,6 +1,7 @@
 import { faker } from '@faker-js/faker'
 import { type Page } from '@playwright/test'
 import * as setCookieParser from 'set-cookie-parser'
+import { setOnboardingEmail } from '#app/routes/_auth/onboarding/onboarding-email.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
 import { SAFARI_UA, SHELL_UA } from '#tests/native-shell.ts'
@@ -9,9 +10,6 @@ import { createUser, expect, test } from '#tests/playwright-utils.ts'
 // WKWebView drops a session cookie without an expiry when iOS kills the
 // app, so the iOS app never offers "Remember me" and always gets an
 // expiring session cookie.
-// `onboardingEmailSessionKey` in app/routes/_auth/onboarding/index.tsx. The
-// route module imports the icon sprite, which Playwright cannot load.
-const onboardingEmailSessionKey = 'onboardingEmail'
 
 async function sessionCookieExpiry(page: Page): Promise<number> {
 	const cookies = await page.context().cookies()
@@ -85,7 +83,7 @@ test.describe('in the iOS app', () => {
 		// Email verification puts the address in the verify session; start
 		// from there rather than repeat the signup flow onboarding.test covers.
 		const verifySession = await verifySessionStorage.getSession()
-		verifySession.set(onboardingEmailSessionKey, email)
+		setOnboardingEmail(verifySession, email)
 		const cookie = setCookieParser.parseString(
 			await verifySessionStorage.commitSession(verifySession),
 		)

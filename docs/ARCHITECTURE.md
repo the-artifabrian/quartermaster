@@ -383,13 +383,31 @@ changing the email or turning 2FA off asks for a code again when the session
 last verified more than two hours ago (`requireRecentVerification` in
 `app/routes/_auth/verify.server.ts`).
 
-A 2FA sign-in waits in the verify cookie for its code, for up to ten minutes.
-On a shared browser that pending sign-in is someone else's business once another
+A 2FA sign-in waits in the verify cookie for its code. The cookie names a
+pending `Session` row, and once that row's `createdAt` is more than 10 minutes
+old the server refuses it and deletes the row (`findPendingSignIn` in
+`app/routes/_auth/login.server.ts`), so a kept copy of the cookie can't outlast
+it. The age comes from the row rather than the cookie because the row is read
+anyway and is what gets deleted. Finishing the sign-in moves the session to a new
+id, so the pending id stops existing. On a shared browser that pending sign-in is someone else's business once another
 person signs in. A sign-in without 2FA clears it, and so does every way a
 session ends on the browser (`endSessionCookies` in `app/utils/auth.server.ts`):
 logging out, deleting the account, and a session that has expired or gone. The
 two-hour check and the reverify step only count a pending sign-in that belongs
 to the signed-in user.
+
+The 2FA guessing bound: a code is 6 digits, and the check accepts the code for
+the current 30 seconds and for one step either side, so a guess matches with a
+chance of 3 in 10^6. A pending sign-in takes at most 5 codes; after the fifth
+wrong one its row is deleted and the person logs in again. Only someone with the
+password can start one, so the cap can't lock the owner out. That is at most 5 ×
+3 ÷ 10^6 = 1.5 × 10^-5 per sign-in, and each new one needs the password, with
+sign-in and `/verify` sharing the auth tier's 10 POSTs a minute per address. The
+count is kept in memory, as production is one process, so a restart forgets it
+and a pending sign-in could get 5 more codes within its 10 minutes. A code for
+any account other than the browser's pending sign-in or its signed-in user isn't
+checked at all. A reverify of a signed-in session has no count of its own, only
+the auth tier's limit.
 
 Adding a passkey asks for the current password
 (`app/routes/_auth/webauthn/registration.ts`). The request for the passkey

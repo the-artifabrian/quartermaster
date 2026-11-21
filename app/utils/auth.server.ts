@@ -170,10 +170,14 @@ export async function getBrowserSession(request: Request) {
 	const sessionId = authSession.get(sessionKey)
 	if (typeof sessionId !== 'string' || !sessionId) return null
 	const live = await prisma.session.findUnique({
-		select: { user: { select: { username: true } } },
+		select: { userId: true, user: { select: { username: true } } },
 		where: { id: sessionId, expirationDate: { gt: new Date() } },
 	})
-	return { id: sessionId, username: live?.user.username ?? null }
+	return {
+		id: sessionId,
+		userId: live?.userId ?? null,
+		username: live?.user.username ?? null,
+	}
 }
 
 export async function requireAnonymous(request: Request) {

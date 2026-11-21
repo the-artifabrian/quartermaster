@@ -17,11 +17,16 @@ import {
 } from '#app/utils/email-code.server.ts'
 import { pagePathOf } from '#app/utils/page-path.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
+import { verifySessionStorage } from '#app/utils/verification.server.ts'
 import { verifyTOTP } from '#app/utils/totp.server.ts'
 import { type twoFAVerifyVerificationType } from '../settings/profile/two-factor/verify.tsx'
 import {
+	endPendingSignIn,
+	findPendingSignIn,
 	handleVerification as handleLoginTwoFactorVerification,
+	MAX_PENDING_SIGN_IN_TRIES,
 	shouldRequestTwoFA,
+	takePendingSignInTry,
 } from './login.server.ts'
 import { handleVerification as handleOnboardingVerification } from './onboarding/index.server.ts'
 import { handleVerification as handleResetPasswordVerification } from './reset-password.server.ts'
@@ -208,10 +213,32 @@ const invalidCode = (submission: {
 		{ status: 400 },
 	)
 
+/** Why a 2FA code sends the browser back to log in, without being checked. */
+type LogInAgain = 'nothing-pending' | 'ended' | 'too-many-tries'
+
+const logInAgainToasts: Record<
+	LogInAgain,
+	{ title: string; description: string }
+> = {
+	'nothing-pending': {
+		title: 'Invalid session',
+		description: 'Could not find session to verify. Please try again.',
+	},
+	ended: {
+		title: 'Log in again',
+		description: 'This sign-in waited more than 10 minutes for its code.',
+	},
+	'too-many-tries': {
+		title: 'Log in again',
+		description: 'That was too many wrong codes for one sign-in.',
+	},
+}
+
 export async function validateRequest(
 	request: Request,
 	body: URLSearchParams | FormData,
 ) {
+	let logInAgain: LogInAgain | null = null
 	const submission = await parseWithZod(body, {
 		schema: VerifySchema.transform(async (data, ctx) => {
 			const type = data[typeQueryParam]
@@ -245,16 +272,62 @@ export async function validateRequest(
 				return { ...data, [targetQueryParam]: target }
 			}
 			if (type !== twoFAVerificationType || !code) return invalid()
-			const codeIsValid = await isCodeValid({
-				code,
-				type,
-				target: data[targetQueryParam],
-			})
-			if (!codeIsValid) return invalid()
+			// A 2FA code can finish this browser's pending sign-in or reverify
+			// its signed-in session, and nothing else. For any other target
+			// the answer doesn't depend on the code, so it isn't checked.
+			const target = data[targetQueryParam]
+			const pending = await findPendingSignIn(request)
+			const forPending = pending.status === 'live' && pending.userId === target
+			if (!forPending) {
+				const signedInAs = (await getBrowserSession(request))?.userId
+				if (signedInAs !== target) {
+					if (!signedInAs && pending.status !== 'live') {
+						logInAgain =
+							pending.status === 'ended' ? 'ended' : 'nothing-pending'
+					}
+					return invalid()
+				}
+			}
+			// Only someone with the password can start a sign-in, so a cap on
+			// its tries can't lock the owner out.
+			const tries = forPending ? takePendingSignInTry(pending) : 0
+			if (forPending && tries > MAX_PENDING_SIGN_IN_TRIES) {
+				await endPendingSignIn(pending.id)
+				logInAgain = 'too-many-tries'
+				return invalid()
+			}
+			const codeIsValid = await isCodeValid({ code, type, target })
+			if (!codeIsValid) {
+				if (forPending && tries >= MAX_PENDING_SIGN_IN_TRIES) {
+					await endPendingSignIn(pending.id)
+					logInAgain = 'too-many-tries'
+				}
+				return invalid()
+			}
 			return data
 		}),
 		async: true,
 	})
+
+	// Set inside the schema's transform, which TypeScript can't follow.
+	const reason = logInAgain as LogInAgain | null
+	if (reason) {
+		const verifySession = await verifySessionStorage.getSession(
+			request.headers.get('cookie'),
+		)
+		return redirectWithToast(
+			'/login',
+			{ type: 'error', ...logInAgainToasts[reason] },
+			reason === 'nothing-pending'
+				? undefined
+				: {
+						headers: {
+							'set-cookie':
+								await verifySessionStorage.destroySession(verifySession),
+						},
+					},
+		)
+	}
 
 	if (submission.status !== 'success') {
 		return data(

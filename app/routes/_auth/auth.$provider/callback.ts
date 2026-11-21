@@ -23,7 +23,7 @@ import {
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
 import { handleNewSession } from '../login.server.ts'
 import { prefilledProfileKey, providerIdKey } from '../onboarding/$provider.tsx'
-import { onboardingEmailSessionKey } from '../onboarding/index.tsx'
+import { setOnboardingEmail } from '../onboarding/onboarding-email.server.ts'
 import { type Route } from './+types/callback.ts'
 
 const destroyRedirectTo = { 'set-cookie': destroyRedirectToHeader }
@@ -153,7 +153,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
 	// this is a new user, so let's get them onboarded
 	const verifySession = await verifySessionStorage.getSession()
-	verifySession.set(onboardingEmailSessionKey, profile.email)
+	setOnboardingEmail(verifySession, profile.email)
 	verifySession.set(prefilledProfileKey, {
 		...profile,
 		email: normalizeEmail(profile.email),

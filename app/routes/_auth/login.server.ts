@@ -15,6 +15,77 @@ const verifiedTimeKey = 'verified-time'
 const unverifiedSessionIdKey = 'unverified-session-id'
 const rememberKey = 'remember'
 
+/** How long a 2FA sign-in waits for its code, like an emailed code. */
+export const PENDING_SIGN_IN_LIFETIME_MS = 10 * 60 * 1000
+/** Codes a pending 2FA sign-in takes before it ends. */
+export const MAX_PENDING_SIGN_IN_TRIES = 5
+
+// Codes tried against each pending sign-in, with when it runs out. Kept in
+// memory, as production is one process: a restart forgets them, so a pending
+// sign-in could get another 5 tries within its 10 minutes.
+const pendingSignInTries = new Map<string, { count: number; until: number }>()
+
+type PendingSignIn =
+	| { status: 'none' }
+	| { status: 'ended' }
+	| {
+			status: 'live'
+			id: string
+			userId: string
+			expirationDate: Date
+			createdAt: Date
+	  }
+
+/**
+ * The 2FA sign-in this browser's verify cookie holds. Its age comes from the
+ * Session row, which a kept copy of the cookie can't change. One older than
+ * 10 minutes is deleted and counts as `ended`, like one whose row has gone.
+ */
+export async function findPendingSignIn(
+	request: Request,
+): Promise<PendingSignIn> {
+	const verifySession = await verifySessionStorage.getSession(
+		request.headers.get('cookie'),
+	)
+	const id = verifySession.get(unverifiedSessionIdKey)
+	if (typeof id !== 'string' || !id) return { status: 'none' }
+	const session = await prisma.session.findUnique({
+		select: { userId: true, expirationDate: true, createdAt: true },
+		where: { id },
+	})
+	if (!session) return { status: 'ended' }
+	if (Date.now() - session.createdAt.getTime() > PENDING_SIGN_IN_LIFETIME_MS) {
+		await endPendingSignIn(id)
+		return { status: 'ended' }
+	}
+	return { status: 'live', id, ...session }
+}
+
+/**
+ * Counts one code tried against a pending sign-in and returns how many it
+ * has had, this one included. Counted before the code is checked, so codes
+ * sent at once can't share a count.
+ */
+export function takePendingSignInTry(pending: { id: string; createdAt: Date }) {
+	const now = Date.now()
+	for (const [id, entry] of pendingSignInTries) {
+		if (entry.until < now) pendingSignInTries.delete(id)
+	}
+	const entry = pendingSignInTries.get(pending.id) ?? {
+		count: 0,
+		until: pending.createdAt.getTime() + PENDING_SIGN_IN_LIFETIME_MS,
+	}
+	entry.count += 1
+	pendingSignInTries.set(pending.id, entry)
+	return entry.count
+}
+
+/** Deletes a pending sign-in's Session row, so its code can't finish it. */
+export async function endPendingSignIn(id: string) {
+	pendingSignInTries.delete(id)
+	await prisma.session.deleteMany({ where: { id } })
+}
+
 export async function handleNewSession(
 	{
 		request,
@@ -124,16 +195,28 @@ export async function handleVerification({
 			description: 'Could not find session to verify. Please try again.',
 		})
 
-	const unverifiedSessionId = verifySession.get(unverifiedSessionIdKey)
-	const pending = unverifiedSessionId
-		? await prisma.session.findUnique({
-				select: { expirationDate: true, userId: true },
-				where: { id: unverifiedSessionId },
-			})
-		: null
+	const found = await findPendingSignIn(request)
+	const pending = found.status === 'live' ? found : null
 	if (pending?.userId === target) {
+		// The signed-in session gets a new id, so the pending one stops
+		// existing and a kept copy of the verify cookie names nothing.
+		const signedIn = await prisma.$transaction(async (tx) => {
+			const { count } = await tx.session.deleteMany({
+				where: { id: pending.id },
+			})
+			if (count !== 1) return null
+			return tx.session.create({
+				select: { id: true },
+				data: {
+					userId: pending.userId,
+					expirationDate: pending.expirationDate,
+				},
+			})
+		})
+		pendingSignInTries.delete(pending.id)
+		if (!signedIn) throw await noSessionToVerify()
 		authSession.set(verifiedTimeKey, Date.now())
-		authSession.set(sessionKey, unverifiedSessionId)
+		authSession.set(sessionKey, signedIn.id)
 
 		headers.append(
 			'set-cookie',
@@ -174,19 +257,10 @@ export async function shouldRequestTwoFA(request: Request) {
 	const authSession = await authSessionStorage.getSession(
 		request.headers.get('cookie'),
 	)
-	const verifySession = await verifySessionStorage.getSession(
-		request.headers.get('cookie'),
-	)
 	// Only this user's own pending sign-in counts. One someone else started
 	// on a shared browser could never be finished by this user.
-	const unverifiedSessionId = verifySession.get(unverifiedSessionIdKey)
-	if (unverifiedSessionId) {
-		const pending = await prisma.session.findUnique({
-			select: { userId: true },
-			where: { id: unverifiedSessionId },
-		})
-		if (pending?.userId === userId) return true
-	}
+	const pending = await findPendingSignIn(request)
+	if (pending.status === 'live' && pending.userId === userId) return true
 	// if it's over two hours since they last verified, we should request 2FA again
 	const userHasTwoFA = await prisma.verification.findUnique({
 		select: { id: true },

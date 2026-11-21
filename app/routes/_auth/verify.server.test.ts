@@ -59,6 +59,17 @@ import '#tests/setup/mocks-setup.ts'
 //     that has expired or gone.
 // 15. Pending state that belongs to the signed-in user still asks for 2FA,
 //     and the person who started the sign-in can still finish it (2).
+// A pending 2FA sign-in's limits (only someone with the password makes one):
+// 16. Older than 10 minutes, the right code doesn't finish it, its Session
+//     row is deleted, and it no longer asks the signed-in user for 2FA.
+// 17. Five wrong codes end it: the row goes, the answer sends the user to log
+//     in again, and the right code no longer works.
+// 18. Four wrong codes and then the right one still sign in.
+// 19. Wrong codes sent all at once each count.
+// 20. A code for an account that is neither pending on this browser nor
+//     signed in on it gets the same answer whether it is right or wrong.
+// 21. A finished sign-in gets a new session id, so a kept copy of the verify
+//     cookie can't end or reuse the signed-in session.
 
 const twoHoursAgo = (extraMinutes: number) =>
 	Date.now() - 1000 * 60 * (120 + extraMinutes)
@@ -208,7 +219,175 @@ describe('2FA sign-in', () => {
 		expect(outcome.status).toBe(302)
 		expect(outcome.location).toBe('/recipes')
 		const authSession = await authSessionFrom(outcome)
-		expect(authSession?.get(sessionKey)).toBe(pendingSession.id)
+		const signedInId = authSession?.get(sessionKey) as string
+		expect(
+			await prisma.session.findUnique({
+				where: { id: signedInId },
+				select: { userId: true },
+			}),
+		).toEqual({ userId: user.id })
+	})
+})
+
+describe('pending 2FA sign-in limits', () => {
+	const pendingKey = 'unverified-session-id'
+
+	async function pendingSignIn() {
+		const user = await createUserWithTwoFA()
+		const pending = await createSession(user.id)
+		const cookie = await cookieHeader({ verify: { [pendingKey]: pending.id } })
+		return { user, pending, cookie }
+	}
+
+	async function wrongCodeFor(user: Parameters<typeof totpFor>[0]) {
+		const right = await totpFor(user)
+		return String((Number(right) + 500_000) % 1_000_000).padStart(6, '0')
+	}
+
+	function sessionExists(id: string) {
+		return prisma.session.count({ where: { id } }).then((n) => n === 1)
+	}
+
+	test('a pending sign-in older than 10 minutes can’t be finished, and goes', async () => {
+		const { user, pending, cookie } = await pendingSignIn()
+		await prisma.session.update({
+			where: { id: pending.id },
+			data: { createdAt: new Date(Date.now() - 11 * 60 * 1000) },
+		})
+		const signedIn = await createSession(user.id)
+		const withSession = await cookieHeader({
+			sessionId: signedIn.id,
+			verifiedTime: Date.now(),
+			verify: { [pendingKey]: pending.id },
+		})
+		expect(
+			await shouldRequestTwoFA(
+				new Request(BASE_URL, { headers: { cookie: withSession } }),
+			),
+		).toBe(false)
+
+		const outcome = await submitVerify(
+			{ code: await totpFor(user), type: '2fa', target: user.id },
+			cookie,
+		)
+
+		expect(outcome.location).toBe('/login')
+		expect(await authSessionFrom(outcome)).toBeNull()
+		expect(await sessionExists(pending.id)).toBe(false)
+	})
+
+	test('five wrong codes end the pending sign-in', async () => {
+		const { user, pending, cookie } = await pendingSignIn()
+		const wrong = await wrongCodeFor(user)
+
+		for (let i = 0; i < 4; i++) {
+			const outcome = await submitVerify(
+				{ code: wrong, type: '2fa', target: user.id },
+				cookie,
+			)
+			expect(outcome.formErrors).toEqual({ code: ['Invalid code'] })
+		}
+		const fifth = await submitVerify(
+			{ code: wrong, type: '2fa', target: user.id },
+			cookie,
+		)
+		expect(fifth.location).toBe('/login')
+		expect(await sessionExists(pending.id)).toBe(false)
+
+		const right = await submitVerify(
+			{ code: await totpFor(user), type: '2fa', target: user.id },
+			cookie,
+		)
+		expect(right.location).toBe('/login')
+		expect(await authSessionFrom(right)).toBeNull()
+	})
+
+	test('four wrong codes and then the right one still sign in', async () => {
+		const { user, cookie } = await pendingSignIn()
+		const wrong = await wrongCodeFor(user)
+		for (let i = 0; i < 4; i++) {
+			await submitVerify({ code: wrong, type: '2fa', target: user.id }, cookie)
+		}
+
+		const outcome = await submitVerify(
+			{ code: await totpFor(user), type: '2fa', target: user.id },
+			cookie,
+		)
+
+		expect(outcome.location).toBe('/recipes')
+		expect((await authSessionFrom(outcome))?.get(sessionKey)).toBeTruthy()
+	})
+
+	test('wrong codes sent all at once each count', async () => {
+		const { user, pending, cookie } = await pendingSignIn()
+		const wrong = await wrongCodeFor(user)
+
+		await Promise.all(
+			Array.from({ length: 5 }, () =>
+				submitVerify({ code: wrong, type: '2fa', target: user.id }, cookie),
+			),
+		)
+
+		expect(await sessionExists(pending.id)).toBe(false)
+		const right = await submitVerify(
+			{ code: await totpFor(user), type: '2fa', target: user.id },
+			cookie,
+		)
+		expect(await authSessionFrom(right)).toBeNull()
+	})
+
+	test('a code for an account not pending or signed in here answers the same, right or wrong', async () => {
+		const user = await createUserWithTwoFA()
+		const someoneElse = await createUserWithTwoFA()
+		const cookies = [
+			await cookieHeader({}),
+			await cookieHeader({
+				verify: { [pendingKey]: (await createSession(someoneElse.id)).id },
+			}),
+			await cookieHeader({
+				sessionId: (await createSession(someoneElse.id)).id,
+			}),
+		]
+		for (const cookie of cookies) {
+			const right = await submitVerify(
+				{ code: await totpFor(user), type: '2fa', target: user.id },
+				cookie,
+			)
+			const wrong = await submitVerify(
+				{ code: await wrongCodeFor(user), type: '2fa', target: user.id },
+				cookie,
+			)
+			expect({ ...right, setCookies: [] }).toEqual({
+				...wrong,
+				setCookies: [],
+			})
+			expect(await authSessionFrom(right)).toBeNull()
+		}
+	})
+
+	test('a kept copy of the verify cookie can’t touch the session it became', async () => {
+		const { user, pending, cookie } = await pendingSignIn()
+		const finished = await submitVerify(
+			{ code: await totpFor(user), type: '2fa', target: user.id },
+			cookie,
+		)
+		const signedInId = (await authSessionFrom(finished))?.get(
+			sessionKey,
+		) as string
+		expect(signedInId).not.toBe(pending.id)
+		expect(await sessionExists(pending.id)).toBe(false)
+
+		const wrong = await wrongCodeFor(user)
+		for (let i = 0; i < 5; i++) {
+			await submitVerify({ code: wrong, type: '2fa', target: user.id }, cookie)
+		}
+		const reused = await submitVerify(
+			{ code: await totpFor(user), type: '2fa', target: user.id },
+			cookie,
+		)
+
+		expect(await authSessionFrom(reused)).toBeNull()
+		expect(await sessionExists(signedInId)).toBe(true)
 	})
 })
 

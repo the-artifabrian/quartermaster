@@ -25,7 +25,7 @@ import { server } from '#tests/setup/mocks-setup.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action as forgotPasswordAction } from './forgot-password.tsx'
-import { onboardingEmailSessionKey } from './onboarding/index.tsx'
+import { getOnboardingEmail } from './onboarding/onboarding-email.server.ts'
 import { action as signupAction } from './signup.tsx'
 import {
 	isCodeValid,
@@ -764,11 +764,15 @@ describe('code kinds, with a stored code of the other kind', () => {
 				expiresAt: new Date(Date.now() + CODE_LIFETIME_MS),
 			},
 		})
-		const outcome = await submitVerify({
-			code,
-			type: twoFAVerificationType,
-			target: user.id,
+		// Signed in as the target, so the code reaches a check at all.
+		const session = await prisma.session.create({
+			data: { expirationDate: getSessionExpirationDate(), userId: user.id },
+			select: { id: true },
 		})
+		const outcome = await submitVerify(
+			{ code, type: twoFAVerificationType, target: user.id },
+			{ cookie: await getSessionCookieHeader(session) },
+		)
 		expect(outcome.status).toBe(400)
 		expect(
 			await checkEmailCode({
@@ -823,9 +827,7 @@ describe('sending', () => {
 		const verifySession = await verifySessionStorage.getSession(
 			outcome.setCookies.map(cookiePair).join('; '),
 		)
-		expect(verifySession.get(onboardingEmailSessionKey)).toBe(
-			email.toLowerCase(),
-		)
+		expect(getOnboardingEmail(verifySession)).toBe(email.toLowerCase())
 	})
 })
 

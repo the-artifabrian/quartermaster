@@ -143,3 +143,19 @@ test('deleting the source keeps the copy', async () => {
 		{ id: copyId, title: 'Lemon chickpeas', copiedFromRecipeId: recipeId },
 	])
 })
+
+test('a Recipe left without a Household is not shared or saved', async () => {
+	const { source, target, recipeId } = await setup()
+	await prisma.household.delete({ where: { id: source.householdId } })
+
+	const viewed = await loader(await args(recipeId, target)).catch(
+		(error: unknown) => error,
+	)
+	const saved = await action(await args(recipeId, target, true)).catch(
+		(error: unknown) => error,
+	)
+
+	expect((viewed as Response).status).toBe(404)
+	expect((saved as Response).status).toBe(404)
+	expect(await recipesIn(target.householdId)).toEqual([])
+})

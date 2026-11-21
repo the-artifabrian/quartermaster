@@ -85,8 +85,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 	const { recipeId } = params
 	const userId = await getUserId(request)
 
-	const recipe = await prisma.recipe.findUnique({
-		where: { id: recipeId },
+	// A Recipe whose Household is gone isn't anyone's to share.
+	const recipe = await prisma.recipe.findFirst({
+		where: { id: recipeId, householdId: { not: null } },
 		select: sharedRecipeSelect,
 	})
 
@@ -114,8 +115,8 @@ export async function action({ params, request }: Route.ActionArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
 	const { recipeId } = params
 
-	const recipe = await prisma.recipe.findUnique({
-		where: { id: recipeId },
+	const recipe = await prisma.recipe.findFirst({
+		where: { id: recipeId, householdId: { not: null } },
 		include: {
 			ingredients: true,
 			instructions: true,

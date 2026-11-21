@@ -137,7 +137,8 @@ plan into Shopping.
 - Password, passkey, and Google sign-in, with a "Remember me" choice.
 - Where the browser supports it, the username field offers saved passkeys.
   Adding a passkey in Settings asks for the current password and emails a
-  notice.
+  notice. A deleted passkey also leaves the phone's passkey list, in browsers
+  with the WebAuthn Signal API.
 - Two-factor auth with an authenticator app (TOTP), turned on and off in
   Settings; login then asks for the code.
 - Changing the password signs out every other device; resetting it signs out all

@@ -371,9 +371,19 @@ Adding a passkey asks for the current password
 (`app/routes/_auth/webauthn/registration.ts`). The request for the passkey
 options checks it, and only then sets the challenge cookie. That cookie is
 signed, names the account and lasts five minutes, and the request that saves the
-passkey needs it. With 2FA on, adding a passkey also follows the two-hour rule.
-An account with no password is asked to create one first. A notice goes to the
-account's email once the passkey is saved.
+passkey needs it. Each challenge saves one passkey at most: the server remembers
+the ones it has spent, in memory, so a restart forgets them and a cookie from
+before it could be used once more within its five minutes. With 2FA on, opening
+the Passkeys page follows the two-hour rule, and so does the options request. A
+notice goes to the account's email once the passkey is saved. An account with no
+password (one that signed up with Google) is asked to create one first. Until
+Google sign-in goes, that is a gap: Create Password asks for no proof, so a
+session on such an account can set a password and then add a passkey.
+
+The browser's passkey list follows the server through the WebAuthn Signal API
+(`app/utils/passkeys.ts`), where the browser has it. The Passkeys page sends the
+account's full list on load and after a delete, and a sign-in that gets "Passkey
+not found" (a 404) tells the browser to forget that passkey.
 
 **Emailed codes.** Signup, password reset and email change email a code and a
 link (`app/utils/email-code.server.ts`, called through `prepareVerification` in

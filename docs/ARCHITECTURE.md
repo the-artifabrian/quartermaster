@@ -426,10 +426,10 @@ Google sign-in goes (#439), that is a gap: Create Password asks for no proof, so
 a session on such an account can set a password and then add a passkey.
 
 Google sign-in is going away (#439). Until then a signed-in account can't add a
-Google connection, and signing in with Google joins an existing account with the
-same email only when Google says it has verified that email
-(`app/routes/_auth/auth.$provider/callback.ts`). Existing connections still sign
-in.
+Google connection, and a Google login joins an existing account with the same
+email, or starts a signup with it, only when Google says it has verified that
+email (`app/routes/_auth/auth.$provider/callback.ts`). Existing connections
+still log in.
 
 The browser's passkey list follows the server through the WebAuthn Signal API
 (`app/utils/passkeys.ts`), where the browser has it. The Passkeys page sends the

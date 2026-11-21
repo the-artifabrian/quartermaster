@@ -62,6 +62,7 @@ test('when auth fails, send the user to login with a toast', async () => {
 //    linked, no session is made, and the person is told to log in with their
 //    password.
 // 3. An answer from Google with no verified field counts as unverified.
+// 3a. An unverified email with no account doesn't start a signup either.
 // 4. A verified match is linked and signed in, as before.
 // 5. An existing connection still signs in (tests below).
 
@@ -116,6 +117,28 @@ test.each([
 		expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0)
 	},
 )
+
+test('an unverified email with no account doesn’t start a signup', async () => {
+	const googleUser = await insertGoogleUser(undefined, {
+		verified_email: false,
+	})
+	const request = await setupRequest({ code: googleUser.code })
+
+	const response = await loader({ request, ...LOADER_ARGS_BASE }).catch(
+		(thrown: unknown) => thrown as Response,
+	)
+
+	expect(response).toHaveRedirect('/login')
+	await expect(response).toSendToast(expect.objectContaining({ type: 'error' }))
+	expect(
+		response.headers
+			.getSetCookie()
+			.some((cookie) => cookie.startsWith('en_verification=')),
+	).toBe(false)
+	expect(
+		await prisma.user.count({ where: { email: googleUser.profile.email } }),
+	).toBe(0)
+})
 
 test('an account with the same email is linked when Google says it is verified', async () => {
 	const googleUser = await insertGoogleUser()

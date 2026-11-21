@@ -119,23 +119,27 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		return makeSession({ request, userId: existingConnection.userId })
 	}
 
-	// if the email matches a user in the db, then link the account and
-	// make a new session, but only for an email the provider has verified
-	const user = await prisma.user.findUnique({
-		select: { id: true },
-		where: { email: profile.email.toLowerCase() },
-	})
-	if (user && !profile.emailVerified) {
+	// Without an email the provider has verified, nothing is linked to an
+	// account with that email and no signup starts with it.
+	if (!profile.emailVerified) {
 		throw await redirectWithToast(
 			'/login',
 			{
 				type: 'error',
-				title: 'Log in with your password',
-				description: `${label} hasn’t confirmed this email address, so it wasn’t linked to your account.`,
+				title: `${label} hasn’t confirmed this email`,
+				description:
+					'Log in with your username and password, or sign up with your email.',
 			},
 			{ headers: destroyRedirectTo },
 		)
 	}
+
+	// if the email matches a user in the db, then link the account and
+	// make a new session
+	const user = await prisma.user.findUnique({
+		select: { id: true },
+		where: { email: profile.email.toLowerCase() },
+	})
 	if (user) {
 		await prisma.connection.create({
 			data: {

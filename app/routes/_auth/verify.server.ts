@@ -7,9 +7,17 @@ import { twoFAVerificationType } from '#app/routes/settings/profile/two-factor/_
 import { getAppOrigin } from '#app/utils/app-origin.server.ts'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import {
+	checkEmailCode,
+	consumeEmailCode,
+	isEmailCodeType,
+	issueEmailCode,
+	type EmailCodeType,
+	type IssueResult,
+} from '#app/utils/email-code.server.ts'
 import { pagePathOf } from '#app/utils/page-path.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
-import { generateTOTP, verifyTOTP } from '#app/utils/totp.server.ts'
+import { verifyTOTP } from '#app/utils/totp.server.ts'
 import { type twoFAVerifyVerificationType } from '../settings/profile/two-factor/verify.tsx'
 import {
 	handleVerification as handleLoginTwoFactorVerification,
@@ -22,6 +30,7 @@ import {
 	codeQueryParam,
 	redirectToQueryParam,
 	targetQueryParam,
+	tokenQueryParam,
 	typeQueryParam,
 	type VerificationTypes,
 } from './verify.tsx'
@@ -75,17 +84,53 @@ export async function requireRecentVerification(request: Request) {
 	}
 }
 
-export async function prepareVerification({
-	period,
+/**
+ * The canonical target for an emailed code, or null when there is none. A
+ * reset is keyed by the account's id, whichever of its id, username or email
+ * was given, so every way of naming one account shares one set of codes and
+ * one cap. A signup is keyed by the address as the account will store it.
+ */
+export async function emailCodeTarget(type: EmailCodeType, target: string) {
+	switch (type) {
+		case 'onboarding':
+			return target.trim().toLowerCase()
+		case 'reset-password': {
+			const name = target.trim().toLowerCase()
+			const user = await prisma.user.findFirst({
+				where: { OR: [{ id: target }, { username: name }, { email: name }] },
+				select: { id: true },
+			})
+			return user?.id ?? null
+		}
+		case 'change-email':
+			return target
+	}
+}
+
+/**
+ * Makes an emailed code and hands it, with the verify link, to `send`. The
+ * code works only once `send` reports success; a failed send leaves no code,
+ * and the target's earlier codes keep working either way. Past the cap of
+ * live codes nothing is made or sent (`status: 'capped'`).
+ *
+ * `target` must already be canonical (see emailCodeTarget). `address` is
+ * where an email-change code goes, and the address it will set.
+ */
+export async function prepareVerification<
+	SendResult extends { status: 'success' | 'error' },
+>({
 	type,
 	target,
+	address,
 	redirectTo: destination,
+	send,
 }: {
-	period: number
-	type: VerificationTypes
+	type: EmailCodeType
 	target: string
+	address?: string
 	redirectTo?: string
-}) {
+	send: (email: { otp: string; verifyUrl: URL }) => Promise<SendResult>
+}): Promise<{ redirectTo: string } & IssueResult<SendResult>> {
 	const verifyUrl = getRedirectToUrl({
 		type,
 		target,
@@ -95,39 +140,35 @@ export async function prepareVerification({
 	// and keeps its cookies; only the emailed link needs APP_ORIGIN.
 	const redirectTo = pathAndSearch(verifyUrl)
 
-	const { otp, ...verificationConfig } = await generateTOTP({
-		algorithm: 'SHA-256',
-		// Leaving off 0, O, and I on purpose to avoid confusing users.
-		charSet: 'ABCDEFGHJKLMNPQRSTUVWXYZ123456789',
-		period,
-	})
-	const verificationData = {
+	const result = await issueEmailCode({
 		type,
 		target,
-		...verificationConfig,
-		expiresAt: new Date(Date.now() + verificationConfig.period * 1000),
-	}
-	await prisma.verification.upsert({
-		where: { target_type: { target, type } },
-		create: verificationData,
-		update: verificationData,
+		address,
+		send: ({ code, token }) => {
+			// The link carries its own token, never the typed code.
+			const link = new URL(verifyUrl)
+			link.searchParams.set(tokenQueryParam, token)
+			return send({ otp: code, verifyUrl: link })
+		},
 	})
-
-	// add the otp to the url we'll email the user.
-	verifyUrl.searchParams.set(codeQueryParam, otp)
-
-	return { otp, redirectTo, verifyUrl }
+	return { redirectTo, ...result }
 }
 
+/**
+ * Whether `code` is the user's current authenticator code. Only for 2FA:
+ * emailed codes are checked with checkEmailCode, and an emailed type here is
+ * refused rather than looked up.
+ */
 export async function isCodeValid({
 	code,
 	type,
 	target,
 }: {
 	code: string
-	type: VerificationTypes | typeof twoFAVerifyVerificationType
+	type: typeof twoFAVerificationType | typeof twoFAVerifyVerificationType
 	target: string
 }) {
+	if (type !== twoFAVerificationType && type !== '2fa-verify') return false
 	const verification = await prisma.verification.findUnique({
 		where: {
 			target_type: { target, type },
@@ -145,25 +186,65 @@ export async function isCodeValid({
 	return true
 }
 
+/**
+ * For a signed-in email change or a signup, where saying so gives nothing
+ * away: no email went out because the target already holds the most live
+ * codes it can.
+ */
+export const NO_NEW_EMAIL_TOAST = {
+	title: 'No new email sent',
+	description:
+		"You've asked for a few codes in the last 10 minutes. The ones we already sent still work.",
+}
+
+const invalidCode = (submission: {
+	reply: (options: { fieldErrors: Record<string, string[]> }) => unknown
+}) =>
+	data(
+		{ result: submission.reply({ fieldErrors: { code: ['Invalid code'] } }) },
+		{ status: 400 },
+	)
+
 export async function validateRequest(
 	request: Request,
 	body: URLSearchParams | FormData,
 ) {
 	const submission = await parseWithZod(body, {
-		schema: VerifySchema.superRefine(async (data, ctx) => {
-			const codeIsValid = await isCodeValid({
-				code: data[codeQueryParam],
-				type: data[typeQueryParam],
-				target: data[targetQueryParam],
-			})
-			if (!codeIsValid) {
+		schema: VerifySchema.transform(async (data, ctx) => {
+			const type = data[typeQueryParam]
+			const code = data[codeQueryParam]
+			const invalid = () => {
 				ctx.addIssue({
-					path: ['code'],
-					code: z.ZodIssueCode.custom,
+					path: [codeQueryParam],
+					code: 'custom',
 					message: `Invalid code`,
 				})
-				return
+				return z.NEVER
 			}
+			// Each kind of code is checked only by its own path: an emailed
+			// type never reaches the authenticator check, and 2FA never
+			// reaches the emailed codes.
+			if (isEmailCodeType(type)) {
+				const target = await emailCodeTarget(type, data[targetQueryParam])
+				if (target === null) return invalid()
+				const match = await checkEmailCode({
+					type,
+					target,
+					code,
+					token: data[tokenQueryParam],
+				})
+				if (!match) return invalid()
+				// Handlers get the target the code was stored under.
+				return { ...data, [targetQueryParam]: target }
+			}
+			if (type !== twoFAVerificationType || !code) return invalid()
+			const codeIsValid = await isCodeValid({
+				code,
+				type,
+				target: data[targetQueryParam],
+			})
+			if (!codeIsValid) return invalid()
+			return data
 		}),
 		async: true,
 	})
@@ -176,34 +257,34 @@ export async function validateRequest(
 	}
 
 	const { value: submissionValue } = submission
+	const args = { request, body, submission }
 
-	async function deleteVerification() {
-		await prisma.verification.delete({
-			where: {
-				target_type: {
-					type: submissionValue[typeQueryParam],
-					target: submissionValue[targetQueryParam],
-				},
-			},
+	// Uses the code now. Of two submits of the same code only one gets here.
+	function consume(type: 'onboarding' | 'reset-password') {
+		return consumeEmailCode({
+			type,
+			target: submissionValue[targetQueryParam],
+			code: submissionValue[codeQueryParam],
+			token: submissionValue[tokenQueryParam],
 		})
 	}
 
 	switch (submissionValue[typeQueryParam]) {
 		case 'reset-password': {
-			await deleteVerification()
-			return handleResetPasswordVerification({ request, body, submission })
+			if (!(await consume('reset-password'))) return invalidCode(submission)
+			return handleResetPasswordVerification(args)
 		}
 		case 'onboarding': {
-			await deleteVerification()
-			return handleOnboardingVerification({ request, body, submission })
+			if (!(await consume('onboarding'))) return invalidCode(submission)
+			return handleOnboardingVerification(args)
 		}
 		case 'change-email': {
-			// Its handler consumes the code itself, after the checks that can
-			// send the user to reverify and back with the same code.
-			return handleChangeEmailVerification({ request, body, submission })
+			// Its handler uses the code itself, after the checks that can send
+			// the user to reverify and back with the same code.
+			return handleChangeEmailVerification(args)
 		}
 		case '2fa': {
-			return handleLoginTwoFactorVerification({ request, body, submission })
+			return handleLoginTwoFactorVerification(args)
 		}
 	}
 }

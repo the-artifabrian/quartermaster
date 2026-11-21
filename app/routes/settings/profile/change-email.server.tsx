@@ -8,10 +8,14 @@ import {
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { runInBackground } from '#app/utils/background.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import {
+	checkEmailCode,
+	consumeEmailCode,
+} from '#app/utils/email-code.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
-import { newEmailAddressSessionKey } from './change-email'
+import { newEmailAddressSessionKey, requestedAddresses } from './change-email'
 
 export async function handleVerification({
 	request,
@@ -35,33 +39,56 @@ export async function handleVerification({
 	const verifySession = await verifySessionStorage.getSession(
 		request.headers.get('cookie'),
 	)
-	const newEmail = verifySession.get(newEmailAddressSessionKey)
-	if (!newEmail) {
+	const sameDevice = {
+		result: submission.reply({
+			formErrors: [
+				'You must submit the code on the same device that requested the email change.',
+			],
+		}),
+	}
+	const addresses = requestedAddresses(
+		verifySession.get(newEmailAddressSessionKey),
+	)
+	if (addresses.length === 0) return data(sameDevice, { status: 400 })
+
+	const code = {
+		type: 'change-email' as const,
+		target: userId,
+		code: submission.value.code,
+		token: submission.value.token,
+	}
+	// The new email is the address this code was sent to, which this device
+	// must have asked for.
+	const match = await checkEmailCode(code)
+	if (!match?.address) {
 		return data(
-			{
-				result: submission.reply({
-					formErrors: [
-						'You must submit the code on the same device that requested the email change.',
-					],
-				}),
-			},
+			{ result: submission.reply({ fieldErrors: { code: ['Invalid code'] } }) },
 			{ status: 400 },
 		)
 	}
+	if (!addresses.includes(match.address)) {
+		return data(sameDevice, { status: 400 })
+	}
+
 	const preUpdateUser = await prisma.user.findFirstOrThrow({
 		select: { email: true },
 		where: { id: userId },
 	})
-	const [, user] = await prisma.$transaction([
-		prisma.verification.delete({
-			where: { target_type: { target: userId, type: 'change-email' } },
-		}),
-		prisma.user.update({
+	// The code is used and the email changed together, or neither happens.
+	// Of two submits of the same code only one changes anything.
+	const user = await consumeEmailCode(code, (tx, row) =>
+		tx.user.update({
 			where: { id: userId },
 			select: { id: true, email: true, username: true },
-			data: { email: newEmail },
+			data: { email: row.address! },
 		}),
-	])
+	)
+	if (!user) {
+		return data(
+			{ result: submission.reply({ fieldErrors: { code: ['Invalid code'] } }) },
+			{ status: 400 },
+		)
+	}
 
 	runInBackground(
 		sendEmail({

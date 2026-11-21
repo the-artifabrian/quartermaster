@@ -1,0 +1,716 @@
+import { http, HttpResponse } from 'msw'
+import { RouterContextProvider } from 'react-router'
+import { afterEach, describe, expect, test, vi } from 'vitest'
+import { action as changeEmailAction } from '#app/routes/settings/profile/change-email.tsx'
+import { twoFAVerificationType } from '#app/routes/settings/profile/two-factor/_layout.tsx'
+import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
+import { prisma } from '#app/utils/db.server.ts'
+import { checkEmailCode } from '#app/utils/email-code.server.ts'
+import { redactUrl } from '#app/utils/redact-url.ts'
+import { toastKey, toastSessionStorage } from '#app/utils/toast.server.ts'
+import { generateTOTP } from '#app/utils/totp.server.ts'
+import { verifySessionStorage } from '#app/utils/verification.server.ts'
+import { createUser } from '#tests/db-utils.ts'
+import { server } from '#tests/setup/mocks-setup.ts'
+import { consoleError } from '#tests/setup/setup-test-env.ts'
+import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
+import { action as forgotPasswordAction } from './forgot-password.tsx'
+import { onboardingEmailSessionKey } from './onboarding/index.tsx'
+import { action as signupAction } from './signup.tsx'
+import { isCodeValid, validateRequest } from './verify.server.ts'
+import '#tests/setup/db-setup.ts'
+
+// Failure list for emailed codes (signup, password reset, email change).
+//
+// Someone who knows only a username or email address:
+// 1. Asks for reset codes for the owner, by username and by email, again and
+//    again. The code the owner got first still works, and so does its link.
+// 2. Fills the cap. The owner's earliest code still works, the next request
+//    answers exactly like the others and sends nothing, and once the codes
+//    expire a request sends again.
+// 3. Sends many requests at once. No more than the cap go out or get stored.
+// 4. Submits many wrong codes, from many addresses. The owner's code still
+//    works afterwards.
+// 5. Asks for a reset for an account that doesn't exist. The answer is the
+//    same, nothing is stored and nothing is sent.
+//
+// Reset by username and by email:
+// 6. Asked for by username, then by email: one bucket and one cap, and both
+//    codes work, whichever form of the account the verify step is given.
+//
+// Using codes:
+// 7. The same code submitted twice at once: exactly one succeeds.
+// 8. A used code stops working, and using one code ends the target's other
+//    live codes.
+// 9. A code past its 10 minutes fails.
+// 10. A code typed in lowercase works.
+// 11. The emailed link works without the typed code, and a link for one
+//     target fails for another.
+// 12. A code for one target fails for another target, and a reset code fails
+//     as a signup code.
+// 13. Codes and link tokens are never stored as they were sent.
+// 14. A code whose email is still going out can't be used yet.
+//
+// Code kinds:
+// 15. An emailed code submitted as a 2FA code fails, and an authenticator
+//     code submitted as an emailed code fails, at the form and in the
+//     functions behind it.
+//
+// Sending:
+// 16. A failed email send stores nothing and leaves earlier codes working.
+// 17. Signup with a mixed-case address stores the code under the address as
+//     the account will store it.
+//
+// Email change:
+// 18. A request for address A and then for B: A's code can't set the email
+//     to B.
+// 19. A code submitted without the requesting device's cookie fails.
+//
+// Past the cap, what the person is told:
+// 20. Forgot-password answers exactly as it does under the cap.
+// 21. Signup already says when an address has an account, so past the cap it
+//     says plainly that no new email went out and earlier codes still work.
+// 22. Change email is signed in, so it says the same, and keeps the address
+//     list in the cookie as it was.
+//
+// Logs:
+// 23. The link token is redacted, including inside redirectTo.
+//
+// GET /verify consuming nothing is checked in tests/e2e/onboarding.test.ts,
+// through the real page.
+
+const CAP = 5
+const CODE_LIFETIME_MS = 10 * 60 * 1000
+
+afterEach(() => {
+	vi.useRealTimers()
+})
+
+type Sent = { to: string; text: string }
+
+/** Keeps the emails sent while the test runs. */
+function captureEmails(onSend?: (email: Sent) => Promise<void>) {
+	const sent: Sent[] = []
+	server.use(
+		http.post('https://api.resend.com/emails', async ({ request }) => {
+			const body = (await request.json()) as Sent
+			await onSend?.(body)
+			sent.push({ to: body.to, text: body.text })
+			return HttpResponse.json({ id: `email-${sent.length}` })
+		}),
+	)
+	return sent
+}
+
+function failEmails() {
+	consoleError.mockImplementation(() => {})
+	server.use(
+		http.post('https://api.resend.com/emails', () =>
+			HttpResponse.json({ message: 'down' }, { status: 500 }),
+		),
+	)
+}
+
+/** The typed code, and the verify link's fields, from one email. */
+function readCode(email: Sent | undefined) {
+	const text = email?.text ?? ''
+	const code = /verification code: ([A-Z0-9]+)/.exec(text)?.[1]
+	const link = /https?:\/\/\S+\/verify\?\S+/.exec(text)?.[0]
+	if (!code || !link) throw new Error('No code in the email')
+	const url = new URL(link)
+	return {
+		code,
+		type: url.searchParams.get('type')!,
+		target: url.searchParams.get('target')!,
+		token: url.searchParams.get('token'),
+		link: url,
+	}
+}
+
+// Each route types its own action arguments; these tests build the same
+// shape for all of them.
+type AnyAction = (args: never) => unknown
+
+async function callAction(
+	action: AnyAction,
+	path: string,
+	fields: Record<string, string>,
+	cookie?: string,
+) {
+	const url = new URL(path, BASE_URL)
+	const args = {
+		request: new Request(url, {
+			method: 'POST',
+			headers: cookie ? { cookie } : {},
+			body: new URLSearchParams(fields),
+		}),
+		url,
+		params: {},
+		pattern: path,
+		context: new RouterContextProvider(),
+	}
+	return (await action(args as never)) as unknown
+}
+
+function forgotPassword(usernameOrEmail: string) {
+	return callAction(forgotPasswordAction, '/forgot-password', {
+		usernameOrEmail,
+	})
+}
+
+async function signup(email: string) {
+	return (await callAction(signupAction, '/signup', { email })) as Response
+}
+
+/** The parts of an action's answer a visitor can see. */
+function visible(result: unknown) {
+	if (result instanceof Response) {
+		return {
+			status: result.status,
+			location: result.headers.get('location'),
+			setCookies: result.headers.getSetCookie(),
+		}
+	}
+	const { data, init } = result as {
+		data: unknown
+		init?: { status?: number; headers?: HeadersInit }
+	}
+	return {
+		status: init?.status ?? 200,
+		body: data,
+		setCookies: new Headers(init?.headers).getSetCookie(),
+	}
+}
+
+async function toastFrom(setCookies: string[]) {
+	const cookie = setCookies.find((c) => c.startsWith('en_toast='))
+	if (!cookie) return null
+	const session = await toastSessionStorage.getSession(cookie.split(';')[0])
+	return session.get(toastKey) as { title?: string; description: string }
+}
+
+async function createAccount() {
+	return prisma.user.create({
+		data: createUser(),
+		select: { id: true, username: true, email: true },
+	})
+}
+
+function cookiePair(setCookie: string) {
+	return setCookie.split(';')[0]!
+}
+
+// Replaces cookies in `cookie` with any the response set, as a browser would.
+function applySetCookies(cookie: string, setCookies: string[]) {
+	const jar = new Map(
+		cookie
+			.split('; ')
+			.filter(Boolean)
+			.map((pair) => [pair.split('=')[0]!, pair] as const),
+	)
+	for (const setCookie of setCookies) {
+		const pair = cookiePair(setCookie)
+		jar.set(pair.split('=')[0]!, pair)
+	}
+	return [...jar.values()].join('; ')
+}
+
+type Outcome = {
+	status: number
+	location: string | null
+	setCookies: string[]
+	errors: unknown
+}
+
+async function submitVerify(
+	fields: Record<string, string | null | undefined>,
+	{ cookie = '', address = '203.0.113.7' } = {},
+): Promise<Outcome> {
+	const body = new FormData()
+	for (const [key, value] of Object.entries(fields)) {
+		if (value != null) body.set(key, value)
+	}
+	const request = new Request(`${BASE_URL}/verify`, {
+		method: 'POST',
+		headers: { cookie, 'x-forwarded-for': address },
+		body,
+	})
+	const result: unknown = await validateRequest(request, body).catch(
+		(error: unknown) => error,
+	)
+	if (result instanceof Response) {
+		return {
+			status: result.status,
+			location: result.headers.get('location'),
+			setCookies: result.headers.getSetCookie(),
+			errors: null,
+		}
+	}
+	const { data, init } = result as {
+		data: { result: { error?: unknown } }
+		init?: { status?: number }
+	}
+	return {
+		status: init?.status ?? 200,
+		location: null,
+		setCookies: [],
+		errors: data.result.error,
+	}
+}
+
+type Emailed = ReturnType<typeof readCode>
+
+/** Submits the typed code from an email. */
+function useCode(emailed: Emailed, overrides: Record<string, string> = {}) {
+	return submitVerify({
+		code: emailed.code,
+		type: emailed.type,
+		target: emailed.target,
+		...overrides,
+	})
+}
+
+/** Submits the token from an email's link, as the verify page does. */
+function useLink(emailed: Emailed, overrides: Record<string, string> = {}) {
+	return submitVerify({
+		token: emailed.token,
+		type: emailed.type,
+		target: emailed.target,
+		...overrides,
+	})
+}
+
+const RESET_DONE = '/reset-password'
+
+describe('someone asking for codes for another person', () => {
+	test('repeated reset requests leave the first code and its link working', async () => {
+		const sent = captureEmails()
+		const user = await createAccount()
+		for (let i = 0; i < 4; i++) {
+			await forgotPassword(i % 2 ? user.email : user.username)
+		}
+		expect(sent).toHaveLength(4)
+
+		const first = readCode(sent[0])
+		expect((await useLink(first)).location).toBe(RESET_DONE)
+
+		const user2 = await createAccount()
+		const sent2 = captureEmails()
+		await forgotPassword(user2.username)
+		await forgotPassword(user2.email)
+		await forgotPassword(user2.username.toUpperCase())
+		expect((await useCode(readCode(sent2[0]))).location).toBe(RESET_DONE)
+	})
+
+	test('past the cap, nothing is sent, the answer is the same, and the earliest code works', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] })
+		const sent = captureEmails()
+		const user = await createAccount()
+		const answers = []
+		for (let i = 0; i < CAP + 1; i++) {
+			answers.push(visible(await forgotPassword(user.email)))
+		}
+		expect(sent).toHaveLength(CAP)
+		expect(answers[CAP]).toEqual(answers[0])
+
+		vi.setSystemTime(Date.now() + CODE_LIFETIME_MS + 1000)
+		await forgotPassword(user.email)
+		expect(sent).toHaveLength(CAP + 1)
+		expect((await useCode(readCode(sent[CAP]))).location).toBe(RESET_DONE)
+	})
+
+	test('the earliest code still works once the cap is reached', async () => {
+		const sent = captureEmails()
+		const user = await createAccount()
+		for (let i = 0; i < CAP + 2; i++) await forgotPassword(user.username)
+		expect(sent).toHaveLength(CAP)
+		expect((await useCode(readCode(sent[0]))).location).toBe(RESET_DONE)
+	})
+
+	test('requests sent all at once stop at the cap', async () => {
+		const sent = captureEmails()
+		const user = await createAccount()
+		await Promise.all(
+			Array.from({ length: CAP + 4 }, (_, i) =>
+				forgotPassword(i % 2 ? user.email : user.username),
+			),
+		)
+		expect(sent).toHaveLength(CAP)
+		expect(
+			await prisma.emailCode.count({ where: { type: 'reset-password' } }),
+		).toBe(CAP)
+	})
+
+	test('wrong codes from many addresses leave the owner’s code working', async () => {
+		const sent = captureEmails()
+		const user = await createAccount()
+		await forgotPassword(user.email)
+		const emailed = readCode(sent[0])
+		for (let address = 1; address <= 10; address++) {
+			for (let i = 0; i < 5; i++) {
+				const wrong = await submitVerify(
+					{ code: 'ABCDEFGH', type: emailed.type, target: emailed.target },
+					{ address: `198.51.100.${address}` },
+				)
+				expect(wrong.status).toBe(400)
+			}
+		}
+		expect((await useCode(emailed)).location).toBe(RESET_DONE)
+	})
+
+	test('a reset for an unknown account answers the same, stores nothing and sends nothing', async () => {
+		const sent = captureEmails()
+		const user = await createAccount()
+		const known = visible(await forgotPassword(user.username))
+		const unknown = visible(await forgotPassword('nobody_here_at_all'))
+		const unknownEmail = visible(await forgotPassword('nobody@example.com'))
+		expect(unknown).toEqual({
+			...known,
+			body: { ...(known.body as object), result: expect.anything() },
+		})
+		expect(unknownEmail.status).toBe(known.status)
+		expect(sent).toHaveLength(1)
+		expect(await prisma.emailCode.count()).toBe(1)
+	})
+})
+
+describe('reset by username and by email', () => {
+	test('both forms share one cap, and both codes work', async () => {
+		const sent = captureEmails()
+		const user = await createAccount()
+		await forgotPassword(user.username)
+		await forgotPassword(user.email)
+		const [byUsername, byEmail] = [readCode(sent[0]), readCode(sent[1])]
+		expect(byUsername.target).toBe(byEmail.target)
+
+		for (let i = 0; i < CAP; i++) await forgotPassword(user.email.toUpperCase())
+		expect(sent).toHaveLength(CAP)
+
+		// The verify step finds the account the same way, whichever form it
+		// is given.
+		expect(
+			(await useCode(byEmail, { target: user.username.toUpperCase() }))
+				.location,
+		).toBe(RESET_DONE)
+	})
+
+	test('a stale code for the other form still checks against the account', async () => {
+		const sent = captureEmails()
+		const user = await createAccount()
+		await forgotPassword(user.email)
+		await forgotPassword(user.username)
+		expect(
+			(await useCode(readCode(sent[0]), { target: user.email })).location,
+		).toBe(RESET_DONE)
+	})
+})
+
+describe('using codes', () => {
+	test('the same code submitted twice at once succeeds once', async () => {
+		const sent = captureEmails()
+		const user = await createAccount()
+		await forgotPassword(user.username)
+		const emailed = readCode(sent[0])
+		const outcomes = await Promise.all([useCode(emailed), useCode(emailed)])
+		expect(outcomes.map((o) => o.status).sort()).toEqual([302, 400])
+	})
+
+	test('a used code stops working, and so do the target’s other codes', async () => {
+		const sent = captureEmails()
+		const user = await createAccount()
+		await forgotPassword(user.username)
+		await forgotPassword(user.username)
+		const [first, second] = [readCode(sent[0]), readCode(sent[1])]
+
+		expect((await useCode(second)).location).toBe(RESET_DONE)
+		expect((await useCode(second)).status).toBe(400)
+		expect((await useCode(first)).status).toBe(400)
+		expect((await useLink(first)).status).toBe(400)
+		expect(await prisma.emailCode.count()).toBe(0)
+	})
+
+	test('a code past its 10 minutes fails', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] })
+		const sent = captureEmails()
+		const user = await createAccount()
+		await forgotPassword(user.username)
+		vi.setSystemTime(Date.now() + CODE_LIFETIME_MS + 1000)
+		const outcome = await useCode(readCode(sent[0]))
+		expect(outcome.status).toBe(400)
+	})
+
+	test('a code typed in lowercase works', async () => {
+		const sent = captureEmails()
+		const user = await createAccount()
+		await forgotPassword(user.username)
+		const emailed = readCode(sent[0])
+		expect(
+			(await useCode(emailed, { code: emailed.code.toLowerCase() })).location,
+		).toBe(RESET_DONE)
+	})
+
+	test('the link works without the typed code, and only for its own target', async () => {
+		const sent = captureEmails()
+		const owner = await createAccount()
+		const other = await createAccount()
+		await forgotPassword(owner.username)
+		await forgotPassword(other.username)
+		const [ownerCode, otherCode] = [readCode(sent[0]), readCode(sent[1])]
+
+		expect(ownerCode.token).toMatch(/^[\w-]{43}$/)
+		expect(ownerCode.link.searchParams.get('code')).toBeNull()
+		expect(
+			(await useLink(ownerCode, { target: otherCode.target })).status,
+		).toBe(400)
+		expect((await useLink(ownerCode)).location).toBe(RESET_DONE)
+	})
+
+	test('a code fails for another target and as another kind of code', async () => {
+		const sent = captureEmails()
+		const owner = await createAccount()
+		const other = await createAccount()
+		await forgotPassword(owner.username)
+		await forgotPassword(other.username)
+		const resetCode = readCode(sent[0])
+
+		const email = `kind-${Date.now()}@example.com`
+		await signup(email)
+		const signupCode = readCode(sent[2])
+
+		expect((await useCode(resetCode, { target: other.id })).status).toBe(400)
+		expect(
+			(await useCode(resetCode, { type: 'onboarding', target: email })).status,
+		).toBe(400)
+		expect(
+			(
+				await useCode(signupCode, {
+					type: 'reset-password',
+					target: resetCode.target,
+				})
+			).status,
+		).toBe(400)
+		expect((await useCode(resetCode)).location).toBe(RESET_DONE)
+		expect((await useCode(signupCode)).location).toBe('/onboarding')
+	})
+
+	test('codes are eight characters, and neither the code nor the token is stored', async () => {
+		const sent = captureEmails()
+		const user = await createAccount()
+		await forgotPassword(user.username)
+		const emailed = readCode(sent[0])
+		expect(emailed.code).toMatch(/^[A-HJ-NP-Z1-9]{8}$/)
+		const stored = JSON.stringify(await prisma.emailCode.findMany())
+		expect(stored).not.toContain(emailed.code)
+		expect(stored).not.toContain(emailed.token)
+	})
+
+	test('a code can’t be used while its email is still going out', async () => {
+		const email = `in-flight-${Date.now()}@example.com`
+		let duringSend: Outcome | undefined
+		const sent = captureEmails(async (body) => {
+			const emailed = readCode(body)
+			duringSend = await useCode(emailed)
+		})
+		await signup(email)
+		expect(duringSend?.status).toBe(400)
+		expect((await useCode(readCode(sent[0]))).location).toBe('/onboarding')
+	})
+})
+
+describe('code kinds', () => {
+	async function userWithTwoFA() {
+		const user = await createAccount()
+		const { otp: _otp, ...totpConfig } = await generateTOTP()
+		await prisma.verification.create({
+			data: { ...totpConfig, type: twoFAVerificationType, target: user.id },
+		})
+		return { ...user, totp: async () => (await generateTOTP(totpConfig)).otp }
+	}
+
+	test('an emailed code fails as a 2FA code', async () => {
+		const sent = captureEmails()
+		const user = await userWithTwoFA()
+		await forgotPassword(user.username)
+		const emailed = readCode(sent[0])
+		expect((await useCode(emailed, { type: '2fa' })).status).toBe(400)
+		expect(
+			await isCodeValid({
+				code: emailed.code,
+				type: 'reset-password' as never,
+				target: emailed.target,
+			}),
+		).toBe(false)
+		expect((await useCode(emailed)).location).toBe(RESET_DONE)
+	})
+
+	test('an authenticator code fails as an emailed code', async () => {
+		const user = await userWithTwoFA()
+		const totp = await user.totp()
+		for (const type of ['reset-password', 'change-email', 'onboarding']) {
+			const outcome = await submitVerify({ code: totp, type, target: user.id })
+			expect(outcome.status).toBe(400)
+		}
+		expect(
+			await checkEmailCode({
+				type: twoFAVerificationType as never,
+				target: user.id,
+				code: totp,
+			}),
+		).toBeNull()
+		expect(
+			await isCodeValid({ code: totp, type: '2fa', target: user.id }),
+		).toBe(true)
+	})
+})
+
+describe('sending', () => {
+	test('a failed send stores nothing and leaves earlier codes working', async () => {
+		const sent = captureEmails()
+		const email = `send-fails-${Date.now()}@example.com`
+		await signup(email)
+		failEmails()
+		const failed = visible(await signup(email))
+		expect(failed.status).toBe(500)
+		expect(await prisma.emailCode.count()).toBe(1)
+		expect((await useCode(readCode(sent[0]))).location).toBe('/onboarding')
+	})
+
+	test('a mixed-case signup address is stored as the account will store it', async () => {
+		const sent = captureEmails()
+		const email = `Mixed-${Date.now()}@Example.com`
+		await signup(email)
+		const emailed = readCode(sent[0])
+		expect(emailed.target).toBe(email.toLowerCase())
+		const outcome = await useCode(emailed, { target: email })
+		expect(outcome.location).toBe('/onboarding')
+		const verifySession = await verifySessionStorage.getSession(
+			outcome.setCookies.map(cookiePair).join('; '),
+		)
+		expect(verifySession.get(onboardingEmailSessionKey)).toBe(
+			email.toLowerCase(),
+		)
+	})
+})
+
+describe('email change', () => {
+	async function signedIn() {
+		const session = await prisma.session.create({
+			data: {
+				expirationDate: getSessionExpirationDate(),
+				user: { create: createUser() },
+			},
+			select: { id: true, userId: true, expirationDate: true },
+		})
+		return {
+			userId: session.userId,
+			cookie: await getSessionCookieHeader(session),
+		}
+	}
+
+	async function requestChange(cookie: string, email: string) {
+		const result = await callAction(
+			changeEmailAction,
+			'/settings/profile/change-email',
+			{ email },
+			cookie,
+		)
+		const outcome = visible(result)
+		return { outcome, cookie: applySetCookies(cookie, outcome.setCookies) }
+	}
+
+	function submitWithCookie(emailed: Emailed, cookie: string) {
+		return submitVerify(
+			{ code: emailed.code, type: emailed.type, target: emailed.target },
+			{ cookie },
+		)
+	}
+
+	async function emailOf(userId: string) {
+		return (
+			await prisma.user.findUniqueOrThrow({
+				where: { id: userId },
+				select: { email: true },
+			})
+		).email
+	}
+
+	test('a code sent to one address can’t set another', async () => {
+		const sent = captureEmails()
+		const { userId, cookie: signedInCookie } = await signedIn()
+		const a = `a-${Date.now()}@example.com`
+		const b = `b-${Date.now()}@example.com`
+		let cookie = (await requestChange(signedInCookie, a)).cookie
+		cookie = (await requestChange(cookie, b)).cookie
+		const toA = readCode(sent.find((e) => e.to === a))
+
+		const outcome = await submitWithCookie(toA, cookie)
+		expect(outcome.location).toBe('/settings/profile')
+		expect(await emailOf(userId)).toBe(a)
+	})
+
+	test('a code submitted without the requesting device’s cookie fails', async () => {
+		const sent = captureEmails()
+		const { userId, cookie } = await signedIn()
+		const before = await emailOf(userId)
+		await requestChange(cookie, `c-${Date.now()}@example.com`)
+		const outcome = await submitWithCookie(readCode(sent[0]), cookie)
+		expect(outcome.status).toBe(400)
+		expect(await emailOf(userId)).toBe(before)
+		expect(await prisma.emailCode.count()).toBe(1)
+	})
+
+	test('past the cap it says no new email went out, and earlier codes still work', async () => {
+		const sent = captureEmails()
+		const { userId, cookie: signedInCookie } = await signedIn()
+		let cookie = signedInCookie
+		const addresses = Array.from(
+			{ length: CAP + 1 },
+			(_, i) => `cap-${i}-${Date.now()}@example.com`,
+		)
+		const outcomes = []
+		for (const address of addresses) {
+			const requested = await requestChange(cookie, address)
+			outcomes.push(requested.outcome)
+			cookie = requested.cookie
+		}
+		expect(sent).toHaveLength(CAP)
+
+		const past = outcomes[CAP]!
+		expect(past.status).toBe(302)
+		expect(past.setCookies.some((c) => c.startsWith('en_verification='))).toBe(
+			false,
+		)
+		const toast = await toastFrom(past.setCookies)
+		expect(toast?.title).toMatch(/no new email/i)
+		expect(toast?.description).toMatch(/still work/i)
+		expect(await toastFrom(outcomes[0]!.setCookies)).toBeNull()
+
+		const outcome = await submitWithCookie(readCode(sent[0]), cookie)
+		expect(outcome.location).toBe('/settings/profile')
+		expect(await emailOf(userId)).toBe(addresses[0])
+	})
+})
+
+describe('signup past the cap', () => {
+	test('it says no new email went out, and earlier codes still work', async () => {
+		const sent = captureEmails()
+		const email = `signup-cap-${Date.now()}@example.com`
+		const outcomes = []
+		for (let i = 0; i < CAP + 1; i++)
+			outcomes.push(visible(await signup(email)))
+		expect(sent).toHaveLength(CAP)
+		expect(outcomes[CAP]!.location).toBe(outcomes[0]!.location)
+		expect(await toastFrom(outcomes[0]!.setCookies)).toBeNull()
+		const toast = await toastFrom(outcomes[CAP]!.setCookies)
+		expect(toast?.title).toMatch(/no new email/i)
+		expect(toast?.description).toMatch(/still work/i)
+		expect((await useCode(readCode(sent[0]))).location).toBe('/onboarding')
+	})
+})
+
+test('the link token is redacted from logged URLs, also inside redirectTo', () => {
+	const link = '/verify?type=change-email&target=u1&token=secret-token-value'
+	expect(redactUrl(link)).not.toContain('secret-token-value')
+	const bounce = `/verify?type=2fa&target=u1&redirectTo=${encodeURIComponent(link)}`
+	expect(redactUrl(bounce)).not.toContain('secret-token-value')
+})

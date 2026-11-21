@@ -252,7 +252,7 @@ const AI_HELPERS =
 
 // Calls that check a password or code, take an invite, or send an email.
 const AUTH_LIKE_CALLS =
-	/\b(prepareVerification|isCodeValid|validateRequest|verifyUserPassword|resetUserPassword|getInviteByToken|acceptInvite|sendEmail)\s*\(/
+	/\b(prepareVerification|isCodeValid|validateRequest|issueEmailCode|checkEmailCode|consumeEmailCode|verifyUserPassword|resetUserPassword|getInviteByToken|acceptInvite|sendEmail)\s*\(/
 
 const ACTION_EXPORT =
 	/export\s+(async\s+)?function\s+action\b|export\s+(const|let|var)\s+action\b|export\s*\{[^}]*\baction\b[^}]*\}/

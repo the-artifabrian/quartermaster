@@ -268,11 +268,16 @@ describe('reverify window', () => {
 })
 
 describe('change email', () => {
-	async function requestChange(userId: string) {
-		const { otp } = await prepareVerification({
-			period: 10 * 60,
+	async function requestChange(userId: string, address: string) {
+		let otp = ''
+		await prepareVerification({
 			target: userId,
 			type: 'change-email',
+			address,
+			send: async (email) => {
+				otp = email.otp
+				return { status: 'success' as const }
+			},
 		})
 		return otp
 	}
@@ -290,10 +295,11 @@ describe('change email', () => {
 			select: { id: true, email: true },
 		})
 		const session = await createSession(signedIn.id)
-		const otherCode = await requestChange(otherUser.id)
+		const address = newEmail()
+		const otherCode = await requestChange(otherUser.id, address)
 		const cookie = await cookieHeader({
 			sessionId: session.id,
-			verify: { 'new-email-address': newEmail() },
+			verify: { 'new-email-address': [address] },
 		})
 
 		const outcome = await submitVerify(
@@ -318,11 +324,12 @@ describe('change email', () => {
 	test('a user due to reverify keeps their change-email code', async () => {
 		const user = await createUserWithTwoFA()
 		const session = await createSession(user.id)
-		const code = await requestChange(user.id)
+		const address = newEmail()
+		const code = await requestChange(user.id, address)
 		const cookie = await cookieHeader({
 			sessionId: session.id,
 			verifiedTime: twoHoursAgo(60),
-			verify: { 'new-email-address': newEmail() },
+			verify: { 'new-email-address': [address] },
 		})
 
 		const outcome = await submitVerify(
@@ -335,11 +342,10 @@ describe('change email', () => {
 		expect(location.pathname).toBe('/verify')
 		expect(location.searchParams.get('type')).toBe('2fa')
 		expect(
-			await prisma.verification.findUnique({
-				where: { target_type: { target: user.id, type: 'change-email' } },
-				select: { id: true },
+			await prisma.emailCode.count({
+				where: { target: user.id, type: 'change-email' },
 			}),
-		).not.toBeNull()
+		).toBe(1)
 		expect(
 			await prisma.user.findUniqueOrThrow({
 				where: { id: user.id },
@@ -351,13 +357,13 @@ describe('change email', () => {
 	test('the email changes after a reverify in the middle, and the code is then spent', async () => {
 		const user = await createUserWithTwoFA()
 		const session = await createSession(user.id)
-		const code = await requestChange(user.id)
 		const address = newEmail()
+		const code = await requestChange(user.id, address)
 		const search = `?type=change-email&target=${user.id}`
 		let cookie = await cookieHeader({
 			sessionId: session.id,
 			verifiedTime: twoHoursAgo(60),
-			verify: { 'new-email-address': address },
+			verify: { 'new-email-address': [address] },
 		})
 		const changeEmail = { code, type: 'change-email', target: user.id }
 

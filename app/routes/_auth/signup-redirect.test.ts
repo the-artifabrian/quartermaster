@@ -30,7 +30,7 @@ test('email signup and verification retain the destination shared Menu', async (
 	expect(verifyUrl.pathname).toBe('/verify')
 	expect(verifyUrl.searchParams.get('redirectTo')).toBe(redirectTo)
 	const body = new URLSearchParams({
-		code: 'ABC123',
+		code: 'ABCD1234',
 		type: 'onboarding',
 		target: 'menu-reader@example.com',
 		redirectTo,

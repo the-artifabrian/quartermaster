@@ -112,6 +112,7 @@ test('onboarding with link', async ({ page, navigate, getOnboardingData }) => {
 
 	await page.getByRole('button', { name: /submit/i }).click()
 	await expect(page.getByText(/check your email/i)).toBeVisible()
+	await expect(page.getByText(/asked more than once\?/i)).toBeVisible()
 
 	const email = await readEmail(onboardingData.email)
 	invariant(email, 'Email not found')
@@ -120,10 +121,19 @@ test('onboarding with link', async ({ page, navigate, getOnboardingData }) => {
 	expect(email.subject).toMatch(/welcome/i)
 	const onboardingUrl = extractUrl(email.text) as AppPages
 	invariant(onboardingUrl, 'Onboarding URL not found')
+	expect(new URL(onboardingUrl).searchParams.get('code')).toBeNull()
 	await navigate(onboardingUrl)
 
 	await expect(page).toHaveURL(/\/verify/)
-	await expectHiddenFieldsBlocked(page, ['target', 'redirectTo'])
+	await expectHiddenFieldsBlocked(page, ['target', 'redirectTo', 'token'])
+	await expect(page.getByText(/your link is ready/i)).toBeVisible()
+	// Mail scanners fetch links, so opening one uses nothing up.
+	await page.reload()
+	await expect(page.getByText(/your link is ready/i)).toBeVisible()
+	const emailCodes = {
+		where: { target: onboardingData.email.toLowerCase() },
+	}
+	expect(await prisma.emailCode.count(emailCodes)).toBe(1)
 
 	await page
 		.getByRole('main')
@@ -131,6 +141,7 @@ test('onboarding with link', async ({ page, navigate, getOnboardingData }) => {
 		.click()
 
 	await expect(page).toHaveURL(`/onboarding`)
+	expect(await prisma.emailCode.count(emailCodes)).toBe(0)
 	await expectHiddenFieldsBlocked(page, ['redirectTo'])
 	await page
 		.getByRole('textbox', { name: /^username/i })
@@ -183,10 +194,17 @@ test('onboarding with a short code', async ({
 	const codeMatch = email.text.match(CODE_REGEX)
 	const code = codeMatch?.groups?.code
 	invariant(code, 'Onboarding code not found')
-	await page.getByRole('textbox', { name: /code/i }).fill(code)
+	expect(code).toHaveLength(8)
+	// Typed in lowercase, it still counts.
+	await page.getByRole('textbox', { name: /code/i }).fill(code.toLowerCase())
 	await page.getByRole('button', { name: /submit/i }).click()
 
 	await expect(page).toHaveURL(`/onboarding`)
+	expect(
+		await prisma.emailCode.count({
+			where: { target: onboardingData.email.toLowerCase() },
+		}),
+	).toBe(0)
 })
 
 test('completes onboarding after Google OAuth given valid user details', async ({
@@ -421,6 +439,7 @@ test('reset password with a link', async ({
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
 	await page.getByRole('button', { name: /recover password/i }).click()
 	await expect(page.getByText(/check your email/i)).toBeVisible()
+	await expect(page.getByText(/asked more than once\?/i)).toBeVisible()
 
 	const email = await readEmail(user.email)
 	invariant(email, 'Email not found')
@@ -432,6 +451,11 @@ test('reset password with a link', async ({
 	await navigate(resetPasswordUrl)
 
 	await expect(page).toHaveURL(/\/verify/)
+	// Opening the link twice, as a mail scanner and then the owner might,
+	// leaves the code in place.
+	await page.reload()
+	await expect(page.getByText(/your link is ready/i)).toBeVisible()
+	expect(await prisma.emailCode.count({ where: { target: user.id } })).toBe(1)
 
 	await page
 		.getByRole('main')
@@ -439,6 +463,7 @@ test('reset password with a link', async ({
 		.click()
 
 	await expect(page).toHaveURL(`/reset-password`)
+	expect(await prisma.emailCode.count({ where: { target: user.id } })).toBe(0)
 	const newPassword = faker.internet.password()
 	await page.getByLabel(/^new password$/i).fill(newPassword)
 	await page.getByLabel(/^confirm password$/i).fill(newPassword)

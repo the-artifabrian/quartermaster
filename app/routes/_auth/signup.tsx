@@ -16,9 +16,10 @@ import { prisma } from '#app/utils/db.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
+import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { EmailSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/signup.ts'
-import { prepareVerification } from './verify.server.ts'
+import { NO_NEW_EMAIL_TOAST, prepareVerification } from './verify.server.ts'
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
@@ -61,30 +62,34 @@ export async function action({ request }: Route.ActionArgs) {
 		)
 	}
 	const { email } = submission.value
-	const { verifyUrl, redirectTo, otp } = await prepareVerification({
-		period: 10 * 60,
+	const result = await prepareVerification({
 		type: 'onboarding',
 		target: email,
 		redirectTo: submission.value.redirectTo,
+		send: ({ verifyUrl, otp }) =>
+			sendEmail({
+				to: email,
+				subject: `Welcome to Quartermaster!`,
+				react: <SignupEmail onboardingUrl={verifyUrl.toString()} otp={otp} />,
+			}),
 	})
 
-	const response = await sendEmail({
-		to: email,
-		subject: `Welcome to Quartermaster!`,
-		react: <SignupEmail onboardingUrl={verifyUrl.toString()} otp={otp} />,
-	})
-
-	if (response.status === 'success') {
-		return redirect(redirectTo)
-	} else {
-		return data(
-			{
-				result: submission.reply({ formErrors: [response.error.message] }),
-			},
-			{
-				status: 500,
-			},
-		)
+	switch (result.status) {
+		case 'sent':
+			return redirect(result.redirectTo)
+		case 'capped':
+			// Signup already says when an address has an account, so saying
+			// that no email went out gives nothing away.
+			return redirectWithToast(result.redirectTo, NO_NEW_EMAIL_TOAST)
+		case 'failed':
+			return data(
+				{
+					result: submission.reply({
+						formErrors: [result.sent.error.message],
+					}),
+				},
+				{ status: 500 },
+			)
 	}
 }
 

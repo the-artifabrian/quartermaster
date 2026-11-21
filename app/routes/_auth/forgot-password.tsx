@@ -11,7 +11,8 @@ import { prisma } from '#app/utils/db.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
 import { EmailSchema, UsernameSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/forgot-password.ts'
-import { prepareVerification } from './verify.server.ts'
+import { SEVERAL_CODES_NOTE } from './verify.tsx'
+import { emailCodeTarget, prepareVerification } from './verify.server.ts'
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
@@ -32,28 +33,34 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 	const { usernameOrEmail } = submission.value
 
-	// Always return the same response to prevent user enumeration
-	const user = await prisma.user.findFirst({
-		where: {
-			OR: [{ email: usernameOrEmail }, { username: usernameOrEmail }],
-		},
-		select: { email: true, username: true },
-	})
-
-	if (user) {
-		try {
-			const { verifyUrl, otp } = await prepareVerification({
-				period: 10 * 60,
-				type: 'reset-password',
-				target: usernameOrEmail,
+	// The answer is the same whether or not the account exists, and whether
+	// or not an email went out (past the cap, none does).
+	const target = await emailCodeTarget('reset-password', usernameOrEmail)
+	const user = target
+		? await prisma.user.findUnique({
+				where: { id: target },
+				select: { email: true },
 			})
+		: null
 
-			await sendEmail({
-				to: user.email,
-				subject: `Quartermaster Password Reset`,
-				react: (
-					<ForgotPasswordEmail onboardingUrl={verifyUrl.toString()} otp={otp} />
-				),
+	if (target && user) {
+		try {
+			// Keyed by the account, whichever of username or email was typed,
+			// so all of one account's codes share one cap.
+			await prepareVerification({
+				type: 'reset-password',
+				target,
+				send: ({ verifyUrl, otp }) =>
+					sendEmail({
+						to: user.email,
+						subject: `Quartermaster Password Reset`,
+						react: (
+							<ForgotPasswordEmail
+								onboardingUrl={verifyUrl.toString()}
+								otp={otp}
+							/>
+						),
+					}),
 			})
 		} catch {
 			// Swallow errors to prevent user enumeration via error responses
@@ -127,6 +134,7 @@ export default function ForgotPasswordRoute() {
 								If an account exists with that username or email, you'll receive
 								a password reset link shortly.
 							</p>
+							<p className="text-muted-foreground mt-2">{SEVERAL_CODES_NOTE}</p>
 							<Link
 								to="/login"
 								className="mt-8 inline-block text-base font-bold"

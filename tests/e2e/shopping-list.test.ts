@@ -1,5 +1,9 @@
 import { type Locator, type Page } from '@playwright/test'
-import { getWeekStart } from '#app/utils/date.ts'
+import {
+	getCurrentWeekStart,
+	getWeekStart,
+	serializeDate,
+} from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
@@ -123,6 +127,80 @@ test('Recipe ingredient addition creates an outstanding purchase beside checked 
 	await page.reload()
 	await expect(rows).toHaveCount(1)
 	await expect(previous).toBeVisible()
+})
+
+test('a Meal joining a row added from Recipe detail shows the summed amount', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Leek soup',
+			userId: user.id,
+			householdId: user.householdId,
+			ingredients: { create: { name: 'leeks', amount: '2', order: 0 } },
+			instructions: { create: { content: 'Simmer.', order: 0 } },
+		},
+	})
+	const weekStart = getCurrentWeekStart()
+	await prisma.meal.create({
+		data: {
+			mealPlan: { create: { householdId: user.householdId, weekStart } },
+			date: weekStart,
+			order: 0,
+			recipeItems: {
+				create: { recipeId: recipe.id, recipeTitle: recipe.title, order: 0 },
+			},
+		},
+	})
+	await page.setViewportSize({ width: 390, height: 844 })
+
+	await page.goto(`/recipes/${recipe.id}`)
+	await page
+		.getByRole('button', { name: 'Add to Shopping', exact: true })
+		.click()
+	await expect
+		.poll(() =>
+			prisma.shoppingListItem.findMany({
+				where: { list: { householdId: user.householdId } },
+				select: { source: true, quantity: true },
+			}),
+		)
+		.toEqual([{ source: 'recipe', quantity: '2' }])
+
+	const day = serializeDate(weekStart)
+	await page.goto(`/plan?weekStart=${day}&day=${day}`)
+	await page.getByRole('button', { name: 'Meal actions for Leek soup' }).click()
+	await page.getByRole('menuitem', { name: 'Add to Shopping' }).click()
+	await expect(
+		page.getByText('Added to items already on Shopping'),
+	).toBeVisible()
+
+	await page
+		.getByRole('link', { name: 'Shopping', exact: true })
+		.filter({ visible: true })
+		.click()
+	const row = page.getByRole('group', { name: /^leeks? shopping item$/ })
+	await expect(row).toHaveCount(1)
+	await expect(row).toContainText('4')
+	await expect(row).toContainText('incl. meals')
+
+	// Saved: the Recipe-detail row keeps its own 2, and the Meal's 2 is
+	// recorded against it.
+	const saved = await prisma.shoppingListItem.findFirstOrThrow({
+		where: { list: { householdId: user.householdId } },
+		include: {
+			mealContributions: { select: { quantity: true, mealId: true } },
+		},
+	})
+	expect(saved).toMatchObject({
+		source: 'recipe',
+		quantity: '2',
+		checked: false,
+		mealContributions: [{ quantity: '2', mealId: expect.any(String) }],
+	})
 })
 
 test('a range amount added from a Recipe keeps both ends on Shopping (#384)', async ({

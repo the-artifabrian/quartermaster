@@ -619,3 +619,73 @@ test.describe('the check square on a phone', () => {
 		expect(bananas.map((item) => item.checked)).toEqual([false])
 	})
 })
+
+test('an edit saved after the row changed is refused, then saves once the new amount has been seen', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const { rice } = await setup(user)
+	const meal = await prisma.meal.create({
+		data: {
+			mealPlan: {
+				create: {
+					householdId: user.householdId,
+					weekStart: new Date('2026-11-16'),
+				},
+			},
+			date: new Date('2026-11-17'),
+			order: 0,
+		},
+	})
+	await page.setViewportSize({ width: 390, height: 844 })
+	await openShopping(page)
+	await riceRow(page).getByRole('button', { name: 'Item actions' }).click()
+	await page.getByRole('menuitem', { name: 'Edit', exact: true }).click()
+	const sheet = page.getByRole('dialog', { name: 'Edit item' })
+	await expect(sheet).toBeVisible()
+
+	// Another member's Meal adds rice to this row while the sheet is open.
+	await prisma.mealShoppingContribution.create({
+		data: {
+			mealId: meal.id,
+			itemId: rice.id,
+			canonicalName: 'rice',
+			name: 'rice',
+			quantity: '300',
+			unit: 'g',
+		},
+	})
+	const quantity = sheet.getByRole('textbox', { name: 'Quantity' })
+	await quantity.fill('250')
+	await sheet.getByRole('button', { name: 'Save' }).click()
+
+	await expect(sheet.getByRole('alert')).toHaveText(
+		'This item changed and now says 500 g. Check your amount, then save again.',
+	)
+	await expect(quantity).toHaveValue('250')
+	await expect(riceRow(page)).toContainText('500 g')
+	expect(
+		await prisma.shoppingListItem.findUniqueOrThrow({
+			where: { id: rice.id },
+			select: {
+				quantity: true,
+				_count: { select: { mealContributions: true } },
+			},
+		}),
+	).toEqual({ quantity: '200', _count: { mealContributions: 1 } })
+
+	// Seen now: saving again changes the typed amount and keeps the Meal's.
+	await sheet.getByRole('button', { name: 'Save' }).click()
+	await expect(sheet).toBeHidden()
+	await expect(riceRow(page)).toContainText('550 g')
+	expect(
+		await prisma.shoppingListItem.findUniqueOrThrow({
+			where: { id: rice.id },
+			select: {
+				quantity: true,
+				_count: { select: { mealContributions: true } },
+			},
+		}),
+	).toEqual({ quantity: '250', _count: { mealContributions: 1 } })
+})

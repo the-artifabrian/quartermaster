@@ -713,7 +713,11 @@ pinning relies on Bun using `tls.serverName` for SNI, the certificate check and
 the keep-alive pool key, so a Bun upgrade must pass it. CI runs it in the lint
 job on CI's Bun version, so upgrade that version together with the Dockerfile's.
 Only this check may import `unguardedFetchFrom`, which skips the public-address
-guard.
+guard. It also runs a few address literals through that guard, whose ranges rest
+on Bun's own `BlockList` in production. The guard refuses the IPv6 ranges that
+wrap or relay to another address (IPv4-compatible `::/96`, 6to4, Teredo, the
+discard prefix and local-use NAT64) outright, and judges well-known NAT64 by the
+IPv4 address inside.
 
 The Playwright `login` fixture signs in a user who already has a Household,
 created the same way signup creates one, and returns its `householdId`. Seed

@@ -32,9 +32,19 @@ for (const [network, prefix] of [
 }
 // IPv4-mapped IPv6 addresses (::ffff:a.b.c.d) are checked against the IPv4
 // rules above. A ::ffff:0:0/96 rule would instead match every IPv4 address.
+//
+// The ranges that wrap or relay to another address are refused whole, not
+// judged by the address inside. IPv4-compatible (::/96, which also covers ::
+// and ::1) is deprecated. 6to4 (2002::/16) and Teredo (2001::/32) are
+// tunnels that relays have mostly stopped carrying, and Teredo obscures the
+// address it carries. No recipe site is reachable only through them, so
+// refusing them costs nothing and needs no decoding to get right.
 for (const [network, prefix] of [
-	['::', 128],
-	['::1', 128],
+	['::', 96],
+	['100::', 64],
+	['2001::', 32],
+	['2002::', 16],
+	['64:ff9b:1::', 48],
 	['fc00::', 7],
 	['fe80::', 10],
 	['ff00::', 8],
@@ -42,7 +52,9 @@ for (const [network, prefix] of [
 	nonPublic.addSubnet(network, prefix, 'ipv6')
 }
 
-// NAT64 (DNS64) addresses carry the IPv4 destination in their last 32 bits.
+// Well-known NAT64 (DNS64) addresses carry the IPv4 destination in their
+// last 32 bits, so they are judged by it. The local-use 64:ff9b:1::/48 above
+// translates inside a network and is refused.
 const nat64 = new BlockList()
 nat64.addSubnet('64:ff9b::', 96, 'ipv6')
 

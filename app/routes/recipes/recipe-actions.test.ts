@@ -5,6 +5,11 @@
  * - A double tap (add, then remove) ends in the first tap's state.
  * - A state that is neither true nor false is saved as one of them.
  * - A page loaded before the change, which posts no state, stops working.
+ *
+ * Failure list for this change (Recipe detail → Shopping):
+ * - Adding an ingredient to Shopping emits a household event that carries
+ *   the device's client id, so that device doesn't light its own Shopping
+ *   dot.
  */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
@@ -13,6 +18,7 @@ vi.mock('#app/utils/household-events.server.ts', () => ({
 	emitHouseholdEvent: vi.fn(),
 }))
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
@@ -239,6 +245,31 @@ describe('recipe detail actions', () => {
 			])
 		},
 	)
+
+	test('adding an ingredient to Shopping names the device in its event', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const ingredient = await prisma.ingredient.create({
+			data: { recipeId: recipe.id, name: 'leeks', amount: '2', order: 0 },
+		})
+		vi.mocked(emitHouseholdEvent).mockClear()
+
+		await action({
+			request: await makeRequest(session, recipe.id, {
+				intent: 'add-single-to-shopping-list',
+				ingredientId: ingredient.id,
+				originClientId: 'this-phone',
+			}),
+			...makeActionArgs(recipe.id),
+		})
+
+		expect(vi.mocked(emitHouseholdEvent)).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: 'shopping_list_item_added',
+				originClientId: 'this-phone',
+			}),
+		)
+	})
 
 	test('caps enhancement descriptions at the Recipe field limit', async () => {
 		const session = await setupUser()

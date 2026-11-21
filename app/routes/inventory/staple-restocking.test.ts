@@ -1,3 +1,8 @@
+/**
+ * Failure list for this change (Staples → Shopping):
+ * - Tapping a Staple's Need emits a household event that carries the
+ *   device's client id, so that device doesn't light its own Shopping dot.
+ */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
@@ -68,6 +73,7 @@ async function postAddToShop(
 			body: new URLSearchParams({
 				intent: 'add-staple-to-shop',
 				itemId,
+				originClientId: 'this-phone',
 			}).toString(),
 		}),
 		...ROUTE_ARGS,
@@ -75,6 +81,20 @@ async function postAddToShop(
 }
 
 describe('tapping a Staple restocks Next shop', () => {
+	test('the event names the device that tapped', async () => {
+		const session = await setupHousehold()
+
+		await postAddToShop(session)
+
+		const event = await prisma.householdEvent.findFirstOrThrow({
+			where: { householdId: session.householdId },
+		})
+		expect(event.type).toBe('shopping_list_item_added')
+		expect(JSON.parse(event.payload)).toMatchObject({
+			originClientId: 'this-phone',
+		})
+	})
+
 	test('moves an unchecked Later match to Next shop without rewriting it', async () => {
 		const session = await setupHousehold()
 		const list = await prisma.shoppingList.create({

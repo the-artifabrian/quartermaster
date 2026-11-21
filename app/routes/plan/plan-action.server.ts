@@ -283,6 +283,7 @@ export function createPlanAction(
 					: 0)
 			if (changedCount > 0) {
 				void emitHouseholdEvent({
+					originClientId: formData.get('originClientId'),
 					type: 'shopping_list_generated',
 					payload: { count: changedCount },
 					userId,
@@ -310,6 +311,7 @@ export function createPlanAction(
 			if (removesShopping) {
 				await removeMealWithShoppingContributions(db, { mealId: meal.id })
 				void emitHouseholdEvent({
+					originClientId: formData.get('originClientId'),
 					type: 'shopping_list_generated',
 					payload: { count: 0 },
 					userId,

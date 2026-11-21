@@ -12,6 +12,10 @@
  * - An ingredient a cooked and an uncooked item share. An existing amount
  *   stays as it is; with none, only the uncooked item's share is added.
  *
+ * Household events from Meal → Shopping writes:
+ * - Add to Shopping and Update Shopping from the Meal card carry the
+ *   device's client id, so that device doesn't light its own Shopping dot.
+ *
  * Row Edit and Remove generated amount (status codes the page acts on):
  * - A stale version answers 409 with the row as it is now, and saves nothing.
  * - A page that sends no version answers 400.
@@ -28,6 +32,7 @@ import { getCurrentWeekStart } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { action as shoppingCheckAction } from '../resources/shopping-check.tsx'
 import { loader as planPickerLoader } from '../resources/shopping-plan.tsx'
 import {
@@ -1773,5 +1778,44 @@ describe('cooked Recipe items never add Shopping amounts', () => {
 			mealId: meal.id,
 		})
 		expect(await amounts(session.householdId)).toMatchObject({ onion: '2' })
+	})
+})
+
+describe('Meal → Shopping events name the device that made them', () => {
+	test('Add to Shopping and Update Shopping carry the client id', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const meal = await setupMeal(session.householdId, recipe)
+		const item = await prisma.mealRecipeItem.findFirstOrThrow({
+			where: { mealId: meal.id },
+		})
+		vi.mocked(emitHouseholdEvent).mockClear()
+
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+			originClientId: 'this-phone',
+		})
+		await runPlanAction(session, {
+			intent: 'setItemMultiplier',
+			itemId: item.id,
+			multiplier: '2',
+		})
+		await runPlanAction(session, {
+			intent: 'refreshMealShopping',
+			mealId: meal.id,
+			originClientId: 'this-phone',
+		})
+
+		const calls = vi
+			.mocked(emitHouseholdEvent)
+			.mock.calls.map(([event]) => event)
+		expect(calls).toHaveLength(2)
+		for (const event of calls) {
+			expect(event).toMatchObject({
+				type: 'shopping_list_generated',
+				originClientId: 'this-phone',
+			})
+		}
 	})
 })

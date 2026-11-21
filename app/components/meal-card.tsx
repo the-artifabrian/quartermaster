@@ -1,6 +1,7 @@
 import { type SubmissionResult } from '@conform-to/react'
 import { useEffect, useRef, useState } from 'react'
 import { useFetcher, useSearchParams } from 'react-router'
+import { getHouseholdClientId } from '#app/utils/household-client.tsx'
 import { toast } from 'sonner'
 import { ErrorList } from '#app/components/forms.tsx'
 import {
@@ -809,6 +810,7 @@ export function MealCard({
 										? 'refreshMealShopping'
 										: 'addMealToShopping',
 									mealId: meal.id,
+									originClientId: getHouseholdClientId(),
 								},
 								{ method: 'POST' },
 							)

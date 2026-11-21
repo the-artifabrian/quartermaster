@@ -24,7 +24,12 @@ function googleUserPath(code: string) {
 	return path.join(googleUsersDirectory, `${encodeURIComponent(code)}.json`)
 }
 
-function createGoogleUser(code?: string | null) {
+type GoogleProfileOverrides = { verified_email?: boolean }
+
+function createGoogleUser(
+	code?: string | null,
+	overrides: GoogleProfileOverrides = {},
+) {
 	// Onboarding suggests the email's local part as the username, so keep it
 	// short enough to pass username validation.
 	const primaryEmail = faker.internet.email({
@@ -41,6 +46,8 @@ function createGoogleUser(code?: string | null) {
 			email: primaryEmail,
 			name: faker.person.fullName(),
 			picture: 'https://lh3.googleusercontent.com/a/default-user',
+			verified_email: true as boolean | undefined,
+			...overrides,
 		},
 		primaryEmail,
 	}
@@ -66,8 +73,13 @@ export async function deleteGoogleUsers() {
 	await fs.rm(googleUsersDirectory, { recursive: true, force: true })
 }
 
-export async function insertGoogleUser(code?: string | null) {
-	const user = createGoogleUser(code)
+/** A Google user the mock answers for. Pass `verified_email: undefined` to
+ * leave the field out of Google's answer. */
+export async function insertGoogleUser(
+	code?: string | null,
+	overrides?: GoogleProfileOverrides,
+) {
+	const user = createGoogleUser(code, overrides)
 	await fs.mkdir(googleUsersDirectory, { recursive: true })
 	await fs.writeFile(googleUserPath(user.code), JSON.stringify(user, null, 2))
 	return user
@@ -125,6 +137,7 @@ export const handlers: Array<HttpHandler> = [
 				email: user.profile.email,
 				name: user.profile.name,
 				picture: user.profile.picture,
+				verified_email: user.profile.verified_email,
 			})
 		},
 	),

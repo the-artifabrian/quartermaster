@@ -101,21 +101,14 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		}
 	}
 
-	// If we're already logged in, then link the account
+	// Google sign-in is going away (#439), so a signed-in account can't add a
+	// new connection. Existing connections still sign in below.
 	if (userId) {
-		await prisma.connection.create({
-			data: {
-				providerName,
-				providerId: String(profile.id),
-				userId,
-			},
-		})
 		return redirectWithToast(
 			'/settings/profile/connections',
 			{
-				title: 'Connected',
-				type: 'success',
-				description: `Your "${profile.username}" ${label} account has been connected.`,
+				title: 'Not connected',
+				description: `${label} sign-in is going away, so new ${label} connections are turned off.`,
 			},
 			{ headers: destroyRedirectTo },
 		)
@@ -127,11 +120,22 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 	}
 
 	// if the email matches a user in the db, then link the account and
-	// make a new session
+	// make a new session, but only for an email the provider has verified
 	const user = await prisma.user.findUnique({
 		select: { id: true },
 		where: { email: profile.email.toLowerCase() },
 	})
+	if (user && !profile.emailVerified) {
+		throw await redirectWithToast(
+			'/login',
+			{
+				type: 'error',
+				title: 'Log in with your password',
+				description: `${label} hasn’t confirmed this email address, so it wasn’t linked to your account.`,
+			},
+			{ headers: destroyRedirectTo },
+		)
+	}
 	if (user) {
 		await prisma.connection.create({
 			data: {

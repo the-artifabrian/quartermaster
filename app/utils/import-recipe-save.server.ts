@@ -1,4 +1,5 @@
 import { data, replace } from 'react-router'
+import { type PrismaClient } from '#app/generated/prisma/client.ts'
 import { prisma } from './db.server.ts'
 import { fitImportedRecipe } from './import-recipe-fit.ts'
 import {
@@ -41,8 +42,12 @@ export function importFailure(
 }
 
 /** The household's Recipe imported from `url`, if it has one. */
-export async function findRecipeFromUrl(householdId: string, url: string) {
-	return prisma.recipe.findFirst({
+export async function findRecipeFromUrl(
+	householdId: string,
+	url: string,
+	db: Pick<PrismaClient, 'recipe'> = prisma,
+) {
+	return db.recipe.findFirst({
 		where: { householdId, sourceUrl: url },
 		select: { id: true, title: true },
 		orderBy: { createdAt: 'desc' },
@@ -66,8 +71,11 @@ export async function saveImportedRecipe(
 	extracted: ExtractedRecipe,
 	intent: ImportIntent,
 	{ userId, householdId }: { userId: string; householdId: string },
+	db: PrismaClient = prisma,
 ) {
-	let created: { id: string; title: string }
+	let saved:
+		| { created: { id: string; title: string } }
+		| { existing: { id: string; title: string } }
 	let shortened: string[]
 	let ingredientCount: number
 	try {
@@ -81,11 +89,14 @@ export async function saveImportedRecipe(
 		) {
 			return importFailure(intent, nothingToRead[intent])
 		}
-		if (recipe.sourceUrl) {
-			const existing = await findRecipeFromUrl(householdId, recipe.sourceUrl)
-			if (existing) return alreadyImported(intent, existing)
-		}
-		created = await writeTransaction(prisma, async (tx) => {
+		saved = await writeTransaction(db, async (tx) => {
+			// Checked in the same transaction as the save, so two saves of one
+			// link at once (a shared link's own save and a tap) keep one Recipe
+			// and the second answers with it.
+			const existing = recipe.sourceUrl
+				? await findRecipeFromUrl(householdId, recipe.sourceUrl, tx)
+				: null
+			if (existing) return { existing }
 			// Suggested classifications are ids this household had when the
 			// extraction ran; one deleted since then is skipped, not an error.
 			const values = recipe.metadataValueIds.length
@@ -94,7 +105,7 @@ export async function saveImportedRecipe(
 						select: { id: true },
 					})
 				: []
-			return tx.recipe.create({
+			const created = await tx.recipe.create({
 				data: {
 					title: recipe.title,
 					description: recipe.description,
@@ -125,6 +136,7 @@ export async function saveImportedRecipe(
 				},
 				select: { id: true, title: true },
 			})
+			return { created }
 		})
 	} catch (error) {
 		console.error('Saving an imported Recipe failed:', error)
@@ -135,6 +147,8 @@ export async function saveImportedRecipe(
 		)
 	}
 
+	if ('existing' in saved) return alreadyImported(intent, saved.existing)
+	const { created } = saved
 	captureServerEvent(userId, RECIPE_IMPORTED, {
 		recipe_title: created.title,
 		ingredient_count: ingredientCount,

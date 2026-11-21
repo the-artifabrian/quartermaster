@@ -17,8 +17,10 @@ import {
 } from '#app/utils/posthog.server.ts'
 import {
 	createCheckoutSession,
+	getPlanPriceId,
 	getStripeClient,
 	handleCheckoutCompleted,
+	isCheckoutPlan,
 	isStripeConfigured,
 } from '#app/utils/stripe.server.ts'
 import { getUserTier, type TierInfo } from '#app/utils/subscription.server.ts'
@@ -110,9 +112,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 		tierInfo,
 		stripeConfigured,
 		isLoggedIn: !!userId,
-		proYearlyPriceId: stripeConfigured
-			? process.env.STRIPE_PRO_YEARLY_PRICE_ID!
-			: null,
 		pricingVariant,
 	}
 }
@@ -128,17 +127,24 @@ export async function action({ request }: Route.ActionArgs) {
 	const intent = formData.get('intent')
 
 	if (intent === 'checkout') {
-		const priceId = formData.get('priceId')
-		if (typeof priceId !== 'string' || !priceId) {
-			return data({ error: 'Missing price ID' }, { status: 400 })
+		// The form names a plan, and the price comes from config. A page cached
+		// before plans existed sends only its old priceId field, which is
+		// ignored: yearly is the plan it offered.
+		const plan = formData.get('plan') ?? 'yearly'
+		if (!isCheckoutPlan(plan)) {
+			return data({ error: 'Unknown plan' }, { status: 400 })
+		}
+		const priceId = isStripeConfigured() ? getPlanPriceId(plan) : null
+		if (!priceId) {
+			return data({ error: 'Checkout is not available' }, { status: 400 })
 		}
 
-		captureServerEvent(userId, CHECKOUT_STARTED, { price_id: priceId })
+		captureServerEvent(userId, CHECKOUT_STARTED, { price_id: priceId, plan })
 
 		const origin = getAppOrigin()
 		const session = await createCheckoutSession({
 			userId,
-			priceId,
+			plan,
 			returnUrl: `${origin}/upgrade`,
 		})
 
@@ -175,13 +181,7 @@ const proFeatures = [
 ]
 
 export default function UpgradePage({ loaderData }: Route.ComponentProps) {
-	const {
-		tierInfo,
-		stripeConfigured,
-		isLoggedIn,
-		proYearlyPriceId,
-		pricingVariant,
-	} = loaderData
+	const { tierInfo, stripeConfigured, isLoggedIn, pricingVariant } = loaderData
 
 	return (
 		<div
@@ -296,7 +296,6 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 						<ProButton
 							tierInfo={tierInfo}
 							stripeConfigured={stripeConfigured}
-							proYearlyPriceId={proYearlyPriceId}
 						/>
 					</div>
 				</div>
@@ -319,11 +318,9 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 function ProButton({
 	tierInfo,
 	stripeConfigured,
-	proYearlyPriceId,
 }: {
 	tierInfo: TierInfo
 	stripeConfigured: boolean
-	proYearlyPriceId: string | null
 }) {
 	if (tierInfo.isProActive) {
 		if (tierInfo.hasStripeSubscription) {
@@ -354,11 +351,11 @@ function ProButton({
 	}
 
 	// Show checkout button if Stripe is configured
-	if (stripeConfigured && proYearlyPriceId) {
+	if (stripeConfigured) {
 		return (
 			<Form method="POST">
 				<input type="hidden" name="intent" value="checkout" />
-				<input type="hidden" name="priceId" value={proYearlyPriceId} />
+				<input type="hidden" name="plan" value="yearly" />
 				<Button type="submit" variant="default" className="w-full">
 					Subscribe
 				</Button>

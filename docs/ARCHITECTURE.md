@@ -79,8 +79,12 @@ reaches the app at once. The two sides meet in three places:
 
 The apple-app-site-association file claims every path, so on a phone with the
 app installed a link in an email, such as a sign-up or password reset link,
-opens the app, with the app's own cookies rather than Safari's. The typed code
-from the same email works in either place.
+opens the app, with the app's own cookies rather than Safari's. A signup or
+reset code can instead be typed on the device that asked for it; a change-email
+code works only on the device that asked for it. The app is always logged in,
+so a reset goes ahead there and logs the app out once the password is set,
+whichever account it was logged in as. A signup link asks to log out first and
+uses nothing up until then.
 
 ### Recipe photos
 

@@ -7,12 +7,13 @@ import { ErrorList, Field } from '#app/components/forms.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import {
 	checkIsCommonPassword,
-	requireAnonymous,
+	endSessionCookies,
+	getBrowserSession,
 	resetUserPassword,
 } from '#app/utils/auth.server.ts'
+import { prisma } from '#app/utils/db.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
 import { PasswordAndConfirmPasswordSchema } from '#app/utils/user-validation.ts'
-import { verifySessionStorage } from '#app/utils/verification.server.ts'
 import { type Route } from './+types/reset-password.ts'
 import { requireResetPasswordUser } from './reset-password.server.ts'
 
@@ -22,14 +23,16 @@ export const handle: SEOHandle = {
 
 const ResetPasswordSchema = PasswordAndConfirmPasswordSchema
 
+// A reset works whether or not this browser is logged in, and as whichever
+// account: links from emails open in the iOS app, which always is. Once the
+// password is reset the browser is logged out.
 export async function loader({ request }: Route.LoaderArgs) {
-	await requireAnonymous(request)
 	const user = await requireResetPasswordUser(request)
-	return { username: user.username }
+	const loggedIn = Boolean((await getBrowserSession(request))?.username)
+	return { username: user.username, loggedIn }
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	await requireAnonymous(request)
 	const user = await requireResetPasswordUser(request)
 	const formData = await request.formData()
 	const submission = await parseWithZod(formData, {
@@ -54,12 +57,13 @@ export async function action({ request }: Route.ActionArgs) {
 	const { password } = submission.value
 
 	await resetUserPassword({ userId: user.id, password })
-	const verifySession = await verifySessionStorage.getSession()
-	return redirect('/login', {
-		headers: {
-			'set-cookie': await verifySessionStorage.destroySession(verifySession),
-		},
-	})
+	// The reset ended every session of this account. A session of another
+	// account on this browser ends too.
+	const browserSession = await getBrowserSession(request)
+	if (browserSession) {
+		await prisma.session.deleteMany({ where: { id: browserSession.id } })
+	}
+	return redirect('/login', { headers: await endSessionCookies(request) })
 }
 
 export const meta: Route.MetaFunction = () => {

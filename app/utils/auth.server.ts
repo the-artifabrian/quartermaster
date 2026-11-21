@@ -157,6 +157,25 @@ export async function requireAdmin(request: Request) {
 	return user.id
 }
 
+/**
+ * The session this browser's auth cookie names, and whether it is still live,
+ * without ending a dead one the way getUserId does. For pages that work
+ * either way, such as a link from an email opened in the always-logged-in
+ * iOS app.
+ */
+export async function getBrowserSession(request: Request) {
+	const authSession = await authSessionStorage.getSession(
+		request.headers.get('cookie'),
+	)
+	const sessionId = authSession.get(sessionKey)
+	if (typeof sessionId !== 'string' || !sessionId) return null
+	const live = await prisma.session.findUnique({
+		select: { user: { select: { username: true } } },
+		where: { id: sessionId, expirationDate: { gt: new Date() } },
+	})
+	return { id: sessionId, username: live?.user.username ?? null }
+}
+
 export async function requireAnonymous(request: Request) {
 	const userId = await getUserId(request)
 	if (userId) {

@@ -1,7 +1,8 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { Form, Link, useSearchParams } from 'react-router'
+import { useEffect, useRef } from 'react'
+import { Form, Link, useLocation, useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { ErrorList, OTPField } from '#app/components/forms.tsx'
@@ -148,6 +149,14 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 		!searchParams.get(codeQueryParam) &&
 		!actionData
 
+	if (
+		actionData &&
+		'loggedInAs' in actionData &&
+		typeof actionData.loggedInAs === 'string'
+	) {
+		return <LoggedInStep username={actionData.loggedInAs} />
+	}
+
 	const newCodePath =
 		type && type !== '2fa' && fields[codeQueryParam].errors?.length
 			? newCodePaths[type]
@@ -238,6 +247,52 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 					</Link>
 				) : null}
 			</div>
+		</main>
+	)
+}
+
+/**
+ * A signup code used on a browser that is logged in. Nothing was used up, so
+ * the same code works once they log out and come back here.
+ */
+function LoggedInStep({ username }: { username: string }) {
+	const location = useLocation()
+	const isPending = useIsPending({ formAction: '/logout' })
+	const heading = useRef<HTMLHeadingElement>(null)
+	useEffect(() => heading.current?.focus(), [])
+	return (
+		<main className="container flex flex-col justify-center pt-20 pb-32">
+			<div className="text-center">
+				<h1 ref={heading} tabIndex={-1} className="font-serif text-2xl">
+					You’re logged in as {username}
+				</h1>
+				<p className="text-muted-foreground mt-3 text-lg">
+					Log out to finish signing up the new address. The code in your email
+					will still work.
+				</p>
+			</div>
+			<Spacer size="xs" />
+			<Form
+				method="POST"
+				action="/logout"
+				className="mx-auto flex w-80 max-w-full flex-col"
+			>
+				{/* The page's address holds the signup's target and token. */}
+				<input
+					type="hidden"
+					name="redirectTo"
+					value={`${location.pathname}${location.search}`}
+					className="ph-no-capture"
+				/>
+				<StatusButton
+					className="w-full"
+					status={isPending ? 'pending' : 'idle'}
+					type="submit"
+					disabled={isPending}
+				>
+					Log out
+				</StatusButton>
+			</Form>
 		</main>
 	)
 }

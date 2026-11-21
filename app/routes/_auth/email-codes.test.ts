@@ -119,6 +119,15 @@ import '#tests/setup/db-setup.ts'
 //     is caught and logged, and never becomes an unhandled rejection, which
 //     would take the process down.
 //
+// Links opened on a device that is logged in (the iOS app always is):
+// 35. A signup link or typed code used while logged in uses nothing up. The
+//     answer names who is logged in, and the same code works once they log
+//     out.
+// 36. A signup code used with a session cookie whose session has gone works
+//     as if logged out.
+// 37. A reset code used while logged in, as that account or another, goes on
+//     to the new-password form.
+//
 // GET /verify consuming nothing is checked in tests/e2e/onboarding.test.ts,
 // through the real page.
 
@@ -266,6 +275,7 @@ type Outcome = {
 	location: string | null
 	setCookies: string[]
 	errors: unknown
+	loggedInAs?: unknown
 }
 
 async function submitVerify(
@@ -293,7 +303,7 @@ async function submitVerify(
 		}
 	}
 	const { data, init } = result as {
-		data: { result: { error?: unknown } }
+		data: { result: { error?: unknown }; loggedInAs?: unknown }
 		init?: { status?: number }
 	}
 	return {
@@ -301,29 +311,44 @@ async function submitVerify(
 		location: null,
 		setCookies: [],
 		errors: data.result.error,
+		loggedInAs: data.loggedInAs,
 	}
 }
 
 type Emailed = ReturnType<typeof readCode>
 
 /** Submits the typed code from an email. */
-function useCode(emailed: Emailed, overrides: Record<string, string> = {}) {
-	return submitVerify({
-		code: emailed.code,
-		type: emailed.type,
-		target: emailed.target,
-		...overrides,
-	})
+function useCode(
+	emailed: Emailed,
+	overrides: Record<string, string> = {},
+	cookie?: string,
+) {
+	return submitVerify(
+		{
+			code: emailed.code,
+			type: emailed.type,
+			target: emailed.target,
+			...overrides,
+		},
+		{ cookie },
+	)
 }
 
 /** Submits the token from an email's link, as the verify page does. */
-function useLink(emailed: Emailed, overrides: Record<string, string> = {}) {
-	return submitVerify({
-		token: emailed.token,
-		type: emailed.type,
-		target: emailed.target,
-		...overrides,
-	})
+function useLink(
+	emailed: Emailed,
+	overrides: Record<string, string> = {},
+	cookie?: string,
+) {
+	return submitVerify(
+		{
+			token: emailed.token,
+			type: emailed.type,
+			target: emailed.target,
+			...overrides,
+		},
+		{ cookie },
+	)
 }
 
 const RESET_DONE = '/reset-password'
@@ -938,6 +963,71 @@ describe('signup past the cap', () => {
 		expect(toast?.title).toMatch(/no new email/i)
 		expect(toast?.description).toMatch(/still work/i)
 		expect((await useCode(readCode(sent[0]))).location).toBe('/onboarding')
+	})
+})
+
+describe('links opened while logged in', () => {
+	async function loggedInCookie(userId: string) {
+		const session = await prisma.session.create({
+			data: { expirationDate: getSessionExpirationDate(), userId },
+			select: { id: true },
+		})
+		return { session, cookie: await getSessionCookieHeader(session) }
+	}
+
+	test('a signup code or link uses nothing up, says who is logged in, and works after logging out', async () => {
+		const sent = captureEmails()
+		const someone = await createAccount()
+		const { cookie } = await loggedInCookie(someone.id)
+		const email = `signup-logged-in-${Date.now()}@example.com`
+		await signup(email)
+		const emailed = readCode(sent[0])
+
+		for (const outcome of [
+			await useCode(emailed, {}, cookie),
+			await useLink(emailed, {}, cookie),
+		]) {
+			expect(outcome.location).toBeNull()
+			expect(outcome.loggedInAs).toBe(someone.username)
+		}
+		expect(await prisma.emailCode.count({ where: { target: email } })).toBe(1)
+
+		expect((await useCode(emailed)).location).toBe('/onboarding')
+	})
+
+	test('a signup code with a session cookie whose session has gone works', async () => {
+		const sent = captureEmails()
+		const someone = await createAccount()
+		const { session, cookie } = await loggedInCookie(someone.id)
+		await prisma.session.delete({ where: { id: session.id } })
+		await signup(`signup-gone-${Date.now()}@example.com`)
+
+		expect((await useCode(readCode(sent[0]), {}, cookie)).location).toBe(
+			'/onboarding',
+		)
+	})
+
+	test('a reset code goes on to the new-password form, logged in as anyone', async () => {
+		const sent = captureEmails()
+		const user = await createAccount()
+		const other = await createAccount()
+		await forgotPassword(user.username)
+		await forgotPassword(user.username)
+
+		const asSelf = await useCode(
+			readCode(sent[0]),
+			{},
+			(await loggedInCookie(user.id)).cookie,
+		)
+		expect(asSelf.location).toBe(RESET_DONE)
+
+		await forgotPassword(user.username)
+		const asOther = await useCode(
+			readCode(sent[2]),
+			{},
+			(await loggedInCookie(other.id)).cookie,
+		)
+		expect(asOther.location).toBe(RESET_DONE)
 	})
 })
 

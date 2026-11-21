@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { handleVerification as handleChangeEmailVerification } from '#app/routes/settings/profile/change-email.server.tsx'
 import { twoFAVerificationType } from '#app/routes/settings/profile/two-factor/_layout.tsx'
 import { getAppOrigin } from '#app/utils/app-origin.server.ts'
-import { requireUserId } from '#app/utils/auth.server.ts'
+import { getBrowserSession, requireUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
 	checkEmailCode,
@@ -282,6 +282,12 @@ export async function validateRequest(
 			return handleResetPasswordVerification(args)
 		}
 		case 'onboarding': {
+			// Signing up needs a logged-out browser. Say so before the code is
+			// used, so it still works after logging out.
+			const loggedInAs = (await getBrowserSession(request))?.username
+			if (loggedInAs) {
+				return data({ result: submission.reply(), loggedInAs }, { status: 409 })
+			}
 			if (!(await consume('onboarding'))) return invalidCode(submission)
 			return handleOnboardingVerification(args)
 		}

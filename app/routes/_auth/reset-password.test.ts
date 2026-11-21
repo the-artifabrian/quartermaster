@@ -7,7 +7,7 @@ import {
 } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createPassword, createUser } from '#tests/db-utils.ts'
-import { BASE_URL } from '#tests/utils.ts'
+import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { handleVerification } from './reset-password.server.ts'
 import { action, loader } from './reset-password.tsx'
 import { type VerifyFunctionArgs } from './verify.server.ts'
@@ -34,6 +34,16 @@ import '#tests/setup/mocks-setup.ts'
 // 9. The username changed after the code was used. The reset still goes to
 //    the same account.
 // 10. A cookie from before this change, holding only a username, is refused.
+//
+// The link opened on a device that is logged in (the iOS app always is):
+// 11. Logged in as the account being reset. The page opens, the reset goes
+//     through, every session of the account ends, and this device is logged
+//     out and lands on /login.
+// 12. Logged in as a different account. The reset goes to the account the
+//     code was for. This device's session of the other account ends and its
+//     cookie is cleared; that account's sessions elsewhere stay.
+// 13. The device's session cookie names a session that has gone. The page
+//     opens instead of bouncing to the homepage.
 
 const newPassword = 'new-password-5678'
 const url = `${BASE_URL}/reset-password`
@@ -239,4 +249,69 @@ test('a hand-off holding only a username is refused', async () => {
 
 	expect(location(await submitReset(cookie))).toBe('/login')
 	expect(await passwordWorks(user.id, newPassword)).toBe(false)
+})
+
+/** The cookie header of a device logged in with `session`, plus `cookie`. */
+async function loggedIn(session: { id: string }, cookie: string) {
+	return `${await getSessionCookieHeader(session)}; ${cookie}`
+}
+
+function clearedCookies(response: unknown) {
+	const setCookies =
+		response instanceof Response ? response.headers.getSetCookie() : []
+	return setCookies
+		.filter((setCookie) => /expires=Thu, 01 Jan 1970/i.test(setCookie))
+		.map((setCookie) => setCookie.split('=')[0])
+}
+
+test('a reset opened while logged in as the same account logs this device out', async () => {
+	const user = await createAccount()
+	const here = await createSession(user.id)
+	await createSession(user.id)
+	const cookie = await loggedIn(here, await handOff(user.id))
+
+	expect(await openPage(cookie)).toMatchObject({ username: user.username })
+	const response = await submitReset(cookie)
+
+	expect(location(response)).toBe('/login')
+	expect(clearedCookies(response)).toEqual(
+		expect.arrayContaining(['en_session', 'en_verification']),
+	)
+	expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0)
+	expect(await passwordWorks(user.id, newPassword)).toBe(true)
+})
+
+test('a reset opened while logged in as another account resets the right one and logs this device out', async () => {
+	const user = await createAccount()
+	const other = await createAccount()
+	const otherHere = await createSession(other.id)
+	const otherElsewhere = await createSession(other.id)
+	const cookie = await loggedIn(otherHere, await handOff(user.id))
+
+	expect(await openPage(cookie)).toMatchObject({ username: user.username })
+	const response = await submitReset(cookie)
+
+	expect(location(response)).toBe('/login')
+	expect(clearedCookies(response)).toEqual(
+		expect.arrayContaining(['en_session', 'en_verification']),
+	)
+	expect(await passwordWorks(user.id, newPassword)).toBe(true)
+	expect(await passwordWorks(other.id, newPassword)).toBe(false)
+	expect(
+		await prisma.session.findMany({
+			where: { userId: other.id },
+			select: { id: true },
+		}),
+	).toEqual([{ id: otherElsewhere.id }])
+})
+
+test('a reset opened with a session cookie whose session has gone still opens', async () => {
+	const user = await createAccount()
+	const gone = await createSession(user.id)
+	await prisma.session.delete({ where: { id: gone.id } })
+	const cookie = await loggedIn(gone, await handOff(user.id))
+
+	expect(await openPage(cookie)).toMatchObject({ username: user.username })
+	expect(location(await submitReset(cookie))).toBe('/login')
+	expect(await passwordWorks(user.id, newPassword)).toBe(true)
 })

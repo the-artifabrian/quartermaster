@@ -226,7 +226,7 @@ const logInAgainToasts: Record<
 	},
 	ended: {
 		title: 'Log in again',
-		description: 'This sign-in waited more than 10 minutes for its code.',
+		description: 'This sign-in has ended.',
 	},
 	'too-many-tries': {
 		title: 'Log in again',

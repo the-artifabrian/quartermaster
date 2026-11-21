@@ -93,8 +93,14 @@ test('Users can change their email address', async ({
 	await page.getByRole('link', { name: /^email/i }).click()
 	await page.getByRole('textbox', { name: /new email/i }).fill(newEmailAddress)
 
+	const currentPassword = page.getByLabel(/^current password$/i)
+	await expect(currentPassword).toHaveAttribute(
+		'autocomplete',
+		'current-password',
+	)
+	await expect(currentPassword).toHaveAttribute('required')
 	// A wrong password sends nothing.
-	await page.getByLabel(/^current password$/i).fill('not-the-password')
+	await currentPassword.fill('not-the-password')
 	await page.getByRole('button', { name: /send confirmation/i }).click()
 	await expect(page.getByText('Incorrect password.')).toBeVisible()
 	await expect(page).toHaveURL('/settings/profile/change-email')

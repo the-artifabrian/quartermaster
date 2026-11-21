@@ -468,6 +468,15 @@ test('reset password with a link', async ({
 	expect(email.from).toBe('hello@useqm.app')
 	const resetPasswordUrl = extractUrl(email.text) as AppPages
 	invariant(resetPasswordUrl, 'Reset password URL not found')
+	// The mock writes the email before the server marks its code as sent, and
+	// the code works only from then on.
+	await expect
+		.poll(() =>
+			prisma.emailCode.count({
+				where: { target: user.id, sentAt: { not: null } },
+			}),
+		)
+		.toBe(1)
 	await navigate(resetPasswordUrl)
 
 	await expect(page).toHaveURL(/\/verify/)

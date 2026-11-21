@@ -481,6 +481,20 @@ listed path is a real route, and that every action under `_auth`, every other
 action that checks a password or code, takes an invite or sends an email, and
 every route that reaches a paid AI helper is on a strict tier.
 
+**Password guessing.** Sign-in is limited per address only: 10 tries a minute,
+so 600 an hour from one address, with IPv6 counted per /64. There is no
+per-account count anywhere. On the sign-in form, a stranger who knows the
+username could use it up and lock the owner out. In Settings it would add
+nothing, because someone holding a session can read the username and guess on
+the sign-in form at the same rate. An attacker with many addresses is held back
+only by how fast the server runs bcrypt. Passwords use bcryptjs at cost 10, and
+one compare took about 68 ms under Bun on an M1 Mac. That is about 14 guesses a
+second, 50,000 an hour and 1.2 million a day. Comparing in parallel doesn't
+help, since bcryptjs runs on the one JavaScript thread. Production's CPU hasn't
+been timed and is probably slower, so the real figure is likely lower. Passwords
+are at least 6 characters. New ones are checked against Pwned Passwords when it
+answers within a second; on a timeout or an error the check is skipped.
+
 **Logs and analytics.** `redactUrl` in `app/utils/redact-url.ts` replaces the
 values of `code`, `token`, `target`, `session_id`, `otp`, `state` and similar
 query parameters, including inside `redirectTo`. These go through it:

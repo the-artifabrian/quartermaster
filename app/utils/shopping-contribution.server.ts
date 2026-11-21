@@ -179,11 +179,15 @@ async function createMealRow(
 
 /**
  * Replace one Meal's current contribution with freshly built demand. Existing
- * normalized display rows are reused so their checked state survives; rows
- * created for demand that no longer exists disappear only when no manual or
- * other-Meal component still needs them. Newly introduced groups start
- * unchecked even when the ordinary initial-add availability seam would have
- * pre-checked them.
+ * unchecked display rows are reused; rows created for demand that no longer
+ * exists disappear only when no manual or other-Meal component still needs
+ * them. Newly introduced groups start unchecked even when the ordinary
+ * initial-add availability seam would have pre-checked them.
+ *
+ * A checked row is a purchase and keeps showing what was bought. When this
+ * Meal's demand on it changed or went away, its share stays on that row
+ * without a Meal, and any current demand is placed as new demand: on an
+ * unchecked row of the same ingredient, or a new one (#226).
  */
 export function replaceMealShoppingContributions(
 	db: PrismaClient,
@@ -252,8 +256,47 @@ export function replaceMealShoppingContributions(
 		let removedContributionCount = 0
 		const possiblyEmptyMealRows = new Set<string>()
 
+		// New demand reuses only an outstanding row (Next shop first, a Later
+		// row moves up) or gets its own row: the #226 rule for every Meal add.
+		async function placeNewDemand(line: ShoppingDemandLine) {
+			const existingRow = rowByCanonical.get(line.canonicalName)
+			if (existingRow) {
+				await promote(existingRow)
+				await tx.mealShoppingContribution.create({
+					data: contributionData(mealId, line, existingRow.id),
+				})
+				return 'attached' as const
+			}
+			await createMealRow(tx, { mealId, listId, line })
+			return 'created' as const
+		}
+
 		for (const contribution of existingContributions) {
 			const line = freshByCanonical.get(contribution.canonicalName)
+			const row = rowById.get(contribution.itemId)
+			const changed =
+				!line ||
+				contribution.name !== line.name ||
+				contribution.quantity !== line.quantity ||
+				contribution.unit !== line.unit
+
+			if (row?.checked && changed) {
+				// A checked row shows what was bought, so this Meal's share stays
+				// on it as it was, no longer tied to the Meal. The Meal's current
+				// demand, if any, is new demand like any other Meal's (#226).
+				await tx.mealShoppingContribution.update({
+					where: { id: contribution.id },
+					data: { mealId: null },
+				})
+				if (line) {
+					await placeNewDemand(line)
+					updatedContributionCount++
+				} else {
+					removedContributionCount++
+				}
+				continue
+			}
+
 			if (!line) {
 				await tx.mealShoppingContribution.delete({
 					where: { id: contribution.id },
@@ -263,11 +306,7 @@ export function replaceMealShoppingContributions(
 				continue
 			}
 
-			if (
-				contribution.name !== line.name ||
-				contribution.quantity !== line.quantity ||
-				contribution.unit !== line.unit
-			) {
+			if (changed) {
 				await tx.mealShoppingContribution.update({
 					where: { id: contribution.id },
 					data: {
@@ -279,9 +318,8 @@ export function replaceMealShoppingContributions(
 				updatedContributionCount++
 			}
 
-			const row = rowById.get(contribution.itemId)
 			await promote(row)
-			if (row?.source === 'meal') {
+			if (row?.source === 'meal' && !row.checked) {
 				await tx.shoppingListItem.update({
 					where: { id: row.id },
 					data: {
@@ -296,18 +334,8 @@ export function replaceMealShoppingContributions(
 
 		for (const line of freshByCanonical.values()) {
 			if (contributionByCanonical.has(line.canonicalName)) continue
-
-			const existingRow = rowByCanonical.get(line.canonicalName)
-			if (existingRow) {
-				await promote(existingRow)
-				await tx.mealShoppingContribution.create({
-					data: contributionData(mealId, line, existingRow.id),
-				})
-				attachedCount++
-			} else {
-				await createMealRow(tx, { mealId, listId, line })
-				createdRowCount++
-			}
+			if ((await placeNewDemand(line)) === 'attached') attachedCount++
+			else createdRowCount++
 		}
 
 		if (possiblyEmptyMealRows.size > 0) {

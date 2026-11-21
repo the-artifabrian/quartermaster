@@ -7,7 +7,7 @@ import {
 	type FormMetadata,
 } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Form, useActionData } from 'react-router'
 import {
 	RecipePicker,
@@ -24,6 +24,7 @@ import {
 	type MenuShoppingLineInput,
 } from '#app/utils/menu-validation.ts'
 import { isEditScreenDone } from '#app/utils/edit-screen.ts'
+import { loadedIdsValue } from '#app/utils/loaded-rows.ts'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
 import { getHistoryLog, resolveAfterSave } from '#app/utils/nav-back.ts'
 import { historyIndex } from '#app/utils/nav-direction.ts'
@@ -187,6 +188,19 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [actionData])
 	useNavBarForm(MENU_FORM_ID, { blocked: leaving })
+	// The sections and cards this form loaded. Save removes only these when
+	// they are left out, so one another member added meanwhile stays
+	// (loaded-rows.ts).
+	const [loadedIds] = useState(() =>
+		builder
+			? {
+					sections: loadedIdsValue(builder.sections),
+					items: loadedIdsValue(
+						builder.sections.flatMap((section) => section.items),
+					),
+				}
+			: null,
+	)
 
 	return (
 		<Form
@@ -198,6 +212,16 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 			className="space-y-4"
 		>
 			<ClientLeavesField />
+			{loadedIds && (
+				<>
+					<input
+						type="hidden"
+						name="loadedSectionIds"
+						value={loadedIds.sections}
+					/>
+					<input type="hidden" name="loadedItemIds" value={loadedIds.items} />
+				</>
+			)}
 			<DiscardChangesGuard
 				formId={MENU_FORM_ID}
 				description={

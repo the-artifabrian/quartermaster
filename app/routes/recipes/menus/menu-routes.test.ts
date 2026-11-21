@@ -1,3 +1,17 @@
+/**
+ * Menu edit failure list (the save keeps what changed while the form was
+ * open):
+ * - A card another member added while the form was open is deleted by the
+ *   save, or lands among the editor's cards.
+ * - A section another member added meanwhile is deleted with its cards.
+ * - A card added meanwhile to a section the editor removed goes with that
+ *   section.
+ * - A card the editor changed, which another member removed meanwhile, fails
+ *   the whole save.
+ * - A card or section id from another Menu changes that Menu.
+ * - A card or section the editor loaded and removed stays.
+ * - A form from before the loaded-ids field stops removing cards.
+ */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
@@ -597,7 +611,7 @@ describe('menu recipe items', () => {
 		expect(await menuItems(menu.id)).toEqual([])
 	})
 
-	test('rejects a forged item id from another menu', async () => {
+	test('a card id from another Menu saves nothing there', async () => {
 		const session = await setupUser()
 		const menuA = await createMenuWithId(session, 'Menu A')
 		const menuB = await createMenuWithId(session, 'Menu B')
@@ -612,16 +626,24 @@ describe('menu recipe items', () => {
 		)
 		const [foreignItem] = await menuItems(menuB.id)
 
-		await expect(
-			saveMenu(session, menuA.id, {
+		redirectLocation(
+			await saveMenu(session, menuA.id, {
 				title: 'Menu A',
 				...(await unnamedItemsFields(menuA.id, [
-					{ id: foreignItem!.id, scaleMultiplier: '3' },
+					{ id: foreignItem!.id, recipeId: recipe.id, scaleMultiplier: '3' },
 				])),
 			}),
-		).rejects.toEqual(expect.objectContaining({ status: 400 }))
+		)
 		const untouched = await menuItems(menuB.id)
-		expect(untouched[0]!.scaleMultiplier).toBe(1)
+		expect(untouched).toHaveLength(1)
+		expect(untouched[0]).toMatchObject({
+			id: foreignItem!.id,
+			scaleMultiplier: 1,
+		})
+		// Menu A gets a card of its own, as for any card it doesn't have.
+		const [own] = await menuItems(menuA.id)
+		expect(own).toMatchObject({ recipeId: recipe.id, scaleMultiplier: 3 })
+		expect(own!.id).not.toBe(foreignItem!.id)
 	})
 
 	test('updates, reorders, and removes items in one atomic save', async () => {
@@ -1020,20 +1042,26 @@ describe('menu sections and ordering', () => {
 		expect(await menuItems(menu.id)).toHaveLength(1)
 	})
 
-	test('rejects forged and duplicated section ids', async () => {
+	test('a section id from another Menu saves a new section here; a repeated id is refused', async () => {
 		const session = await setupUser()
 		const menuA = await createMenuWithId(session, 'Menu A')
 		const menuB = await createMenuWithId(session, 'Menu B')
 		const unnamedA = await unnamedSection(menuA.id)
 		const unnamedB = await unnamedSection(menuB.id)
 
-		await expect(
-			saveMenu(session, menuA.id, {
+		redirectLocation(
+			await saveMenu(session, menuA.id, {
 				title: 'Menu A',
 				...sectionFields(0, { id: unnamedA.id }),
 				...sectionFields(1, { id: unnamedB.id, name: 'Forged' }),
 			}),
-		).rejects.toEqual(expect.objectContaining({ status: 400 }))
+		)
+		const sectionsA = await menuSections(menuA.id)
+		expect(sectionsA.map((section) => section.name)).toEqual([null, 'Forged'])
+		expect(sectionsA[1]!.id).not.toBe(unnamedB.id)
+		const sectionsB = await menuSections(menuB.id)
+		expect(sectionsB).toHaveLength(1)
+		expect(sectionsB[0]).toMatchObject({ id: unnamedB.id, name: null })
 
 		await expect(
 			saveMenu(session, menuA.id, {
@@ -1141,6 +1169,242 @@ describe('menu sections and ordering', () => {
 			hummus.id,
 			hummus.id,
 		])
+	})
+})
+
+describe('menu edit keeps changes made while the form was open', () => {
+	/** The ids the edit form loaded, which it posts back with the save. */
+	async function loadedIds(menuId: string) {
+		const sections = await menuSections(menuId)
+		return {
+			loadedSectionIds: JSON.stringify(sections.map((section) => section.id)),
+			loadedItemIds: JSON.stringify(
+				sections.flatMap((section) => section.items.map((item) => item.id)),
+			),
+		}
+	}
+
+	async function menuWithCards(titles: string[]) {
+		const session = await setupUser()
+		const menu = await createMenuWithId(session, 'Sunday lunch')
+		const recipes = []
+		for (const title of titles) {
+			recipes.push(await createRecipe(session, session.householdId, title))
+		}
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Sunday lunch',
+				...(await unnamedItemsFields(
+					menu.id,
+					recipes.map((recipe) => ({
+						recipeId: recipe.id,
+						scaleMultiplier: '1',
+					})),
+				)),
+			}),
+		)
+		const unnamed = await unnamedSection(menu.id)
+		return { session, menu, recipes, unnamed, cards: await menuItems(menu.id) }
+	}
+
+	test('a card another member added while the form was open survives the save', async () => {
+		const { session, menu, recipes, unnamed, cards } = await menuWithCards([
+			'Roast chicken',
+			'Potatoes',
+		])
+		const loaded = await loadedIds(menu.id)
+		const member = await addHouseholdMember(session.householdId)
+		const salad = await createRecipe(member, session.householdId, 'Salad')
+		const added = await prisma.menuItem.create({
+			data: {
+				kind: 'recipe',
+				order: 2,
+				sectionId: unnamed.id,
+				recipeId: salad.id,
+				recipeTitle: salad.title,
+				scaleMultiplier: 1,
+			},
+		})
+
+		// The editor removes Potatoes and adds a note of their own.
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Sunday lunch',
+				...loaded,
+				...sectionFields(0, { id: unnamed.id }, [
+					{
+						id: cards[0]!.id,
+						recipeId: recipes[0]!.id,
+						scaleMultiplier: '2',
+					},
+					{ kind: 'note', text: 'Gravy' },
+				]),
+			}),
+		)
+
+		const after = await menuItems(menu.id)
+		expect(after.map((item) => [item.id, item.order])).toEqual([
+			[cards[0]!.id, 0],
+			[expect.any(String), 1],
+			[added.id, 2],
+		])
+		expect(after[0]!.scaleMultiplier).toBe(2)
+		expect(after[1]!.note).toBe('Gravy')
+		expect(await prisma.menuItem.count({ where: { id: cards[1]!.id } })).toBe(0)
+	})
+
+	test('a section another member added meanwhile stays with its cards, after the saved ones', async () => {
+		const { session, menu, recipes, unnamed, cards } = await menuWithCards([
+			'Roast chicken',
+		])
+		const loaded = await loadedIds(menu.id)
+		const dessert = await prisma.menuSection.create({
+			data: {
+				menuId: menu.id,
+				name: 'Dessert',
+				order: 1,
+				items: { create: { kind: 'note', order: 0, note: 'Ice cream' } },
+			},
+		})
+
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Sunday lunch',
+				...loaded,
+				...sectionFields(0, { name: 'Starters' }, [
+					{ kind: 'note', text: 'Soup' },
+				]),
+				...sectionFields(1, { id: unnamed.id }, [
+					{
+						id: cards[0]!.id,
+						recipeId: recipes[0]!.id,
+						scaleMultiplier: '1',
+					},
+				]),
+			}),
+		)
+
+		const sections = await menuSections(menu.id)
+		expect(sections.map((section) => [section.name, section.order])).toEqual([
+			['Starters', 0],
+			[null, 1],
+			['Dessert', 2],
+		])
+		expect(sections[2]!.id).toBe(dessert.id)
+		expect(sections[2]!.items.map((item) => item.note)).toEqual(['Ice cream'])
+	})
+
+	test('a card added meanwhile to a section the editor removed keeps that section', async () => {
+		const session = await setupUser()
+		const menu = await createMenuWithId(session, 'Picnic')
+		const unnamed = await unnamedSection(menu.id)
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Picnic',
+				...sectionFields(0, { id: unnamed.id }, [
+					{ kind: 'note', text: 'Sandwiches' },
+				]),
+				...sectionFields(1, { name: 'Drinks' }, [
+					{ kind: 'note', text: 'Lemonade' },
+				]),
+			}),
+		)
+		const [main, drinks] = await menuSections(menu.id)
+		const loaded = await loadedIds(menu.id)
+		const added = await prisma.menuItem.create({
+			data: { kind: 'note', order: 1, sectionId: drinks!.id, note: 'Iced tea' },
+		})
+
+		// The editor removes Drinks with the card they saw in it.
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Picnic',
+				...loaded,
+				...sectionFields(0, { id: unnamed.id }, [
+					{ id: main!.items[0]!.id, kind: 'note', text: 'Sandwiches' },
+				]),
+			}),
+		)
+
+		const sections = await menuSections(menu.id)
+		expect(sections.map((section) => section.id)).toEqual([
+			unnamed.id,
+			drinks!.id,
+		])
+		expect(sections[1]!.items.map((item) => item.id)).toEqual([added.id])
+	})
+
+	test('a section the editor loaded and removed goes, with the cards they saw in it', async () => {
+		const session = await setupUser()
+		const menu = await createMenuWithId(session, 'Picnic')
+		const unnamed = await unnamedSection(menu.id)
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Picnic',
+				...sectionFields(0, { id: unnamed.id }, [
+					{ kind: 'note', text: 'Sandwiches' },
+				]),
+				...sectionFields(1, { name: 'Drinks' }, [
+					{ kind: 'note', text: 'Lemonade' },
+				]),
+			}),
+		)
+		const [main, drinks] = await menuSections(menu.id)
+
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Picnic',
+				...(await loadedIds(menu.id)),
+				...sectionFields(0, { id: unnamed.id }, [
+					{ id: main!.items[0]!.id, kind: 'note', text: 'Sandwiches' },
+				]),
+			}),
+		)
+
+		const sections = await menuSections(menu.id)
+		expect(sections.map((section) => section.id)).toEqual([unnamed.id])
+		expect(
+			await prisma.menuItem.count({ where: { id: drinks!.items[0]!.id } }),
+		).toBe(0)
+	})
+
+	test('a card the editor changed, removed meanwhile by another member, is saved again', async () => {
+		const { session, menu, recipes, unnamed, cards } = await menuWithCards([
+			'Roast chicken',
+			'Potatoes',
+		])
+		const loaded = await loadedIds(menu.id)
+		await prisma.menuItem.delete({ where: { id: cards[1]!.id } })
+
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Sunday lunch',
+				...loaded,
+				...sectionFields(0, { id: unnamed.id }, [
+					{
+						id: cards[0]!.id,
+						recipeId: recipes[0]!.id,
+						scaleMultiplier: '1',
+					},
+					{
+						id: cards[1]!.id,
+						recipeId: recipes[1]!.id,
+						scaleMultiplier: '3',
+					},
+				]),
+			}),
+		)
+
+		const after = await menuItems(menu.id)
+		expect(after).toHaveLength(2)
+		expect(after[0]!.id).toBe(cards[0]!.id)
+		expect(after[1]).toMatchObject({
+			recipeId: recipes[1]!.id,
+			recipeTitle: 'Potatoes',
+			scaleMultiplier: 3,
+			order: 1,
+		})
+		expect(after[1]!.id).not.toBe(cards[1]!.id)
 	})
 })
 

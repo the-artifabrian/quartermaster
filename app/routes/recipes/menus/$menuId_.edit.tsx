@@ -37,12 +37,14 @@ import {
 } from '#app/utils/nav-back.ts'
 import { historyIndex } from '#app/utils/nav-direction.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { matchRows, readLoadedIds } from '#app/utils/loaded-rows.ts'
 import {
 	DUPLICATE_MENU_TITLE_MESSAGE,
 	isUniqueConstraintError,
 	MenuBuilderSchema,
 	menuTitleKey,
 } from '#app/utils/menu-validation.ts'
+import { writeTransaction } from '#app/utils/write-transaction.server.ts'
 import { type Route } from './+types/$menuId_.edit.ts'
 
 // Going back to this page once its item is gone opens /recipes/menus instead.
@@ -164,18 +166,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	const menu = await prisma.menu.findUnique({
 		where: { id: menuId },
-		select: {
-			id: true,
-			householdId: true,
-			sections: {
-				orderBy: { order: 'asc' },
-				select: {
-					id: true,
-					name: true,
-					items: { select: { id: true, kind: true, recipeId: true } },
-				},
-			},
-		},
+		select: { id: true, householdId: true },
 	})
 
 	invariantResponse(menu, 'Menu not found', { status: 404 })
@@ -200,119 +191,133 @@ export async function action({ request, params }: Route.ActionArgs) {
 	}
 
 	const { title, description, defaultGuestCount } = submission.value
-
-	// A blank name marks the headingless unnamed section; any section may take
-	// or lose a name in place (#149), so no stored row is special.
-	const storedUnnamed = menu.sections.find((section) => section.name === null)
-
-	// Full-state reconcile: the submission is the Menu's complete composition.
-	// An absent (or empty) sections key resets it to the default — one empty
-	// unnamed section (#102's note items must join this round-trip).
-	const submittedSections = submission.value.sections
-	const sections = (
-		submittedSections?.length
-			? submittedSections
-			: [{ id: storedUnnamed?.id, name: undefined, items: [] }]
-	).map((section) => ({ ...section, items: section.items ?? [] }))
-
-	const storedSectionsById = new Map(menu.sections.map((s) => [s.id, s]))
-	const submittedSectionIds = sections.flatMap((section) =>
-		section.id != null ? [section.id] : [],
-	)
-	// Submitted section ids must belong to this menu, once each.
-	invariantResponse(
-		submittedSectionIds.every((id) => storedSectionsById.has(id)) &&
-			new Set(submittedSectionIds).size === submittedSectionIds.length,
-		'Invalid menu section',
-		{ status: 400 },
-	)
-
-	// Items flattened with their submitted position — a stored item appearing
-	// under a different section is an explicit cross-section move.
-	const items = sections.flatMap((section, sectionIndex) =>
-		section.items.map((item, itemIndex) => ({
-			...item,
-			sectionIndex,
-			itemIndex,
-		})),
-	)
-
-	const storedItems = menu.sections.flatMap((section) => section.items)
-	const storedById = new Map(storedItems.map((item) => [item.id, item]))
-
-	// Submitted item ids must belong to this menu, once each — reject forged
-	// or duplicated ids outright.
-	const submittedItemIds = items.flatMap((item) =>
-		item.id != null ? [item.id] : [],
-	)
-	invariantResponse(
-		submittedItemIds.every((id) => storedById.has(id)) &&
-			new Set(submittedItemIds).size === submittedItemIds.length,
-		'Invalid menu item',
-		{ status: 400 },
-	)
-	// A card's kind is immutable — a Recipe card never mutates into a note.
-	invariantResponse(
-		items.every(
-			(item) => item.id == null || storedById.get(item.id)!.kind === item.kind,
-		),
-		'Invalid menu item',
-		{ status: 400 },
-	)
-
-	// Effective Recipe references after this save: an existing item keeps its
-	// stored reference unless the submission explicitly replaces it (a missing
-	// card submits an empty recipeId, which never unlinks a live one). Note
-	// cards never reference a Recipe.
-	const effectiveRecipeIds = items.map((item) => {
-		if (item.kind === 'note') return null
-		if (item.id != null) {
-			const stored = storedById.get(item.id)!
-			return item.recipeId != null && item.recipeId !== stored.recipeId
-				? item.recipeId
-				: stored.recipeId
-		}
-		return item.recipeId ?? null
-	})
-
-	// Every newly referenced Recipe must be visible to the household.
-	const newlyReferencedIds = items.flatMap((item, index) => {
-		const effective = effectiveRecipeIds[index]
-		if (effective == null) return []
-		if (item.id != null && storedById.get(item.id)!.recipeId === effective) {
-			return []
-		}
-		return [effective]
-	})
-	const referencedRecipes = await prisma.recipe.findMany({
-		where: { id: { in: newlyReferencedIds }, householdId },
-		select: { id: true, title: true },
-	})
-	const recipesById = new Map(referencedRecipes.map((r) => [r.id, r]))
-	if (newlyReferencedIds.some((id) => !recipesById.has(id))) {
-		return data(
-			{
-				result: submission.reply({
-					formErrors: ['That recipe is no longer in your library'],
-				}),
-			},
-			{ status: 400 },
-		)
-	}
-
-	const submittedIds = new Set(submittedItemIds)
-	const removedItemIds = storedItems
-		.filter((item) => !submittedIds.has(item.id))
-		.map((item) => item.id)
-	const submittedSectionIdSet = new Set(submittedSectionIds)
-	const removedSectionIds = menu.sections
-		.filter((section) => !submittedSectionIdSet.has(section.id))
-		.map((section) => section.id)
+	const loadedSectionIds = readLoadedIds(formData, 'loadedSectionIds')
+	const loadedItemIds = readLoadedIds(formData, 'loadedItemIds')
 
 	try {
-		// One atomic Save — Menu fields and every section and card change
-		// persist together or not at all.
-		await prisma.$transaction(async (tx) => {
+		// One atomic Save. It reads the stored sections and cards in the same
+		// transaction it writes in, so a change another member made after the
+		// form loaded is either seen here or waits for this Save to finish.
+		const saved = await writeTransaction(prisma, async (tx) => {
+			const storedSections = await tx.menuSection.findMany({
+				where: { menuId },
+				orderBy: { order: 'asc' },
+				select: {
+					id: true,
+					name: true,
+					order: true,
+					items: {
+						orderBy: { order: 'asc' },
+						select: {
+							id: true,
+							kind: true,
+							recipeId: true,
+							order: true,
+							sectionId: true,
+						},
+					},
+				},
+			})
+
+			// A blank name marks the headingless unnamed section; any section may
+			// take or lose a name in place (#149), so no stored row is special.
+			const storedUnnamed = storedSections.find(
+				(section) => section.name === null,
+			)
+
+			// The submission is the Menu as the editor left it. An absent (or
+			// empty) sections key resets it to the default: one empty unnamed
+			// section (#102's note items must join this round-trip).
+			const submittedSections = submission.value.sections
+			const sections = (
+				submittedSections?.length
+					? submittedSections
+					: [{ id: storedUnnamed?.id, name: undefined, items: [] }]
+			).map((section) => ({ ...section, items: section.items ?? [] }))
+
+			// The form posts each section once; the same id twice is refused.
+			const postedSectionIds = sections.flatMap((section) =>
+				section.id != null ? [section.id] : [],
+			)
+			invariantResponse(
+				new Set(postedSectionIds).size === postedSectionIds.length,
+				'Invalid menu section',
+				{ status: 400 },
+			)
+			// An id that isn't one of this Menu's sections (another Menu's, or
+			// one deleted meanwhile) saves as a new section (loaded-rows.ts).
+			const sectionMatch = matchRows(
+				storedSections,
+				sections.map((section) => section.id),
+				loadedSectionIds,
+			)
+
+			// Items flattened with their submitted position: a stored item
+			// appearing under a different section is an explicit move.
+			const items = sections.flatMap((section, sectionIndex) =>
+				section.items.map((item, itemIndex) => ({
+					...item,
+					sectionIndex,
+					itemIndex,
+				})),
+			)
+			const postedItemIds = items.flatMap((item) =>
+				item.id != null ? [item.id] : [],
+			)
+			invariantResponse(
+				new Set(postedItemIds).size === postedItemIds.length,
+				'Invalid menu item',
+				{ status: 400 },
+			)
+			const storedItems = storedSections.flatMap((section) => section.items)
+			// As for sections, a card id that isn't one of this Menu's cards
+			// saves as a new card and never changes a card elsewhere.
+			const itemMatch = matchRows(
+				storedItems,
+				items.map((item) => item.id),
+				loadedItemIds,
+			)
+			// A card's kind is immutable: a Recipe card never mutates into a note.
+			invariantResponse(
+				items.every((item, index) => {
+					const stored = itemMatch.matches[index]
+					return !stored || stored.kind === item.kind
+				}),
+				'Invalid menu item',
+				{ status: 400 },
+			)
+
+			// Effective Recipe references after this save: a stored card keeps
+			// its reference unless the submission explicitly replaces it (a
+			// missing card submits an empty recipeId, which never unlinks a live
+			// one). Note cards never reference a Recipe.
+			const effectiveRecipeIds = items.map((item, index) => {
+				if (item.kind === 'note') return null
+				const stored = itemMatch.matches[index]
+				if (stored) {
+					return item.recipeId != null && item.recipeId !== stored.recipeId
+						? item.recipeId
+						: stored.recipeId
+				}
+				return item.recipeId ?? null
+			})
+
+			// Every newly referenced Recipe must be visible to the household.
+			const newlyReferencedIds = items.flatMap((_, index) => {
+				const effective = effectiveRecipeIds[index]
+				if (effective == null) return []
+				if (itemMatch.matches[index]?.recipeId === effective) return []
+				return [effective]
+			})
+			const referencedRecipes = await tx.recipe.findMany({
+				where: { id: { in: newlyReferencedIds }, householdId },
+				select: { id: true, title: true },
+			})
+			const recipesById = new Map(referencedRecipes.map((r) => [r.id, r]))
+			if (newlyReferencedIds.some((id) => !recipesById.has(id))) {
+				return { recipeGone: true }
+			}
+
 			await tx.menu.update({
 				where: { id: menuId },
 				data: {
@@ -324,15 +329,16 @@ export async function action({ request, params }: Route.ActionArgs) {
 			})
 
 			// Sections first: new ones need ids before their items persist, and
-			// every surviving section takes its submitted position.
+			// every posted section takes its submitted position.
 			const sectionIds: string[] = []
 			for (const [index, section] of sections.entries()) {
-				if (section.id != null) {
+				const stored = sectionMatch.matches[index]
+				if (stored) {
 					await tx.menuSection.update({
-						where: { id: section.id },
+						where: { id: stored.id },
 						data: { order: index, name: section.name ?? null },
 					})
-					sectionIds.push(section.id)
+					sectionIds.push(stored.id)
 				} else {
 					const created = await tx.menuSection.create({
 						data: { menuId, name: section.name ?? null, order: index },
@@ -342,21 +348,22 @@ export async function action({ request, params }: Route.ActionArgs) {
 				}
 			}
 
-			for (const item of items) {
+			for (const [index, item] of items.entries()) {
 				const sectionId = sectionIds[item.sectionIndex]!
+				const stored = itemMatch.matches[index]
 				if (item.kind === 'note') {
-					// A note card's lines are replaced wholesale from the submission —
-					// they carry no identity beyond their fields, so the full-state
-					// save simply rewrites them in submitted order.
+					// A note card's lines are replaced wholesale from the submission;
+					// they carry no identity beyond their fields, so the save simply
+					// rewrites them in submitted order.
 					const lines = (item.shoppingLines ?? []).map((line, order) => ({
 						name: line.name,
 						quantity: line.quantity ?? null,
 						unit: line.unit ?? null,
 						order,
 					}))
-					if (item.id != null) {
+					if (stored) {
 						await tx.menuItem.update({
-							where: { id: item.id },
+							where: { id: stored.id },
 							data: {
 								order: item.itemIndex,
 								sectionId,
@@ -377,14 +384,13 @@ export async function action({ request, params }: Route.ActionArgs) {
 					}
 					continue
 				}
-				if (item.id != null) {
-					const stored = storedById.get(item.id)!
+				if (stored) {
 					const replacement =
 						item.recipeId != null && item.recipeId !== stored.recipeId
 							? recipesById.get(item.recipeId)!
 							: null
 					await tx.menuItem.update({
-						where: { id: item.id },
+						where: { id: stored.id },
 						data: {
 							order: item.itemIndex,
 							sectionId,
@@ -399,7 +405,11 @@ export async function action({ request, params }: Route.ActionArgs) {
 						},
 					})
 				} else {
-					const recipe = recipesById.get(item.recipeId!)!
+					// A missing card that another member removed meanwhile has no
+					// Recipe to save again, so it stays removed.
+					const recipeId = effectiveRecipeIds[index]
+					if (recipeId == null) continue
+					const recipe = recipesById.get(recipeId)!
 					await tx.menuItem.create({
 						data: {
 							kind: 'recipe',
@@ -414,19 +424,64 @@ export async function action({ request, params }: Route.ActionArgs) {
 				}
 			}
 
-			if (removedItemIds.length > 0) {
+			// Only cards the form loaded and left out go. A card added after the
+			// form loaded stays, after the saved cards of its section.
+			if (itemMatch.removed.length > 0) {
 				await tx.menuItem.deleteMany({
-					where: { id: { in: removedItemIds } },
+					where: { id: { in: itemMatch.removed.map((item) => item.id) } },
 				})
 			}
-			// After the item moves above, a removed section only cascades onto
-			// rows already deleted — surviving items were re-parented first.
+			const postedCount = new Map(
+				sectionIds.map((id, index) => [id, sections[index]!.items.length]),
+			)
+			for (const item of itemMatch.unseen) {
+				const count = postedCount.get(item.sectionId)
+				if (count == null) continue
+				postedCount.set(item.sectionId, count + 1)
+				await tx.menuItem.update({
+					where: { id: item.id },
+					data: { order: count },
+				})
+			}
+
+			// A removed section goes once its cards have moved or gone above,
+			// unless it still holds a card added after the form loaded. That
+			// section stays, after the saved ones, as does a section added
+			// after the form loaded.
+			const holdsUnseen = new Set(
+				itemMatch.unseen.map((item) => item.sectionId),
+			)
+			const removedSectionIds = sectionMatch.removed
+				.filter((section) => !holdsUnseen.has(section.id))
+				.map((section) => section.id)
 			if (removedSectionIds.length > 0) {
 				await tx.menuSection.deleteMany({
 					where: { id: { in: removedSectionIds } },
 				})
 			}
+			const trailing = storedSections.filter(
+				(section) =>
+					!sectionIds.includes(section.id) &&
+					!removedSectionIds.includes(section.id),
+			)
+			for (const [index, section] of trailing.entries()) {
+				await tx.menuSection.update({
+					where: { id: section.id },
+					data: { order: sections.length + index },
+				})
+			}
+			return { recipeGone: false }
 		})
+		if (saved.recipeGone) {
+			return data(
+				{
+					result: submission.reply({
+						formErrors: ['That recipe is no longer in your library'],
+					}),
+				},
+				{ status: 400 },
+			)
+		}
 		if (clientLeaves(formData)) {
 			return data({
 				done: `/recipes/menus/${menuId}`,

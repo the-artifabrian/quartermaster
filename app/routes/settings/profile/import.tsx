@@ -1141,6 +1141,282 @@ async function importMeals(
 	return stats
 }
 
+type ImportMealPlan = z.infer<typeof ImportMealPlanSchema>
+
+/**
+ * Restores each week plan's Meals, or a pre-#104 plan's fixed-slot entries,
+ * after Recipes and Menus. Returns the restored Meal ids by export-local
+ * reference key, which Shopping contributions point at.
+ */
+async function importMealPlans(
+	mealPlans: ImportMealPlan[],
+	recipes: ImportRecipe[],
+	recipeIndex: RecipeIndex,
+	sharedMenuIdsByTitleKey: Map<string, string | null>,
+	householdId: string,
+) {
+	const stats = {
+		mealPlans: { created: 0, skipped: 0 },
+		meals: { created: 0, skipped: 0 },
+	}
+	const mealIdByRef = new Map<string, string>()
+	// Source Menu titles resolve through this import's shared-copy mapping
+	// first, then the existing household title for older/unshared Menus.
+	const menuIdByTitleKey = new Map<string, string | null>()
+	if (
+		mealPlans.some((plan) => plan.meals?.some((meal) => meal.sourceMenuTitle))
+	) {
+		try {
+			const householdMenus = await prisma.menu.findMany({
+				where: { householdId },
+				select: { id: true, titleKey: true },
+			})
+			for (const menu of householdMenus) {
+				menuIdByTitleKey.set(menu.titleKey, menu.id)
+			}
+		} catch {
+			// Meals still import — their source Menu link stays unset.
+		}
+	}
+	for (const [titleKey, id] of sharedMenuIdsByTitleKey) {
+		menuIdByTitleKey.set(titleKey, id)
+	}
+
+	// Legacy-only plans use the old file's own Recipe servings to recover the
+	// historical override/base ratio. That compatibility value never enters
+	// current Recipe storage or typed yield.
+	let servingsByRecipeId = new Map<string, number>()
+	if (mealPlans.some((plan) => !plan.meals?.length && plan.entries?.length)) {
+		for (const recipe of recipes) {
+			const recipeId = recipe.ref
+				? recipeIndex.refToIdMap.get(recipe.ref)
+				: recipeIndex.titleToIdMap.get(recipe.title.toLowerCase())
+			if (recipeId && recipe.servings != null && recipe.servings > 0) {
+				servingsByRecipeId.set(recipeId, recipe.servings)
+			}
+		}
+	}
+
+	for (const plan of mealPlans) {
+		try {
+			const weekStart = new Date(plan.weekStart)
+
+			const mealPlan = await ensureMealPlan(prisma, {
+				householdId,
+				weekStart,
+			})
+
+			if (plan.meals?.length) {
+				// A file that carries Meals restores only them — its `entries`,
+				// when present (#104–#106 window exports), are the dual-write
+				// mirrors of those same Meals.
+				const mealStats = await importMeals(
+					plan.meals,
+					mealPlan.id,
+					recipeIndex,
+					menuIdByTitleKey,
+					mealIdByRef,
+				)
+				stats.meals.created += mealStats.created
+				stats.meals.skipped += mealStats.skipped
+			} else if (plan.entries?.length) {
+				const { meals, skippedEntries } = legacyEntriesToMeals(
+					plan.entries,
+					recipeIndex.titleToIdMap,
+					servingsByRecipeId,
+				)
+				stats.mealPlans.skipped += skippedEntries
+				const mealStats = await importMeals(
+					meals,
+					mealPlan.id,
+					recipeIndex,
+					menuIdByTitleKey,
+					mealIdByRef,
+				)
+				stats.meals.created += mealStats.created
+				stats.meals.skipped += mealStats.skipped
+			}
+		} catch {
+			// skip this meal plan
+		}
+	}
+
+	return { stats, mealIdByRef }
+}
+
+type ImportShoppingList = z.infer<typeof ImportShoppingListSchema>
+
+/**
+ * Restores Shopping items into the household's one list, skipping rows it
+ * already has, then reconnects their Meal contributions.
+ */
+async function importShopping(
+	shoppingLists: ImportShoppingList[],
+	mealIdByRef: Map<string, string>,
+	userId: string,
+	householdId: string,
+) {
+	const stats = { created: 0, skipped: 0 }
+	try {
+		const shoppingList = await ensureShoppingList(prisma, {
+			userId,
+			householdId,
+			name: shoppingLists[0]!.name,
+		})
+		const existingItems = await prisma.shoppingListItem.findMany({
+			where: { listId: shoppingList.id },
+			select: {
+				id: true,
+				name: true,
+				quantity: true,
+				unit: true,
+				category: true,
+				checked: true,
+				source: true,
+				horizon: true,
+			},
+		})
+		const itemIdByKey = new Map(
+			existingItems.map((item) => [
+				getShoppingListItemImportKey(item),
+				item.id,
+			]),
+		)
+		const contributionSeeds: Array<{
+			itemId: string
+			contribution: NonNullable<
+				(typeof shoppingLists)[number]['items'][number]['mealContributions']
+			>[number]
+		}> = []
+
+		for (const list of shoppingLists) {
+			let skipped = 0
+			const newItems: Array<ShoppingListItemImport & { id: string }> = []
+			for (const item of list.items) {
+				const normalizedItem = {
+					name: item.name,
+					quantity: item.quantity || null,
+					unit: item.unit || null,
+					category: item.category || null,
+					checked: item.checked ?? false,
+					source: item.source || 'manual',
+					horizon: item.horizon,
+				}
+				const key = getShoppingListItemImportKey(normalizedItem)
+				let targetItemId = itemIdByKey.get(key)
+				if (targetItemId) {
+					skipped++
+				} else {
+					targetItemId = createId()
+					itemIdByKey.set(key, targetItemId)
+					newItems.push({ id: targetItemId, ...normalizedItem })
+				}
+				for (const contribution of item.mealContributions ?? []) {
+					contributionSeeds.push({
+						itemId: targetItemId,
+						contribution,
+					})
+				}
+			}
+
+			if (newItems.length > 0) {
+				await prisma.shoppingListItem.createMany({
+					data: newItems.map((item) => ({
+						...item,
+						listId: shoppingList.id,
+					})),
+				})
+			}
+			stats.created += newItems.length
+			stats.skipped += skipped
+		}
+
+		const existingContributions =
+			await prisma.mealShoppingContribution.findMany({
+				where: { item: { listId: shoppingList.id } },
+				select: {
+					itemId: true,
+					mealId: true,
+					canonicalName: true,
+					name: true,
+					quantity: true,
+					unit: true,
+				},
+			})
+		const contributionKey = (entry: {
+			itemId: string
+			mealId: string | null
+			canonicalName: string
+			name: string
+			quantity: string | null
+			unit: string | null
+		}) =>
+			entry.mealId
+				? JSON.stringify(['meal', entry.mealId, entry.canonicalName])
+				: JSON.stringify([
+						'orphan',
+						entry.itemId,
+						entry.canonicalName,
+						entry.name,
+						entry.quantity,
+						entry.unit,
+					])
+		const liveContributionKeys = new Set(
+			existingContributions
+				.filter((entry) => entry.mealId != null)
+				.map(contributionKey),
+		)
+		// Orphan contributions have no unique source Meal key. Identical
+		// records may represent several deleted Meals and each still counts
+		// toward the displayed total, so reconcile them as a multiset.
+		const availableOrphanCounts = new Map<string, number>()
+		for (const entry of existingContributions) {
+			if (entry.mealId != null) continue
+			const key = contributionKey(entry)
+			availableOrphanCounts.set(key, (availableOrphanCounts.get(key) ?? 0) + 1)
+		}
+		const newContributions = []
+		for (const seed of contributionSeeds) {
+			const { contribution } = seed
+			const mealId = contribution.orphaned
+				? contribution.sourceMealRef == null
+					? null
+					: undefined
+				: contribution.sourceMealRef != null
+					? mealIdByRef.get(contribution.sourceMealRef)
+					: undefined
+			if (mealId === undefined) continue
+			const candidate = {
+				id: createId(),
+				itemId: seed.itemId,
+				mealId,
+				...contribution.fingerprint,
+			}
+			const key = contributionKey(candidate)
+			if (mealId != null) {
+				if (liveContributionKeys.has(key)) continue
+				liveContributionKeys.add(key)
+			} else {
+				const available = availableOrphanCounts.get(key) ?? 0
+				if (available > 0) {
+					availableOrphanCounts.set(key, available - 1)
+					continue
+				}
+			}
+			newContributions.push(candidate)
+		}
+		if (newContributions.length > 0) {
+			await prisma.mealShoppingContribution.createMany({
+				data: newContributions,
+			})
+		}
+	} catch {
+		// skip shopping-list data on error
+	}
+
+	return stats
+}
+
 export async function action({ request }: Route.ActionArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
 	const formData = await request.formData()
@@ -1287,257 +1563,28 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	// --- 5. Meal Plans ---
-	const mealIdByRef = new Map<string, string>()
+	let mealIdByRef = new Map<string, string>()
 	if (fullData?.mealPlans) {
-		// Source Menu titles resolve through this import's shared-copy mapping
-		// first, then the existing household title for older/unshared Menus.
-		const menuIdByTitleKey = new Map<string, string | null>()
-		if (
-			fullData.mealPlans.some((plan) =>
-				plan.meals?.some((meal) => meal.sourceMenuTitle),
-			)
-		) {
-			try {
-				const householdMenus = await prisma.menu.findMany({
-					where: { householdId },
-					select: { id: true, titleKey: true },
-				})
-				for (const menu of householdMenus) {
-					menuIdByTitleKey.set(menu.titleKey, menu.id)
-				}
-			} catch {
-				// Meals still import — their source Menu link stays unset.
-			}
-		}
-		for (const [titleKey, id] of sharedMenuIdsByTitleKey) {
-			menuIdByTitleKey.set(titleKey, id)
-		}
-
-		// Legacy-only plans use the old file's own Recipe servings to recover the
-		// historical override/base ratio. That compatibility value never enters
-		// current Recipe storage or typed yield.
-		let servingsByRecipeId = new Map<string, number>()
-		if (
-			fullData.mealPlans.some(
-				(plan) => !plan.meals?.length && plan.entries?.length,
-			)
-		) {
-			for (const recipe of fullData.recipes) {
-				const recipeId = recipe.ref
-					? recipeIndex.refToIdMap.get(recipe.ref)
-					: titleToIdMap.get(recipe.title.toLowerCase())
-				if (recipeId && recipe.servings != null && recipe.servings > 0) {
-					servingsByRecipeId.set(recipeId, recipe.servings)
-				}
-			}
-		}
-
-		for (const plan of fullData.mealPlans) {
-			try {
-				const weekStart = new Date(plan.weekStart)
-
-				const mealPlan = await ensureMealPlan(prisma, {
-					householdId,
-					weekStart,
-				})
-
-				if (plan.meals?.length) {
-					// A file that carries Meals restores only them — its `entries`,
-					// when present (#104–#106 window exports), are the dual-write
-					// mirrors of those same Meals.
-					const mealStats = await importMeals(
-						plan.meals,
-						mealPlan.id,
-						recipeIndex,
-						menuIdByTitleKey,
-						mealIdByRef,
-					)
-					results.meals.created += mealStats.created
-					results.meals.skipped += mealStats.skipped
-				} else if (plan.entries?.length) {
-					const { meals, skippedEntries } = legacyEntriesToMeals(
-						plan.entries,
-						titleToIdMap,
-						servingsByRecipeId,
-					)
-					results.mealPlans.skipped += skippedEntries
-					const mealStats = await importMeals(
-						meals,
-						mealPlan.id,
-						recipeIndex,
-						menuIdByTitleKey,
-						mealIdByRef,
-					)
-					results.meals.created += mealStats.created
-					results.meals.skipped += mealStats.skipped
-				}
-			} catch {
-				// skip this meal plan
-			}
-		}
+		const imported = await importMealPlans(
+			fullData.mealPlans,
+			fullData.recipes,
+			recipeIndex,
+			sharedMenuIdsByTitleKey,
+			householdId,
+		)
+		results.mealPlans = imported.stats.mealPlans
+		results.meals = imported.stats.meals
+		mealIdByRef = imported.mealIdByRef
 	}
 
 	// --- 6. Shopping Lists ---
 	if (fullData?.shoppingLists?.length) {
-		try {
-			const shoppingList = await ensureShoppingList(prisma, {
-				userId,
-				householdId,
-				name: fullData.shoppingLists[0]!.name,
-			})
-			const existingItems = await prisma.shoppingListItem.findMany({
-				where: { listId: shoppingList.id },
-				select: {
-					id: true,
-					name: true,
-					quantity: true,
-					unit: true,
-					category: true,
-					checked: true,
-					source: true,
-					horizon: true,
-				},
-			})
-			const itemIdByKey = new Map(
-				existingItems.map((item) => [
-					getShoppingListItemImportKey(item),
-					item.id,
-				]),
-			)
-			const contributionSeeds: Array<{
-				itemId: string
-				contribution: NonNullable<
-					(typeof fullData.shoppingLists)[number]['items'][number]['mealContributions']
-				>[number]
-			}> = []
-
-			for (const list of fullData.shoppingLists) {
-				let skipped = 0
-				const newItems: Array<ShoppingListItemImport & { id: string }> = []
-				for (const item of list.items) {
-					const normalizedItem = {
-						name: item.name,
-						quantity: item.quantity || null,
-						unit: item.unit || null,
-						category: item.category || null,
-						checked: item.checked ?? false,
-						source: item.source || 'manual',
-						horizon: item.horizon,
-					}
-					const key = getShoppingListItemImportKey(normalizedItem)
-					let targetItemId = itemIdByKey.get(key)
-					if (targetItemId) {
-						skipped++
-					} else {
-						targetItemId = createId()
-						itemIdByKey.set(key, targetItemId)
-						newItems.push({ id: targetItemId, ...normalizedItem })
-					}
-					for (const contribution of item.mealContributions ?? []) {
-						contributionSeeds.push({
-							itemId: targetItemId,
-							contribution,
-						})
-					}
-				}
-
-				if (newItems.length > 0) {
-					await prisma.shoppingListItem.createMany({
-						data: newItems.map((item) => ({
-							...item,
-							listId: shoppingList.id,
-						})),
-					})
-				}
-				results.shoppingLists.created += newItems.length
-				results.shoppingLists.skipped += skipped
-			}
-
-			const existingContributions =
-				await prisma.mealShoppingContribution.findMany({
-					where: { item: { listId: shoppingList.id } },
-					select: {
-						itemId: true,
-						mealId: true,
-						canonicalName: true,
-						name: true,
-						quantity: true,
-						unit: true,
-					},
-				})
-			const contributionKey = (entry: {
-				itemId: string
-				mealId: string | null
-				canonicalName: string
-				name: string
-				quantity: string | null
-				unit: string | null
-			}) =>
-				entry.mealId
-					? JSON.stringify(['meal', entry.mealId, entry.canonicalName])
-					: JSON.stringify([
-							'orphan',
-							entry.itemId,
-							entry.canonicalName,
-							entry.name,
-							entry.quantity,
-							entry.unit,
-						])
-			const liveContributionKeys = new Set(
-				existingContributions
-					.filter((entry) => entry.mealId != null)
-					.map(contributionKey),
-			)
-			// Orphan contributions have no unique source Meal key. Identical
-			// records may represent several deleted Meals and each still counts
-			// toward the displayed total, so reconcile them as a multiset.
-			const availableOrphanCounts = new Map<string, number>()
-			for (const entry of existingContributions) {
-				if (entry.mealId != null) continue
-				const key = contributionKey(entry)
-				availableOrphanCounts.set(
-					key,
-					(availableOrphanCounts.get(key) ?? 0) + 1,
-				)
-			}
-			const newContributions = []
-			for (const seed of contributionSeeds) {
-				const { contribution } = seed
-				const mealId = contribution.orphaned
-					? contribution.sourceMealRef == null
-						? null
-						: undefined
-					: contribution.sourceMealRef != null
-						? mealIdByRef.get(contribution.sourceMealRef)
-						: undefined
-				if (mealId === undefined) continue
-				const candidate = {
-					id: createId(),
-					itemId: seed.itemId,
-					mealId,
-					...contribution.fingerprint,
-				}
-				const key = contributionKey(candidate)
-				if (mealId != null) {
-					if (liveContributionKeys.has(key)) continue
-					liveContributionKeys.add(key)
-				} else {
-					const available = availableOrphanCounts.get(key) ?? 0
-					if (available > 0) {
-						availableOrphanCounts.set(key, available - 1)
-						continue
-					}
-				}
-				newContributions.push(candidate)
-			}
-			if (newContributions.length > 0) {
-				await prisma.mealShoppingContribution.createMany({
-					data: newContributions,
-				})
-			}
-		} catch {
-			// skip shopping-list data on error
-		}
+		results.shoppingLists = await importShopping(
+			fullData.shoppingLists,
+			mealIdByRef,
+			userId,
+			householdId,
+		)
 	}
 
 	return { error: null, results }

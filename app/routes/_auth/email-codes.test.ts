@@ -1047,7 +1047,7 @@ describe('a new password or email ends reset codes', () => {
 		await forgotPassword(user.email)
 
 		await resetUserPassword({
-			username: user.username,
+			userId: user.id,
 			password: `reset-${Date.now()}-password`,
 		})
 		expect((await useCode(readCode(sent[1]))).status).toBe(400)

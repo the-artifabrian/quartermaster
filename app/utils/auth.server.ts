@@ -184,17 +184,17 @@ export async function login({
 }
 
 export async function resetUserPassword({
-	username,
+	userId,
 	password,
 }: {
-	username: User['username']
+	userId: User['id']
 	password: string
 }) {
 	const hash = await getPasswordHash(password)
 	// A user who signed up through a provider has no Password row yet. A reset
 	// signs out every session of the user.
 	const user = await prisma.user.findUniqueOrThrow({
-		where: { username },
+		where: { id: userId },
 		select: { id: true },
 	})
 	// The delete goes first, so the batch starts with a write. An upsert may

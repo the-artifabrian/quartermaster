@@ -14,36 +14,23 @@ import { useIsPending } from '#app/utils/misc.tsx'
 import { PasswordAndConfirmPasswordSchema } from '#app/utils/user-validation.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
 import { type Route } from './+types/reset-password.ts'
+import { requireResetPasswordUser } from './reset-password.server.ts'
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
 }
 
-export const resetPasswordUsernameSessionKey = 'resetPasswordUsername'
-
 const ResetPasswordSchema = PasswordAndConfirmPasswordSchema
 
-async function requireResetPasswordUsername(request: Request) {
-	await requireAnonymous(request)
-	const verifySession = await verifySessionStorage.getSession(
-		request.headers.get('cookie'),
-	)
-	const resetPasswordUsername = verifySession.get(
-		resetPasswordUsernameSessionKey,
-	)
-	if (typeof resetPasswordUsername !== 'string' || !resetPasswordUsername) {
-		throw redirect('/login')
-	}
-	return resetPasswordUsername
-}
-
 export async function loader({ request }: Route.LoaderArgs) {
-	const resetPasswordUsername = await requireResetPasswordUsername(request)
-	return { resetPasswordUsername }
+	await requireAnonymous(request)
+	const user = await requireResetPasswordUser(request)
+	return { username: user.username }
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const resetPasswordUsername = await requireResetPasswordUsername(request)
+	await requireAnonymous(request)
+	const user = await requireResetPasswordUser(request)
 	const formData = await request.formData()
 	const submission = await parseWithZod(formData, {
 		schema: ResetPasswordSchema.superRefine(async ({ password }, ctx) => {
@@ -66,7 +53,7 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 	const { password } = submission.value
 
-	await resetUserPassword({ username: resetPasswordUsername, password })
+	await resetUserPassword({ userId: user.id, password })
 	const verifySession = await verifySessionStorage.getSession()
 	return redirect('/login', {
 		headers: {
@@ -100,8 +87,7 @@ export default function ResetPasswordPage({
 			<div className="text-center">
 				<h1 className="font-serif text-2xl">Password Reset</h1>
 				<p className="text-muted-foreground mt-3 text-lg">
-					Hi, {loaderData.resetPasswordUsername}. No worries. It happens all the
-					time.
+					Hi, {loaderData.username}. No worries. It happens all the time.
 				</p>
 			</div>
 			<div className="mx-auto mt-16 max-w-sm min-w-full sm:min-w-[368px]">

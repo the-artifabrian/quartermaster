@@ -6,6 +6,8 @@ import { expect, test, waitFor } from '#tests/playwright-utils.ts'
 
 // What can go wrong for someone adding a passkey in Settings:
 // - Closing the passkey prompt shows an error, or clears the password.
+// - After a closed prompt (or one iOS refused because the tap was too long
+//   ago), there's no way to try again without retyping the password.
 // - A wrong password still opens the prompt, or shows no error.
 // - The right password doesn't save the passkey, or sends no notice.
 // - Adding the same device twice gives a vague error.
@@ -195,7 +197,7 @@ test('A wrong password shows an error and opens no passkey prompt', async ({
 	expect(await prisma.passkey.count({ where: { userId: user.id } })).toBe(0)
 })
 
-test('Closing the passkey prompt leaves the page as it was', async ({
+test('Closing the passkey prompt shows no error, and one tap tries again', async ({
 	page,
 	navigate,
 	login,
@@ -225,17 +227,38 @@ test('Closing the passkey prompt leaves the page as it was', async ({
 		'data-passkey-error',
 		'NotAllowedError',
 	)
-	const button = page.getByRole('button', { name: /register new passkey/i })
-	await expect(button).toBeEnabled()
+	const tryAgain = page.getByRole('button', {
+		name: 'Add passkey',
+		exact: true,
+	})
+	await expect(tryAgain).toBeEnabled()
+	await expect(page.getByText(/password is confirmed/i)).toBeVisible()
 	await expect(page.getByRole('alert')).toHaveCount(0)
 	await expect(page.getByText(/couldn’t|failed|error/i)).toHaveCount(0)
-	await expect(page.getByLabel('Current password')).toHaveValue(password)
 	await expect(page.getByText(/no passkeys registered/i)).toBeVisible()
-	const credentials = await client.send('WebAuthn.getCredentials', {
-		authenticatorId,
-	})
-	expect(credentials.credentials).toHaveLength(0)
+	expect(
+		(await client.send('WebAuthn.getCredentials', { authenticatorId }))
+			.credentials,
+	).toHaveLength(0)
 	expect(await prisma.passkey.count({ where: { userId: user.id } })).toBe(0)
+
+	// The second tap reuses the checked password's challenge.
+	await client.send('WebAuthn.setUserVerified', {
+		authenticatorId,
+		isUserVerified: true,
+	})
+	const added = new Promise<void>((resolve) => {
+		client.once('WebAuthn.credentialAdded', () => resolve())
+	})
+	await tryAgain.click()
+	await added
+
+	await expect(page.getByText(/registered .* ago/i)).toBeVisible()
+	await expect(page.getByRole('alert')).toHaveCount(0)
+	await expect(page.getByLabel('Current password')).toHaveValue('')
+	await expect
+		.poll(() => prisma.passkey.count({ where: { userId: user.id } }))
+		.toBe(1)
 })
 
 test('Adding a passkey from the same device again says it already has one', async ({
@@ -292,7 +315,7 @@ test('A saved passkey offered on the username field logs in', async ({
 	await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible()
 })
 
-test('The passkey button takes over from a waiting autofill request without an error', async ({
+test('The passkey button, even tapped twice, takes over from a waiting autofill request', async ({
 	page,
 	login,
 }) => {
@@ -317,7 +340,7 @@ test('The passkey button takes over from a waiting autofill request without an e
 		authenticatorId,
 		enabled: true,
 	})
-	await page.getByRole('button', { name: /log in with a passkey/i }).click()
+	await page.getByRole('button', { name: /log in with a passkey/i }).dblclick()
 
 	await expect(page).toHaveURL('/recipes')
 	await expect(page.getByText(/failed to authenticate/i)).toHaveCount(0)

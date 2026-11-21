@@ -165,8 +165,17 @@ const StartResponseSchema = z.discriminatedUnion('status', [
 
 const FinishResponseSchema = z.discriminatedUnion('status', [
 	z.object({ status: z.literal('success') }),
-	z.object({ status: z.literal('error'), error: z.string() }),
+	z.object({
+		status: z.literal('error'),
+		error: z.string(),
+		// See AddPasskeyErrorCode in the registration route.
+		code: z.enum(['enter-password', 'not-saved', 'already-registered']),
+	}),
 ])
+
+type RegistrationOptions = z.infer<typeof RegistrationOptionsSchema>['options']
+
+const couldNotAdd = 'Couldn’t create the passkey. Try again.'
 
 function postRegistration(body: unknown) {
 	return fetch('/webauthn/registration', {
@@ -184,6 +193,10 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 	// Kept in state so a cancelled prompt leaves it filled in; React resets
 	// the uncontrolled fields of a form after its action.
 	const [password, setPassword] = useState('')
+	// Options whose prompt didn't finish, ready for another tap.
+	const [readyOptions, setReadyOptions] = useState<RegistrationOptions | null>(
+		null,
+	)
 	const { rpId, userHandle } = loaderData
 	const acceptedIds = loaderData.passkeys.map((passkey) => passkey.id).join(' ')
 
@@ -200,7 +213,6 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 	async function addPasskey() {
 		setError(null)
 		setPasswordError(null)
-		const couldNotAdd = 'Couldn’t create the passkey. Try again.'
 
 		let started: z.infer<typeof StartResponseSchema>
 		try {
@@ -222,12 +234,24 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 			else setError(started.error)
 			return
 		}
+		await createPasskey(started.options)
+	}
 
+	async function createPasskey(options: RegistrationOptions) {
+		setError(null)
 		let registration: Awaited<ReturnType<typeof startRegistration>>
 		try {
-			registration = await startRegistration({ optionsJSON: started.options })
+			registration = await startRegistration({ optionsJSON: options })
 		} catch (err) {
-			if (isPasskeyPromptDismissed(err)) return
+			if (isPasskeyPromptDismissed(err)) {
+				// A cancel, or iOS refusing because the tap that started this was
+				// too long ago (the password check sits in between). Either way
+				// the password checked out and the challenge still holds, so a
+				// fresh tap can try again without the password.
+				setReadyOptions(options)
+				return
+			}
+			setReadyOptions(null)
 			setError(
 				passkeyErrorName(err) === 'InvalidStateError'
 					? 'This device already has a passkey for your account.'
@@ -235,6 +259,8 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 			)
 			return
 		}
+		// The challenge is spent by the save below, whatever its answer.
+		setReadyOptions(null)
 
 		const finished = await postRegistration({
 			intent: 'verify',
@@ -243,14 +269,21 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 			.then(async (response) =>
 				FinishResponseSchema.parse(await response.json()),
 			)
+			// A lost answer may hide a saved passkey; say nothing to the browser.
 			.catch(() => null)
-		if (finished?.status !== 'success') {
+		if (!finished) {
 			setError(couldNotAdd)
-			// The device made a passkey the server didn't keep.
-			void signalUnknownPasskey({
-				rpId: started.options.rp.id,
-				credentialId: registration.id,
-			})
+			return
+		}
+		if (finished.status === 'error') {
+			setError(finished.code === 'not-saved' ? couldNotAdd : finished.error)
+			if (finished.code !== 'already-registered') {
+				// The device made a passkey the server didn't keep.
+				void signalUnknownPasskey({
+					rpId: options.rp.id,
+					credentialId: registration.id,
+				})
+			}
 			return
 		}
 		setPassword('')
@@ -259,7 +292,17 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="flex flex-col gap-6">
-			{loaderData.hasPassword ? (
+			{readyOptions ? (
+				<form
+					action={() => createPasskey(readyOptions)}
+					className="flex flex-col items-end gap-3"
+				>
+					<p className="text-muted-foreground self-start">
+						Your password is confirmed. Add the passkey to finish.
+					</p>
+					<AddPasskeyButton label="Add passkey" />
+				</form>
+			) : loaderData.hasPassword ? (
 				<form action={addPasskey}>
 					<Field
 						labelProps={{ children: 'Current password' }}
@@ -333,7 +376,11 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 	)
 }
 
-function AddPasskeyButton() {
+function AddPasskeyButton({
+	label = 'Register new passkey',
+}: {
+	label?: string
+}) {
 	const { pending } = useFormStatus()
 	return (
 		<StatusButton
@@ -343,7 +390,7 @@ function AddPasskeyButton() {
 			disabled={pending}
 			className="flex items-center gap-2"
 		>
-			<Icon name="plus">Register new passkey</Icon>
+			<Icon name="plus">{label}</Icon>
 		</StatusButton>
 	)
 }

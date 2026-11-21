@@ -21,8 +21,10 @@ import {
 import { getErrorMessage, useIsPending } from '#app/utils/misc.tsx'
 import {
 	isPasskeyPromptDismissed,
+	passkeyErrorName,
 	signalUnknownPasskey,
 	supportsPasskeyAutofill,
+	unknownPasskeyError,
 } from '#app/utils/passkeys.ts'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { PasswordSchema, UsernameSchema } from '#app/utils/user-validation.ts'
@@ -202,8 +204,8 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 						</div>
 						{isNativeShell ? (
 							<p className="text-muted-foreground mt-4 text-center text-sm">
-								Signed up with Google? Add a passkey or password in Settings on
-								the web first.
+								Signed up with Google? Add a password in Settings on the web
+								first.
 							</p>
 						) : (
 							<>
@@ -277,6 +279,7 @@ function PasskeyLogin({
 	const armAutofill = useRef<() => void>(() => {})
 	const autofillOptions = useRef<Promise<unknown> | null>(null)
 	const buttonActive = useRef(false)
+	const [buttonBusy, setButtonBusy] = useState(false)
 
 	// Throws with the server's message when the passkey isn't accepted.
 	async function finishLogin(
@@ -289,11 +292,6 @@ function PasskeyLogin({
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ authResponse, remember, redirectTo }),
 		})
-		if (verificationResponse.status === 404 && rpId) {
-			// The server has no such passkey; the browser can stop offering it.
-			void signalUnknownPasskey({ rpId, credentialId: authResponse.id })
-		}
-
 		const verificationJson = await verificationResponse.json().catch(() => ({
 			status: 'error',
 			error: 'Unknown error',
@@ -303,6 +301,14 @@ function PasskeyLogin({
 		if (!parsedResult.success) {
 			throw new Error(parsedResult.error.message)
 		} else if (parsedResult.data.status === 'error') {
+			if (
+				verificationResponse.status === 404 &&
+				parsedResult.data.error === unknownPasskeyError &&
+				rpId
+			) {
+				// The server has no such passkey; the browser can stop offering it.
+				void signalUnknownPasskey({ rpId, credentialId: authResponse.id })
+			}
 			throw new Error(parsedResult.data.error)
 		}
 		await navigate(parsedResult.data.location ?? '/')
@@ -312,9 +318,21 @@ function PasskeyLogin({
 
 	useEffect(() => {
 		let unmounted = false
+		// Autofill re-arms itself after a cancel or a failed login. The cap
+		// keeps a browser that refuses at once from asking for options in a loop.
+		let rearmsLeft = 5
+		function rearm() {
+			if (unmounted || buttonActive.current || rearmsLeft <= 0) return
+			rearmsLeft -= 1
+			arm()
+		}
 		function arm() {
 			const setup = (async () => {
 				if (!(await supportsPasskeyAutofill())) return null
+				// Checked before the fetch too: in development StrictMode
+				// unmounts the first run, whose challenge cookie would otherwise
+				// replace the second run's.
+				if (buttonActive.current || unmounted) return null
 				const options = await fetchAuthenticationOptions()
 				// The button took over while the options were on their way.
 				return buttonActive.current || unmounted ? null : options
@@ -330,8 +348,11 @@ function PasskeyLogin({
 							useBrowserAutofill: true,
 						})
 					} catch (e) {
-						// The button flow cancels this request; that's expected.
-						if (!isPasskeyPromptDismissed(e)) {
+						// The person closed the prompt they picked from autofill:
+						// offer autofill again. An AbortError is the button flow
+						// or leaving the page, which arm it themselves or don't need it.
+						if (passkeyErrorName(e) === 'NotAllowedError') rearm()
+						else if (!isPasskeyPromptDismissed(e)) {
 							console.warn('Passkey autofill stopped', e)
 						}
 						return
@@ -344,7 +365,7 @@ function PasskeyLogin({
 						setError(
 							`Failed to authenticate with passkey: ${getErrorMessage(e)}`,
 						)
-						arm()
+						rearm()
 					}
 				})
 				// Autofill is optional; the button still works without it.
@@ -360,7 +381,10 @@ function PasskeyLogin({
 	}, [])
 
 	async function handlePasskeyLogin() {
+		// A second tap while a passkey request runs would cancel it.
+		if (buttonActive.current) return
 		buttonActive.current = true
+		setButtonBusy(true)
 		let loggedIn = false
 		try {
 			setError(null)
@@ -384,6 +408,7 @@ function PasskeyLogin({
 			setError(`Failed to authenticate with passkey: ${getErrorMessage(e)}`)
 		} finally {
 			buttonActive.current = false
+			setButtonBusy(false)
 			if (!loggedIn) armAutofill.current()
 		}
 	}
@@ -394,8 +419,9 @@ function PasskeyLogin({
 				id="passkey-login-button"
 				aria-describedby="passkey-login-button-error"
 				className="w-full"
-				status={error ? 'error' : 'idle'}
+				status={buttonBusy ? 'pending' : error ? 'error' : 'idle'}
 				type="submit"
+				disabled={buttonBusy}
 			>
 				<span className="inline-flex items-center gap-1.5">
 					<Icon name="passkey" />

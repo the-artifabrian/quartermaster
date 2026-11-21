@@ -433,6 +433,12 @@ out, its place is removed too and the person is told the send failed. A reset is
 keyed by the account's id, whichever of its username or email was typed, and a
 signup by the lowercased address.
 
+Forgot-password answers the same way for an account that exists and one that
+doesn't, and at about the same speed. Both make one lookup before answering; a
+known account's code is made and emailed afterwards, through `runInBackground`
+in `app/utils/background.server.ts`. Tests wait for that work with
+`backgroundWorkSettled`.
+
 Using a code finds and deletes its row, then the target's other codes of that
 type, in one write transaction. The transaction holds SQLite's write lock from
 its first statement, so of two submits of the same code the second finds no row,
@@ -765,4 +771,4 @@ the images sent, or nothing found when the Household has a metadata value named
 first result, even `false`. To wait on async page state such as Cache Storage,
 use `expect.poll(() => page.evaluate(async () => …))`.
 
-_Updated 20 November 2026._
+_Updated 21 November 2026._

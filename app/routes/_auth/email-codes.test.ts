@@ -10,6 +10,7 @@ import {
 	getSessionExpirationDate,
 	resetUserPassword,
 } from '#app/utils/auth.server.ts'
+import { backgroundWorkSettled } from '#app/utils/background.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
 	checkEmailCode,
@@ -108,6 +109,13 @@ import '#tests/setup/db-setup.ts'
 //     person is told the send failed, and no half-made code holds a place
 //     under the cap.
 //
+// Forgot-password answers before it sends:
+// 32. A known account gets its answer while the email is still going out, so
+//     it doesn't answer slower than an unknown one. The code then arrives and
+//     works.
+// 33. A send that fails after the answer leaves no working code, and the
+//     failure is logged rather than lost or thrown at the request.
+//
 // GET /verify consuming nothing is checked in tests/e2e/onboarding.test.ts,
 // through the real page.
 
@@ -184,10 +192,13 @@ async function callAction(
 	return (await action(args as never)) as unknown
 }
 
-function forgotPassword(usernameOrEmail: string) {
-	return callAction(forgotPasswordAction, '/forgot-password', {
+/** Asks for a reset, and waits for the email it sends after answering. */
+async function forgotPassword(usernameOrEmail: string) {
+	const answer = await callAction(forgotPasswordAction, '/forgot-password', {
 		usernameOrEmail,
 	})
+	await backgroundWorkSettled()
+	return answer
 }
 
 async function signup(email: string) {
@@ -416,6 +427,39 @@ describe('someone asking for codes for another person', () => {
 		expect(unknownEmail.status).toBe(known.status)
 		expect(sent).toHaveLength(1)
 		expect(await prisma.emailCode.count()).toBe(1)
+	})
+})
+
+describe('forgot-password answers before it sends', () => {
+	test('a known account is answered while its email is still going out, and the code then works', async () => {
+		let release!: () => void
+		const held = new Promise<void>((resolve) => (release = resolve))
+		const sent = captureEmails(() => held)
+		const user = await createAccount()
+
+		const answer = visible(
+			await callAction(forgotPasswordAction, '/forgot-password', {
+				usernameOrEmail: user.username,
+			}),
+		)
+
+		expect(answer.status).toBe(200)
+		expect(sent).toHaveLength(0)
+		release()
+		await backgroundWorkSettled()
+		expect(sent).toHaveLength(1)
+		expect((await useCode(readCode(sent[0]))).location).toBe(RESET_DONE)
+	})
+
+	test('a send that fails after the answer leaves no code, and is logged', async () => {
+		failEmails()
+		const user = await createAccount()
+
+		const answer = visible(await forgotPassword(user.username))
+
+		expect(answer.status).toBe(200)
+		expect(await prisma.emailCode.count({ where: { target: user.id } })).toBe(0)
+		expect(consoleError).toHaveBeenCalled()
 	})
 })
 

@@ -17,6 +17,7 @@ import {
 	expect,
 	test as base,
 	type AppPages,
+	waitFor,
 } from '#tests/playwright-utils.ts'
 
 const URL_REGEX = /(?<url>https?:\/\/[^\s$.?#].[^\s]*)/
@@ -458,8 +459,10 @@ test('reset password with a link', async ({
 	await expect(page.getByText(/check your email/i)).toBeVisible()
 	await expect(page.getByText(/asked more than once\?/i)).toBeVisible()
 
-	const email = await readEmail(user.email)
-	invariant(email, 'Email not found')
+	// The reset email goes out after the page has answered.
+	const email = await waitFor(() => readEmail(user.email), {
+		errorMessage: 'Reset email was not sent',
+	})
 	expect(email.subject).toMatch(/password reset/i)
 	expect(email.to).toBe(user.email.toLowerCase())
 	expect(email.from).toBe('hello@useqm.app')

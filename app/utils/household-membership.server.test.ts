@@ -28,6 +28,9 @@
  *    role it read before the join.
  * 9. Both members of a two-member Household join other Households at once.
  *    The old Household goes, and nothing is left without a Household.
+ * 10. An owner removes a member while joining another Household. The checks
+ *    that they are owner and the member is theirs must hold until the member
+ *    is out, so the join waits for the removal to finish.
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -40,7 +43,11 @@ import { createUser } from '#tests/db-utils.ts'
 import '#tests/setup/mocks-setup.ts'
 import { createWalDatabase, settlesWithin } from '#tests/sqlite-concurrency.ts'
 import { BASE_URL } from '#tests/utils.ts'
-import { acceptInvite, leaveHousehold } from './household.server.ts'
+import {
+	acceptInvite,
+	leaveHousehold,
+	removeMember,
+} from './household.server.ts'
 import '#tests/setup/db-setup.ts'
 
 const UPLOADS_DIR = path.join(process.cwd(), 'tests/fixtures/uploaded')
@@ -513,6 +520,43 @@ describe('two people leaving at once', () => {
 		// owner, or stays with the member who became owner. Deleting it means
 		// the leave acted on a role it read before the join.
 		expect(await db.recipe.count({ where: { id: soup.id } })).toBe(1)
+	})
+
+	test('an owner joining elsewhere waits for a removal they started to finish', async () => {
+		await using database = await createWalDatabase()
+		const { db } = database
+		const owner = await insertUser(db)
+		const staying = await insertUser(db)
+		const removed = await insertUser(db)
+		const host = await insertUser(db)
+		const home = await householdWith(
+			[
+				{ userId: owner.id, role: 'owner', joinedMinutesAgo: 60 },
+				{ userId: staying.id, role: 'member', joinedMinutesAgo: 30 },
+				{ userId: removed.id, role: 'member', joinedMinutesAgo: 10 },
+			],
+			db,
+		)
+		const elsewhere = await householdWith(
+			[{ userId: host.id, role: 'owner', joinedMinutesAgo: 60 }],
+			db,
+		)
+		const token = await inviteTo(elsewhere.id, host.id, db)
+
+		let joining: Promise<unknown> = Promise.resolve()
+		let joinedDuringRemoval = false
+		const paused = pauseAfterFirstMembershipRead(db, async () => {
+			joining = acceptInvite(token, owner.id, db)
+			joinedDuringRemoval = await settlesWithin(joining, 300)
+		})
+		await removeMember(owner.id, removed.id, home.id, paused)
+		await joining
+
+		expect(joinedDuringRemoval).toBe(false)
+		expect(await rolesIn(home.id, db)).toEqual([
+			{ userId: staying.id, role: 'owner' },
+		])
+		await expectNothingLeftBehind(db)
 	})
 
 	test('both members of a two-member Household joining elsewhere at once leave nothing behind', async () => {

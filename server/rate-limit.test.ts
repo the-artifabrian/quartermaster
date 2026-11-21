@@ -93,9 +93,12 @@ describe('rate limit tier', () => {
 		expect(rateLimitTier('DELETE', '/resources/undo-delete')).toBe('strong')
 	})
 
-	test('passkey option GETs are on the strong tier', () => {
+	test('passkey sign-in option GETs are on the strong tier', () => {
 		expect(rateLimitTier('GET', '/webauthn/authentication')).toBe('strong')
-		expect(rateLimitTier('GET', '/webauthn/registration')).toBe('strong')
+	})
+
+	test('adding a passkey, which checks the password, is on the auth tier', () => {
+		expect(rateLimitTier('POST', '/webauthn/registration')).toBe('auth')
 	})
 
 	test.each(['/login', '/recipes', '/recipes/import', '/verify'])(
@@ -290,7 +293,12 @@ describe('new routes land on a strict tier', () => {
 				),
 		)
 		expect(authLike.map((route) => route.path)).toEqual(
-			expect.arrayContaining(['/household/join', '/forgot-password']),
+			expect.arrayContaining([
+				'/household/join',
+				'/forgot-password',
+				// Adding a passkey checks the current password.
+				'/webauthn/registration',
+			]),
 		)
 		for (const route of authLike) {
 			expect({ route: route.path, tier: postTier(route.path) }).toEqual({

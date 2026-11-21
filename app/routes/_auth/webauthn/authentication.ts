@@ -4,6 +4,7 @@ import {
 } from '@simplewebauthn/server'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { unknownPasskeyError } from '#app/utils/passkeys.ts'
 import { handleNewSession } from '../login.server.ts'
 import { type Route } from './+types/authentication.ts'
 import {
@@ -47,7 +48,11 @@ export async function action({ request }: Route.ActionArgs) {
 			include: { user: true },
 		})
 		if (!passkey) {
-			throw new Error('Passkey not found')
+			// A 404 tells the page to have the browser forget this passkey.
+			return Response.json(
+				{ status: 'error', error: unknownPasskeyError } as const,
+				{ status: 404, headers: { 'Set-Cookie': deletePasskeyCookie } },
+			)
 		}
 
 		const config = getWebAuthnConfig()

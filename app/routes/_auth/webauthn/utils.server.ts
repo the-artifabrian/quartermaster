@@ -15,9 +15,18 @@ export const passkeyCookie = createCookie('webauthn-challenge', {
 	secrets: [process.env.SESSION_SECRET],
 })
 
-export const PasskeyCookieSchema = z.object({
+/**
+ * The challenge cookie while adding a passkey. It is only set after the
+ * current password checks out, so the step that saves the passkey takes it as
+ * proof of that check: for this account (`userId`), until `expiresAt`.
+ * `webauthnUserId` is the WebAuthn user handle the options carried.
+ */
+export const AddPasskeyChallengeSchema = z.object({
+	purpose: z.literal('add-passkey'),
 	challenge: z.string(),
+	webauthnUserId: z.string(),
 	userId: z.string(),
+	expiresAt: z.number(),
 })
 
 export const RegistrationResponseSchema = z.object({
@@ -86,4 +95,33 @@ export function getWebAuthnConfig() {
 		rpID: url.hostname,
 		origin: url.origin,
 	} as const
+}
+
+/**
+ * The WebAuthn user handle for an account: its id as UTF-8, in unpadded
+ * base64url. Registration hands SimpleWebAuthn the same bytes, so this matches
+ * `webauthnUserId` on every saved passkey.
+ */
+export function webauthnUserHandle(userId: string) {
+	return Buffer.from(userId, 'utf8').toString('base64url')
+}
+
+// Add-passkey challenges already spent, with when each would have expired.
+// Kept in memory: production runs one machine. A restart forgets them, so a
+// cookie issued before a restart could be spent once more until it expires,
+// at most five minutes later.
+const spentChallenges = new Map<string, number>()
+
+/**
+ * Marks an add-passkey challenge as spent. True the first time, false for one
+ * already spent, so each password check saves at most one passkey.
+ */
+export function spendAddPasskeyChallenge(challenge: string, expiresAt: number) {
+	const now = Date.now()
+	for (const [spent, until] of spentChallenges) {
+		if (until < now) spentChallenges.delete(spent)
+	}
+	if (spentChallenges.has(challenge)) return false
+	spentChallenges.set(challenge, expiresAt)
+	return true
 }

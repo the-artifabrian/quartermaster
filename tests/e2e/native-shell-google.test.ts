@@ -4,7 +4,7 @@ import { expect, test } from '#tests/playwright-utils.ts'
 // Google refuses OAuth in embedded web views, so the iOS app offers no Google
 // login, signup, or connection, and tells Google users how to get in.
 const googleHint =
-	'Signed up with Google? Add a passkey or password in Settings on the web first.'
+	'Signed up with Google? Add a password in Settings on the web first.'
 
 test.describe('in the iOS app', () => {
 	test.use({ userAgent: SHELL_UA })

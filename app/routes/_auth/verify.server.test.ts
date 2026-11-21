@@ -1,7 +1,10 @@
+import { RouterContextProvider } from 'react-router'
 import { describe, expect, test } from 'vitest'
 import { twoFAVerificationType } from '#app/routes/settings/profile/two-factor/_layout.tsx'
+import { action as profileAction } from '#app/routes/settings/profile/index.tsx'
 import {
 	getSessionExpirationDate,
+	getUserId,
 	logout,
 	sessionKey,
 } from '#app/utils/auth.server.ts'
@@ -51,7 +54,9 @@ import '#tests/setup/mocks-setup.ts'
 // 12. The pending state is still there next to someone else's session (it
 //     arrived after they signed in). It doesn't make them reverify.
 // 13. That person has 2FA and is due to reverify. Their own code works.
-// 14. Signing out clears the pending state with the session.
+// 14. Signing out clears the pending state with the session, and so do the
+//     other ways a session ends here: deleting the account, and a session
+//     that has expired or gone.
 // 15. Pending state that belongs to the signed-in user still asks for 2FA,
 //     and the person who started the sign-in can still finish it (2).
 
@@ -387,6 +392,65 @@ describe('shared browser', () => {
 		}).then(
 			() => {
 				throw new Error('Signing out should answer with a redirect')
+			},
+			(error: unknown) => error as Response,
+		)
+
+		const after = applySetCookies(cookie, response.headers.getSetCookie())
+		expect(await pendingIn(after)).toBeUndefined()
+	})
+
+	async function pendingNextToSessionOf(userId: string) {
+		const walkedAway = await createUserWithTwoFA()
+		return cookieHeader({
+			sessionId: (await createSession(userId)).id,
+			verify: { [pendingKey]: (await createSession(walkedAway.id)).id },
+		})
+	}
+
+	test('deleting the account clears a pending 2FA sign-in', async () => {
+		const leaving = await prisma.user.create({
+			data: createUser(),
+			select: { id: true },
+		})
+		const cookie = await pendingNextToSessionOf(leaving.id)
+		const url = new URL(`${BASE_URL}/settings/profile`)
+
+		const response = (await profileAction({
+			request: new Request(url, {
+				method: 'POST',
+				headers: {
+					cookie,
+					'Content-Type': 'application/x-www-form-urlencoded',
+				},
+				body: new URLSearchParams({ intent: 'delete-data' }),
+			}),
+			params: {},
+			context: new RouterContextProvider(),
+			pattern: '/settings/profile',
+			url,
+		})) as Response
+
+		expect(await prisma.user.findUnique({ where: { id: leaving.id } })).toBe(
+			null,
+		)
+		const after = applySetCookies(cookie, response.headers.getSetCookie())
+		expect(await pendingIn(after)).toBeUndefined()
+	})
+
+	test('a session that has gone clears a pending 2FA sign-in on its way out', async () => {
+		const signedIn = await prisma.user.create({
+			data: createUser(),
+			select: { id: true },
+		})
+		const cookie = await pendingNextToSessionOf(signedIn.id)
+		await prisma.session.deleteMany({ where: { userId: signedIn.id } })
+
+		const response = await getUserId(
+			new Request(BASE_URL, { headers: { cookie } }),
+		).then(
+			() => {
+				throw new Error('A gone session should answer with a redirect')
 			},
 			(error: unknown) => error as Response,
 		)

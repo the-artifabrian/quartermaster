@@ -50,12 +50,36 @@ export async function getUserId(request: Request) {
 	})
 	if (!session?.userId) {
 		throw redirect('/', {
-			headers: {
-				'set-cookie': await authSessionStorage.destroySession(authSession),
-			},
+			headers: await endSessionCookies(request, authSession),
 		})
 	}
 	return session.userId
+}
+
+/**
+ * Set-Cookie headers for a session that ends on this browser: the auth cookie
+ * and the verify cookie both go, so a 2FA sign-in or other code step left
+ * pending here doesn't carry over to whoever signs in next.
+ */
+export async function endSessionCookies(
+	request: Request,
+	authSession?: Awaited<ReturnType<typeof authSessionStorage.getSession>>,
+) {
+	const cookie = request.headers.get('cookie')
+	const headers = new Headers()
+	headers.append(
+		'set-cookie',
+		await authSessionStorage.destroySession(
+			authSession ?? (await authSessionStorage.getSession(cookie)),
+		),
+	)
+	headers.append(
+		'set-cookie',
+		await verifySessionStorage.destroySession(
+			await verifySessionStorage.getSession(cookie),
+		),
+	)
+	return headers
 }
 
 /**
@@ -335,23 +359,12 @@ export async function logout(
 		// learn more about PrismaPromise: https://www.prisma.io/docs/orm/reference/prisma-client-reference#prismapromise-behavior
 		void prisma.session.deleteMany({ where: { id: sessionId } }).catch(() => {})
 	}
-	// The verify cookie goes too, so a 2FA sign-in or other code step left
-	// pending on this browser doesn't carry over to whoever signs in next.
-	const verifySession = await verifySessionStorage.getSession(
-		request.headers.get('cookie'),
-	)
-	const headers = new Headers()
-	headers.append(
-		'set-cookie',
-		await authSessionStorage.destroySession(authSession),
-	)
-	headers.append(
-		'set-cookie',
-		await verifySessionStorage.destroySession(verifySession),
-	)
 	throw redirect(safeRedirect(redirectTo), {
 		...responseInit,
-		headers: combineHeaders(headers, responseInit?.headers),
+		headers: combineHeaders(
+			await endSessionCookies(request, authSession),
+			responseInit?.headers,
+		),
 	})
 }
 

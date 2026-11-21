@@ -161,11 +161,13 @@ A resize that is already being made when its photo is deleted can land in the
 cache after the delete has cleared it. The cache is far under the prune limit in
 production (about half a megabyte), so the prune would never reach it. The
 delete therefore clears the photo's resizes again two minutes later, from an
-unref'd timer that logs a failure and moves on. Two gaps are known and accepted.
-A restart inside those two minutes loses the second clear, and a resize that
-lands then is served until the cache passes the limit. And a browser or the
-service worker that already holds a deleted photo keeps showing it from its own
-cache.
+unref'd timer that logs a failure and moves on. Three gaps are known and
+accepted. A restart inside those two minutes loses the second clear, and a
+resize that lands then is served until the cache passes the limit. A browser or
+the service worker that already holds a deleted photo keeps showing it from its
+own cache. And when the storage delete itself fails, the delete is logged and
+the Recipe goes anyway, but the photo stays in storage, so it and its resizes
+keep serving to anyone who has the key.
 
 ## Data model
 
@@ -379,7 +381,9 @@ last verified more than two hours ago (`requireRecentVerification` in
 
 A 2FA sign-in waits in the verify cookie for its code, for up to ten minutes.
 On a shared browser that pending sign-in is someone else's business once another
-person signs in: a sign-in without 2FA and every sign-out clear it, and the
+person signs in. A sign-in without 2FA clears it, and so does every way a
+session ends on the browser (`endSessionCookies` in `app/utils/auth.server.ts`):
+logging out, deleting the account, and a session that has expired or gone. The
 two-hour check and the reverify step only count a pending sign-in that belongs
 to the signed-in user.
 

@@ -240,11 +240,9 @@ export async function action({ request }: Route.ActionArgs) {
 			select: { id: true },
 		})
 		const allowedMealIds = meals.map((meal) => meal.id)
+		// Cooked Recipe items add nothing (the picker never offered them).
 		const demandByMeal = await loadMealShoppingDemand(prisma, {
 			mealIds: allowedMealIds,
-			// Cooked Recipe items are not something to shop for — the picker
-			// never offered them.
-			includeCooked: false,
 		})
 
 		let createdRowCount = 0

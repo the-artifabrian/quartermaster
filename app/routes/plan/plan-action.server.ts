@@ -247,9 +247,8 @@ export function createPlanAction(
 			// contributor.
 			const mealDemand = await loadMealShoppingDemand(db, {
 				mealIds: [meal.id],
-				includeCooked: true,
 			})
-			const { lines: demand } = mealDemand.get(meal.id)!
+			const { lines: demand, cookedIdentities } = mealDemand.get(meal.id)!
 
 			const availability = await loadShoppingAvailability(db, householdId)
 			const { lines } = annotateShoppingDemand(demand, availability)
@@ -264,6 +263,7 @@ export function createPlanAction(
 							mealId: meal.id,
 							listId: shoppingList.id,
 							lines,
+							keepIdentities: cookedIdentities,
 						})
 					: await reconcileMealShoppingContributions(db, {
 							mealId: meal.id,

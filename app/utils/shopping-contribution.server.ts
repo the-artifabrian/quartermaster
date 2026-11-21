@@ -195,10 +195,16 @@ export function replaceMealShoppingContributions(
 		mealId,
 		listId,
 		lines,
+		keepIdentities = new Set(),
 	}: {
 		mealId: string
 		listId: string
 		lines: ShoppingDemandLine[]
+		/**
+		 * Identities whose existing contribution stays exactly as it is, neither
+		 * updated nor withdrawn: the ones a cooked Recipe item needs.
+		 */
+		keepIdentities?: ReadonlySet<string>
 	},
 ): Promise<{
 	createdRowCount: number
@@ -272,6 +278,7 @@ export function replaceMealShoppingContributions(
 		}
 
 		for (const contribution of existingContributions) {
+			if (keepIdentities.has(contribution.canonicalName)) continue
 			const line = freshByCanonical.get(contribution.canonicalName)
 			const row = rowById.get(contribution.itemId)
 			const changed =

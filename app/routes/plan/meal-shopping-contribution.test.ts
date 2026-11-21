@@ -1,3 +1,22 @@
+/**
+ * Failure list for this change (the route side of Meal → Shopping):
+ *
+ * Cooked Recipe items, one rule on every path:
+ * - Add to Shopping from the Meal card with a cooked item. Its lines are not
+ *   added; an uncooked item's lines in the same Meal still are.
+ * - Update Shopping after an item is cooked and its Recipe was scaled. What
+ *   it already put on Shopping stays as it is, on an unchecked row and on a
+ *   checked one.
+ * - Update Shopping for a cooked item whose lines were never added. Nothing
+ *   is added for it.
+ * - An ingredient a cooked and an uncooked item share. An existing amount
+ *   stays as it is; with none, only the uncooked item's share is added.
+ *
+ * Row Edit and Remove generated amount (status codes the page acts on):
+ * - A stale version answers 409 with the row as it is now, and saves nothing.
+ * - A page that sends no version answers 400.
+ * - Another Household's row answers 404.
+ */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
 
@@ -1581,5 +1600,178 @@ describe('Meal Shopping contributions across horizons (#175)', () => {
 				where: { itemId: lamb.id },
 			}),
 		).toBe(0)
+	})
+})
+
+describe('cooked Recipe items never add Shopping amounts', () => {
+	async function setupTwoRecipeMeal(session: {
+		userId: string
+		householdId: string
+	}) {
+		const create = (title: string, ingredients: Array<[string, string]>) =>
+			prisma.recipe.create({
+				data: {
+					title,
+					userId: session.userId,
+					householdId: session.householdId,
+					ingredients: {
+						create: ingredients.map(([name, amount], order) => ({
+							name,
+							amount,
+							order,
+						})),
+					},
+				},
+			})
+		const curry = await create('Curry', [
+			['onion', '2'],
+			['coconut milk', '1'],
+		])
+		const salad = await create('Salad', [
+			['onion', '1'],
+			['cucumber', '1'],
+		])
+		const weekStart = getCurrentWeekStart()
+		const mealPlan = await prisma.mealPlan.create({
+			data: { householdId: session.householdId, weekStart },
+		})
+		const meal = await prisma.meal.create({
+			data: {
+				mealPlanId: mealPlan.id,
+				date: weekStart,
+				order: 0,
+				recipeItems: {
+					create: [
+						{ order: 0, recipeId: curry.id, recipeTitle: curry.title },
+						{ order: 1, recipeId: salad.id, recipeTitle: salad.title },
+					],
+				},
+			},
+			include: { recipeItems: { orderBy: { order: 'asc' } } },
+		})
+		const [curryItem, saladItem] = meal.recipeItems
+		return { meal, curryItem: curryItem!, saladItem: saladItem! }
+	}
+	const amounts = async (householdId: string) =>
+		Object.fromEntries(
+			(await getContributions(householdId)).map((c) => [
+				c.canonicalName,
+				c.quantity,
+			]),
+		)
+
+	test('Add to Shopping leaves out a cooked item', async () => {
+		const session = await setupUser()
+		const { meal, curryItem } = await setupTwoRecipeMeal(session)
+		await prisma.mealRecipeItem.update({
+			where: { id: curryItem.id },
+			data: { cooked: true },
+		})
+
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+
+		// The salad's onion alone: the curry has been made.
+		expect(await amounts(session.householdId)).toEqual({
+			cucumber: '1',
+			onion: '1',
+		})
+	})
+
+	test('Update Shopping keeps what a cooked item already put on Shopping, checked or not', async () => {
+		const session = await setupUser()
+		const { meal, curryItem } = await setupTwoRecipeMeal(session)
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+		const coconut = (await getShoppingRows(session.householdId)).find(
+			(row) => row.name === 'coconut milk',
+		)!
+		await prisma.shoppingListItem.update({
+			where: { id: coconut.id },
+			data: { checked: true },
+		})
+		const rowsBefore = await getShoppingRows(session.householdId)
+		const before = await getContributions(session.householdId)
+
+		await prisma.mealRecipeItem.update({
+			where: { id: curryItem.id },
+			data: { cooked: true, scaleMultiplier: 2 },
+		})
+		await runPlanAction(session, {
+			intent: 'refreshMealShopping',
+			mealId: meal.id,
+		})
+
+		expect(await getContributions(session.householdId)).toEqual(before)
+		expect(await getShoppingRows(session.householdId)).toEqual(rowsBefore)
+	})
+
+	test('Update Shopping adds nothing for a cooked item that was never added', async () => {
+		const session = await setupUser()
+		const { meal, curryItem } = await setupTwoRecipeMeal(session)
+		await prisma.mealRecipeItem.update({
+			where: { id: curryItem.id },
+			data: { cooked: true },
+		})
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+
+		await runPlanAction(session, {
+			intent: 'refreshMealShopping',
+			mealId: meal.id,
+		})
+
+		expect(await amounts(session.householdId)).toEqual({
+			cucumber: '1',
+			onion: '1',
+		})
+	})
+
+	test('an ingredient shared with a cooked item keeps its amount, and only the uncooked share is new', async () => {
+		const session = await setupUser()
+		const { meal, curryItem, saladItem } = await setupTwoRecipeMeal(session)
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+		expect(await amounts(session.householdId)).toMatchObject({ onion: '3' })
+
+		// The curry is made; the salad doubles. Onion stays at what is there,
+		// and the salad's own cucumber follows the new scale.
+		await prisma.mealRecipeItem.update({
+			where: { id: curryItem.id },
+			data: { cooked: true },
+		})
+		await prisma.mealRecipeItem.update({
+			where: { id: saladItem.id },
+			data: { scaleMultiplier: 2 },
+		})
+		await runPlanAction(session, {
+			intent: 'refreshMealShopping',
+			mealId: meal.id,
+		})
+		expect(await amounts(session.householdId)).toEqual({
+			'coconut milk': '1',
+			cucumber: '2',
+			onion: '3',
+		})
+
+		// With the onion taken off Shopping, Update adds back only the
+		// salad's share.
+		const onion = (await getShoppingRows(session.householdId)).find(
+			(row) => row.name === 'onion',
+		)!
+		await prisma.shoppingListItem.delete({ where: { id: onion.id } })
+		await runPlanAction(session, {
+			intent: 'refreshMealShopping',
+			mealId: meal.id,
+		})
+		expect(await amounts(session.householdId)).toMatchObject({ onion: '2' })
 	})
 })

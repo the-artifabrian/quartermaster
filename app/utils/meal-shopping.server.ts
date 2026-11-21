@@ -5,33 +5,45 @@ import {
 } from './shopping-demand.server.ts'
 
 export type MealShoppingDemand = {
-	/** Normalized demand lines for this Meal, in demand-module order. */
+	/**
+	 * What this Meal can put on Shopping, in demand-module order: its Recipe
+	 * items not cooked yet, at their stored batch multipliers, and its note
+	 * cards' Shopping lines.
+	 */
 	lines: ShoppingDemandLine[]
+	/**
+	 * Demand identities a cooked Recipe item of this Meal needs. Update
+	 * Shopping leaves this Meal's existing amounts for them as they are.
+	 */
+	cookedIdentities: Set<string>
 }
 
 /**
- * Build Shopping demand for one or more Meals from the two inputs the Meal-add
- * path has always read: Recipe items at their stored batch multipliers, and
- * note cards' Shopping lines (#109). The Plan picker (#288) passes
- * `includeCooked: false` to reproduce From Plan's eligible set — a cooked
- * Recipe item has already been made, so it is not something to shop for.
+ * Build Shopping demand for one or more Meals: Recipe items at their stored
+ * batch multipliers, and note cards' Shopping lines (#109).
+ *
+ * The cooked rule lives here so every path follows it: a cooked Recipe item
+ * has been made, so it never adds new amounts anywhere (Add to Shopping,
+ * From Plan, the picker, Update Shopping). On Update Shopping, amounts it
+ * already put on Shopping stay as they are, checked or not: the caller
+ * passes `cookedIdentities` on, and an identity in it is neither added to
+ * nor withdrawn. An ingredient a cooked and an uncooked item share counts as
+ * cooked there, so an existing amount stays; with none on Shopping, only the
+ * uncooked share is added.
  *
  * Missing cards (recipeId null) and text-only Meals simply contribute nothing.
  * Every Meal id must already be resolved through the caller's household.
  */
 export async function loadMealShoppingDemand(
 	db: PrismaClient,
-	{ mealIds, includeCooked }: { mealIds: string[]; includeCooked: boolean },
+	{ mealIds }: { mealIds: string[] },
 ): Promise<Map<string, MealShoppingDemand>> {
 	const ids = [...new Set(mealIds)]
 	if (ids.length === 0) return new Map()
 
 	const [recipeItems, noteLines] = await Promise.all([
 		db.mealRecipeItem.findMany({
-			where: {
-				mealId: { in: ids },
-				...(includeCooked ? {} : { cooked: false }),
-			},
+			where: { mealId: { in: ids } },
 			// Demand part order (and so composite quantities) must be
 			// deterministic across identical adds.
 			orderBy: [{ order: 'asc' }, { id: 'asc' }],
@@ -54,25 +66,34 @@ export async function loadMealShoppingDemand(
 		}),
 	])
 
+	const batches = (items: typeof recipeItems) =>
+		items.flatMap((item) =>
+			item.recipe
+				? [
+						{
+							ingredients: item.recipe.ingredients,
+							scaleMultiplier: item.scaleMultiplier,
+						},
+					]
+				: [],
+		)
+
 	const demand = new Map<string, MealShoppingDemand>()
 	for (const mealId of ids) {
 		const items = recipeItems.filter((item) => item.mealId === mealId)
+		const cooked = items.filter((item) => item.cooked)
 		demand.set(mealId, {
 			lines: buildShoppingDemand({
-				recipeBatches: items.flatMap((item) =>
-					item.recipe
-						? [
-								{
-									ingredients: item.recipe.ingredients,
-									scaleMultiplier: item.scaleMultiplier,
-								},
-							]
-						: [],
-				),
+				recipeBatches: batches(items.filter((item) => !item.cooked)),
 				noteLines: noteLines
 					.filter((line) => line.noteItem.mealId === mealId)
 					.map(({ name, quantity, unit }) => ({ name, quantity, unit })),
 			}),
+			cookedIdentities: new Set(
+				buildShoppingDemand({ recipeBatches: batches(cooked) }).map(
+					(line) => line.canonicalName,
+				),
+			),
 		})
 	}
 	return demand

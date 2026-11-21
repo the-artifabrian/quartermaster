@@ -88,7 +88,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const meals = mealPlan?.meals ?? []
 	const demandByMeal = await loadMealShoppingDemand(prisma, {
 		mealIds: meals.map((meal) => meal.id),
-		includeCooked: false,
 	})
 	const listedIdentities = new Set(
 		listedRows.map((row) => demandIdentity(row.name)),

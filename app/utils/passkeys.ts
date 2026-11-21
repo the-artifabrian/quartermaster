@@ -23,6 +23,9 @@ function publicKeyCredential(): PublicKeyCredentialExtras | null {
 	return value ? (value as PublicKeyCredentialExtras) : null
 }
 
+/** The sign-in error for a passkey the server has no record of. */
+export const unknownPasskeyError = 'Passkey not found'
+
 /** Unpadded base64url, which the Signal API checks in native code. */
 function isBase64Url(value: string) {
 	return value.length > 0 && value.length % 4 !== 1 && /^[\w-]+$/.test(value)

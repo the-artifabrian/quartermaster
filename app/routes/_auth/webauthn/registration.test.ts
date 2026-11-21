@@ -15,7 +15,11 @@ import {
 } from '#tests/utils.ts'
 import { loader as passkeysPageLoader } from '#app/routes/settings/profile/passkeys.tsx'
 import { action } from './registration.ts'
-import { passkeyCookie, webauthnUserHandle } from './utils.server.ts'
+import {
+	getWebAuthnConfig,
+	passkeyCookie,
+	webauthnUserHandle,
+} from './utils.server.ts'
 import '#tests/setup/db-setup.ts'
 
 // Failure list for adding a passkey from Settings:
@@ -40,6 +44,16 @@ import '#tests/setup/db-setup.ts'
 // 14. A signed-out request is sent to log in.
 // 15. A 2FA user past the window who opens the Passkeys page is sent to
 //     reverify before typing a password, and comes back to the page.
+// 16. The challenge cookie from one password check is sent again, by the
+//     same browser or a copy, to save a second passkey. Refused: one passkey,
+//     one notice.
+// 17. The saved passkey is checked against the challenge from the cookie,
+//     with user verification required and this app's origin and RP ID.
+// 18. Each refusal says whether the device's new passkey was kept, so the
+//     page can tell the browser to forget only one the server didn't keep.
+//     A passkey already saved is never reported as unknown.
+// 19. The account can't be read while saving. Nothing is saved, so no
+//     passkey exists without its notice.
 
 vi.mock('@simplewebauthn/server', async (importOriginal) => ({
 	...(await importOriginal<typeof SimpleWebAuthnServer>()),
@@ -68,16 +82,14 @@ const registrationResponse = {
 	type: 'public-key',
 }
 
-beforeEach(() => {
-	vi.mocked(sendEmail).mockClear()
-	vi.mocked(verifyRegistrationResponse).mockReset()
-	vi.mocked(verifyRegistrationResponse).mockResolvedValue({
+function verifiedRegistration(id: string) {
+	return {
 		verified: true,
 		registrationInfo: {
 			fmt: 'none',
 			aaguid: '00000000-0000-0000-0000-000000000000',
 			credential: {
-				id: credentialId,
+				id,
 				publicKey: new Uint8Array([1, 2, 3]),
 				counter: 0,
 				transports: ['internal'],
@@ -89,7 +101,15 @@ beforeEach(() => {
 			credentialBackedUp: true,
 			origin: BASE_URL,
 		},
-	} as Awaited<ReturnType<typeof verifyRegistrationResponse>>)
+	} as Awaited<ReturnType<typeof verifyRegistrationResponse>>
+}
+
+beforeEach(() => {
+	vi.mocked(sendEmail).mockClear()
+	vi.mocked(verifyRegistrationResponse).mockReset()
+	vi.mocked(verifyRegistrationResponse).mockResolvedValue(
+		verifiedRegistration(credentialId),
+	)
 })
 
 async function signedInUser({
@@ -397,4 +417,134 @@ test('a 2FA user past the reverify window opening the Passkeys page reverifies f
 	expect(location.searchParams.get('redirectTo')).toBe(
 		'/settings/profile/passkeys',
 	)
+})
+
+function verifyResponse(id: string) {
+	return { ...registrationResponse, id, rawId: id }
+}
+
+test('one password check saves one passkey, even when its cookie is sent again', async () => {
+	const { user, cookie } = await signedInUser()
+	const started = await startWithPassword(cookie)
+	const first = await post(
+		{ intent: 'verify', response: registrationResponse },
+		started.cookie,
+	)
+	expect(first.status).toBe(200)
+
+	const secondId = 'c2Vjb25kLWNyZWQ'
+	vi.mocked(verifyRegistrationResponse).mockResolvedValueOnce(
+		verifiedRegistration(secondId),
+	)
+	const replay = await post(
+		{ intent: 'verify', response: verifyResponse(secondId) },
+		started.cookie,
+	)
+	expect(replay.status).toBe(400)
+	expect(await replay.json()).toMatchObject({
+		status: 'error',
+		code: 'enter-password',
+	})
+	expect(await savedPasskeyCount(user.id)).toBe(1)
+	expect(sendEmail).toHaveBeenCalledTimes(1)
+})
+
+test('a refused save can’t be retried with the same cookie either', async () => {
+	vi.mocked(verifyRegistrationResponse).mockResolvedValueOnce({
+		verified: false,
+	})
+	const { user, cookie } = await signedInUser()
+	const started = await startWithPassword(cookie)
+	const refused = await post(
+		{ intent: 'verify', response: registrationResponse },
+		started.cookie,
+	)
+	expect(refused.status).toBe(400)
+	const retry = await post(
+		{ intent: 'verify', response: registrationResponse },
+		started.cookie,
+	)
+	expect(await retry.json()).toMatchObject({ code: 'enter-password' })
+	expect(await savedPasskeyCount(user.id)).toBe(0)
+})
+
+test('the passkey is checked against the cookie’s challenge, with user verification', async () => {
+	const { cookie } = await signedInUser()
+	const started = await startWithPassword(cookie)
+	const { options } = (await started.response.json()) as {
+		options: { challenge: string }
+	}
+	await post(
+		{ intent: 'verify', response: registrationResponse },
+		started.cookie,
+	)
+	const { origin, rpID } = getWebAuthnConfig()
+	expect(verifyRegistrationResponse).toHaveBeenCalledTimes(1)
+	expect(verifyRegistrationResponse).toHaveBeenCalledWith(
+		expect.objectContaining({
+			expectedChallenge: options.challenge,
+			expectedOrigin: origin,
+			expectedRPID: rpID,
+			requireUserVerification: true,
+		}),
+	)
+})
+
+test('each refusal says whether the device’s new passkey was kept', async () => {
+	const { user, cookie } = await signedInUser()
+
+	const noProof = await post(
+		{ intent: 'verify', response: registrationResponse },
+		cookie,
+	)
+	expect(await noProof.json()).toEqual({
+		status: 'error',
+		code: 'enter-password',
+		error: 'Enter your password and try again.',
+	})
+
+	vi.mocked(verifyRegistrationResponse).mockResolvedValueOnce({
+		verified: false,
+	})
+	const unverified = await post(
+		{ intent: 'verify', response: registrationResponse },
+		(await startWithPassword(cookie)).cookie,
+	)
+	expect(await unverified.json()).toMatchObject({ code: 'not-saved' })
+
+	await prisma.passkey.create({
+		data: {
+			id: credentialId,
+			aaguid: '00000000-0000-0000-0000-000000000000',
+			publicKey: Buffer.from([1]),
+			userId: user.id,
+			webauthnUserId: webauthnUserHandle(user.id),
+			counter: 0,
+			deviceType: 'multiDevice',
+			backedUp: true,
+		},
+	})
+	const duplicate = await post(
+		{ intent: 'verify', response: registrationResponse },
+		(await startWithPassword(cookie)).cookie,
+	)
+	expect(await duplicate.json()).toMatchObject({
+		code: 'already-registered',
+		error: expect.stringMatching(/already/i),
+	})
+})
+
+test('when the account can’t be read while saving, no passkey is saved', async () => {
+	const { user, cookie } = await signedInUser()
+	const started = await startWithPassword(cookie)
+	vi.spyOn(prisma.user, 'findUniqueOrThrow').mockRejectedValueOnce(
+		new Error('database unavailable'),
+	)
+	const response = await post(
+		{ intent: 'verify', response: registrationResponse },
+		started.cookie,
+	)
+	expect(response.status).toBe(400)
+	expect(await savedPasskeyCount(user.id)).toBe(0)
+	expect(sendEmail).not.toHaveBeenCalled()
 })

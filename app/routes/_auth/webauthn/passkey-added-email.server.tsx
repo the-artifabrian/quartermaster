@@ -9,8 +9,7 @@ export function PasskeyAddedEmail({ username }: { username: string }) {
 				</h1>
 				<p>
 					<E.Text>
-						A new passkey was just added to the Quartermaster account {username}
-						. It can be used to log in.
+						{`A new passkey was just added to the Quartermaster account ${username}. It can be used to log in.`}
 					</E.Text>
 				</p>
 				<p>
@@ -18,9 +17,9 @@ export function PasskeyAddedEmail({ username }: { username: string }) {
 				</p>
 				<p>
 					<E.Text>
-						If you didn’t, change your password in Settings. That logs out every
-						other device. Then delete the passkey you don’t recognise in
-						Settings, under Passkeys.
+						If you didn’t, first delete the passkey you don’t recognise in
+						Settings, under Passkeys. Then change your password in Settings,
+						which logs out every other device.
 					</E.Text>
 				</p>
 			</E.Container>

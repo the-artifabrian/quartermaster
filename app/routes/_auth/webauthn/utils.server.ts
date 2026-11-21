@@ -105,3 +105,23 @@ export function getWebAuthnConfig() {
 export function webauthnUserHandle(userId: string) {
 	return Buffer.from(userId, 'utf8').toString('base64url')
 }
+
+// Add-passkey challenges already spent, with when each would have expired.
+// Kept in memory: production runs one machine. A restart forgets them, so a
+// cookie issued before a restart could be spent once more until it expires,
+// at most five minutes later.
+const spentChallenges = new Map<string, number>()
+
+/**
+ * Marks an add-passkey challenge as spent. True the first time, false for one
+ * already spent, so each password check saves at most one passkey.
+ */
+export function spendAddPasskeyChallenge(challenge: string, expiresAt: number) {
+	const now = Date.now()
+	for (const [spent, until] of spentChallenges) {
+		if (until < now) spentChallenges.delete(spent)
+	}
+	if (spentChallenges.has(challenge)) return false
+	spentChallenges.set(challenge, expiresAt)
+	return true
+}

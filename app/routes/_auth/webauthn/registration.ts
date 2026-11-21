@@ -18,13 +18,34 @@ import {
 	RegistrationResponseSchema,
 	passkeyCookie,
 	getWebAuthnConfig,
+	spendAddPasskeyChallenge,
 } from './utils.server.ts'
+
+/**
+ * Why a save was refused. `enter-password` and `not-saved` mean the device's
+ * new passkey wasn't kept; `already-registered` means a passkey with that id
+ * is saved, so the browser must not be told to forget it.
+ */
+export type AddPasskeyErrorCode =
+	| 'enter-password'
+	| 'not-saved'
+	| 'already-registered'
+
+class AddPasskeyError extends Error {
+	constructor(
+		message: string,
+		readonly code: AddPasskeyErrorCode,
+	) {
+		super(message)
+	}
+}
 
 // Adding a passkey takes two requests: the options (which need the current
 // password) and the response from the authenticator. The signed challenge
 // cookie carries the password check from one to the other. It is only handed
-// out after the check, names the account it was handed to, and lasts a few
-// minutes.
+// out after the check, names the account it was handed to, lasts five
+// minutes, and saves one passkey at most: the server remembers each challenge
+// it has spent (`spendAddPasskeyChallenge`).
 const addPasskeyWindowMs = 5 * 60 * 1000
 
 const passkeysPage = '/settings/profile/passkeys'
@@ -159,7 +180,7 @@ async function finishAddingPasskey(
 	userId: string,
 	response: RegistrationResponseJSON,
 ) {
-	// Each password check is good for one try.
+	// Each password check is good for one try, kept or not.
 	const clearChallenge = {
 		'Set-Cookie': await passkeyCookie.serialize('', { maxAge: 0 }),
 	}
@@ -170,9 +191,16 @@ async function finishAddingPasskey(
 		if (
 			!challengeCookie.success ||
 			challengeCookie.data.userId !== userId ||
-			challengeCookie.data.expiresAt < Date.now()
+			challengeCookie.data.expiresAt < Date.now() ||
+			!spendAddPasskeyChallenge(
+				challengeCookie.data.challenge,
+				challengeCookie.data.expiresAt,
+			)
 		) {
-			throw new Error('Enter your password and try again.')
+			throw new AddPasskeyError(
+				'Enter your password and try again.',
+				'enter-password',
+			)
 		}
 		const { challenge, webauthnUserId } = challengeCookie.data
 
@@ -188,7 +216,10 @@ async function finishAddingPasskey(
 
 		const { verified, registrationInfo } = verification
 		if (!verified || !registrationInfo) {
-			throw new Error('Registration verification failed')
+			throw new AddPasskeyError(
+				'Registration verification failed',
+				'not-saved',
+			)
 		}
 		const { credential, credentialDeviceType, credentialBackedUp, aaguid } =
 			registrationInfo
@@ -199,8 +230,17 @@ async function finishAddingPasskey(
 		})
 
 		if (existingPasskey) {
-			throw new Error('This passkey has already been registered')
+			throw new AddPasskeyError(
+				'This passkey is already registered.',
+				'already-registered',
+			)
 		}
+
+		// Read before saving, so nothing after the save can fail.
+		const user = await prisma.user.findUniqueOrThrow({
+			where: { id: userId },
+			select: { email: true, username: true },
+		})
 
 		await prisma.passkey.create({
 			data: {
@@ -216,10 +256,6 @@ async function finishAddingPasskey(
 			},
 		})
 
-		const user = await prisma.user.findUniqueOrThrow({
-			where: { id: userId },
-			select: { email: true, username: true },
-		})
 		runInBackground(
 			sendEmail({
 				to: user.email,
@@ -235,8 +271,11 @@ async function finishAddingPasskey(
 	} catch (error) {
 		if (error instanceof Response) throw error
 
+		// Anything else (a malformed response, a failed write) left nothing saved.
+		const code: AddPasskeyErrorCode =
+			error instanceof AddPasskeyError ? error.code : 'not-saved'
 		return Response.json(
-			{ status: 'error', error: getErrorMessage(error) } as const,
+			{ status: 'error', code, error: getErrorMessage(error) } as const,
 			{ status: 400, headers: clearChallenge },
 		)
 	}

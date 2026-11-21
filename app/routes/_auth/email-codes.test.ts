@@ -115,6 +115,9 @@ import '#tests/setup/db-setup.ts'
 //     works.
 // 33. A send that fails after the answer leaves no working code, and the
 //     failure is logged rather than lost or thrown at the request.
+// 34. The work after the answer throws (the database read fails): the error
+//     is caught and logged, and never becomes an unhandled rejection, which
+//     would take the process down.
 //
 // GET /verify consuming nothing is checked in tests/e2e/onboarding.test.ts,
 // through the real page.
@@ -460,6 +463,38 @@ describe('forgot-password answers before it sends', () => {
 		expect(answer.status).toBe(200)
 		expect(await prisma.emailCode.count({ where: { target: user.id } })).toBe(0)
 		expect(consoleError).toHaveBeenCalled()
+	})
+
+	test('work that throws after the answer is logged, not left unhandled', async () => {
+		consoleError.mockImplementation(() => {})
+		const unhandled: Array<unknown> = []
+		const onUnhandled = (reason: unknown) => unhandled.push(reason)
+		process.on('unhandledRejection', onUnhandled)
+		try {
+			const user = await createAccount()
+			vi.spyOn(prisma.user, 'findUnique').mockRejectedValueOnce(
+				new Error('The database went away'),
+			)
+
+			const answer = visible(
+				await callAction(forgotPasswordAction, '/forgot-password', {
+					usernameOrEmail: user.username,
+				}),
+			)
+			await backgroundWorkSettled()
+			// An unhandled rejection is reported after the current tasks.
+			await new Promise((resolve) => setTimeout(resolve, 0))
+
+			expect(answer.status).toBe(200)
+			expect(unhandled).toEqual([])
+			expect(consoleError).toHaveBeenCalledWith(
+				'Background task failed: sending a password reset code',
+				expect.objectContaining({ message: 'The database went away' }),
+			)
+		} finally {
+			process.off('unhandledRejection', onUnhandled)
+			vi.restoreAllMocks()
+		}
 	})
 })
 

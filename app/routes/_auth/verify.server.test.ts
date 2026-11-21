@@ -377,7 +377,12 @@ describe('shared browser', () => {
 				method: 'POST',
 				headers: { cookie },
 			}),
-		}).catch((error: unknown) => error as Response)
+		}).then(
+			() => {
+				throw new Error('Signing out should answer with a redirect')
+			},
+			(error: unknown) => error as Response,
+		)
 
 		const after = applySetCookies(cookie, response.headers.getSetCookie())
 		expect(await pendingIn(after)).toBeUndefined()

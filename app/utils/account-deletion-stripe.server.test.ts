@@ -5,8 +5,9 @@
 // - Stripe refuses or errors: the account is still deleted, and the failure
 //   is logged and captured with the subscription id, so it can be cancelled
 //   by hand
-// - Stripe hangs: the request has a short timeout, so the delete doesn't wait
-//   on Stripe's default of 80 seconds
+// - Stripe hangs: the request has a short timeout and at most one retry, so
+//   the delete doesn't wait out Stripe's defaults (80 seconds a try, retried
+//   twice, since a timeout counts as a reason to retry)
 // - no Subscription row, or one with no Stripe subscription (a trial, or one
 //   Stripe already ended): Stripe is never asked
 // - Stripe isn't configured but the row names a subscription: the account is
@@ -75,14 +76,15 @@ test('a live subscription is cancelled with Stripe, and the account is deleted',
 	expect(await userGone(user.id)).toBe(true)
 })
 
-test('the cancel request has a short timeout', async () => {
+test('a hung Stripe holds the delete for seconds, not minutes', async () => {
 	const user = await userWithSubscription('sub_live_two')
 
 	await deleteAccount(user.id)
 
 	const [, , options] = cancel.mock.calls[0]!
+	const tries = (options?.maxNetworkRetries ?? 2) + 1
 	expect(options?.timeout).toBeGreaterThan(0)
-	expect(options?.timeout).toBeLessThanOrEqual(15_000)
+	expect(tries * options?.timeout).toBeLessThanOrEqual(12_000)
 })
 
 test('a Stripe failure still deletes the account, and is logged and captured', async () => {

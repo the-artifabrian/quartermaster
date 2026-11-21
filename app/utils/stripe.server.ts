@@ -126,8 +126,12 @@ export async function createPortalSession({
 	})
 }
 
-/** Stripe's own default is 80 seconds, far too long to hold a request. */
-const CANCEL_TIMEOUT_MS = 10_000
+/**
+ * Stripe's defaults (80 seconds a try, two retries, and a timeout counts as a
+ * reason to retry) could hold a deletion for minutes. One retry of 5 seconds
+ * keeps a hung Stripe to about 11 seconds, backoff included.
+ */
+const CANCEL_REQUEST = { timeout: 5_000, maxNetworkRetries: 1 }
 
 /**
  * Cancels a subscription at once, for an account being deleted. It never
@@ -141,11 +145,7 @@ export async function cancelSubscriptionOfDeletedAccount(
 	try {
 		const stripe = getStripeClient()
 		if (!stripe) throw new Error('Stripe is not configured')
-		await stripe.subscriptions.cancel(
-			subscriptionId,
-			{},
-			{ timeout: CANCEL_TIMEOUT_MS },
-		)
+		await stripe.subscriptions.cancel(subscriptionId, {}, CANCEL_REQUEST)
 	} catch (error) {
 		console.error(
 			`Could not cancel Stripe subscription ${subscriptionId} of a deleted account`,

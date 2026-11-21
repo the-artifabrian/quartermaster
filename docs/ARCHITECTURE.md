@@ -488,7 +488,7 @@ owner out. An attacker with many addresses is held back by bcrypt alone.
 Passwords are hashed with bcryptjs at cost 10, and one `bcrypt.compare` took 68
 to 71 ms under Bun on an M1 Mac, about 14 a second. Comparing in parallel
 doesn't help, since bcryptjs runs on the one JavaScript thread. Production CPU
-is roughly ten times slower per request (from the October 2026 speed pass), so
+is roughly ten times slower per request, measured in an earlier speed pass, so
 the estimate there is about 0.7 s a compare: some 1.4 guesses a second, 5,000 an
 hour, 120,000 a day. Guessing that fast would leave the server time for nothing
 else. Passwords are at least 6 characters, and new ones are checked against the
@@ -503,8 +503,11 @@ stranger can't block anyone. A right password clears the count, and a refused
 check doesn't add to it. Each try is counted before bcrypt runs, so checks sent
 at once can't slip past the limit. The counts live in memory, since production
 runs one machine. A restart forgets them, which gives a user near the limit 10
-more tries. The map holds at most 1,000 users, dropping the one whose last wrong
-password is oldest.
+more tries. The map holds at most 1,000 users. When it is full, expired counts go
+first, then the user under the limit whose last wrong password is oldest. A user
+at the limit is never dropped, so filling the map with other accounts doesn't
+reset their count. If all 1,000 are at the limit, a new user is refused as if
+limited until counts expire.
 
 **Logs and analytics.** `redactUrl` in `app/utils/redact-url.ts` replaces the
 values of `code`, `token`, `target`, `session_id`, `otp`, `state` and similar

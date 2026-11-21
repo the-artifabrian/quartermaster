@@ -28,6 +28,10 @@ import '#tests/setup/db-setup.ts'
 //    of the sign-in form.
 // 8. Every user who ever typed a wrong password stays in memory, so the map
 //    grows without end.
+// 9. The map fills with other users' wrong passwords, and a user who hit the
+//    limit is dropped to make room, so their count starts over.
+// 10. Every user in a full map is at the limit. A new user's check runs
+//     anyway, untracked, so it has no limit at all.
 
 const password = 'current-password-1234'
 
@@ -146,4 +150,34 @@ test('the counter keeps a bounded number of users', async () => {
 	vi.setSystemTime(Date.now() + SIGNED_IN_PASSWORD_WINDOW_MS + 1000)
 	await checkSignedInPassword('no-such-user-later', 'wrong')
 	expect(trackedUserCount()).toBe(1)
+})
+
+test('a full counter keeps the users who hit the limit', async () => {
+	const user = await userWithPassword()
+	await failTimes(user.id, SIGNED_IN_PASSWORD_LIMIT)
+
+	for (let i = 0; i < MAX_TRACKED_USERS + 50; i++) {
+		await checkSignedInPassword(`filler-${i}`, 'wrong')
+	}
+
+	expect(trackedUserCount()).toBeLessThanOrEqual(MAX_TRACKED_USERS)
+	expect(await checkSignedInPassword(user.id, password)).toBe('limited')
+})
+
+test('when every user kept is at the limit, a new user is refused unchecked', async () => {
+	vi.useFakeTimers({ toFake: ['Date'] })
+	// Start from an empty counter: earlier counts are past their hour.
+	vi.setSystemTime(Date.now() + SIGNED_IN_PASSWORD_WINDOW_MS + 1000)
+	for (let i = 0; i < MAX_TRACKED_USERS; i++) {
+		for (let j = 0; j < SIGNED_IN_PASSWORD_LIMIT; j++) {
+			await checkSignedInPassword(`limited-${i}`, 'wrong')
+		}
+	}
+	expect(trackedUserCount()).toBe(MAX_TRACKED_USERS)
+	const user = await userWithPassword()
+	vi.mocked(bcrypt.compare).mockClear()
+
+	expect(await checkSignedInPassword(user.id, password)).toBe('limited')
+	expect(bcrypt.compare).not.toHaveBeenCalled()
+	expect(trackedUserCount()).toBe(MAX_TRACKED_USERS)
 })

@@ -1,30 +1,11 @@
-import { type Prisma } from '#app/generated/prisma/client.ts'
 import { prisma } from './db.server.ts'
-import { deleteRecipeImageUnlessShared } from './recipe-image.server.ts'
+import {
+	deleteDissolvedPhotos,
+	findHeir,
+	removeMembership,
+} from './household-membership.server.ts'
 import { cancelSubscriptionOfDeletedAccount } from './stripe.server.ts'
 import { writeTransaction } from './write-transaction.server.ts'
-
-/**
- * The member who takes over a Household's data when `userId` leaves it: an
- * existing owner first, else the longest-standing member. Null when nobody
- * else is in the Household.
- */
-async function findHeir(
-	db: Pick<Prisma.TransactionClient, 'householdMember'>,
-	householdId: string,
-	userId: string,
-) {
-	const others = await db.householdMember.findMany({
-		where: { householdId, userId: { not: userId } },
-		select: {
-			userId: true,
-			role: true,
-			user: { select: { name: true, username: true } },
-		},
-		orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-	})
-	return others.find((member) => member.role === 'owner') ?? others[0] ?? null
-}
 
 export type AccountDeletionOutcome =
 	{ kind: 'household-stays'; heirName: string } | { kind: 'household-deleted' }
@@ -55,8 +36,9 @@ export async function getAccountDeletionOutcome(
  * them, and those foreign keys cascade on user delete. While anyone else is
  * in the Household, those rows move to its heir (see `findHeir`), who also
  * becomes owner when the Household would otherwise have none (the user was
- * owner, or an earlier delete already left it without one). A sole member
- * takes the Household and everything in it with them.
+ * owner, or something earlier already left it without one). A sole member
+ * takes the Household and everything in it with them (see
+ * `removeMembership`).
  *
  * Row changes happen in one transaction. A Pro subscription is cancelled
  * with Stripe only after it commits, by the id the transaction read before
@@ -103,15 +85,9 @@ export async function deleteAccount(userId: string) {
 		)
 		if (membership) householdIds.add(membership.householdId)
 
-		let soleHouseholdId: string | null = null
 		for (const householdId of householdIds) {
 			const heir = await findHeir(tx, householdId, userId)
-			if (!heir) {
-				if (householdId === membership?.householdId) {
-					soleHouseholdId = householdId
-				}
-				continue
-			}
+			if (!heir) continue
 			await tx.recipe.updateMany({
 				where: { userId, householdId },
 				data: { userId: heir.userId },
@@ -124,38 +100,26 @@ export async function deleteAccount(userId: string) {
 				where: { createdById: userId, householdId },
 				data: { createdById: heir.userId },
 			})
-			if (householdId === membership?.householdId && heir.role !== 'owner') {
-				await tx.householdMember.update({
-					where: { householdId_userId: { householdId, userId: heir.userId } },
-					data: { role: 'owner' },
-				})
-			}
 		}
 
-		// What goes now: the sole Household's Recipes, whoever made them, and
-		// any of the user's Recipes nobody inherited.
-		const doomedRecipes: Prisma.RecipeWhereInput = soleHouseholdId
-			? { OR: [{ householdId: soleHouseholdId }, { userId }] }
-			: { userId }
-		const images = await tx.recipeImage.findMany({
-			where: { recipe: doomedRecipes },
+		// The heir becomes owner if the Household would have none, and a
+		// Household with nobody else in it dissolves.
+		const left = membership
+			? await removeMembership(tx, membership.householdId, userId)
+			: null
+		// Any of the user's Recipes nobody inherited go with the user.
+		const leftover = await tx.recipeImage.findMany({
+			where: { recipe: { userId } },
 			select: { objectKey: true },
 			distinct: ['objectKey'],
 		})
-
-		if (soleHouseholdId) {
-			// Recipes and the Shopping list only null their Household on its
-			// delete, so they are removed explicitly.
-			await tx.recipe.deleteMany({ where: { householdId: soleHouseholdId } })
-			await tx.shoppingList.deleteMany({
-				where: { householdId: soleHouseholdId },
-			})
-			await tx.household.delete({ where: { id: soleHouseholdId } })
-		}
 		await tx.user.delete({ where: { id: userId } })
 
 		return {
-			objectKeys: images.map((image) => image.objectKey),
+			objectKeys: [
+				...(left?.objectKeys ?? []),
+				...leftover.map((image) => image.objectKey),
+			],
 			stripeSubscriptionId: subscription?.stripeSubscriptionId ?? null,
 		}
 	})
@@ -164,14 +128,5 @@ export async function deleteAccount(userId: string) {
 		await cancelSubscriptionOfDeletedAccount(deleted.stripeSubscriptionId)
 	}
 
-	for (const objectKey of deleted.objectKeys) {
-		try {
-			await deleteRecipeImageUnlessShared(objectKey)
-		} catch (error) {
-			console.error(
-				`Account deletion left stored photo ${objectKey} behind`,
-				error,
-			)
-		}
-	}
+	await deleteDissolvedPhotos(deleted.objectKeys)
 }

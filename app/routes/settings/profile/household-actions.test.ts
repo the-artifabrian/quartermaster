@@ -6,12 +6,18 @@
 // - a member who isn't the owner posts create-invite or revoke-invite: refused,
 //   and no invite is made or removed
 // Leaving:
-// - an owner can't leave, and nobody hears of a departure
+// - an owner can't leave, and nobody hears of a departure. The page they ask
+//   from may be from before they became owner, so the refusal says why in a
+//   toast instead of an error page
 // - a member who leaves is announced to the Household they left
+// Removing:
+// - someone who isn't the owner (any more) asks to remove a member: refused
+//   with a toast, nobody is removed and nobody hears of a departure
 import { RouterContextProvider } from 'react-router'
 import { expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { getToast } from '#app/utils/toast.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action, loader } from './household.tsx'
@@ -141,13 +147,28 @@ const leftEvents = (householdId: string) =>
 		where: { householdId, type: 'household_member_left' },
 	})
 
-test('an owner cannot leave, and the other member hears nothing', async () => {
+/** The toast a refused action's response sets, read back as the next request would. */
+async function toastFrom(result: unknown) {
+	const headers = (result as { init: { headers: Headers } }).init.headers
+	const cookie = headers
+		.getSetCookie()
+		.map((setCookie) => setCookie.split(';')[0])
+		.join('; ')
+	const { toast } = await getToast(
+		new Request(`${BASE_URL}${path}`, { headers: { cookie } }),
+	)
+	return toast
+}
+
+test('a member who has become owner since the page loaded cannot leave, and is told why', async () => {
 	const { owner, householdId } = await sharedHousehold()
 
 	const result = await leave(owner)
 
-	expect(result).toBeInstanceOf(Response)
-	expect((result as Response).status).toBe(403)
+	expect(await toastFrom(result)).toMatchObject({
+		type: 'error',
+		description: 'You’re the owner now, so you can’t leave.',
+	})
 	expect(await leftEvents(householdId)).toBe(0)
 	expect(
 		await prisma.householdMember.findFirst({
@@ -174,4 +195,29 @@ test('a member who leaves is announced to the Household they left', async () => 
 		select: { householdId: true },
 	})
 	expect(membership.householdId).not.toBe(householdId)
+})
+
+test('someone who is no longer the owner cannot remove a member, and is told why', async () => {
+	const { owner, member, householdId } = await sharedHousehold()
+
+	const result = await post(member, {
+		intent: 'remove-member',
+		targetUserId: owner.userId,
+	})
+
+	expect(await toastFrom(result)).toMatchObject({
+		type: 'error',
+		description: 'Only the owner can remove people.',
+	})
+	expect(await leftEvents(householdId)).toBe(0)
+	expect(
+		await prisma.householdMember.findMany({
+			where: { householdId },
+			select: { userId: true, role: true },
+			orderBy: { role: 'desc' },
+		}),
+	).toEqual([
+		{ userId: owner.userId, role: 'owner' },
+		{ userId: member.userId, role: 'member' },
+	])
 })

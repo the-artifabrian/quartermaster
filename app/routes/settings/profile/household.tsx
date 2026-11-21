@@ -18,9 +18,13 @@ import {
 	revokeInvite,
 	removeMember,
 	leaveHousehold,
+	MembershipRefused,
 } from '#app/utils/household.server.ts'
 import { useRequestInfo } from '#app/utils/request-info.ts'
-import { redirectWithToast } from '#app/utils/toast.server.ts'
+import {
+	createToastHeaders,
+	redirectWithToast,
+} from '#app/utils/toast.server.ts'
 import { type Route } from './+types/household.ts'
 import { type SettingsPageHandle } from './_layout.tsx'
 
@@ -69,6 +73,28 @@ export async function loader({ request }: Route.LoaderArgs) {
 		currentUserId: userId,
 		currentRole: role,
 	}
+}
+
+// What a refused leave or removal tells the person who asked. The page they
+// asked from may be out of date. A leave is refused only for an owner, or for
+// someone already gone.
+function leaveRefused(reason: MembershipRefused['reason']) {
+	return reason === 'not-in-household'
+		? 'You’re not in this Household any more.'
+		: 'You’re the owner now, so you can’t leave.'
+}
+const REMOVE_REFUSED: Record<MembershipRefused['reason'], string> = {
+	owner: 'They’re an owner now, so they can’t be removed.',
+	'not-owner': 'Only the owner can remove people.',
+	'not-in-household': 'They’re not in this Household any more.',
+	'removing-self': 'You can’t remove yourself. You’re the owner.',
+}
+
+async function refused(description: string) {
+	return data(
+		{ result: null, inviteToken: null },
+		{ headers: await createToastHeaders({ type: 'error', description }) },
+	)
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -120,7 +146,12 @@ export async function action({ request }: Route.ActionArgs) {
 			}
 			// Remove first, so a request naming someone outside this household
 			// fails before it can announce a departure.
-			await removeMember(userId, targetUserId, householdId)
+			try {
+				await removeMember(userId, targetUserId, householdId)
+			} catch (error) {
+				if (!(error instanceof MembershipRefused)) throw error
+				return refused(REMOVE_REFUSED[error.reason])
+			}
 			void emitHouseholdEvent({
 				type: 'household_member_left',
 				payload: {},
@@ -130,13 +161,15 @@ export async function action({ request }: Route.ActionArgs) {
 			return { result: null, inviteToken: null }
 		}
 		case 'leave-household': {
-			if (role === 'owner') {
-				throw new Response('The owner cannot leave the household', {
-					status: 403,
-				})
+			// The leave checks the role in its own transaction: this page may be
+			// from before the member became owner.
+			try {
+				await leaveHousehold(userId)
+			} catch (error) {
+				if (!(error instanceof MembershipRefused)) throw error
+				return refused(leaveRefused(error.reason))
 			}
 			// Announce only a departure that happened.
-			await leaveHousehold(userId)
 			await emitHouseholdEvent({
 				type: 'household_member_left',
 				payload: {},

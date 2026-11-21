@@ -208,13 +208,22 @@ described under AI.
 New household data must be authorized by household membership, included in
 export/import when durable, and handled in sole-member household moves.
 
+Every Household keeps an owner. People leave a Household when they join
+another, leave it themselves (members only), are removed by the owner, or delete
+their account. All of these go through `removeMembership` in
+`app/utils/household-membership.server.ts`, inside the same `writeTransaction`
+as the reads that decided the move. When others stay, `findHeir` picks the heir:
+another owner if there is one, else the member who joined longest ago. If the
+heir isn't an owner yet, they become one. When nobody stays, `dissolveHousehold`
+deletes the Household. Recipes and the Shopping list would only lose their
+Household on its delete (`onDelete: SetNull`), so it deletes them first and
+returns their photo keys for removal after the commit.
+
 Recipes, the Shopping list and invites also point at the User who made them, and
 those keys cascade on user delete. `deleteAccount` in
-`app/utils/account-deletion.server.ts` hands them to another member first (an
-owner, else the longest-standing member) and promotes that member when the
-Household would have no owner, so a deleted member's data stays with the
-Household. Only a sole member's deletion removes the Household. New data owned
-by a User and a Household needs the same handover.
+`app/utils/account-deletion.server.ts` hands them to the heir first, so a
+deleted member's data stays with the Household. New data owned by a User and a
+Household needs the same handover.
 
 A Recipe's share link is `/share/<recipe id>`. It works until the Recipe is
 deleted and can't be revoked on its own. Saving from it copies the sender's

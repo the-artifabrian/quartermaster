@@ -76,14 +76,21 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	try {
-		const invite = await getInviteByToken(token)
-		await acceptInvite(token, userId)
-		if (invite) {
-			void emitHouseholdEvent({
-				type: 'household_member_joined',
+		const { householdId, leftHouseholdId } = await acceptInvite(token, userId)
+		// Neither throws: a failed event is dropped and the join stands.
+		await emitHouseholdEvent({
+			type: 'household_member_joined',
+			payload: {},
+			userId,
+			householdId,
+		})
+		// The people left behind hear about it, as they do when someone leaves.
+		if (leftHouseholdId) {
+			await emitHouseholdEvent({
+				type: 'household_member_left',
 				payload: {},
 				userId,
-				householdId: invite.householdId,
+				householdId: leftHouseholdId,
 			})
 		}
 		return redirectWithToast('/recipes', {
@@ -95,7 +102,6 @@ export async function action({ request }: Route.ActionArgs) {
 		const knownMessages = [
 			'Invalid or expired invite',
 			'Already a member of this household',
-			'Invite already used',
 		]
 		const isKnown =
 			error instanceof Error && knownMessages.includes(error.message)

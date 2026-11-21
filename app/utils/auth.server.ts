@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import bcrypt from 'bcryptjs'
 import { redirect } from 'react-router'
 import { Authenticator } from 'remix-auth'
-import { safeRedirect } from 'remix-utils/safe-redirect'
+import { safeRedirect } from '#app/utils/safe-redirect.ts'
 import {
 	type Connection,
 	type Password,

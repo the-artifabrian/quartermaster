@@ -1,5 +1,5 @@
 import { RouterContextProvider } from 'react-router'
-import { safeRedirect } from 'remix-utils/safe-redirect'
+import { safeRedirect } from '#app/utils/safe-redirect.ts'
 import { expect, test, vi } from 'vitest'
 import { loader as meLoader } from '#app/routes/me.tsx'
 import { loader as changeEmailLoader } from '#app/routes/settings/profile/change-email.tsx'

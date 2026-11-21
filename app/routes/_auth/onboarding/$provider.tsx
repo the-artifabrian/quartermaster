@@ -12,7 +12,7 @@ import {
 	Form,
 	useSearchParams,
 } from 'react-router'
-import { safeRedirect } from 'remix-utils/safe-redirect'
+import { safeRedirect } from '#app/utils/safe-redirect.ts'
 import { z } from 'zod'
 import { CheckboxField, ErrorList, Field } from '#app/components/forms.tsx'
 import { Spacer } from '#app/components/spacer.tsx'

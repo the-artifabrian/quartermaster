@@ -21,16 +21,18 @@
  * 6. A member leaves a Household that already has no owner, with others still
  *    in it. The longest-standing remaining member becomes owner.
  * 7. A share link to a Recipe of a dissolved Household answers 404.
- * 8. A member starts leaving while the owner joins another Household. Whichever
- *    commits first, no Household is left without an owner or without members,
- *    nothing is left without a Household, and no Recipe is lost. The leave is
- *    refused when the member has become owner by then, so it can't act on the
- *    role it read before the join.
+ * 8. A member starts leaving while the owner joins another Household. The
+ *    role the leave read must still hold when it commits, so the join waits
+ *    for the leave. The owner is then alone and takes everything along, and
+ *    the original Recipe is never deleted.
  * 9. Both members of a two-member Household join other Households at once.
  *    The old Household goes, and nothing is left without a Household.
  * 10. An owner removes a member while joining another Household. The checks
  *    that they are owner and the member is theirs must hold until the member
  *    is out, so the join waits for the removal to finish.
+ * 11. The owner joins another Household first, and the member who became
+ *    owner then asks to leave. The leave is refused, and the Household and
+ *    its Recipes stay with them.
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -469,7 +471,7 @@ describe('leaving a Household', () => {
 })
 
 describe('two people leaving at once', () => {
-	test('a member leaving while the owner joins elsewhere leaves an owner, or nothing', async () => {
+	test('an owner joining elsewhere waits for a member’s leave, then takes everything along', async () => {
 		await using database = await createWalDatabase()
 		const { db } = database
 		const owner = await insertUser(db)
@@ -495,20 +497,20 @@ describe('two people leaving at once', () => {
 		const token = await inviteTo(elsewhere.id, host.id, db)
 
 		// The owner's join starts once the leave has read the member's role.
-		// It gets 300 ms to finish before the leave carries on.
+		// It gets 300 ms to finish before the leave carries on. It can't: the
+		// leave holds the write lock, so this test only ever sees the leave
+		// first. The other order is the sequential test below.
 		let joining: Promise<unknown> = Promise.resolve()
+		let joinedDuringLeave = false
 		const paused = pauseAfterFirstMembershipRead(db, async () => {
 			joining = acceptInvite(token, owner.id, db)
-			await settlesWithin(joining, 300)
+			joinedDuringLeave = await settlesWithin(joining, 300)
 		})
-		const left = await leaveHousehold(member.id, paused).then(
-			() => true,
-			(error: Error) => error.message,
-		)
+		await leaveHousehold(member.id, paused)
 		await joining
 
-		// The leave may be refused if the member became owner first.
-		expect([true, 'Owner cannot leave the household']).toContain(left)
+		expect(joinedDuringLeave).toBe(false)
+		expect(await db.household.count({ where: { id: home.id } })).toBe(0)
 		await expectNothingLeftBehind(db)
 		for (const user of [owner, member, host]) {
 			expect(await membershipsOf(user.id, db)).toHaveLength(1)
@@ -516,10 +518,46 @@ describe('two people leaving at once', () => {
 		expect(await membershipsOf(owner.id, db)).toEqual([
 			{ householdId: elsewhere.id, role: 'member' },
 		])
-		// In either order the original Recipe survives: it moves with a sole
-		// owner, or stays with the member who became owner. Deleting it means
-		// the leave acted on a role it read before the join.
-		expect(await db.recipe.count({ where: { id: soup.id } })).toBe(1)
+		// The owner, alone by then, took the original along. Had the leave
+		// acted on a role read before the join, it would have dissolved the
+		// Household and deleted it.
+		expect(
+			await db.recipe.findUniqueOrThrow({
+				where: { id: soup.id },
+				select: { householdId: true },
+			}),
+		).toEqual({ householdId: elsewhere.id })
+	})
+
+	test('a member who became owner when the owner joined elsewhere can’t leave', async () => {
+		const owner = await insertUser()
+		const member = await insertUser()
+		const host = await insertUser()
+		const home = await householdWith([
+			{ userId: owner.id, role: 'owner', joinedMinutesAgo: 60 },
+			{ userId: member.id, role: 'member', joinedMinutesAgo: 30 },
+		])
+		const elsewhere = await householdWith([
+			{ userId: host.id, role: 'owner', joinedMinutesAgo: 60 },
+		])
+		const soup = await prisma.recipe.create({
+			data: { title: 'Soup', userId: owner.id, householdId: home.id },
+		})
+		await acceptInvite(await inviteTo(elsewhere.id, host.id), owner.id)
+
+		await expect(leaveHousehold(member.id)).rejects.toMatchObject({
+			reason: 'owner',
+		})
+
+		expect(await rolesIn(home.id)).toEqual([
+			{ userId: member.id, role: 'owner' },
+		])
+		expect(
+			await prisma.recipe.findUniqueOrThrow({
+				where: { id: soup.id },
+				select: { householdId: true },
+			}),
+		).toEqual({ householdId: home.id })
 	})
 
 	test('an owner joining elsewhere waits for a removal they started to finish', async () => {

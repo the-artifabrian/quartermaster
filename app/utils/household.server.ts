@@ -55,6 +55,26 @@ export async function requireUserWithHousehold(request: Request) {
 	}
 }
 
+/**
+ * Why a leave or a removal was refused. The page that asked may be out of
+ * date: the member may have become owner, or left, since it loaded.
+ *
+ * - `owner`: the person leaving, or being removed, is an owner.
+ * - `not-owner`: the person removing someone isn't the owner.
+ * - `not-in-household`: the person isn't in that Household.
+ * - `removing-self`: the owner tried to remove themselves.
+ */
+export class MembershipRefused extends Error {
+	constructor(
+		readonly reason:
+			'owner' | 'not-owner' | 'not-in-household' | 'removing-self',
+		message: string,
+	) {
+		super(message)
+		this.name = 'MembershipRefused'
+	}
+}
+
 const INVITE_EXPIRY_DAYS = 7
 
 export async function createHouseholdInvite(
@@ -123,14 +143,12 @@ export async function acceptInvite(
 		})
 		if (existingMember) throw new Error('Already a member of this household')
 
-		// Mark the invite used, so a second accept of the same link fails.
-		const updated = await tx.householdInvite.updateMany({
-			where: { id: invite.id, usedAt: null },
+		// Mark the invite used. The write lock was taken before the read
+		// above, so no other accept can have used it in between.
+		await tx.householdInvite.update({
+			where: { id: invite.id },
 			data: { usedAt: new Date() },
 		})
-		if (updated.count === 0) {
-			throw new Error('Invite already used')
-		}
 
 		// Read the current household inside the transaction: whether the user
 		// is its sole member decides between moving everything and copying
@@ -416,11 +434,17 @@ export async function removeMember(
 			select: { role: true },
 		})
 		if (!ownerMember || ownerMember.role !== 'owner') {
-			throw new Error('Only the household owner can remove members')
+			throw new MembershipRefused(
+				'not-owner',
+				'Only the household owner can remove members',
+			)
 		}
 
 		if (ownerId === targetUserId) {
-			throw new Error('Owner cannot remove themselves')
+			throw new MembershipRefused(
+				'removing-self',
+				'Owner cannot remove themselves',
+			)
 		}
 
 		// A leave acts on whatever household the target is in, so the target
@@ -430,7 +454,10 @@ export async function removeMember(
 			select: { userId: true },
 		})
 		if (!targetMember) {
-			throw new Error('That user is not a member of this household')
+			throw new MembershipRefused(
+				'not-in-household',
+				'That user is not a member of this household',
+			)
 		}
 
 		return leaveInTransaction(tx, targetUserId)
@@ -446,9 +473,14 @@ async function leaveInTransaction(
 		where: { userId },
 		select: { householdId: true, role: true },
 	})
-	if (!membership) throw new Error('Not a member of any household')
+	if (!membership) {
+		throw new MembershipRefused(
+			'not-in-household',
+			'Not a member of any household',
+		)
+	}
 	if (membership.role === 'owner') {
-		throw new Error('Owner cannot leave the household')
+		throw new MembershipRefused('owner', 'Owner cannot leave the household')
 	}
 	const user = await tx.user.findUniqueOrThrow({
 		where: { id: userId },

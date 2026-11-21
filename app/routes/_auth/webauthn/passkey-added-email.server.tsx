@@ -22,6 +22,12 @@ export function PasskeyAddedEmail({ username }: { username: string }) {
 						which logs out every other device.
 					</E.Text>
 				</p>
+				<p>
+					<E.Text>
+						Afterwards, open Passkeys again and check that only your own are
+						left.
+					</E.Text>
+				</p>
 			</E.Container>
 		</E.Html>
 	)

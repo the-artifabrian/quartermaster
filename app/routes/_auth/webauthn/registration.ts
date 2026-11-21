@@ -22,14 +22,14 @@ import {
 } from './utils.server.ts'
 
 /**
- * Why a save was refused. `enter-password` and `not-saved` mean the device's
- * new passkey wasn't kept; `already-registered` means a passkey with that id
- * is saved, so the browser must not be told to forget it.
+ * Why a save was refused, so the page can show the right message:
+ * `enter-password` (the password check is missing, used or too old),
+ * `already-registered` (that passkey is saved already) or `not-saved`
+ * (anything else). The page never tells the browser to forget a passkey after
+ * a refused save: a resend of a save that worked gets a refusal too.
  */
 export type AddPasskeyErrorCode =
-	| 'enter-password'
-	| 'not-saved'
-	| 'already-registered'
+	'enter-password' | 'not-saved' | 'already-registered'
 
 class AddPasskeyError extends Error {
 	constructor(
@@ -185,6 +185,19 @@ async function finishAddingPasskey(
 		'Set-Cookie': await passkeyCookie.serialize('', { maxAge: 0 }),
 	}
 	try {
+		// A resend of a save that worked (its answer was lost) finds the
+		// passkey here, before its spent challenge would refuse it.
+		const savedHere = await prisma.passkey.findFirst({
+			where: { id: response.id, userId },
+			select: { id: true },
+		})
+		if (savedHere) {
+			throw new AddPasskeyError(
+				'This passkey is already registered.',
+				'already-registered',
+			)
+		}
+
 		const challengeCookie = AddPasskeyChallengeSchema.safeParse(
 			await passkeyCookie.parse(request.headers.get('Cookie')),
 		)
@@ -216,10 +229,7 @@ async function finishAddingPasskey(
 
 		const { verified, registrationInfo } = verification
 		if (!verified || !registrationInfo) {
-			throw new AddPasskeyError(
-				'Registration verification failed',
-				'not-saved',
-			)
+			throw new AddPasskeyError('Registration verification failed', 'not-saved')
 		}
 		const { credential, credentialDeviceType, credentialBackedUp, aaguid } =
 			registrationInfo

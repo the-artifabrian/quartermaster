@@ -49,11 +49,12 @@ import '#tests/setup/db-setup.ts'
 //     one notice.
 // 17. The saved passkey is checked against the challenge from the cookie,
 //     with user verification required and this app's origin and RP ID.
-// 18. Each refusal says whether the device's new passkey was kept, so the
-//     page can tell the browser to forget only one the server didn't keep.
-//     A passkey already saved is never reported as unknown.
+// 18. Each refusal names its reason (password needed, already registered,
+//     not saved), so the page shows the right message.
 // 19. The account can't be read while saving. Nothing is saved, so no
 //     passkey exists without its notice.
+// 20. A save that worked is sent again (its answer was lost). It says the
+//     passkey is already registered, not that the password is needed.
 
 vi.mock('@simplewebauthn/server', async (importOriginal) => ({
 	...(await importOriginal<typeof SimpleWebAuthnServer>()),
@@ -490,7 +491,7 @@ test('the passkey is checked against the cookie’s challenge, with user verific
 	)
 })
 
-test('each refusal says whether the device’s new passkey was kept', async () => {
+test('each refusal names its reason', async () => {
 	const { user, cookie } = await signedInUser()
 
 	const noProof = await post(
@@ -547,4 +548,24 @@ test('when the account can’t be read while saving, no passkey is saved', async
 	expect(response.status).toBe(400)
 	expect(await savedPasskeyCount(user.id)).toBe(0)
 	expect(sendEmail).not.toHaveBeenCalled()
+})
+
+test('a save that worked, sent again, says the passkey is already registered', async () => {
+	const { user, cookie } = await signedInUser()
+	const started = await startWithPassword(cookie)
+	const first = await post(
+		{ intent: 'verify', response: registrationResponse },
+		started.cookie,
+	)
+	expect(first.status).toBe(200)
+	const resend = await post(
+		{ intent: 'verify', response: registrationResponse },
+		started.cookie,
+	)
+	expect(await resend.json()).toMatchObject({
+		status: 'error',
+		code: 'already-registered',
+	})
+	expect(await savedPasskeyCount(user.id)).toBe(1)
+	expect(sendEmail).toHaveBeenCalledTimes(1)
 })

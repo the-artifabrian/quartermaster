@@ -93,6 +93,11 @@ export default function ResetPasswordPage({
 				<p className="text-muted-foreground mt-3 text-lg">
 					Hi, {loaderData.username}. No worries. It happens all the time.
 				</p>
+				{loaderData.loggedIn ? (
+					<p className="text-muted-foreground mt-2">
+						Resetting your password logs this device out.
+					</p>
+				) : null}
 			</div>
 			<div className="mx-auto mt-16 max-w-sm min-w-full sm:min-w-[368px]">
 				<Form method="POST" {...getFormProps(form)}>

@@ -270,7 +270,10 @@ test('a reset opened while logged in as the same account logs this device out', 
 	await createSession(user.id)
 	const cookie = await loggedIn(here, await handOff(user.id))
 
-	expect(await openPage(cookie)).toMatchObject({ username: user.username })
+	expect(await openPage(cookie)).toMatchObject({
+		username: user.username,
+		loggedIn: true,
+	})
 	const response = await submitReset(cookie)
 
 	expect(location(response)).toBe('/login')
@@ -288,7 +291,10 @@ test('a reset opened while logged in as another account resets the right one and
 	const otherElsewhere = await createSession(other.id)
 	const cookie = await loggedIn(otherHere, await handOff(user.id))
 
-	expect(await openPage(cookie)).toMatchObject({ username: user.username })
+	expect(await openPage(cookie)).toMatchObject({
+		username: user.username,
+		loggedIn: true,
+	})
 	const response = await submitReset(cookie)
 
 	expect(location(response)).toBe('/login')

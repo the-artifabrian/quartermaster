@@ -19,6 +19,7 @@
 import type Stripe from 'stripe'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
+import type * as WriteTransactionModule from '#app/utils/write-transaction.server.ts'
 import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import { getStripeClient } from '#app/utils/stripe.server.ts'
 import { createUser } from '#tests/db-utils.ts'
@@ -33,10 +34,7 @@ vi.mock('#app/utils/posthog.server.ts', async (importOriginal) => ({
 
 const failingDelete = vi.hoisted(() => ({ on: false }))
 vi.mock('#app/utils/write-transaction.server.ts', async (importOriginal) => {
-	const original =
-		await importOriginal<
-			typeof import('#app/utils/write-transaction.server.ts')
-		>()
+	const original = await importOriginal<typeof WriteTransactionModule>()
 	return {
 		...original,
 		writeTransaction: ((

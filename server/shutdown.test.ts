@@ -106,7 +106,12 @@ describe('graceful shutdown', () => {
 
 			const result = await shutDown(child)
 
-			expect(result, started.output.text).toEqual({ code: 0, signal: null })
+			if (result === 'timeout') {
+				throw new Error(
+					`Shutdown exceeded ${TEST_DEADLINE_MS}ms:\n${started.output.text}`,
+				)
+			}
+			expect(result).toEqual({ code: 0, signal: null })
 			expect(started.output.text).toContain('BACKGROUND_DONE')
 			expect(started.output.text).toContain('TELEMETRY_FLUSHED')
 		},
@@ -122,7 +127,12 @@ describe('graceful shutdown', () => {
 
 			const result = await shutDown(child)
 
-			expect(result, started.output.text).toEqual({ code: 0, signal: null })
+			if (result === 'timeout') {
+				throw new Error(
+					`Shutdown exceeded ${TEST_DEADLINE_MS}ms:\n${started.output.text}`,
+				)
+			}
+			expect(result).toEqual({ code: 0, signal: null })
 			expect(started.output.text).toContain('TELEMETRY_FLUSHED')
 		},
 		TEST_DEADLINE_MS + 1_000,

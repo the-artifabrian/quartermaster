@@ -345,10 +345,12 @@ describe('shared browser', () => {
 	test('a 2FA user due to reverify can do it past another person’s pending sign-in', async () => {
 		const walkedAway = await createUserWithTwoFA()
 		const signedIn = await createUserWithTwoFA()
+		const signedInSession = await createSession(signedIn.id)
+		const pendingSession = await createSession(walkedAway.id)
 		const cookie = await cookieHeader({
-			sessionId: (await createSession(signedIn.id)).id,
+			sessionId: signedInSession.id,
 			verifiedTime: twoHoursAgo(60),
-			verify: { [pendingKey]: (await createSession(walkedAway.id)).id },
+			verify: { [pendingKey]: pendingSession.id },
 		})
 
 		const outcome = await submitVerify(
@@ -359,6 +361,11 @@ describe('shared browser', () => {
 		expect(outcome.status).toBe(302)
 		const fresh = applySetCookies(cookie, outcome.setCookies)
 		expect(await opensRecentVerificationPage(fresh)).toBe('open')
+		// Still the same person's session, and the other sign-in wasn't
+		// finished on their behalf: it stays pending, untouched.
+		const authSession = await authSessionStorage.getSession(fresh)
+		expect(authSession.get(sessionKey)).toBe(signedInSession.id)
+		expect(await pendingIn(fresh)).toBe(pendingSession.id)
 	})
 
 	test('signing out clears a pending 2FA sign-in', async () => {

@@ -162,7 +162,10 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 						) : (
 							<div className="flex items-center justify-center">
 								<OTPField
-									className="w-full"
+									// Eight boxes share the column's width; six keep their size.
+									className={
+										codeLength === EMAILED_CODE_LENGTH ? 'w-full' : undefined
+									}
 									length={codeLength}
 									labelProps={{
 										htmlFor: fields[codeQueryParam].id,

@@ -377,13 +377,17 @@ before it could be used once more within its five minutes. With 2FA on, opening
 the Passkeys page follows the two-hour rule, and so does the options request. A
 notice goes to the account's email once the passkey is saved. An account with no
 password (one that signed up with Google) is asked to create one first. Until
-Google sign-in goes, that is a gap: Create Password asks for no proof, so a
-session on such an account can set a password and then add a passkey.
+Google sign-in goes (#439), that is a gap: Create Password asks for no proof, so
+a session on such an account can set a password and then add a passkey.
 
 The browser's passkey list follows the server through the WebAuthn Signal API
 (`app/utils/passkeys.ts`), where the browser has it. The Passkeys page sends the
 account's full list on load and after a delete, and a sign-in that gets "Passkey
-not found" (a 404) tells the browser to forget that passkey.
+not found" (a 404) tells the browser to forget that passkey. A refused save in
+Settings tells the browser nothing: when a save that worked loses its answer and
+is sent again, the resend is refused too, and the phone would drop a passkey the
+server kept. A passkey left on the device by a real refusal goes with the full
+list the next time the Passkeys page loads.
 
 **Emailed codes.** Signup, password reset and email change email a code and a
 link (`app/utils/email-code.server.ts`, called through `prepareVerification` in

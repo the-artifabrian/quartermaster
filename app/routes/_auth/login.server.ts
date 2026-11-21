@@ -62,23 +62,30 @@ export async function handleNewSession(
 			),
 		)
 	} else {
-		const authSession = await authSessionStorage.getSession(
-			request.headers.get('cookie'),
-		)
+		const cookie = request.headers.get('cookie')
+		const authSession = await authSessionStorage.getSession(cookie)
 		authSession.set(sessionKey, session.id)
+		const headers = new Headers()
+		headers.append(
+			'set-cookie',
+			await authSessionStorage.commitSession(authSession, {
+				expires: remember ? session.expirationDate : undefined,
+			}),
+		)
+		// A 2FA sign-in someone started on this browser and walked away from
+		// would otherwise outlive this one. The 2FA branch above replaces the
+		// whole verify cookie, so this one drops it too.
+		const verifySession = await verifySessionStorage.getSession(cookie)
+		if (verifySession.has(unverifiedSessionIdKey)) {
+			headers.append(
+				'set-cookie',
+				await verifySessionStorage.destroySession(verifySession),
+			)
+		}
 
 		return redirect(
 			safeRedirect(redirectTo, '/recipes'),
-			combineResponseInits(
-				{
-					headers: {
-						'set-cookie': await authSessionStorage.commitSession(authSession, {
-							expires: remember ? session.expirationDate : undefined,
-						}),
-					},
-				},
-				responseInit,
-			),
+			combineResponseInits({ headers }, responseInit),
 		)
 	}
 }
@@ -118,20 +125,20 @@ export async function handleVerification({
 		})
 
 	const unverifiedSessionId = verifySession.get(unverifiedSessionIdKey)
-	if (unverifiedSessionId) {
-		const session = await prisma.session.findUnique({
-			select: { expirationDate: true, userId: true },
-			where: { id: unverifiedSessionId },
-		})
-		if (!session) throw await noSessionToVerify()
-		if (session.userId !== target) return invalidCode()
+	const pending = unverifiedSessionId
+		? await prisma.session.findUnique({
+				select: { expirationDate: true, userId: true },
+				where: { id: unverifiedSessionId },
+			})
+		: null
+	if (pending?.userId === target) {
 		authSession.set(verifiedTimeKey, Date.now())
 		authSession.set(sessionKey, unverifiedSessionId)
 
 		headers.append(
 			'set-cookie',
 			await authSessionStorage.commitSession(authSession, {
-				expires: remember ? session.expirationDate : undefined,
+				expires: remember ? pending.expirationDate : undefined,
 			}),
 		)
 		headers.append(
@@ -139,9 +146,15 @@ export async function handleVerification({
 			await verifySessionStorage.destroySession(verifySession),
 		)
 	} else {
-		// Signed out with no sign-in pending, e.g. the verify cookie expired.
+		// A reverify of the signed-in session. A sign-in someone else left
+		// pending on this browser doesn't stand in its way.
 		const userId = await getUserId(request)
-		if (!userId) throw await noSessionToVerify()
+		if (!userId) {
+			// The code isn't the pending sign-in's; with nothing pending, e.g.
+			// the verify cookie expired, there is nothing to verify.
+			if (pending) return invalidCode()
+			throw await noSessionToVerify()
+		}
 		if (userId !== target) return invalidCode()
 		authSession.set(verifiedTimeKey, Date.now())
 		// The verify cookie stays: a reverify can interrupt another
@@ -156,15 +169,24 @@ export async function handleVerification({
 }
 
 export async function shouldRequestTwoFA(request: Request) {
+	const userId = await getUserId(request)
+	if (!userId) return false
 	const authSession = await authSessionStorage.getSession(
 		request.headers.get('cookie'),
 	)
 	const verifySession = await verifySessionStorage.getSession(
 		request.headers.get('cookie'),
 	)
-	if (verifySession.has(unverifiedSessionIdKey)) return true
-	const userId = await getUserId(request)
-	if (!userId) return false
+	// Only this user's own pending sign-in counts. One someone else started
+	// on a shared browser could never be finished by this user.
+	const unverifiedSessionId = verifySession.get(unverifiedSessionIdKey)
+	if (unverifiedSessionId) {
+		const pending = await prisma.session.findUnique({
+			select: { userId: true },
+			where: { id: unverifiedSessionId },
+		})
+		if (pending?.userId === userId) return true
+	}
 	// if it's over two hours since they last verified, we should request 2FA again
 	const userHasTwoFA = await prisma.verification.findUnique({
 		select: { id: true },

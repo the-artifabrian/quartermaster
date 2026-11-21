@@ -17,6 +17,7 @@ import { combineHeaders } from './misc.tsx'
 import { type ProviderUser } from './providers/provider.ts'
 import { DEFAULT_RECIPE_METADATA_VALUE_CREATE } from './recipe-metadata.ts'
 import { authSessionStorage } from './session.server.ts'
+import { verifySessionStorage } from './verification.server.ts'
 
 export const AUTO_TRIAL_DAYS = 14
 
@@ -334,12 +335,23 @@ export async function logout(
 		// learn more about PrismaPromise: https://www.prisma.io/docs/orm/reference/prisma-client-reference#prismapromise-behavior
 		void prisma.session.deleteMany({ where: { id: sessionId } }).catch(() => {})
 	}
+	// The verify cookie goes too, so a 2FA sign-in or other code step left
+	// pending on this browser doesn't carry over to whoever signs in next.
+	const verifySession = await verifySessionStorage.getSession(
+		request.headers.get('cookie'),
+	)
+	const headers = new Headers()
+	headers.append(
+		'set-cookie',
+		await authSessionStorage.destroySession(authSession),
+	)
+	headers.append(
+		'set-cookie',
+		await verifySessionStorage.destroySession(verifySession),
+	)
 	throw redirect(safeRedirect(redirectTo), {
 		...responseInit,
-		headers: combineHeaders(
-			{ 'set-cookie': await authSessionStorage.destroySession(authSession) },
-			responseInit?.headers,
-		),
+		headers: combineHeaders(headers, responseInit?.headers),
 	})
 }
 

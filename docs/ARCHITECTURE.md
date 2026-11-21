@@ -377,6 +377,12 @@ changing the email or turning 2FA off asks for a code again when the session
 last verified more than two hours ago (`requireRecentVerification` in
 `app/routes/_auth/verify.server.ts`).
 
+A 2FA sign-in waits in the verify cookie for its code, for up to ten minutes.
+On a shared browser that pending sign-in is someone else's business once another
+person signs in: a sign-in without 2FA and every sign-out clear it, and the
+two-hour check and the reverify step only count a pending sign-in that belongs
+to the signed-in user.
+
 Adding a passkey asks for the current password
 (`app/routes/_auth/webauthn/registration.ts`). The request for the passkey
 options checks it, and only then sets the challenge cookie. That cookie is

@@ -30,6 +30,29 @@ export const ShoppingListItemSchema = z.object({
 
 export type ShoppingListItemFormData = z.infer<typeof ShoppingListItemSchema>
 
+/**
+ * The most items one bulk add takes: far more than a household picks from
+ * its Staples or says in one voice add.
+ */
+export const BULK_ADD_MAX_ITEMS = 200
+
+/**
+ * One bulk add (the Staples picker, a voice add of several items). Quantity
+ * and unit have single add's limits. A name may be as long as a Staple's,
+ * since the picker sends Staple names as they are. Blank names are allowed
+ * and skipped later, as before.
+ */
+export const BulkAddItemsSchema = z
+	.array(
+		z.object({
+			name: z.string().max(200),
+			quantity: z.string().max(50).nullish(),
+			unit: z.string().max(20).nullish(),
+		}),
+	)
+	.min(1)
+	.max(BULK_ADD_MAX_ITEMS)
+
 // Categorize ingredients by name
 export function guessCategory(ingredientName: string): string {
 	const name = ingredientName.toLowerCase()

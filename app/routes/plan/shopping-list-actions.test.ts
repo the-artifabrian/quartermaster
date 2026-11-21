@@ -1,3 +1,13 @@
+/**
+ * Failure list for bulk add (the Staples picker and multi-item voice add):
+ * - An item that isn't an object with a string name (a number, null, a
+ *   missing name) answers 400, not a 500, and adds nothing.
+ * - A name longer than any caller sends, or a quantity or unit longer than
+ *   single add allows, answers 400.
+ * - More items than the cap answers 400.
+ * - What the callers really send still adds: names only (Staples), and
+ *   empty-string quantity and unit (voice).
+ */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
 
@@ -931,6 +941,53 @@ describe('shopping list actions', () => {
 			['pita bread', '12', 'manual'],
 			['salt', null, 'manual'],
 		])
+	})
+
+	test('bulk-add refuses malformed or oversized items and adds nothing', async () => {
+		const session = await setupUser()
+		const bulkAdd = async (items: unknown) =>
+			action({
+				request: await makeRequest(session, {
+					intent: 'bulk-add',
+					items: JSON.stringify(items),
+				}),
+				...ACTION_ARGS_BASE,
+			})
+
+		for (const items of [
+			{ name: 'milk' },
+			[{ name: 42 }],
+			[null],
+			[{ quantity: '2' }],
+			[{ name: 'x'.repeat(201) }],
+			[{ name: 'milk', quantity: '1'.repeat(51) }],
+			[{ name: 'milk', unit: 'g'.repeat(21) }],
+			Array.from({ length: 201 }, (_, i) => ({ name: `item ${i}` })),
+		]) {
+			await expect(bulkAdd(items)).rejects.toMatchObject({ status: 400 })
+		}
+		expect(
+			await prisma.shoppingListItem.count({
+				where: { list: { userId: session.userId } },
+			}),
+		).toBe(0)
+	})
+
+	test('bulk-add takes what voice and the Staples picker send', async () => {
+		const session = await setupUser()
+		const result = (await action({
+			request: await makeRequest(session, {
+				intent: 'bulk-add',
+				items: JSON.stringify([
+					{ name: 'eggs', quantity: '12', unit: '' },
+					{ name: 'milk', quantity: '', unit: '' },
+					{ name: 'x'.repeat(200) },
+					...Array.from({ length: 197 }, (_, i) => ({ name: `staple ${i}` })),
+				]),
+			}),
+			...ACTION_ARGS_BASE,
+		})) as { status: string; addedCount: number }
+		expect(result).toMatchObject({ status: 'success', addedCount: 200 })
 	})
 
 	test('bulk-add dedups against existing rows by canonical identity', async () => {

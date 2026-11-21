@@ -63,6 +63,7 @@ import {
 } from '#app/utils/shopping-horizon.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import {
+	BulkAddItemsSchema,
 	ShoppingListItemSchema,
 	guessCategory,
 } from '#app/utils/shopping-list-validation.ts'
@@ -567,13 +568,17 @@ export async function action({ request }: Route.ActionArgs) {
 		const rawItems = formData.get('items')
 		invariantResponse(typeof rawItems === 'string', 'Items are required')
 
-		let items: Array<{ name: string; quantity?: string; unit?: string }>
+		let json: unknown
 		try {
-			items = JSON.parse(rawItems) as typeof items
+			json = JSON.parse(rawItems)
 		} catch {
 			throw new Response('Invalid items data', { status: 400 })
 		}
-		invariantResponse(Array.isArray(items) && items.length > 0, 'No items')
+		const parsedItems = BulkAddItemsSchema.safeParse(json)
+		if (!parsedItems.success) {
+			throw new Response('Invalid items data', { status: 400 })
+		}
+		const items = parsedItems.data
 
 		// Ordinary note Shopping lines through the demand module (#108): trims
 		// and normalizes each line's identity while preserving the free text.

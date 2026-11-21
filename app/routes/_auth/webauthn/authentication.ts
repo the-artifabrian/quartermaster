@@ -47,7 +47,11 @@ export async function action({ request }: Route.ActionArgs) {
 			include: { user: true },
 		})
 		if (!passkey) {
-			throw new Error('Passkey not found')
+			// A 404 tells the page to have the browser forget this passkey.
+			return Response.json(
+				{ status: 'error', error: 'Passkey not found' } as const,
+				{ status: 404, headers: { 'Set-Cookie': deletePasskeyCookie } },
+			)
 		}
 
 		const config = getWebAuthnConfig()

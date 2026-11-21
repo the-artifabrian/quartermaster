@@ -1,8 +1,11 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { startAuthentication } from '@simplewebauthn/browser'
-import { useOptimistic, useState, useTransition } from 'react'
+import {
+	WebAuthnAbortService,
+	startAuthentication,
+} from '@simplewebauthn/browser'
+import { useEffect, useOptimistic, useRef, useState } from 'react'
 import { data, Form, Link, useNavigate, useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
@@ -16,6 +19,11 @@ import {
 	ProviderConnectionForm,
 } from '#app/utils/connections.tsx'
 import { getErrorMessage, useIsPending } from '#app/utils/misc.tsx'
+import {
+	isPasskeyPromptDismissed,
+	signalUnknownPasskey,
+	supportsPasskeyAutofill,
+} from '#app/utils/passkeys.ts'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { PasswordSchema, UsernameSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/login.ts'
@@ -33,7 +41,14 @@ const LoginFormSchema = z.object({
 })
 
 const AuthenticationOptionsSchema = z.object({
-	options: z.object({ challenge: z.string() }),
+	options: z.object({
+		challenge: z.string(),
+		rpId: z.string().optional(),
+		timeout: z.number().optional(),
+		userVerification: z
+			.enum(['required', 'preferred', 'discouraged'])
+			.optional(),
+	}),
 }) satisfies z.ZodType<{ options: PublicKeyCredentialRequestOptionsJSON }>
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -120,7 +135,11 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 									...getInputProps(fields.username, { type: 'text' }),
 									autoFocus: true,
 									className: 'lowercase',
-									autoComplete: 'username',
+									// `webauthn` lets focusing the field offer a saved passkey.
+									autoComplete: 'username webauthn',
+									autoCapitalize: 'none',
+									autoCorrect: 'off',
+									spellCheck: false,
 								}}
 								errors={fields.username.errors}
 							/>
@@ -230,6 +249,14 @@ const VerificationResponseSchema = z.discriminatedUnion('status', [
 	}),
 ])
 
+async function fetchAuthenticationOptions() {
+	const response = await fetch('/webauthn/authentication')
+	const { options } = AuthenticationOptionsSchema.parse(await response.json())
+	return options
+}
+
+type AuthenticationResponse = Awaited<ReturnType<typeof startAuthentication>>
+
 function PasskeyLogin({
 	redirectTo,
 	remember,
@@ -237,51 +264,127 @@ function PasskeyLogin({
 	redirectTo: string | null
 	remember: boolean
 }) {
-	const [isPending] = useTransition()
 	const [error, setError] = useState<string | null>(null)
 	const [passkeyMessage, setPasskeyMessage] = useOptimistic<string | null>(
 		'Log in with a passkey',
 	)
 	const navigate = useNavigate()
+	// Autofill can finish after the checkbox changes; read the latest values.
+	const latest = useRef({ redirectTo, remember, navigate })
+	latest.current = { redirectTo, remember, navigate }
+	// The autofill request starts on load and again after a button attempt
+	// that didn't log in. `armAutofill` is set by the effect below.
+	const armAutofill = useRef<() => void>(() => {})
+	const autofillOptions = useRef<Promise<unknown> | null>(null)
+	const buttonActive = useRef(false)
+
+	// Throws with the server's message when the passkey isn't accepted.
+	async function finishLogin(
+		authResponse: AuthenticationResponse,
+		rpId: string | undefined,
+	) {
+		const { remember, redirectTo, navigate } = latest.current
+		const verificationResponse = await fetch('/webauthn/authentication', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ authResponse, remember, redirectTo }),
+		})
+		if (verificationResponse.status === 404 && rpId) {
+			// The server has no such passkey; the browser can stop offering it.
+			void signalUnknownPasskey({ rpId, credentialId: authResponse.id })
+		}
+
+		const verificationJson = await verificationResponse.json().catch(() => ({
+			status: 'error',
+			error: 'Unknown error',
+		}))
+
+		const parsedResult = VerificationResponseSchema.safeParse(verificationJson)
+		if (!parsedResult.success) {
+			throw new Error(parsedResult.error.message)
+		} else if (parsedResult.data.status === 'error') {
+			throw new Error(parsedResult.data.error)
+		}
+		await navigate(parsedResult.data.location ?? '/')
+	}
+	const finishLoginRef = useRef(finishLogin)
+	finishLoginRef.current = finishLogin
+
+	useEffect(() => {
+		let unmounted = false
+		function arm() {
+			const setup = (async () => {
+				if (!(await supportsPasskeyAutofill())) return null
+				const options = await fetchAuthenticationOptions()
+				// The button took over while the options were on their way.
+				return buttonActive.current || unmounted ? null : options
+			})()
+			autofillOptions.current = setup
+			void setup
+				.then(async (options) => {
+					if (!options || buttonActive.current) return
+					let authResponse: AuthenticationResponse
+					try {
+						authResponse = await startAuthentication({
+							optionsJSON: options,
+							useBrowserAutofill: true,
+						})
+					} catch (e) {
+						// The button flow cancels this request; that's expected.
+						if (!isPasskeyPromptDismissed(e)) {
+							console.warn('Passkey autofill stopped', e)
+						}
+						return
+					}
+					try {
+						setError(null)
+						await finishLoginRef.current(authResponse, options.rpId)
+					} catch (e) {
+						if (unmounted) return
+						setError(
+							`Failed to authenticate with passkey: ${getErrorMessage(e)}`,
+						)
+						arm()
+					}
+				})
+				// Autofill is optional; the button still works without it.
+				.catch(() => {})
+		}
+		armAutofill.current = arm
+		arm()
+		return () => {
+			unmounted = true
+			armAutofill.current = () => {}
+			WebAuthnAbortService.cancelCeremony()
+		}
+	}, [])
 
 	async function handlePasskeyLogin() {
+		buttonActive.current = true
+		let loggedIn = false
 		try {
+			setError(null)
+			// Let a pending autofill options request land first, so its
+			// challenge cookie can't replace the one fetched below.
+			await autofillOptions.current?.catch(() => {})
 			setPasskeyMessage('Generating Authentication Options')
-			// Get authentication options from the server
-			const optionsResponse = await fetch('/webauthn/authentication')
-			const json = await optionsResponse.json()
-			const { options } = AuthenticationOptionsSchema.parse(json)
+			const options = await fetchAuthenticationOptions()
 
 			setPasskeyMessage('Requesting your authorization')
+			// This cancels the pending autofill request.
 			const authResponse = await startAuthentication({ optionsJSON: options })
 			setPasskeyMessage('Verifying your passkey')
 
-			// Verify the authentication with the server
-			const verificationResponse = await fetch('/webauthn/authentication', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ authResponse, remember, redirectTo }),
-			})
-
-			const verificationJson = await verificationResponse.json().catch(() => ({
-				status: 'error',
-				error: 'Unknown error',
-			}))
-
-			const parsedResult =
-				VerificationResponseSchema.safeParse(verificationJson)
-			if (!parsedResult.success) {
-				throw new Error(parsedResult.error.message)
-			} else if (parsedResult.data.status === 'error') {
-				throw new Error(parsedResult.data.error)
-			}
-			const { location } = parsedResult.data
-
+			await finishLoginRef.current(authResponse, options.rpId)
+			loggedIn = true
 			setPasskeyMessage("You're logged in! Navigating...")
-			await navigate(location ?? '/')
 		} catch (e) {
-			const errorMessage = getErrorMessage(e)
-			setError(`Failed to authenticate with passkey: ${errorMessage}`)
+			// Closing the prompt or letting it time out leaves the page as it was.
+			if (isPasskeyPromptDismissed(e)) return
+			setError(`Failed to authenticate with passkey: ${getErrorMessage(e)}`)
+		} finally {
+			buttonActive.current = false
+			if (!loggedIn) armAutofill.current()
 		}
 	}
 
@@ -291,9 +394,8 @@ function PasskeyLogin({
 				id="passkey-login-button"
 				aria-describedby="passkey-login-button-error"
 				className="w-full"
-				status={isPending ? 'pending' : error ? 'error' : 'idle'}
+				status={error ? 'error' : 'idle'}
 				type="submit"
-				disabled={isPending}
 			>
 				<span className="inline-flex items-center gap-1.5">
 					<Icon name="passkey" />

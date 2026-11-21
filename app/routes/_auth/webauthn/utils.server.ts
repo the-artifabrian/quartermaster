@@ -15,9 +15,18 @@ export const passkeyCookie = createCookie('webauthn-challenge', {
 	secrets: [process.env.SESSION_SECRET],
 })
 
-export const PasskeyCookieSchema = z.object({
+/**
+ * The challenge cookie while adding a passkey. It is only set after the
+ * current password checks out, so the step that saves the passkey takes it as
+ * proof of that check: for this account (`userId`), until `expiresAt`.
+ * `webauthnUserId` is the WebAuthn user handle the options carried.
+ */
+export const AddPasskeyChallengeSchema = z.object({
+	purpose: z.literal('add-passkey'),
 	challenge: z.string(),
+	webauthnUserId: z.string(),
 	userId: z.string(),
+	expiresAt: z.number(),
 })
 
 export const RegistrationResponseSchema = z.object({
@@ -86,4 +95,13 @@ export function getWebAuthnConfig() {
 		rpID: url.hostname,
 		origin: url.origin,
 	} as const
+}
+
+/**
+ * The WebAuthn user handle for an account: its id as UTF-8, in unpadded
+ * base64url. Registration hands SimpleWebAuthn the same bytes, so this matches
+ * `webauthnUserId` on every saved passkey.
+ */
+export function webauthnUserHandle(userId: string) {
+	return Buffer.from(userId, 'utf8').toString('base64url')
 }

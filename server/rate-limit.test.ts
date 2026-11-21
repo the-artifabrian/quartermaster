@@ -290,7 +290,12 @@ describe('new routes land on a strict tier', () => {
 				),
 		)
 		expect(authLike.map((route) => route.path)).toEqual(
-			expect.arrayContaining(['/household/join', '/forgot-password']),
+			expect.arrayContaining([
+				'/household/join',
+				'/forgot-password',
+				// Adding a passkey checks the current password.
+				'/webauthn/registration',
+			]),
 		)
 		for (const route of authLike) {
 			expect({ route: route.path, tier: postTier(route.path) }).toEqual({

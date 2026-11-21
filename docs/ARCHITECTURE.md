@@ -409,8 +409,13 @@ sign-in and `/verify` sharing the auth tier's 10 POSTs a minute per address. The
 count is kept in memory, as production is one process, so a restart forgets it
 and a pending sign-in could get 5 more codes within its 10 minutes. A code for
 any account other than the browser's pending sign-in or its signed-in user isn't
-checked at all. A reverify of a signed-in session has no count of its own, only
-the auth tier's limit.
+checked at all. Over a day, from one address: each cycle is one login POST and 5
+codes, so the auth tier's 10 POSTs a minute allow about 8.3 codes a minute,
+12,000 a day, a chance of 1 − (1 − 3 ÷ 10^6)^12,000 ≈ 3.5% a day. A reverify of
+a session someone already holds has no count of its own, only the auth tier's
+limit: 10 codes a minute, 14,400 a day, about 4.2% a day. The first needs the
+password and the second a live session, and both grow with the number of
+addresses an attacker has, since the limit is per address.
 
 Adding a passkey asks for the current password
 (`app/routes/_auth/webauthn/registration.ts`). The request for the passkey

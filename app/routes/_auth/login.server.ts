@@ -22,7 +22,9 @@ export const MAX_PENDING_SIGN_IN_TRIES = 5
 
 // Codes tried against each pending sign-in, with when it runs out. Kept in
 // memory, as production is one process: a restart forgets them, so a pending
-// sign-in could get another 5 tries within its 10 minutes.
+// sign-in could get another 5 tries within its 10 minutes. An ended one stays
+// as over the cap until it would have run out, so a request that read the row
+// before it was deleted can't start counting again from 1.
 const pendingSignInTries = new Map<string, { count: number; until: number }>()
 
 type PendingSignIn =
@@ -80,9 +82,16 @@ export function takePendingSignInTry(pending: { id: string; createdAt: Date }) {
 	return entry.count
 }
 
+function markPendingSignInEnded(id: string) {
+	const until =
+		pendingSignInTries.get(id)?.until ??
+		Date.now() + PENDING_SIGN_IN_LIFETIME_MS
+	pendingSignInTries.set(id, { count: Infinity, until })
+}
+
 /** Deletes a pending sign-in's Session row, so its code can't finish it. */
 export async function endPendingSignIn(id: string) {
-	pendingSignInTries.delete(id)
+	markPendingSignInEnded(id)
 	await prisma.session.deleteMany({ where: { id } })
 }
 
@@ -213,7 +222,7 @@ export async function handleVerification({
 				},
 			})
 		})
-		pendingSignInTries.delete(pending.id)
+		markPendingSignInEnded(pending.id)
 		if (!signedIn) throw await noSessionToVerify()
 		authSession.set(verifiedTimeKey, Date.now())
 		authSession.set(sessionKey, signedIn.id)

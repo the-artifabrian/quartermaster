@@ -14,7 +14,13 @@ import { generateTOTP } from '#app/utils/totp.server.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL } from '#tests/utils.ts'
-import { handleNewSession, shouldRequestTwoFA } from './login.server.ts'
+import {
+	endPendingSignIn,
+	handleNewSession,
+	MAX_PENDING_SIGN_IN_TRIES,
+	shouldRequestTwoFA,
+	takePendingSignInTry,
+} from './login.server.ts'
 import {
 	prepareVerification,
 	requireRecentVerification,
@@ -70,6 +76,8 @@ import '#tests/setup/mocks-setup.ts'
 //     signed in on it gets the same answer whether it is right or wrong.
 // 21. A finished sign-in gets a new session id, so a kept copy of the verify
 //     cookie can't end or reuse the signed-in session.
+// 22. A request that read the pending row just before another request ended
+//     it doesn't start counting again from 1.
 
 const twoHoursAgo = (extraMinutes: number) =>
 	Date.now() - 1000 * 60 * (120 + extraMinutes)
@@ -363,6 +371,21 @@ describe('pending 2FA sign-in limits', () => {
 			})
 			expect(await authSessionFrom(right)).toBeNull()
 		}
+	})
+
+	test('a try counted after the sign-in ended is over the cap', async () => {
+		const { pending } = await pendingSignIn()
+		const row = await prisma.session.findUniqueOrThrow({
+			where: { id: pending.id },
+			select: { id: true, createdAt: true },
+		})
+		takePendingSignInTry(row)
+
+		// Another request ends it while this one is between reading the row
+		// and counting its try.
+		await endPendingSignIn(row.id)
+
+		expect(takePendingSignInTry(row)).toBeGreaterThan(MAX_PENDING_SIGN_IN_TRIES)
 	})
 
 	test('a kept copy of the verify cookie can’t touch the session it became', async () => {

@@ -25,7 +25,7 @@ import { server } from '#tests/setup/mocks-setup.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action as forgotPasswordAction } from './forgot-password.tsx'
-import { onboardingEmailSessionKey } from './onboarding/index.tsx'
+import { getOnboardingEmail } from './onboarding/onboarding-email.server.ts'
 import { action as signupAction } from './signup.tsx'
 import {
 	isCodeValid,
@@ -118,6 +118,15 @@ import '#tests/setup/db-setup.ts'
 // 34. The work after the answer throws (the database read fails): the error
 //     is caught and logged, and never becomes an unhandled rejection, which
 //     would take the process down.
+//
+// Links opened on a device that is logged in (the iOS app always is):
+// 35. A signup link or typed code used while logged in uses nothing up. The
+//     answer names who is logged in, and the same code works once they log
+//     out.
+// 36. A signup code used with a session cookie whose session has gone works
+//     as if logged out.
+// 37. A reset code used while logged in, as that account or another, goes on
+//     to the new-password form.
 //
 // GET /verify consuming nothing is checked in tests/e2e/onboarding.test.ts,
 // through the real page.
@@ -266,6 +275,7 @@ type Outcome = {
 	location: string | null
 	setCookies: string[]
 	errors: unknown
+	loggedInAs?: unknown
 }
 
 async function submitVerify(
@@ -293,7 +303,7 @@ async function submitVerify(
 		}
 	}
 	const { data, init } = result as {
-		data: { result: { error?: unknown } }
+		data: { result: { error?: unknown }; loggedInAs?: unknown }
 		init?: { status?: number }
 	}
 	return {
@@ -301,29 +311,44 @@ async function submitVerify(
 		location: null,
 		setCookies: [],
 		errors: data.result.error,
+		loggedInAs: data.loggedInAs,
 	}
 }
 
 type Emailed = ReturnType<typeof readCode>
 
 /** Submits the typed code from an email. */
-function useCode(emailed: Emailed, overrides: Record<string, string> = {}) {
-	return submitVerify({
-		code: emailed.code,
-		type: emailed.type,
-		target: emailed.target,
-		...overrides,
-	})
+function useCode(
+	emailed: Emailed,
+	overrides: Record<string, string> = {},
+	cookie?: string,
+) {
+	return submitVerify(
+		{
+			code: emailed.code,
+			type: emailed.type,
+			target: emailed.target,
+			...overrides,
+		},
+		{ cookie },
+	)
 }
 
 /** Submits the token from an email's link, as the verify page does. */
-function useLink(emailed: Emailed, overrides: Record<string, string> = {}) {
-	return submitVerify({
-		token: emailed.token,
-		type: emailed.type,
-		target: emailed.target,
-		...overrides,
-	})
+function useLink(
+	emailed: Emailed,
+	overrides: Record<string, string> = {},
+	cookie?: string,
+) {
+	return submitVerify(
+		{
+			token: emailed.token,
+			type: emailed.type,
+			target: emailed.target,
+			...overrides,
+		},
+		{ cookie },
+	)
 }
 
 const RESET_DONE = '/reset-password'
@@ -739,11 +764,15 @@ describe('code kinds, with a stored code of the other kind', () => {
 				expiresAt: new Date(Date.now() + CODE_LIFETIME_MS),
 			},
 		})
-		const outcome = await submitVerify({
-			code,
-			type: twoFAVerificationType,
-			target: user.id,
+		// Signed in as the target, so the code reaches a check at all.
+		const session = await prisma.session.create({
+			data: { expirationDate: getSessionExpirationDate(), userId: user.id },
+			select: { id: true },
 		})
+		const outcome = await submitVerify(
+			{ code, type: twoFAVerificationType, target: user.id },
+			{ cookie: await getSessionCookieHeader(session) },
+		)
 		expect(outcome.status).toBe(400)
 		expect(
 			await checkEmailCode({
@@ -798,18 +827,23 @@ describe('sending', () => {
 		const verifySession = await verifySessionStorage.getSession(
 			outcome.setCookies.map(cookiePair).join('; '),
 		)
-		expect(verifySession.get(onboardingEmailSessionKey)).toBe(
-			email.toLowerCase(),
-		)
+		expect(getOnboardingEmail(verifySession)).toBe(email.toLowerCase())
 	})
 })
 
 describe('email change', () => {
+	const password = 'current-password-1234'
+
 	async function signedIn() {
 		const session = await prisma.session.create({
 			data: {
 				expirationDate: getSessionExpirationDate(),
-				user: { create: createUser() },
+				user: {
+					create: {
+						...createUser(),
+						password: { create: createPassword(password) },
+					},
+				},
 			},
 			select: { id: true, userId: true, expirationDate: true },
 		})
@@ -823,7 +857,7 @@ describe('email change', () => {
 		const result = await callAction(
 			changeEmailAction,
 			'/settings/profile/change-email',
-			{ email },
+			{ email, password },
 			cookie,
 		)
 		const outcome = visible(result)
@@ -941,6 +975,71 @@ describe('signup past the cap', () => {
 	})
 })
 
+describe('links opened while logged in', () => {
+	async function loggedInCookie(userId: string) {
+		const session = await prisma.session.create({
+			data: { expirationDate: getSessionExpirationDate(), userId },
+			select: { id: true },
+		})
+		return { session, cookie: await getSessionCookieHeader(session) }
+	}
+
+	test('a signup code or link uses nothing up, says who is logged in, and works after logging out', async () => {
+		const sent = captureEmails()
+		const someone = await createAccount()
+		const { cookie } = await loggedInCookie(someone.id)
+		const email = `signup-logged-in-${Date.now()}@example.com`
+		await signup(email)
+		const emailed = readCode(sent[0])
+
+		for (const outcome of [
+			await useCode(emailed, {}, cookie),
+			await useLink(emailed, {}, cookie),
+		]) {
+			expect(outcome.location).toBeNull()
+			expect(outcome.loggedInAs).toBe(someone.username)
+		}
+		expect(await prisma.emailCode.count({ where: { target: email } })).toBe(1)
+
+		expect((await useCode(emailed)).location).toBe('/onboarding')
+	})
+
+	test('a signup code with a session cookie whose session has gone works', async () => {
+		const sent = captureEmails()
+		const someone = await createAccount()
+		const { session, cookie } = await loggedInCookie(someone.id)
+		await prisma.session.delete({ where: { id: session.id } })
+		await signup(`signup-gone-${Date.now()}@example.com`)
+
+		expect((await useCode(readCode(sent[0]), {}, cookie)).location).toBe(
+			'/onboarding',
+		)
+	})
+
+	test('a reset code goes on to the new-password form, logged in as anyone', async () => {
+		const sent = captureEmails()
+		const user = await createAccount()
+		const other = await createAccount()
+		await forgotPassword(user.username)
+		await forgotPassword(user.username)
+
+		const asSelf = await useCode(
+			readCode(sent[0]),
+			{},
+			(await loggedInCookie(user.id)).cookie,
+		)
+		expect(asSelf.location).toBe(RESET_DONE)
+
+		await forgotPassword(user.username)
+		const asOther = await useCode(
+			readCode(sent[2]),
+			{},
+			(await loggedInCookie(other.id)).cookie,
+		)
+		expect(asOther.location).toBe(RESET_DONE)
+	})
+})
+
 test('the link token is redacted from logged URLs, also inside redirectTo', () => {
 	const link = '/verify?type=change-email&target=u1&token=secret-token-value'
 	expect(redactUrl(link)).not.toContain('secret-token-value')
@@ -973,7 +1072,9 @@ describe('a new password or email ends reset codes', () => {
 
 	test('a reset code sent to the old address stops working once the email changes', async () => {
 		const sent = captureEmails()
-		const { user, cookie: signedInCookie } = await signedInWithPassword()
+		const password = 'current-password-1234'
+		const { user, cookie: signedInCookie } =
+			await signedInWithPassword(password)
 		await forgotPassword(user.email)
 		const resetCode = readCode(sent[0])
 
@@ -982,7 +1083,7 @@ describe('a new password or email ends reset codes', () => {
 			await callAction(
 				changeEmailAction,
 				'/settings/profile/change-email',
-				{ email: address },
+				{ email: address, password },
 				signedInCookie,
 			),
 		)
@@ -1047,7 +1148,7 @@ describe('a new password or email ends reset codes', () => {
 		await forgotPassword(user.email)
 
 		await resetUserPassword({
-			username: user.username,
+			userId: user.id,
 			password: `reset-${Date.now()}-password`,
 		})
 		expect((await useCode(readCode(sent[1]))).status).toBe(400)

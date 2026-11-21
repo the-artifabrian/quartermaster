@@ -5,6 +5,8 @@ import { type Timings } from '../timing.server.ts'
 export type ProviderUser = {
 	id: string | number
 	email: string
+	/** Whether the provider says the person owns `email`. */
+	emailVerified?: boolean
 	username?: string
 	name?: string
 }

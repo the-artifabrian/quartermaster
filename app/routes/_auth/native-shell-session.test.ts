@@ -18,10 +18,7 @@ import {
 	action as providerOnboardingAction,
 	providerIdKey,
 } from './onboarding/$provider.tsx'
-import {
-	action as onboardingAction,
-	onboardingEmailSessionKey,
-} from './onboarding/index.tsx'
+import { action as onboardingAction } from './onboarding/index.tsx'
 import { VerifySchema } from './verify.tsx'
 import '#tests/setup/db-setup.ts'
 import '#tests/setup/mocks-setup.ts'
@@ -202,7 +199,8 @@ test('email onboarding in a browser with Remember me unchecked keeps a browser-s
 				userAgent: SAFARI_UA,
 				body: fields,
 				cookie: await verifyCookie({
-					[onboardingEmailSessionKey]: `${fields.username}@example.com`,
+					onboardingEmail: `${fields.username}@example.com`,
+					onboardingEmailExpiresAt: Date.now() + 60_000,
 				}),
 			}),
 			'/onboarding',
@@ -220,7 +218,8 @@ test('provider onboarding in the shell sets an expiring cookie with Remember me 
 				userAgent: SHELL_UA,
 				body: { username, name, agreeToTermsOfServiceAndPrivacyPolicy },
 				cookie: await verifyCookie({
-					[onboardingEmailSessionKey]: `${username}@example.com`,
+					onboardingEmail: `${username}@example.com`,
+					onboardingEmailExpiresAt: Date.now() + 60_000,
 					[providerIdKey]: `google-${username}`,
 				}),
 			}),
@@ -240,7 +239,8 @@ test('provider onboarding in a browser with Remember me unchecked keeps a browse
 				userAgent: SAFARI_UA,
 				body: { username, name, agreeToTermsOfServiceAndPrivacyPolicy },
 				cookie: await verifyCookie({
-					[onboardingEmailSessionKey]: `${username}@example.com`,
+					onboardingEmail: `${username}@example.com`,
+					onboardingEmailExpiresAt: Date.now() + 60_000,
 					[providerIdKey]: `google-${username}`,
 				}),
 			}),

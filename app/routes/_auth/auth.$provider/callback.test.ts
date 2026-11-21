@@ -54,7 +54,19 @@ test('when auth fails, send the user to login with a toast', async () => {
 	expect(consoleError).toHaveBeenCalledTimes(1)
 })
 
-test('when a user is logged in, it creates the connection', async () => {
+// Failure list for signing in with Google until it goes (#439):
+// 1. Signed in, connecting a new Google account is refused and stores no
+//    connection.
+// 2. Signed out, a Google account whose email matches an existing account is
+//    linked only when Google says the email is verified. Otherwise nothing is
+//    linked, no session is made, and the person is told to log in with their
+//    password.
+// 3. An answer from Google with no verified field counts as unverified.
+// 3a. An unverified email with no account doesn't start a signup either.
+// 4. A verified match is linked and signed in, as before.
+// 5. An existing connection still signs in (tests below).
+
+test('when a user is logged in, connecting a new Google account is refused', async () => {
 	const googleUser = await insertGoogleUser()
 	const session = await setupUser()
 	const request = await setupRequest({
@@ -67,25 +79,77 @@ test('when a user is logged in, it creates the connection', async () => {
 	})
 	expect(response).toHaveRedirect('/settings/profile/connections')
 	await expect(response).toSendToast(
-		expect.objectContaining({
-			title: 'Connected',
-			type: 'success',
-			description: expect.stringContaining(
-				googleUser.profile.email.split('@')[0]!,
-			),
-		}),
+		expect.objectContaining({ title: 'Not connected' }),
 	)
-	const connection = await prisma.connection.findFirst({
-		select: { id: true },
-		where: {
-			userId: session.userId,
-			providerId: googleUser.profile.id.toString(),
-		},
-	})
 	expect(
-		connection,
-		'the connection was not created in the database',
-	).toBeTruthy()
+		await prisma.connection.count({ where: { userId: session.userId } }),
+	).toBe(0)
+})
+
+async function matchingAccount(email: string) {
+	return prisma.user.create({
+		data: { ...createUser(), email: email.toLowerCase() },
+		select: { id: true },
+	})
+}
+
+test.each([
+	['says it is not verified', { verified_email: false }],
+	['leaves the verified field out', { verified_email: undefined }],
+])(
+	'an account with the same email isn’t linked when Google %s',
+	async (_, overrides) => {
+		const googleUser = await insertGoogleUser(undefined, overrides)
+		const user = await matchingAccount(googleUser.profile.email)
+		const request = await setupRequest({ code: googleUser.code })
+
+		const response = await loader({ request, ...LOADER_ARGS_BASE }).catch(
+			(thrown: unknown) => thrown as Response,
+		)
+
+		expect(response).toHaveRedirect('/login')
+		await expect(response).toSendToast(
+			expect.objectContaining({ type: 'error' }),
+		)
+		expect(await prisma.connection.count({ where: { userId: user.id } })).toBe(
+			0,
+		)
+		expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0)
+	},
+)
+
+test('an unverified email with no account doesn’t start a signup', async () => {
+	const googleUser = await insertGoogleUser(undefined, {
+		verified_email: false,
+	})
+	const request = await setupRequest({ code: googleUser.code })
+
+	const response = await loader({ request, ...LOADER_ARGS_BASE }).catch(
+		(thrown: unknown) => thrown as Response,
+	)
+
+	expect(response).toHaveRedirect('/login')
+	await expect(response).toSendToast(expect.objectContaining({ type: 'error' }))
+	expect(
+		response.headers
+			.getSetCookie()
+			.some((cookie) => cookie.startsWith('en_verification=')),
+	).toBe(false)
+	expect(
+		await prisma.user.count({ where: { email: googleUser.profile.email } }),
+	).toBe(0)
+})
+
+test('an account with the same email is linked when Google says it is verified', async () => {
+	const googleUser = await insertGoogleUser()
+	const user = await matchingAccount(googleUser.profile.email)
+	const request = await setupRequest({ code: googleUser.code })
+
+	const response = await loader({ request, ...LOADER_ARGS_BASE })
+
+	expect(response).toHaveRedirect('/')
+	expect(await prisma.connection.count({ where: { userId: user.id } })).toBe(1)
+	expect(await prisma.session.count({ where: { userId: user.id } })).toBe(1)
 })
 
 test(`when a user is logged in and has already connected, it doesn't do anything and just redirects the user back to the connections page`, async () => {

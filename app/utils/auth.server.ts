@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import bcrypt from 'bcryptjs'
 import { redirect } from 'react-router'
 import { Authenticator } from 'remix-auth'
-import { safeRedirect } from 'remix-utils/safe-redirect'
+import { safeRedirect } from '#app/utils/safe-redirect.ts'
 import {
 	type Connection,
 	type Password,
@@ -157,6 +157,29 @@ export async function requireAdmin(request: Request) {
 	return user.id
 }
 
+/**
+ * The session this browser's auth cookie names, and whether it is still live,
+ * without ending a dead one the way getUserId does. For pages that work
+ * either way, such as a link from an email opened in the always-logged-in
+ * iOS app.
+ */
+export async function getBrowserSession(request: Request) {
+	const authSession = await authSessionStorage.getSession(
+		request.headers.get('cookie'),
+	)
+	const sessionId = authSession.get(sessionKey)
+	if (typeof sessionId !== 'string' || !sessionId) return null
+	const live = await prisma.session.findUnique({
+		select: { userId: true, user: { select: { username: true } } },
+		where: { id: sessionId, expirationDate: { gt: new Date() } },
+	})
+	return {
+		id: sessionId,
+		userId: live?.userId ?? null,
+		username: live?.user.username ?? null,
+	}
+}
+
 export async function requireAnonymous(request: Request) {
 	const userId = await getUserId(request)
 	if (userId) {
@@ -184,17 +207,17 @@ export async function login({
 }
 
 export async function resetUserPassword({
-	username,
+	userId,
 	password,
 }: {
-	username: User['username']
+	userId: User['id']
 	password: string
 }) {
 	const hash = await getPasswordHash(password)
 	// A user who signed up through a provider has no Password row yet. A reset
 	// signs out every session of the user.
 	const user = await prisma.user.findUniqueOrThrow({
-		where: { username },
+		where: { id: userId },
 		select: { id: true },
 	})
 	// The delete goes first, so the batch starts with a write. An upsert may

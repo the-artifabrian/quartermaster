@@ -2,7 +2,7 @@ import { invariant } from '@epic-web/invariant'
 import { redirect } from 'react-router'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
 import { type VerifyFunctionArgs } from '../verify.server.ts'
-import { onboardingEmailSessionKey } from './index.tsx'
+import { setOnboardingEmail } from './onboarding-email.server.ts'
 
 export async function handleVerification({ submission }: VerifyFunctionArgs) {
 	invariant(
@@ -10,7 +10,7 @@ export async function handleVerification({ submission }: VerifyFunctionArgs) {
 		'Submission should be successful by now',
 	)
 	const verifySession = await verifySessionStorage.getSession()
-	verifySession.set(onboardingEmailSessionKey, submission.value.target)
+	setOnboardingEmail(verifySession, submission.value.target)
 	return redirect('/onboarding', {
 		headers: {
 			'set-cookie': await verifySessionStorage.commitSession(verifySession),

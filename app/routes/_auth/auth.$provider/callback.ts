@@ -23,7 +23,7 @@ import {
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
 import { handleNewSession } from '../login.server.ts'
 import { prefilledProfileKey, providerIdKey } from '../onboarding/$provider.tsx'
-import { onboardingEmailSessionKey } from '../onboarding/index.tsx'
+import { setOnboardingEmail } from '../onboarding/onboarding-email.server.ts'
 import { type Route } from './+types/callback.ts'
 
 const destroyRedirectTo = { 'set-cookie': destroyRedirectToHeader }
@@ -101,21 +101,14 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		}
 	}
 
-	// If we're already logged in, then link the account
+	// Google sign-in is going away (#439), so a signed-in account can't add a
+	// new connection. Existing connections still sign in below.
 	if (userId) {
-		await prisma.connection.create({
-			data: {
-				providerName,
-				providerId: String(profile.id),
-				userId,
-			},
-		})
 		return redirectWithToast(
 			'/settings/profile/connections',
 			{
-				title: 'Connected',
-				type: 'success',
-				description: `Your "${profile.username}" ${label} account has been connected.`,
+				title: 'Not connected',
+				description: `Logging in with ${label} is going away, so new ${label} connections are turned off.`,
 			},
 			{ headers: destroyRedirectTo },
 		)
@@ -124,6 +117,21 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 	// Connection exists already? Make a new session
 	if (existingConnection) {
 		return makeSession({ request, userId: existingConnection.userId })
+	}
+
+	// Without an email the provider has verified, nothing is linked to an
+	// account with that email and no signup starts with it.
+	if (!profile.emailVerified) {
+		throw await redirectWithToast(
+			'/login',
+			{
+				type: 'error',
+				title: `${label} hasn’t confirmed this email`,
+				description:
+					'Log in with your username and password, or sign up with your email.',
+			},
+			{ headers: destroyRedirectTo },
+		)
 	}
 
 	// if the email matches a user in the db, then link the account and
@@ -153,7 +161,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
 	// this is a new user, so let's get them onboarded
 	const verifySession = await verifySessionStorage.getSession()
-	verifySession.set(onboardingEmailSessionKey, profile.email)
+	setOnboardingEmail(verifySession, profile.email)
 	verifySession.set(prefilledProfileKey, {
 		...profile,
 		email: normalizeEmail(profile.email),

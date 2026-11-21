@@ -12,7 +12,7 @@ import {
 	Form,
 	useSearchParams,
 } from 'react-router'
-import { safeRedirect } from 'remix-utils/safe-redirect'
+import { safeRedirect } from '#app/utils/safe-redirect.ts'
 import { z } from 'zod'
 import { CheckboxField, ErrorList, Field } from '#app/components/forms.tsx'
 import { Spacer } from '#app/components/spacer.tsx'
@@ -34,7 +34,7 @@ import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { NameSchema, UsernameSchema } from '#app/utils/user-validation.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
 import { type Route } from './+types/$provider.ts'
-import { onboardingEmailSessionKey } from './index.tsx'
+import { getOnboardingEmail } from './onboarding-email.server.ts'
 
 export const providerIdKey = 'providerId'
 export const prefilledProfileKey = 'prefilledProfile'
@@ -63,7 +63,7 @@ async function requireData({
 	const verifySession = await verifySessionStorage.getSession(
 		request.headers.get('cookie'),
 	)
-	const email = verifySession.get(onboardingEmailSessionKey)
+	const email = getOnboardingEmail(verifySession)
 	const providerId = verifySession.get(providerIdKey)
 	const result = z
 		.object({

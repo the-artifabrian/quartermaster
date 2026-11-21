@@ -201,6 +201,8 @@ test('onboarding with a short code', async ({
 	expect(code).toHaveLength(8)
 	// Pasted from somewhere that added a space and a dash, in lowercase.
 	const codeBox = page.getByRole('textbox', { name: /code/i })
+	// Emailed codes have letters, so the keyboard stays a full one.
+	await expect(codeBox).toHaveAttribute('inputmode', 'text')
 	await codeBox.focus()
 	const pasted = `${code.slice(0, 4)} - ${code.slice(4)}`.toLowerCase()
 	await codeBox.evaluate((input, text) => {
@@ -526,4 +528,103 @@ test('reset password with a link', async ({
 	await expect(page).toHaveURL(`/recipes`)
 
 	await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible()
+})
+
+// Links from emails open in the iOS app, which is always logged in.
+test('a signup link opened while logged in waits for a log out, then works', async ({
+	page,
+	navigate,
+	login,
+	getOnboardingData,
+}) => {
+	const onboardingData = getOnboardingData()
+	await navigate('/signup')
+	await page.getByRole('textbox', { name: /email/i }).fill(onboardingData.email)
+	await page.getByRole('button', { name: /submit/i }).click()
+	await expect(page.getByText(/check your email/i)).toBeVisible()
+	const email = await readEmail(onboardingData.email)
+	invariant(email, 'Email not found')
+	const onboardingUrl = extractUrl(email.text) as AppPages
+	invariant(onboardingUrl, 'Onboarding URL not found')
+	const emailCodes = {
+		where: { target: onboardingData.email.toLowerCase() },
+	}
+
+	const someone = await login()
+	await navigate(onboardingUrl)
+	await page
+		.getByRole('main')
+		.getByRole('button', { name: /submit/i })
+		.click()
+
+	await expect(
+		page.getByRole('heading', {
+			name: `You’re logged in as ${someone.username}`,
+		}),
+	).toBeVisible()
+	expect(await prisma.emailCode.count(emailCodes)).toBe(1)
+
+	await page.getByRole('button', { name: /log out/i }).click()
+	await expect(page.getByText(/your link is ready/i)).toBeVisible()
+	await page
+		.getByRole('main')
+		.getByRole('button', { name: /submit/i })
+		.click()
+
+	await expect(page).toHaveURL('/onboarding')
+	expect(await prisma.emailCode.count(emailCodes)).toBe(0)
+})
+
+test('a reset link opened while logged in as someone else resets the right account and logs out', async ({
+	page,
+	navigate,
+	login,
+	insertRegisteredUser,
+}) => {
+	const user = await insertRegisteredUser({
+		password: faker.internet.password(),
+	})
+	await navigate('/forgot-password')
+	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
+	await page.getByRole('button', { name: /recover password/i }).click()
+	await expect(page.getByText(/check your email/i)).toBeVisible()
+	const email = await waitFor(() => readEmail(user.email), {
+		errorMessage: 'Reset email was not sent',
+	})
+	const resetPasswordUrl = extractUrl(email.text) as AppPages
+	invariant(resetPasswordUrl, 'Reset password URL not found')
+	await expect
+		.poll(() =>
+			prisma.emailCode.count({
+				where: { target: user.id, sentAt: { not: null } },
+			}),
+		)
+		.toBe(1)
+
+	const someoneElse = await login()
+	await navigate(resetPasswordUrl)
+	await page
+		.getByRole('main')
+		.getByRole('button', { name: /submit/i })
+		.click()
+
+	await expect(page).toHaveURL('/reset-password')
+	await expect(page.getByText(`Hi, ${user.username}.`)).toBeVisible()
+	await expect(page.getByText(/logs this device out/i)).toBeVisible()
+	const newPassword = faker.internet.password()
+	await page.getByLabel(/^new password$/i).fill(newPassword)
+	await page.getByLabel(/^confirm password$/i).fill(newPassword)
+	await page.getByRole('button', { name: /reset password/i }).click()
+
+	await expect(page).toHaveURL('/login')
+	expect(
+		await prisma.session.count({ where: { userId: someoneElse.id } }),
+	).toBe(0)
+	await navigate('/recipes')
+	await expect(page).toHaveURL(/\/login/)
+
+	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
+	await page.getByLabel(/^password$/i).fill(newPassword)
+	await page.getByRole('button', { name: 'Log in', exact: true }).click()
+	await expect(page).toHaveURL('/recipes')
 })

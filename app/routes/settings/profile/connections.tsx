@@ -13,11 +13,9 @@ import {
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { resolveConnectionData } from '#app/utils/connections.server.ts'
 import {
-	ProviderConnectionForm,
 	type ProviderName,
 	ProviderNameSchema,
 	providerIcons,
-	providerNames,
 } from '#app/utils/connections.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { pipeHeaders } from '#app/utils/headers.server.js'
@@ -115,8 +113,8 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function Connections({ loaderData }: Route.ComponentProps) {
-	// Google refuses OAuth in embedded web views, so the iOS app offers no
-	// new connections.
+	// The iOS app shows nothing about Google (it refuses OAuth in embedded
+	// web views).
 	const isNativeShell = useIsNativeShell()
 	return (
 		<div className="mx-auto max-w-md">
@@ -137,16 +135,12 @@ export default function Connections({ loaderData }: Route.ComponentProps) {
 			) : (
 				<p>You don't have any connections yet.</p>
 			)}
+			{/* Google sign-in is going away (#439), so no new connections. */}
 			{isNativeShell ? null : (
-				<div className="border-border mt-5 flex flex-col gap-5 border-t-2 border-b-2 py-3">
-					{providerNames.map((providerName) => (
-						<ProviderConnectionForm
-							key={providerName}
-							type="Connect"
-							providerName={providerName}
-						/>
-					))}
-				</div>
+				<p className="text-muted-foreground mt-5">
+					Logging in with Google is going away, so you can’t connect a Google
+					account. One that’s already connected still works for logging in.
+				</p>
 			)}
 		</div>
 	)

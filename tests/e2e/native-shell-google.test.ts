@@ -67,7 +67,7 @@ test.describe('in a browser', () => {
 		await expect(page.getByText(googleHint)).toHaveCount(0)
 	})
 
-	test('connections offers a Google connection', async ({
+	test('connections offers no new Google connection and says why', async ({
 		page,
 		navigate,
 		login,
@@ -75,7 +75,10 @@ test.describe('in a browser', () => {
 		await login()
 		await navigate('/settings/profile/connections')
 		await expect(
-			page.getByRole('button', { name: /connect with google/i }),
+			page.getByText(/logging in with google is going away/i),
 		).toBeVisible()
+		await expect(
+			page.getByRole('button', { name: /connect with google/i }),
+		).toHaveCount(0)
 	})
 })

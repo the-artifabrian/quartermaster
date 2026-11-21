@@ -7,43 +7,33 @@ import { ErrorList, Field } from '#app/components/forms.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import {
 	checkIsCommonPassword,
-	requireAnonymous,
+	endSessionCookies,
+	getBrowserSession,
 	resetUserPassword,
 } from '#app/utils/auth.server.ts'
+import { prisma } from '#app/utils/db.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
 import { PasswordAndConfirmPasswordSchema } from '#app/utils/user-validation.ts'
-import { verifySessionStorage } from '#app/utils/verification.server.ts'
 import { type Route } from './+types/reset-password.ts'
+import { requireResetPasswordUser } from './reset-password.server.ts'
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => null,
 }
 
-export const resetPasswordUsernameSessionKey = 'resetPasswordUsername'
-
 const ResetPasswordSchema = PasswordAndConfirmPasswordSchema
 
-async function requireResetPasswordUsername(request: Request) {
-	await requireAnonymous(request)
-	const verifySession = await verifySessionStorage.getSession(
-		request.headers.get('cookie'),
-	)
-	const resetPasswordUsername = verifySession.get(
-		resetPasswordUsernameSessionKey,
-	)
-	if (typeof resetPasswordUsername !== 'string' || !resetPasswordUsername) {
-		throw redirect('/login')
-	}
-	return resetPasswordUsername
-}
-
+// A reset works whether or not this browser is logged in, and as whichever
+// account: links from emails open in the iOS app, which always is. Once the
+// password is reset the browser is logged out.
 export async function loader({ request }: Route.LoaderArgs) {
-	const resetPasswordUsername = await requireResetPasswordUsername(request)
-	return { resetPasswordUsername }
+	const user = await requireResetPasswordUser(request)
+	const loggedIn = Boolean((await getBrowserSession(request))?.username)
+	return { username: user.username, loggedIn }
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	const resetPasswordUsername = await requireResetPasswordUsername(request)
+	const user = await requireResetPasswordUser(request)
 	const formData = await request.formData()
 	const submission = await parseWithZod(formData, {
 		schema: ResetPasswordSchema.superRefine(async ({ password }, ctx) => {
@@ -66,13 +56,14 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 	const { password } = submission.value
 
-	await resetUserPassword({ username: resetPasswordUsername, password })
-	const verifySession = await verifySessionStorage.getSession()
-	return redirect('/login', {
-		headers: {
-			'set-cookie': await verifySessionStorage.destroySession(verifySession),
-		},
-	})
+	await resetUserPassword({ userId: user.id, password })
+	// The reset ended every session of this account. A session of another
+	// account on this browser ends too.
+	const browserSession = await getBrowserSession(request)
+	if (browserSession) {
+		await prisma.session.deleteMany({ where: { id: browserSession.id } })
+	}
+	return redirect('/login', { headers: await endSessionCookies(request) })
 }
 
 export const meta: Route.MetaFunction = () => {
@@ -100,9 +91,13 @@ export default function ResetPasswordPage({
 			<div className="text-center">
 				<h1 className="font-serif text-2xl">Password Reset</h1>
 				<p className="text-muted-foreground mt-3 text-lg">
-					Hi, {loaderData.resetPasswordUsername}. No worries. It happens all the
-					time.
+					Hi, {loaderData.username}. No worries. It happens all the time.
 				</p>
+				{loaderData.loggedIn ? (
+					<p className="text-muted-foreground mt-2">
+						Resetting your password logs this device out.
+					</p>
+				) : null}
 			</div>
 			<div className="mx-auto mt-16 max-w-sm min-w-full sm:min-w-[368px]">
 				<Form method="POST" {...getFormProps(form)}>

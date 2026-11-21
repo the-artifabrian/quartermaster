@@ -12,6 +12,7 @@ const GoogleUserSchema = z.object({
 	email: z.string(),
 	name: z.string().optional(),
 	picture: z.string().optional(),
+	verified_email: z.boolean().optional(),
 })
 
 const shouldMock =
@@ -35,8 +36,7 @@ export class GoogleProvider implements AuthProvider {
 				cookie: 'google',
 				clientId: process.env.GOOGLE_CLIENT_ID,
 				clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-				authorizationEndpoint:
-					'https://accounts.google.com/o/oauth2/v2/auth',
+				authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
 				tokenEndpoint: 'https://oauth2.googleapis.com/token',
 				redirectURI: process.env.GOOGLE_REDIRECT_URI,
 				scopes: ['openid', 'email', 'profile'],
@@ -58,6 +58,8 @@ export class GoogleProvider implements AuthProvider {
 				return {
 					id: user.id,
 					email: user.email,
+					// Only an explicit yes counts.
+					emailVerified: user.verified_email === true,
 					name: user.name,
 					username: emailPrefix,
 				}
@@ -71,8 +73,7 @@ export class GoogleProvider implements AuthProvider {
 			where: { providerId, providerName: 'google' },
 		})
 		return {
-			displayName:
-				connection?.user.name ?? connection?.user.email ?? 'Unknown',
+			displayName: connection?.user.name ?? connection?.user.email ?? 'Unknown',
 			link: null,
 		} as const
 	}

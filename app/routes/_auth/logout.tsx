@@ -7,5 +7,11 @@ export async function loader() {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-	return logout({ request })
+	// The verify page logs out and comes back to the same code.
+	const formData = await request.formData().catch(() => null)
+	const redirectTo = formData?.get('redirectTo')
+	return logout({
+		request,
+		redirectTo: typeof redirectTo === 'string' ? redirectTo : undefined,
+	})
 }

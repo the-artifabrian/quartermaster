@@ -38,6 +38,11 @@ test('Users can add 2FA to their account and use it when logging in', async ({
 	const otpUri = new URL(otpUriString)
 	const options = Object.fromEntries(otpUri.searchParams)
 
+	// Authenticator codes are digits, so phones show the number pad.
+	await expect(main.getByRole('textbox', { name: /code/i })).toHaveAttribute(
+		'inputmode',
+		'numeric',
+	)
 	await main.getByRole('textbox', { name: /code/i }).fill(
 		(
 			await generateTOTP({
@@ -62,6 +67,10 @@ test('Users can add 2FA to their account and use it when logging in', async ({
 	await page.getByLabel(/^password$/i).fill(password)
 	await page.getByRole('button', { name: 'Log in', exact: true }).click()
 
+	await expect(page.getByRole('textbox', { name: /code/i })).toHaveAttribute(
+		'inputmode',
+		'numeric',
+	)
 	await page.getByRole('textbox', { name: /code/i }).fill(
 		(
 			await generateTOTP({
@@ -159,6 +168,8 @@ test('A change of email survives a reverify in the middle', async ({
 		await page
 			.getByRole('textbox', { name: /new email/i })
 			.fill(newEmailAddress)
+		// The login fixture's password is the username.
+		await page.getByLabel(/^current password$/i).fill(user.username)
 		await page.getByRole('button', { name: /send confirmation/i }).click()
 		await expect(page.getByText(/check your email/i)).toBeVisible()
 		const email = await waitFor(() => readEmail(newEmailAddress), {

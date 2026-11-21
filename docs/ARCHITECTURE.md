@@ -240,6 +240,14 @@ already runs one transaction at a time. A transaction whose first SQL statement
 writes, and an array `$transaction([...])` that starts with a write, need
 nothing. An `upsert` may run a SELECT first, so it doesn't count as a write.
 
+The Recipe and Menu edit forms post each row with the id it was loaded from,
+plus the ids of every row they loaded (`app/utils/loaded-rows.ts`). A Save
+updates rows in place, so ingredient and step ids, which cooking checks are
+keyed on, survive an edit. It removes only rows the form loaded and left out,
+so a row another member added while the form was open stays, after the saved
+rows. A posted id that isn't one of this Recipe's or Menu's rows saves as a new
+row. Nothing in the schema points at an ingredient or step id.
+
 libSQL runs each interactive transaction on a native connection of its own and
 never closes it, and Prisma keeps its last 100 closed transactions, so those
 connections and their page caches would stay in memory. `createPrismaClient` in

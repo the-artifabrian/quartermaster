@@ -1,6 +1,5 @@
 import { createId } from '@paralleldrive/cuid2'
-import { type PrismaClient } from '#app/generated/prisma/client.ts'
-import { isUniqueConstraintError } from './menu-validation.ts'
+import { type Prisma, type PrismaClient } from '#app/generated/prisma/client.ts'
 import {
 	demandIdentity,
 	type ShoppingDemandLine,
@@ -8,6 +7,9 @@ import {
 import { selectNextShopDemandTargets } from './shopping-horizon.server.ts'
 import { LATER, NEXT_SHOP } from './shopping-horizon.ts'
 import { guessCategory } from './shopping-list-validation.ts'
+import { writeTransaction } from './write-transaction.server.ts'
+
+type Tx = Prisma.TransactionClient
 
 /**
  * Transactional contribution reconciliation — the second internal seam that
@@ -18,7 +20,7 @@ import { guessCategory } from './shopping-list-validation.ts'
  * rows stay durable manual rows — a matching row is only pointed at, never
  * rewritten. replaceMealShoppingContributions handles an explicit update.
  */
-export async function reconcileMealShoppingContributions(
+export function reconcileMealShoppingContributions(
 	db: PrismaClient,
 	{
 		mealId,
@@ -40,8 +42,11 @@ export async function reconcileMealShoppingContributions(
 	/** Unchecked Later rows promoted in place for this generated demand. */
 	promotedRowCount: number
 }> {
-	const [existingItems, existingContributions] = await Promise.all([
-		db.shoppingListItem.findMany({
+	// The rows are read and written in one transaction that holds the write
+	// lock, so a check, a delete or another add of this Meal lands wholly
+	// before or wholly after, never between the read and the writes.
+	return writeTransaction(db, async (tx) => {
+		const existingItems = await tx.shoppingListItem.findMany({
 			where: { listId },
 			orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
 			select: {
@@ -50,124 +55,125 @@ export async function reconcileMealShoppingContributions(
 				checked: true,
 				horizon: true,
 			},
-		}),
-		db.mealShoppingContribution.findMany({
+		})
+		const existingContributions = await tx.mealShoppingContribution.findMany({
 			where: { mealId },
 			select: { canonicalName: true, itemId: true },
-		}),
-	])
+		})
 
-	const itemById = new Map(existingItems.map((item) => [item.id, item]))
-	const targetByCanonical = selectNextShopDemandTargets(
-		existingItems,
-		lines.map((line) => line.canonicalName),
-	)
-	const contributed = new Set(existingContributions.map((c) => c.canonicalName))
+		const itemById = new Map(existingItems.map((item) => [item.id, item]))
+		const targetByCanonical = selectNextShopDemandTargets(
+			existingItems,
+			lines.map((line) => line.canonicalName),
+		)
+		const contributionByCanonical = new Map(
+			existingContributions.map((c) => [c.canonicalName, c]),
+		)
+		const promote = promoter(tx)
 
-	const writes = []
+		let createdRowCount = 0
+		let attachedCount = 0
+		let alreadyContributedCount = 0
+		const seen = new Set<string>()
+
+		for (const line of lines) {
+			// Respect the (mealId, canonicalName) identity within one call too.
+			if (seen.has(line.canonicalName)) continue
+			seen.add(line.canonicalName)
+
+			const contributed = contributionByCanonical.get(line.canonicalName)
+			if (contributed) {
+				// Current-state record already exists — this is not a refresh (#110).
+				await promote(itemById.get(contributed.itemId))
+				alreadyContributedCount++
+				continue
+			}
+
+			const existingRow = targetByCanonical.get(line.canonicalName)
+			if (existingRow) {
+				await promote(existingRow)
+				// A compatible row is already displayed (manual or generated) —
+				// record provenance against it without creating a visual
+				// duplicate or rewriting the row.
+				await tx.mealShoppingContribution.create({
+					data: contributionData(mealId, line, existingRow.id),
+				})
+				attachedCount++
+			} else {
+				await createMealRow(tx, { mealId, listId, line })
+				createdRowCount++
+			}
+		}
+
+		return {
+			createdRowCount,
+			attachedCount,
+			alreadyContributedCount,
+			promotedRowCount: promote.count(),
+		}
+	})
+}
+
+/** Move an unchecked Later row to Next shop once, for new generated demand. */
+function promoter(tx: Tx) {
 	const promotedIds = new Set<string>()
-	const promote = (item: (typeof existingItems)[number] | undefined) => {
+	const promote = async (
+		item: { id: string; checked: boolean; horizon: string } | undefined,
+	) => {
 		if (!item || item.checked || item.horizon !== LATER) return
 		if (promotedIds.has(item.id)) return
 		promotedIds.add(item.id)
-		writes.push(
-			db.shoppingListItem.update({
-				where: { id: item.id },
-				data: { horizon: NEXT_SHOP },
-			}),
-		)
+		await tx.shoppingListItem.update({
+			where: { id: item.id },
+			data: { horizon: NEXT_SHOP },
+		})
 	}
-	let createdRowCount = 0
-	let attachedCount = 0
-	let alreadyContributedCount = 0
-	const seen = new Set<string>()
+	promote.count = () => promotedIds.size
+	return promote
+}
 
-	for (const line of lines) {
-		// Respect the (mealId, canonicalName) identity within one call too.
-		if (seen.has(line.canonicalName)) continue
-		seen.add(line.canonicalName)
+function contributionData(
+	mealId: string,
+	line: ShoppingDemandLine,
+	itemId: string,
+) {
+	return {
+		id: createId(),
+		mealId,
+		itemId,
+		canonicalName: line.canonicalName,
+		name: line.name,
+		quantity: line.quantity,
+		unit: line.unit,
+	}
+}
 
-		if (contributed.has(line.canonicalName)) {
-			// Current-state record already exists — this is not a refresh (#110).
-			const contribution = existingContributions.find(
-				(entry) => entry.canonicalName === line.canonicalName,
-			)
-			promote(itemById.get(contribution?.itemId ?? ''))
-			alreadyContributedCount++
-			continue
-		}
-
-		const contribution = {
-			id: createId(),
-			mealId,
-			canonicalName: line.canonicalName,
+/** A new unchecked Next shop row holding one line of this Meal's demand. */
+async function createMealRow(
+	tx: Tx,
+	{
+		mealId,
+		listId,
+		line,
+	}: { mealId: string; listId: string; line: ShoppingDemandLine },
+) {
+	const itemId = createId()
+	await tx.shoppingListItem.create({
+		data: {
+			id: itemId,
+			listId,
 			name: line.name,
 			quantity: line.quantity,
 			unit: line.unit,
-		}
-
-		const existingRow = targetByCanonical.get(line.canonicalName)
-		if (existingRow) {
-			promote(existingRow)
-			// A compatible row is already displayed (manual or generated) — record
-			// provenance against it without creating a visual duplicate or
-			// rewriting the row.
-			writes.push(
-				db.mealShoppingContribution.create({
-					data: { ...contribution, itemId: existingRow.id },
-				}),
-			)
-			attachedCount++
-		} else {
-			const itemId = createId()
-			writes.push(
-				db.shoppingListItem.create({
-					data: {
-						id: itemId,
-						listId,
-						name: line.name,
-						quantity: line.quantity,
-						unit: line.unit,
-						category: line.category,
-						checked: false,
-						source: 'meal',
-						horizon: NEXT_SHOP,
-					},
-				}),
-				db.mealShoppingContribution.create({
-					data: { ...contribution, itemId },
-				}),
-			)
-			createdRowCount++
-		}
-	}
-
-	if (writes.length > 0) {
-		try {
-			// One short batch transaction: a row and its contribution land
-			// together or not at all.
-			await db.$transaction(writes)
-		} catch (error) {
-			// A concurrent identical add hit the (mealId, canonicalName) unique
-			// index first — its transaction already recorded this demand.
-			if (isUniqueConstraintError(error)) {
-				return {
-					createdRowCount: 0,
-					attachedCount: 0,
-					alreadyContributedCount: lines.length,
-					promotedRowCount: 0,
-				}
-			}
-			throw error
-		}
-	}
-
-	return {
-		createdRowCount,
-		attachedCount,
-		alreadyContributedCount,
-		promotedRowCount: promotedIds.size,
-	}
+			category: line.category,
+			checked: false,
+			source: 'meal',
+			horizon: NEXT_SHOP,
+		},
+	})
+	await tx.mealShoppingContribution.create({
+		data: contributionData(mealId, line, itemId),
+	})
 }
 
 /**
@@ -178,7 +184,7 @@ export async function reconcileMealShoppingContributions(
  * unchecked even when the ordinary initial-add availability seam would have
  * pre-checked them.
  */
-export async function replaceMealShoppingContributions(
+export function replaceMealShoppingContributions(
 	db: PrismaClient,
 	{
 		mealId,
@@ -196,21 +202,19 @@ export async function replaceMealShoppingContributions(
 	removedContributionCount: number
 	promotedRowCount: number
 }> {
-	const [existingItems, existingContributions] = await Promise.all([
-		db.shoppingListItem.findMany({
+	return writeTransaction(db, async (tx) => {
+		const existingItems = await tx.shoppingListItem.findMany({
 			where: { listId },
+			orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
 			select: {
 				id: true,
 				name: true,
 				source: true,
-				quantity: true,
-				unit: true,
-				category: true,
 				checked: true,
 				horizon: true,
 			},
-		}),
-		db.mealShoppingContribution.findMany({
+		})
+		const existingContributions = await tx.mealShoppingContribution.findMany({
 			where: { mealId },
 			select: {
 				id: true,
@@ -220,82 +224,64 @@ export async function replaceMealShoppingContributions(
 				quantity: true,
 				unit: true,
 			},
-		}),
-	])
+		})
 
-	const rowById = new Map(existingItems.map((item) => [item.id, item]))
-	const rowByCanonical = selectNextShopDemandTargets(
-		existingItems,
-		lines.map((line) => line.canonicalName),
-	)
-	const contributionByCanonical = new Map(
-		existingContributions.map((contribution) => [
-			contribution.canonicalName,
-			contribution,
-		]),
-	)
-	const freshByCanonical = new Map<string, (typeof lines)[number]>()
-	for (const line of lines) {
-		if (!freshByCanonical.has(line.canonicalName)) {
-			freshByCanonical.set(line.canonicalName, line)
-		}
-	}
-
-	const writes = []
-	const promotedIds = new Set<string>()
-	const promote = (item: (typeof existingItems)[number] | undefined) => {
-		if (!item || item.checked || item.horizon !== LATER) return
-		if (promotedIds.has(item.id)) return
-		promotedIds.add(item.id)
-		writes.push(
-			db.shoppingListItem.update({
-				where: { id: item.id },
-				data: { horizon: NEXT_SHOP },
-			}),
+		const rowById = new Map(existingItems.map((item) => [item.id, item]))
+		const rowByCanonical = selectNextShopDemandTargets(
+			existingItems,
+			lines.map((line) => line.canonicalName),
 		)
-	}
-	let createdRowCount = 0
-	let attachedCount = 0
-	let updatedContributionCount = 0
-	let removedContributionCount = 0
-	const possiblyEmptyMealRows = new Set<string>()
-
-	for (const contribution of existingContributions) {
-		const line = freshByCanonical.get(contribution.canonicalName)
-		if (!line) {
-			writes.push(
-				db.mealShoppingContribution.delete({
-					where: { id: contribution.id },
-				}),
-			)
-			possiblyEmptyMealRows.add(contribution.itemId)
-			removedContributionCount++
-			continue
+		const contributionByCanonical = new Map(
+			existingContributions.map((contribution) => [
+				contribution.canonicalName,
+				contribution,
+			]),
+		)
+		const freshByCanonical = new Map<string, ShoppingDemandLine>()
+		for (const line of lines) {
+			if (!freshByCanonical.has(line.canonicalName)) {
+				freshByCanonical.set(line.canonicalName, line)
+			}
 		}
 
-		if (
-			contribution.name !== line.name ||
-			contribution.quantity !== line.quantity ||
-			contribution.unit !== line.unit
-		) {
-			writes.push(
-				db.mealShoppingContribution.update({
+		const promote = promoter(tx)
+		let createdRowCount = 0
+		let attachedCount = 0
+		let updatedContributionCount = 0
+		let removedContributionCount = 0
+		const possiblyEmptyMealRows = new Set<string>()
+
+		for (const contribution of existingContributions) {
+			const line = freshByCanonical.get(contribution.canonicalName)
+			if (!line) {
+				await tx.mealShoppingContribution.delete({
+					where: { id: contribution.id },
+				})
+				possiblyEmptyMealRows.add(contribution.itemId)
+				removedContributionCount++
+				continue
+			}
+
+			if (
+				contribution.name !== line.name ||
+				contribution.quantity !== line.quantity ||
+				contribution.unit !== line.unit
+			) {
+				await tx.mealShoppingContribution.update({
 					where: { id: contribution.id },
 					data: {
 						name: line.name,
 						quantity: line.quantity,
 						unit: line.unit,
 					},
-				}),
-			)
-			updatedContributionCount++
-		}
+				})
+				updatedContributionCount++
+			}
 
-		const row = rowById.get(contribution.itemId)
-		promote(row)
-		if (row?.source === 'meal') {
-			writes.push(
-				db.shoppingListItem.update({
+			const row = rowById.get(contribution.itemId)
+			await promote(row)
+			if (row?.source === 'meal') {
+				await tx.shoppingListItem.update({
 					where: { id: row.id },
 					data: {
 						name: line.name,
@@ -303,75 +289,44 @@ export async function replaceMealShoppingContributions(
 						unit: line.unit,
 						category: line.category,
 					},
-				}),
-			)
+				})
+			}
 		}
-	}
 
-	for (const line of freshByCanonical.values()) {
-		if (contributionByCanonical.has(line.canonicalName)) continue
+		for (const line of freshByCanonical.values()) {
+			if (contributionByCanonical.has(line.canonicalName)) continue
 
-		const existingRow = rowByCanonical.get(line.canonicalName)
-		const contribution = {
-			id: createId(),
-			mealId,
-			canonicalName: line.canonicalName,
-			name: line.name,
-			quantity: line.quantity,
-			unit: line.unit,
+			const existingRow = rowByCanonical.get(line.canonicalName)
+			if (existingRow) {
+				await promote(existingRow)
+				await tx.mealShoppingContribution.create({
+					data: contributionData(mealId, line, existingRow.id),
+				})
+				attachedCount++
+			} else {
+				await createMealRow(tx, { mealId, listId, line })
+				createdRowCount++
+			}
 		}
-		if (existingRow) {
-			promote(existingRow)
-			writes.push(
-				db.mealShoppingContribution.create({
-					data: { ...contribution, itemId: existingRow.id },
-				}),
-			)
-			attachedCount++
-		} else {
-			const itemId = createId()
-			writes.push(
-				db.shoppingListItem.create({
-					data: {
-						id: itemId,
-						listId,
-						name: line.name,
-						quantity: line.quantity,
-						unit: line.unit,
-						category: line.category,
-						checked: false,
-						source: 'meal',
-						horizon: NEXT_SHOP,
-					},
-				}),
-				db.mealShoppingContribution.create({
-					data: { ...contribution, itemId },
-				}),
-			)
-			createdRowCount++
-		}
-	}
 
-	if (possiblyEmptyMealRows.size > 0) {
-		writes.push(
-			db.shoppingListItem.deleteMany({
+		if (possiblyEmptyMealRows.size > 0) {
+			await tx.shoppingListItem.deleteMany({
 				where: {
 					id: { in: [...possiblyEmptyMealRows] },
 					source: 'meal',
 					mealContributions: { none: {} },
 				},
-			}),
-		)
-	}
-	if (writes.length > 0) await db.$transaction(writes)
+			})
+		}
 
-	return {
-		createdRowCount,
-		attachedCount,
-		updatedContributionCount,
-		removedContributionCount,
-		promotedRowCount: promotedIds.size,
-	}
+		return {
+			createdRowCount,
+			attachedCount,
+			updatedContributionCount,
+			removedContributionCount,
+			promotedRowCount: promote.count(),
+		}
+	})
 }
 
 /**
@@ -494,28 +449,26 @@ export async function removeGeneratedShoppingAmount(
 }
 
 /** Delete a Meal and its chosen generated Shopping component atomically. */
-export async function removeMealWithShoppingContributions(
+export function removeMealWithShoppingContributions(
 	db: PrismaClient,
 	{ mealId }: { mealId: string },
 ) {
-	const contributions = await db.mealShoppingContribution.findMany({
-		where: { mealId },
-		select: { itemId: true },
+	return writeTransaction(db, async (tx) => {
+		const contributions = await tx.mealShoppingContribution.findMany({
+			where: { mealId },
+			select: { itemId: true },
+		})
+		const itemIds = [...new Set(contributions.map((entry) => entry.itemId))]
+		await tx.mealShoppingContribution.deleteMany({ where: { mealId } })
+		await tx.meal.delete({ where: { id: mealId } })
+		if (itemIds.length > 0) {
+			await tx.shoppingListItem.deleteMany({
+				where: {
+					id: { in: itemIds },
+					source: 'meal',
+					mealContributions: { none: {} },
+				},
+			})
+		}
 	})
-	const itemIds = [...new Set(contributions.map((entry) => entry.itemId))]
-	await db.$transaction([
-		db.mealShoppingContribution.deleteMany({ where: { mealId } }),
-		db.meal.delete({ where: { id: mealId } }),
-		...(itemIds.length > 0
-			? [
-					db.shoppingListItem.deleteMany({
-						where: {
-							id: { in: itemIds },
-							source: 'meal',
-							mealContributions: { none: {} },
-						},
-					}),
-				]
-			: []),
-	])
 }

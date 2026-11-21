@@ -12,14 +12,6 @@ test('a Recipe restored from its export keeps its heading out of checks and Shop
 }) => {
 	test.setTimeout(30_000)
 	const user = await login()
-	// Adding to Shopping, from the Recipe or the Plan, needs Pro.
-	await prisma.subscription.create({
-		data: {
-			userId: user.id,
-			tier: 'pro',
-			trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-		},
-	})
 	const original = await prisma.recipe.create({
 		data: {
 			title: 'Roast chicken',
@@ -210,4 +202,84 @@ test('a Recipe restored from its export still opens its sub-Recipe', async ({
 	await expect(
 		page.getByRole('heading', { level: 1, name: 'Salsa verde' }),
 	).toBeVisible()
+})
+
+test('a Free user restores Plan and Shopping from a full export, and sees which Meal failed', async ({
+	page,
+	login,
+}) => {
+	test.setTimeout(30_000)
+	const user = await login()
+	const exportFile = JSON.stringify({
+		format: 'quartermaster-full-export-v1',
+		recipes: [
+			{
+				ref: 'r1',
+				title: 'Lentil soup',
+				ingredients: [{ name: 'lentils' }],
+				instructions: ['Simmer.'],
+			},
+		],
+		mealPlans: [
+			{
+				weekStart: '2026-10-19T00:00:00.000Z',
+				meals: [
+					{
+						date: '2026-10-21T00:00:00.000Z',
+						label: 'dinner',
+						items: [{ recipeRef: 'r1', recipeTitle: 'Lentil soup' }],
+					},
+					// An unreadable date: this Meal can't be restored.
+					{ date: 'the 22nd', genericText: 'Takeaway' },
+				],
+			},
+		],
+		shoppingLists: [
+			{ name: 'Shopping', items: [{ name: 'lemons', quantity: '2' }] },
+		],
+	})
+
+	await page.goto('/settings/profile/import')
+	await page.getByLabel('Select export file').setInputFiles({
+		name: 'quartermaster-export.json',
+		mimeType: 'application/json',
+		buffer: Buffer.from(exportFile),
+	})
+	await page.getByRole('button', { name: 'Import', exact: true }).click()
+	await expect(page.getByRole('link', { name: 'View recipes' })).toBeVisible()
+	const mealsRow = page.getByText('Meals', { exact: true }).locator('..')
+	await expect(mealsRow).toContainText('1 imported')
+	await expect(mealsRow).toContainText('1 failed')
+
+	const meals = await prisma.meal.findMany({
+		where: { mealPlan: { householdId: user.householdId } },
+		select: {
+			label: true,
+			genericText: true,
+			recipeItems: { select: { recipeTitle: true } },
+		},
+	})
+	expect(meals).toEqual([
+		{
+			label: 'dinner',
+			genericText: null,
+			recipeItems: [{ recipeTitle: 'Lentil soup' }],
+		},
+	])
+	expect(
+		await prisma.shoppingListItem.findMany({
+			where: { list: { householdId: user.householdId } },
+			select: { name: true, quantity: true },
+		}),
+	).toEqual([{ name: 'lemons', quantity: '2' }])
+
+	await page.setViewportSize({ width: 390, height: 844 })
+	await page.goto('/plan?weekStart=2026-10-19')
+	await expect(
+		page.getByTestId('mobile-plan').getByText('Lentil soup'),
+	).toBeVisible()
+	await expect(page.getByText('Takeaway')).toHaveCount(0)
+
+	await page.goto('/shopping')
+	await expect(page.getByLabel('lemons shopping item')).toContainText('2')
 })

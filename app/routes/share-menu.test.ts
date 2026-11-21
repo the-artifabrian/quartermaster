@@ -551,6 +551,13 @@ test('a household change during image transfer cannot write to the old household
 	).toBe(0)
 })
 
+// The restore form sends its file as multipart, the only encoding it takes.
+function formWithImportData(importData: string) {
+	const form = new FormData()
+	form.set('importData', importData)
+	return form
+}
+
 test('JSON recovery preserves repeat-save identity after a renamed saved Menu is restored', async () => {
 	const { target, menu } = await setup()
 	const savedId = await saveSharedMenu({ ...target, menuId: menu.id })
@@ -572,9 +579,6 @@ test('JSON recovery preserves repeat-save identity after a renamed saved Menu is
 	}
 	expect(exported.menus[0]!.copiedFromMenuId).toBe(menu.id)
 	const restored = await household()
-	await prisma.subscription.create({
-		data: { userId: restored.userId, tier: 'pro' },
-	})
 	await prisma.menu.create({
 		data: {
 			title: 'My dinner',
@@ -589,7 +593,7 @@ test('JSON recovery preserves repeat-save identity after a renamed saved Menu is
 		request: new Request(routeArgs.url, {
 			method: 'POST',
 			headers: routeArgs.request.headers,
-			body: new URLSearchParams({ importData: JSON.stringify(exported) }),
+			body: formWithImportData(JSON.stringify(exported)),
 		}),
 	})
 	expect(result).toMatchObject({
@@ -621,7 +625,7 @@ test('JSON recovery preserves repeat-save identity after a renamed saved Menu is
 		request: new Request(routeArgs.url, {
 			method: 'POST',
 			headers: routeArgs.request.headers,
-			body: new URLSearchParams({ importData: JSON.stringify(exported) }),
+			body: formWithImportData(JSON.stringify(exported)),
 		}),
 	})
 	expect(repeated).toMatchObject({

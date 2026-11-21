@@ -6,6 +6,10 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 import { Button } from '#app/components/ui/button.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
+import {
+	BodyTooLargeError,
+	readBoundedText,
+} from '#app/utils/bounded-body.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
 	householdIngredientDisplayName,
@@ -16,6 +20,7 @@ import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
 import { createMealWithItems } from '#app/utils/meal.server.ts'
 import { groupSnapshotEntries } from '#app/utils/menu-snapshot.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
+import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import { ensureRecipeMetadataValues } from '#app/utils/recipe-metadata.server.ts'
 import { MAX_RAW_TEXT_LENGTH } from '#app/utils/recipe-validation.ts'
 import {
@@ -29,7 +34,6 @@ import {
 	ShoppingHorizonSchema,
 } from '#app/utils/shopping-horizon.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
-import { getUserTier } from '#app/utils/subscription.server.ts'
 import { writeTransaction } from '#app/utils/write-transaction.server.ts'
 import { type Route } from './+types/import.ts'
 import { type SettingsPageHandle } from './_layout.tsx'
@@ -334,6 +338,92 @@ type FullExport = z.infer<typeof FullExportSchema>
 type RecipeOnlyExport = z.infer<typeof RecipeOnlyExportSchema>
 type ImportRecipe = z.infer<typeof ImportRecipeSchema>
 
+/**
+ * The largest export file a restore takes. The form checks it before sending
+ * and the action before parsing. Real full exports are well under 1 MB, and
+ * parsing costs several times a file's size in memory on a 512 MB server.
+ */
+export const RESTORE_MAX_FILE_BYTES = 10 * 1024 * 1024
+const FILE_TOO_BIG = 'That file is too big. A restore takes files up to 10 MB.'
+
+/**
+ * Totals across the whole file. Each list already has its own limit, but
+ * nested lists multiply, and every Meal is its own write. These sit far above
+ * what a Household builds up, so only a crafted file reaches them.
+ */
+export const RESTORE_LIMITS = {
+	recipeLines: 50_000,
+	menuCards: 5_000,
+	meals: 5_000,
+	mealCards: 20_000,
+	shoppingItems: 2_000,
+	shoppingMealLinks: 10_000,
+}
+
+const RESTORE_LIMIT_LABELS: Record<keyof typeof RESTORE_LIMITS, string> = {
+	recipeLines: 'Recipe ingredients and steps',
+	menuCards: 'cards on Menus',
+	meals: 'Meals',
+	mealCards: 'cards on Meals',
+	shoppingItems: 'Shopping items',
+	shoppingMealLinks: 'Meal links on Shopping items',
+}
+
+function countRestoreTotals(
+	recipes: ImportRecipe[],
+	full: FullExport | null,
+): Record<keyof typeof RESTORE_LIMITS, number> {
+	const sum = <T,>(list: T[] | undefined, count: (item: T) => number) =>
+		(list ?? []).reduce((total, item) => total + count(item), 0)
+	return {
+		recipeLines: sum(
+			recipes,
+			(recipe) => recipe.ingredients.length + recipe.instructions.length,
+		),
+		menuCards: sum(full?.menus, (menu) =>
+			sum(menu.sections, (section) => section.items?.length ?? 0),
+		),
+		meals: sum(
+			full?.mealPlans,
+			(plan) => (plan.meals?.length ?? 0) + (plan.entries?.length ?? 0),
+		),
+		mealCards: sum(full?.mealPlans, (plan) =>
+			sum(
+				plan.meals,
+				(meal) =>
+					(meal.items?.length ?? 0) +
+					sum(meal.sections, (section) => section.items?.length ?? 0),
+			),
+		),
+		shoppingItems: sum(full?.shoppingLists, (list) => list.items.length),
+		shoppingMealLinks: sum(full?.shoppingLists, (list) =>
+			sum(list.items, (item) => item.mealContributions?.length ?? 0),
+		),
+	}
+}
+
+function overLimitError(recipes: ImportRecipe[], full: FullExport | null) {
+	const totals = countRestoreTotals(recipes, full)
+	for (const key of Object.keys(RESTORE_LIMITS) as Array<
+		keyof typeof RESTORE_LIMITS
+	>) {
+		if (totals[key] > RESTORE_LIMITS[key]) {
+			const count = (n: number) => n.toLocaleString('en-US')
+			return `This file has ${count(totals[key])} ${RESTORE_LIMIT_LABELS[key]}. A restore takes up to ${count(RESTORE_LIMITS[key])}.`
+		}
+	}
+	return null
+}
+
+function invalidDataError(error: z.ZodError) {
+	const issue = error.issues[0]
+	if (!issue) return 'Invalid data: validation failed'
+	const at = issue.path.join('.')
+	return at
+		? `Invalid data at ${at}: ${issue.message}`
+		: `Invalid data: ${issue.message}`
+}
+
 function parseImportData(
 	parsed: unknown,
 ):
@@ -348,18 +438,18 @@ function parseImportData(
 
 	if (obj.format === 'quartermaster-full-export-v1') {
 		const result = FullExportSchema.safeParse(parsed)
-		if (result.success) return { type: 'full', data: result.data }
-		return {
-			error: `Invalid data: ${result.error.issues[0]?.message ?? 'validation failed'}`,
-		}
+		if (!result.success) return { error: invalidDataError(result.error) }
+		const overLimit = overLimitError(result.data.recipes, result.data)
+		if (overLimit) return { error: overLimit }
+		return { type: 'full', data: result.data }
 	}
 
 	if ('recipeCount' in obj) {
 		const result = RecipeOnlyExportSchema.safeParse(parsed)
-		if (result.success) return { type: 'recipe-only', data: result.data }
-		return {
-			error: `Invalid data: ${result.error.issues[0]?.message ?? 'validation failed'}`,
-		}
+		if (!result.success) return { error: invalidDataError(result.error) }
+		const overLimit = overLimitError(result.data.recipes, null)
+		if (overLimit) return { error: overLimit }
+		return { type: 'recipe-only', data: result.data }
 	}
 
 	return { error: 'Unrecognized format. Expected a Quartermaster export file.' }
@@ -378,13 +468,17 @@ interface ImportPreview {
 	isFullExport: boolean
 }
 
+// Skipped means the Household already has it. Errored means it is in the
+// file but couldn't be restored.
+type RestoreCounts = { created: number; skipped: number; errored: number }
+
 interface ImportResults {
-	recipes: { created: number; skipped: number; errored: number }
-	menus: { created: number; skipped: number; errored: number }
+	recipes: RestoreCounts
+	menus: RestoreCounts
 	recipeMetadataValues: { created: number; skipped: number }
 	householdIngredients: { created: number; skipped: number }
-	mealPlans: { created: number; skipped: number }
-	meals: { created: number; skipped: number }
+	mealPlans: RestoreCounts
+	meals: RestoreCounts
 	shoppingLists: { created: number; skipped: number }
 }
 
@@ -413,6 +507,41 @@ function getShoppingListItemImportKey(item: ShoppingListItemImport) {
 // --- Action ---
 
 /**
+ * One thing in the file that a restore couldn't bring back. It is counted in
+ * the result the user sees and logged with where it sits in the file. The log
+ * never carries the user's own text, and neither does a Prisma error message,
+ * which can quote the values it was given.
+ */
+interface RestoreFailure {
+	/** Where it sits in the file, such as `mealPlans[2].meals[5]`. */
+	at: string
+	reason:
+		| 'invalid-date'
+		| 'invalid-week'
+		| 'nothing-to-restore'
+		| 'recipe-not-in-file'
+		| 'write-refused'
+	/** How many items it stands for, when a whole week fails at once. */
+	count?: number
+	/** The Prisma error code, for a write the database refused. */
+	code?: string
+}
+
+type RecordFailure = (failure: RestoreFailure) => void
+
+/**
+ * The write errors a restore counts as one failed item: a row it points at
+ * was deleted while the restore ran (P2003, P2025), or the same unique row
+ * was saved at the same moment (P2002). Anything else is unexpected, and the
+ * restore stops with it. Running the restore again skips what it already
+ * saved and picks up the rest.
+ */
+function refusedWriteCode(error: unknown) {
+	const code = (error as { code?: unknown } | null)?.code
+	return code === 'P2002' || code === 'P2003' || code === 'P2025' ? code : null
+}
+
+/**
  * How the import file's Recipes resolve to household Recipe rows once the
  * Recipe pass finishes: by export-local reference key, by normalized title,
  * and back to a display title for freezing on Menu cards.
@@ -428,6 +557,7 @@ async function importRecipes(
 	{ titleToIdMap, refToIdMap, titleById }: RecipeIndex,
 	userId: string,
 	householdId: string,
+	recordFailure: RecordFailure,
 ) {
 	const stats = { created: 0, skipped: 0, errored: 0 }
 	// Sub-Recipe links of the Recipes this import creates. A skipped duplicate
@@ -438,7 +568,7 @@ async function importRecipes(
 		ref: string
 	}> = []
 
-	for (const recipe of recipes) {
+	for (const [index, recipe] of recipes.entries()) {
 		const lowerTitle = recipe.title.toLowerCase()
 		const existingId = titleToIdMap.get(lowerTitle)
 		if (existingId != null) {
@@ -519,7 +649,10 @@ async function importRecipes(
 					})
 			})
 			stats.created++
-		} catch {
+		} catch (error) {
+			const code = refusedWriteCode(error)
+			if (!code) throw error
+			recordFailure({ at: `recipes[${index}]`, reason: 'write-refused', code })
 			stats.errored++
 		}
 	}
@@ -565,6 +698,7 @@ async function importMenus(
 	menus: ImportMenu[],
 	recipeIndex: RecipeIndex,
 	householdId: string,
+	recordFailure: RecordFailure,
 ) {
 	const stats = { created: 0, skipped: 0, errored: 0 }
 	const sharedMenuIdsByTitleKey = new Map<string, string | null>()
@@ -580,7 +714,7 @@ async function importMenus(
 			menu.copiedFromMenuId ? [[menu.copiedFromMenuId, menu.id] as const] : [],
 		),
 	)
-	for (const menu of menus) {
+	for (const [index, menu] of menus.entries()) {
 		if (menu.copiedFromMenuId) {
 			const savedId = savedSources.get(menu.copiedFromMenuId)
 			// Meals name their source Menu as it appeared in the export. Keep
@@ -702,7 +836,10 @@ async function importMenus(
 				sharedMenuIdsByTitleKey.set(menuTitleKey(menu.title), created.id)
 			}
 			stats.created++
-		} catch {
+		} catch (error) {
+			const code = refusedWriteCode(error)
+			if (!code) throw error
+			recordFailure({ at: `menus[${index}]`, reason: 'write-refused', code })
 			stats.errored++
 		}
 	}
@@ -721,28 +858,34 @@ const LEGACY_SLOT_ORDER = ['breakfast', 'lunch', 'dinner', 'snack']
  * day and meal type become one labeled Meal, a serving override becomes
  * override / Recipe.servings, day order runs breakfast, lunch, dinner, snack,
  * then unexpected labels lexically, and items keep file order. An entry whose
- * Recipe title has no match is skipped like the legacy import path skipped
- * it — the retired shape froze no display identity to keep as a missing card.
+ * Recipe title has no match can't restore: the retired shape froze no display
+ * identity to keep as a missing card. It comes back as a failed entry, as does
+ * one with an unreadable date.
  */
+type LegacyEntryFailure = {
+	index: number
+	reason: 'invalid-date' | 'recipe-not-in-file'
+}
+
 function legacyEntriesToMeals(
 	entries: ImportMealPlanEntry[],
 	titleToIdMap: Map<string, string>,
 	servingsByRecipeId: Map<string, number>,
-): { meals: ImportMeal[]; skippedEntries: number } {
-	let skippedEntries = 0
+): { meals: ImportMeal[]; failedEntries: LegacyEntryFailure[] } {
+	const failedEntries: LegacyEntryFailure[] = []
 	const groups = new Map<
 		string,
 		{ day: string; mealType: string; items: NonNullable<ImportMeal['items']> }
 	>()
-	for (const entry of entries) {
+	for (const [index, entry] of entries.entries()) {
 		const parsed = new Date(entry.date)
 		if (Number.isNaN(parsed.getTime())) {
-			skippedEntries++
+			failedEntries.push({ index, reason: 'invalid-date' })
 			continue
 		}
 		const recipeId = titleToIdMap.get(entry.recipe.toLowerCase())
 		if (!recipeId) {
-			skippedEntries++
+			failedEntries.push({ index, reason: 'recipe-not-in-file' })
 			continue
 		}
 		const day = new Date(
@@ -787,7 +930,7 @@ function legacyEntriesToMeals(
 			label: group.mealType,
 			items: group.items,
 		}))
-	return { meals, skippedEntries }
+	return { meals, failedEntries }
 }
 
 /**
@@ -883,8 +1026,16 @@ async function importMeals(
 	recipeIndex: RecipeIndex,
 	menuIdByTitleKey: Map<string, string | null>,
 	mealIdByRef: Map<string, string>,
+	{
+		locate,
+		recordFailure,
+	}: { locate: (index: number) => string; recordFailure: RecordFailure },
 ) {
-	const stats = { created: 0, skipped: 0 }
+	const stats = { created: 0, skipped: 0, errored: 0 }
+	const fail = (index: number, failure: Omit<RestoreFailure, 'at'>) => {
+		recordFailure({ at: locate(index), ...failure })
+		stats.errored++
+	}
 
 	const existingMeals = await prisma.meal.findMany({
 		where: { mealPlanId },
@@ -1030,10 +1181,10 @@ async function importMeals(
 		]
 	}
 
-	for (const meal of meals) {
+	for (const [index, meal] of meals.entries()) {
 		const date = new Date(meal.date)
 		if (Number.isNaN(date.getTime())) {
-			stats.skipped++
+			fail(index, { reason: 'invalid-date' })
 			continue
 		}
 
@@ -1050,13 +1201,13 @@ async function importMeals(
 
 		const genericText = meal.genericText || null
 		// A Meal with neither generic text nor restorable snapshot content
-		// would be an empty shell — skip it. A note-only snapshot Meal is valid
-		// (#98 readiness corrections) and restores.
+		// would be an empty shell, so it fails. A note-only snapshot Meal is
+		// valid (#98 readiness corrections) and restores.
 		const hasSectionContent = sections.some(
 			(section) => section.items.length > 0,
 		)
 		if (genericText == null && items.length === 0 && !hasSectionContent) {
-			stats.skipped++
+			fail(index, { reason: 'nothing-to-restore' })
 			continue
 		}
 
@@ -1133,8 +1284,10 @@ async function importMeals(
 			}
 			nextOrderByDay.set(day, order + 1)
 			stats.created++
-		} catch {
-			stats.skipped++
+		} catch (error) {
+			const code = refusedWriteCode(error)
+			if (!code) throw error
+			fail(index, { reason: 'write-refused', code })
 		}
 	}
 
@@ -1154,10 +1307,11 @@ async function importMealPlans(
 	recipeIndex: RecipeIndex,
 	sharedMenuIdsByTitleKey: Map<string, string | null>,
 	householdId: string,
+	recordFailure: RecordFailure,
 ) {
 	const stats = {
-		mealPlans: { created: 0, skipped: 0 },
-		meals: { created: 0, skipped: 0 },
+		mealPlans: { created: 0, skipped: 0, errored: 0 },
+		meals: { created: 0, skipped: 0, errored: 0 },
 	}
 	const mealIdByRef = new Map<string, string>()
 	// Source Menu titles resolve through this import's shared-copy mapping
@@ -1166,16 +1320,12 @@ async function importMealPlans(
 	if (
 		mealPlans.some((plan) => plan.meals?.some((meal) => meal.sourceMenuTitle))
 	) {
-		try {
-			const householdMenus = await prisma.menu.findMany({
-				where: { householdId },
-				select: { id: true, titleKey: true },
-			})
-			for (const menu of householdMenus) {
-				menuIdByTitleKey.set(menu.titleKey, menu.id)
-			}
-		} catch {
-			// Meals still import — their source Menu link stays unset.
+		const householdMenus = await prisma.menu.findMany({
+			where: { householdId },
+			select: { id: true, titleKey: true },
+		})
+		for (const menu of householdMenus) {
+			menuIdByTitleKey.set(menu.titleKey, menu.id)
 		}
 	}
 	for (const [titleKey, id] of sharedMenuIdsByTitleKey) {
@@ -1197,47 +1347,69 @@ async function importMealPlans(
 		}
 	}
 
-	for (const plan of mealPlans) {
-		try {
-			const weekStart = new Date(plan.weekStart)
+	const addMealStats = (mealStats: RestoreCounts) => {
+		stats.meals.created += mealStats.created
+		stats.meals.skipped += mealStats.skipped
+		stats.meals.errored += mealStats.errored
+	}
 
-			const mealPlan = await ensureMealPlan(prisma, {
-				householdId,
-				weekStart,
-			})
+	for (const [planIndex, plan] of mealPlans.entries()) {
+		const at = `mealPlans[${planIndex}]`
+		const weekStart = new Date(plan.weekStart)
+		if (Number.isNaN(weekStart.getTime())) {
+			// Without its week there is no plan to put the Meals in, so every
+			// Meal (or older entry) in it fails.
+			const meals = plan.meals?.length ?? 0
+			const entries = meals > 0 ? 0 : (plan.entries?.length ?? 0)
+			if (meals + entries > 0) {
+				recordFailure({ at, reason: 'invalid-week', count: meals + entries })
+			}
+			stats.meals.errored += meals
+			stats.mealPlans.errored += entries
+			continue
+		}
 
-			if (plan.meals?.length) {
-				// A file that carries Meals restores only them — its `entries`,
-				// when present (#104–#106 window exports), are the dual-write
-				// mirrors of those same Meals.
-				const mealStats = await importMeals(
+		const mealPlan = await ensureMealPlan(prisma, { householdId, weekStart })
+
+		if (plan.meals?.length) {
+			// A file that carries Meals restores only them — its `entries`,
+			// when present (#104–#106 window exports), are the dual-write
+			// mirrors of those same Meals.
+			addMealStats(
+				await importMeals(
 					plan.meals,
 					mealPlan.id,
 					recipeIndex,
 					menuIdByTitleKey,
 					mealIdByRef,
-				)
-				stats.meals.created += mealStats.created
-				stats.meals.skipped += mealStats.skipped
-			} else if (plan.entries?.length) {
-				const { meals, skippedEntries } = legacyEntriesToMeals(
-					plan.entries,
-					recipeIndex.titleToIdMap,
-					servingsByRecipeId,
-				)
-				stats.mealPlans.skipped += skippedEntries
-				const mealStats = await importMeals(
+					{ locate: (index) => `${at}.meals[${index}]`, recordFailure },
+				),
+			)
+		} else if (plan.entries?.length) {
+			const { meals, failedEntries } = legacyEntriesToMeals(
+				plan.entries,
+				recipeIndex.titleToIdMap,
+				servingsByRecipeId,
+			)
+			for (const { index, reason } of failedEntries) {
+				recordFailure({ at: `${at}.entries[${index}]`, reason })
+			}
+			stats.mealPlans.errored += failedEntries.length
+			addMealStats(
+				await importMeals(
 					meals,
 					mealPlan.id,
 					recipeIndex,
 					menuIdByTitleKey,
 					mealIdByRef,
-				)
-				stats.meals.created += mealStats.created
-				stats.meals.skipped += mealStats.skipped
-			}
-		} catch {
-			// skip this meal plan
+					{
+						// Entries are grouped into Meals, so a Meal has no single
+						// place in the file.
+						locate: (index) => `${at}.entries (Meal ${index + 1})`,
+						recordFailure,
+					},
+				),
+			)
 		}
 	}
 
@@ -1248,7 +1420,9 @@ type ImportShoppingList = z.infer<typeof ImportShoppingListSchema>
 
 /**
  * Restores Shopping items into the household's one list, skipping rows it
- * already has, then reconnects their Meal contributions.
+ * already has, then reconnects their Meal contributions. The schema has
+ * already checked every item, so a write that fails here is unexpected and
+ * stops the restore.
  */
 async function importShopping(
 	shoppingLists: ImportShoppingList[],
@@ -1257,181 +1431,219 @@ async function importShopping(
 	householdId: string,
 ) {
 	const stats = { created: 0, skipped: 0 }
-	try {
-		const shoppingList = await ensureShoppingList(prisma, {
-			userId,
-			householdId,
-			name: shoppingLists[0]!.name,
-		})
-		const existingItems = await prisma.shoppingListItem.findMany({
-			where: { listId: shoppingList.id },
-			select: {
-				id: true,
-				name: true,
-				quantity: true,
-				unit: true,
-				category: true,
-				checked: true,
-				source: true,
-				horizon: true,
-			},
-		})
-		const itemIdByKey = new Map(
-			existingItems.map((item) => [
-				getShoppingListItemImportKey(item),
-				item.id,
-			]),
-		)
-		const contributionSeeds: Array<{
-			itemId: string
-			contribution: NonNullable<
-				(typeof shoppingLists)[number]['items'][number]['mealContributions']
-			>[number]
-		}> = []
+	const shoppingList = await ensureShoppingList(prisma, {
+		userId,
+		householdId,
+		name: shoppingLists[0]!.name,
+	})
+	const existingItems = await prisma.shoppingListItem.findMany({
+		where: { listId: shoppingList.id },
+		select: {
+			id: true,
+			name: true,
+			quantity: true,
+			unit: true,
+			category: true,
+			checked: true,
+			source: true,
+			horizon: true,
+		},
+	})
+	const itemIdByKey = new Map(
+		existingItems.map((item) => [getShoppingListItemImportKey(item), item.id]),
+	)
+	const contributionSeeds: Array<{
+		itemId: string
+		contribution: NonNullable<
+			(typeof shoppingLists)[number]['items'][number]['mealContributions']
+		>[number]
+	}> = []
 
-		for (const list of shoppingLists) {
-			let skipped = 0
-			const newItems: Array<ShoppingListItemImport & { id: string }> = []
-			for (const item of list.items) {
-				const normalizedItem = {
-					name: item.name,
-					quantity: item.quantity || null,
-					unit: item.unit || null,
-					category: item.category || null,
-					checked: item.checked ?? false,
-					source: item.source || 'manual',
-					horizon: item.horizon,
-				}
-				const key = getShoppingListItemImportKey(normalizedItem)
-				let targetItemId = itemIdByKey.get(key)
-				if (targetItemId) {
-					skipped++
-				} else {
-					targetItemId = createId()
-					itemIdByKey.set(key, targetItemId)
-					newItems.push({ id: targetItemId, ...normalizedItem })
-				}
-				for (const contribution of item.mealContributions ?? []) {
-					contributionSeeds.push({
-						itemId: targetItemId,
-						contribution,
-					})
-				}
+	for (const list of shoppingLists) {
+		let skipped = 0
+		const newItems: Array<ShoppingListItemImport & { id: string }> = []
+		for (const item of list.items) {
+			const normalizedItem = {
+				name: item.name,
+				quantity: item.quantity || null,
+				unit: item.unit || null,
+				category: item.category || null,
+				checked: item.checked ?? false,
+				source: item.source || 'manual',
+				horizon: item.horizon,
 			}
-
-			if (newItems.length > 0) {
-				await prisma.shoppingListItem.createMany({
-					data: newItems.map((item) => ({
-						...item,
-						listId: shoppingList.id,
-					})),
+			const key = getShoppingListItemImportKey(normalizedItem)
+			let targetItemId = itemIdByKey.get(key)
+			if (targetItemId) {
+				skipped++
+			} else {
+				targetItemId = createId()
+				itemIdByKey.set(key, targetItemId)
+				newItems.push({ id: targetItemId, ...normalizedItem })
+			}
+			for (const contribution of item.mealContributions ?? []) {
+				contributionSeeds.push({
+					itemId: targetItemId,
+					contribution,
 				})
 			}
-			stats.created += newItems.length
-			stats.skipped += skipped
 		}
 
-		const existingContributions =
-			await prisma.mealShoppingContribution.findMany({
-				where: { item: { listId: shoppingList.id } },
-				select: {
-					itemId: true,
-					mealId: true,
-					canonicalName: true,
-					name: true,
-					quantity: true,
-					unit: true,
-				},
-			})
-		const contributionKey = (entry: {
-			itemId: string
-			mealId: string | null
-			canonicalName: string
-			name: string
-			quantity: string | null
-			unit: string | null
-		}) =>
-			entry.mealId
-				? JSON.stringify(['meal', entry.mealId, entry.canonicalName])
-				: JSON.stringify([
-						'orphan',
-						entry.itemId,
-						entry.canonicalName,
-						entry.name,
-						entry.quantity,
-						entry.unit,
-					])
-		const liveContributionKeys = new Set(
-			existingContributions
-				.filter((entry) => entry.mealId != null)
-				.map(contributionKey),
-		)
-		// Orphan contributions have no unique source Meal key. Identical
-		// records may represent several deleted Meals and each still counts
-		// toward the displayed total, so reconcile them as a multiset.
-		const availableOrphanCounts = new Map<string, number>()
-		for (const entry of existingContributions) {
-			if (entry.mealId != null) continue
-			const key = contributionKey(entry)
-			availableOrphanCounts.set(key, (availableOrphanCounts.get(key) ?? 0) + 1)
-		}
-		const newContributions = []
-		for (const seed of contributionSeeds) {
-			const { contribution } = seed
-			const mealId = contribution.orphaned
-				? contribution.sourceMealRef == null
-					? null
-					: undefined
-				: contribution.sourceMealRef != null
-					? mealIdByRef.get(contribution.sourceMealRef)
-					: undefined
-			if (mealId === undefined) continue
-			const candidate = {
-				id: createId(),
-				itemId: seed.itemId,
-				mealId,
-				...contribution.fingerprint,
-			}
-			const key = contributionKey(candidate)
-			if (mealId != null) {
-				if (liveContributionKeys.has(key)) continue
-				liveContributionKeys.add(key)
-			} else {
-				const available = availableOrphanCounts.get(key) ?? 0
-				if (available > 0) {
-					availableOrphanCounts.set(key, available - 1)
-					continue
-				}
-			}
-			newContributions.push(candidate)
-		}
-		if (newContributions.length > 0) {
-			await prisma.mealShoppingContribution.createMany({
-				data: newContributions,
+		if (newItems.length > 0) {
+			await prisma.shoppingListItem.createMany({
+				data: newItems.map((item) => ({
+					...item,
+					listId: shoppingList.id,
+				})),
 			})
 		}
-	} catch {
-		// skip shopping-list data on error
+		stats.created += newItems.length
+		stats.skipped += skipped
+	}
+
+	const existingContributions = await prisma.mealShoppingContribution.findMany({
+		where: { item: { listId: shoppingList.id } },
+		select: {
+			itemId: true,
+			mealId: true,
+			canonicalName: true,
+			name: true,
+			quantity: true,
+			unit: true,
+		},
+	})
+	const contributionKey = (entry: {
+		itemId: string
+		mealId: string | null
+		canonicalName: string
+		name: string
+		quantity: string | null
+		unit: string | null
+	}) =>
+		entry.mealId
+			? JSON.stringify(['meal', entry.mealId, entry.canonicalName])
+			: JSON.stringify([
+					'orphan',
+					entry.itemId,
+					entry.canonicalName,
+					entry.name,
+					entry.quantity,
+					entry.unit,
+				])
+	const liveContributionKeys = new Set(
+		existingContributions
+			.filter((entry) => entry.mealId != null)
+			.map(contributionKey),
+	)
+	// Orphan contributions have no unique source Meal key. Identical
+	// records may represent several deleted Meals and each still counts
+	// toward the displayed total, so reconcile them as a multiset.
+	const availableOrphanCounts = new Map<string, number>()
+	for (const entry of existingContributions) {
+		if (entry.mealId != null) continue
+		const key = contributionKey(entry)
+		availableOrphanCounts.set(key, (availableOrphanCounts.get(key) ?? 0) + 1)
+	}
+	const newContributions = []
+	for (const seed of contributionSeeds) {
+		const { contribution } = seed
+		const mealId = contribution.orphaned
+			? contribution.sourceMealRef == null
+				? null
+				: undefined
+			: contribution.sourceMealRef != null
+				? mealIdByRef.get(contribution.sourceMealRef)
+				: undefined
+		if (mealId === undefined) continue
+		const candidate = {
+			id: createId(),
+			itemId: seed.itemId,
+			mealId,
+			...contribution.fingerprint,
+		}
+		const key = contributionKey(candidate)
+		if (mealId != null) {
+			if (liveContributionKeys.has(key)) continue
+			liveContributionKeys.add(key)
+		} else {
+			const available = availableOrphanCounts.get(key) ?? 0
+			if (available > 0) {
+				availableOrphanCounts.set(key, available - 1)
+				continue
+			}
+		}
+		newContributions.push(candidate)
+	}
+	if (newContributions.length > 0) {
+		await prisma.mealShoppingContribution.createMany({
+			data: newContributions,
+		})
 	}
 
 	return stats
 }
 
+// Room for the multipart boundary and part headers around the file.
+const RESTORE_MAX_BODY_BYTES = RESTORE_MAX_FILE_BYTES + 64 * 1024
+
+/**
+ * Reads the export file from the form, refusing one over the cap before
+ * anything parses it. The form sends it as multipart, so the body is about the
+ * file's own size. Nothing else is accepted, since urlencoding can triple it.
+ */
+async function readRestoreFile(
+	request: Request,
+): Promise<{ text: string } | { error: string; status: number }> {
+	const contentType = request.headers.get('Content-Type') ?? ''
+	if (!contentType.startsWith('multipart/form-data')) {
+		return { error: 'No import data provided', status: 400 }
+	}
+	if (Number(request.headers.get('Content-Length')) > RESTORE_MAX_BODY_BYTES) {
+		return { error: FILE_TOO_BIG, status: 413 }
+	}
+	let body: string
+	try {
+		// A Content-Length is only a claim, so the bytes are counted as they
+		// arrive too.
+		body = await readBoundedText(new Response(request.body), {
+			maxBytes: RESTORE_MAX_BODY_BYTES,
+			signal: request.signal,
+			encoded: false,
+		})
+	} catch (error) {
+		if (error instanceof BodyTooLargeError) {
+			return { error: FILE_TOO_BIG, status: 413 }
+		}
+		throw error
+	}
+	let formData: FormData
+	try {
+		formData = await new Response(body, {
+			headers: { 'Content-Type': contentType },
+		}).formData()
+	} catch {
+		return { error: 'No import data provided', status: 400 }
+	}
+	const text = formData.get('importData')
+	if (typeof text !== 'string') {
+		return { error: 'No import data provided', status: 400 }
+	}
+	if (Buffer.byteLength(text) > RESTORE_MAX_FILE_BYTES) {
+		return { error: FILE_TOO_BIG, status: 413 }
+	}
+	return { text }
+}
+
 export async function action({ request }: Route.ActionArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
-	const formData = await request.formData()
-	const rawJson = formData.get('importData')
-
-	if (typeof rawJson !== 'string') {
-		return data(
-			{ error: 'No import data provided', results: null },
-			{ status: 400 },
-		)
+	const file = await readRestoreFile(request)
+	if ('error' in file) {
+		return data({ error: file.error, results: null }, { status: file.status })
 	}
 
 	let parsed: unknown
 	try {
-		parsed = JSON.parse(rawJson)
+		parsed = JSON.parse(file.text)
 	} catch {
 		return data(
 			{ error: 'Invalid JSON format', results: null },
@@ -1444,32 +1656,33 @@ export async function action({ request }: Route.ActionArgs) {
 		return data({ error: importResult.error, results: null }, { status: 400 })
 	}
 
-	const { isProActive } = await getUserTier(userId)
-
 	const recipes = importResult.data.recipes
-	// Legacy Pro-only data (meal plans, shopping lists) is skipped
-	// for free users. Recipes and household-owned canonical data are not gated.
-	const fullData =
-		importResult.type === 'full' && isProActive ? importResult.data : null
-	// Household-owned canonical data is available on every tier. Keep its
-	// recovery path independent from the legacy Pro-only full-data sections.
-	const fullHouseholdData =
-		importResult.type === 'full' ? importResult.data : null
+	// Everything in a full export restores on every tier.
+	const fullData = importResult.type === 'full' ? importResult.data : null
 
 	const results: ImportResults = {
 		recipes: { created: 0, skipped: 0, errored: 0 },
 		menus: { created: 0, skipped: 0, errored: 0 },
 		recipeMetadataValues: { created: 0, skipped: 0 },
 		householdIngredients: { created: 0, skipped: 0 },
-		mealPlans: { created: 0, skipped: 0 },
-		meals: { created: 0, skipped: 0 },
+		mealPlans: { created: 0, skipped: 0, errored: 0 },
+		meals: { created: 0, skipped: 0, errored: 0 },
 		shoppingLists: { created: 0, skipped: 0 },
+	}
+
+	const failures: RestoreFailure[] = []
+	const recordFailure: RecordFailure = (failure) => {
+		failures.push(failure)
+		console.error(
+			`Restore: ${failure.at} couldn't be restored (${failure.reason})`,
+			{ householdId, ...failure },
+		)
 	}
 
 	// --- 1. Household Recipe classification vocabulary ---
 	// Import the complete vocabulary before Recipes so unassigned values survive
 	// full recovery. Existing target display values win on normalized identity.
-	if (fullHouseholdData?.recipeMetadataValues?.length) {
+	if (fullData?.recipeMetadataValues?.length) {
 		await writeTransaction(prisma, async (tx) => {
 			const existing = await tx.recipeMetadataValue.findMany({
 				where: { householdId },
@@ -1483,7 +1696,7 @@ export async function action({ request }: Route.ActionArgs) {
 					),
 				),
 			)
-			for (const value of fullHouseholdData.recipeMetadataValues ?? []) {
+			for (const value of fullData.recipeMetadataValues ?? []) {
 				const identity = recipeMetadataIdentity(value.dimension, value.nameKey)
 				if (existingIdentities.has(identity)) {
 					results.recipeMetadataValues.skipped++
@@ -1502,53 +1715,46 @@ export async function action({ request }: Route.ActionArgs) {
 		refToIdMap: new Map(),
 		titleById: new Map(),
 	}
-	const { titleToIdMap } = recipeIndex
-	try {
-		const existingRecipes = await prisma.recipe.findMany({
-			where: { householdId },
-			select: { id: true, title: true },
-		})
-		for (const r of existingRecipes) {
-			titleToIdMap.set(r.title.toLowerCase(), r.id)
-			recipeIndex.titleById.set(r.id, r.title)
-		}
-
-		results.recipes = await importRecipes(
-			recipes,
-			recipeIndex,
-			userId,
-			householdId,
-		)
-	} catch {
-		results.recipes.errored = recipes.length
+	const existingRecipes = await prisma.recipe.findMany({
+		where: { householdId },
+		select: { id: true, title: true },
+	})
+	for (const r of existingRecipes) {
+		recipeIndex.titleToIdMap.set(r.title.toLowerCase(), r.id)
+		recipeIndex.titleById.set(r.id, r.title)
 	}
+	results.recipes = await importRecipes(
+		recipes,
+		recipeIndex,
+		userId,
+		householdId,
+		recordFailure,
+	)
 
 	// --- 3. Menus (after Recipes, so references can reconnect) ---
-	// Menus are not Pro-gated in the product, so unlike the sections below
-	// they import for every tier.
-	const fullMenus = fullHouseholdData?.menus ?? null
 	let sharedMenuIdsByTitleKey = new Map<string, string | null>()
-	if (fullMenus?.length) {
-		try {
-			const imported = await importMenus(fullMenus, recipeIndex, householdId)
-			results.menus = imported.stats
-			sharedMenuIdsByTitleKey = imported.sharedMenuIdsByTitleKey
-		} catch {
-			results.menus.errored = fullMenus.length
-		}
+	if (fullData?.menus?.length) {
+		const imported = await importMenus(
+			fullData.menus,
+			recipeIndex,
+			householdId,
+			recordFailure,
+		)
+		results.menus = imported.stats
+		sharedMenuIdsByTitleKey = imported.sharedMenuIdsByTitleKey
 	}
 
 	// --- 4. Household canonical ingredients ---
 	// Existing target rows win; importing recovery data never silently rewrites
 	// a household that has already made its own choice.
-	if (fullHouseholdData?.householdIngredients !== undefined) {
+	if (fullData?.householdIngredients !== undefined) {
 		await writeTransaction(prisma, async (tx) => {
 			const existing = await tx.householdIngredient.findMany({
 				where: { householdId },
 				select: { canonicalKey: true },
 			})
 			const existingKeys = new Set(existing.map((item) => item.canonicalKey))
-			for (const ingredient of fullHouseholdData.householdIngredients ?? []) {
+			for (const ingredient of fullData.householdIngredients ?? []) {
 				if (existingKeys.has(ingredient.canonicalKey)) {
 					results.householdIngredients.skipped++
 					continue
@@ -1571,6 +1777,7 @@ export async function action({ request }: Route.ActionArgs) {
 			recipeIndex,
 			sharedMenuIdsByTitleKey,
 			householdId,
+			recordFailure,
 		)
 		results.mealPlans = imported.stats.mealPlans
 		results.meals = imported.stats.meals
@@ -1587,14 +1794,27 @@ export async function action({ request }: Route.ActionArgs) {
 		)
 	}
 
+	if (failures.length > 0) {
+		captureServerEvent(userId, 'server_error', {
+			error: 'Some items in a restore failed',
+			operation: 'restore',
+			householdId,
+			failureCount: failures.length,
+			// Enough to find the pattern without sending thousands of rows.
+			failures: failures
+				.slice(0, 20)
+				.map(({ at, reason, count, code }) => ({ at, reason, count, code })),
+		})
+	}
+
 	return { error: null, results }
 }
 
 // --- Component ---
 
-function getPreview(jsonData: unknown): ImportPreview | null {
+function getPreview(jsonData: unknown): ImportPreview | { error: string } {
 	const result = parseImportData(jsonData)
-	if ('error' in result) return null
+	if ('error' in result) return result
 
 	const isFullExport = result.type === 'full'
 	const fullData = isFullExport ? result.data : null
@@ -1647,7 +1867,17 @@ export default function ImportData() {
 				r.mealPlans.created +
 				r.meals.created +
 				r.shoppingLists.created
-			if (total > 0) {
+			const failed =
+				r.recipes.errored +
+				r.menus.errored +
+				r.mealPlans.errored +
+				r.meals.errored
+			if (failed > 0) {
+				const notRestored = `${failed} couldn’t be restored.`
+				toast.warning(
+					total > 0 ? `Imported ${total} items. ${notRestored}` : notRestored,
+				)
+			} else if (total > 0) {
 				toast.success(`Imported ${total} items`)
 			} else {
 				toast.info('Nothing new to import — all items already exist')
@@ -1671,8 +1901,8 @@ export default function ImportData() {
 			return
 		}
 
-		if (file.size > 50 * 1024 * 1024) {
-			setFileError('File is too large (max 50 MB)')
+		if (file.size > RESTORE_MAX_FILE_BYTES) {
+			setFileError(FILE_TOO_BIG)
 			return
 		}
 
@@ -1693,10 +1923,8 @@ export default function ImportData() {
 			}
 
 			const previewData = getPreview(parsed)
-			if (!previewData) {
-				setFileError(
-					'Unrecognized format. Expected a Quartermaster export file.',
-				)
+			if ('error' in previewData) {
+				setFileError(previewData.error)
 				return
 			}
 
@@ -1711,7 +1939,12 @@ export default function ImportData() {
 		if (!rawJson) return
 		const formData = new FormData()
 		formData.set('importData', rawJson)
-		void fetcher.submit(formData, { method: 'POST' })
+		// Multipart keeps the request the size of the file. The action takes
+		// nothing else.
+		void fetcher.submit(formData, {
+			method: 'POST',
+			encType: 'multipart/form-data',
+		})
 	}
 
 	function handleReset() {
@@ -1768,18 +2001,23 @@ export default function ImportData() {
 								/>
 							)}
 							{(results.mealPlans.created > 0 ||
-								results.mealPlans.skipped > 0) && (
+								results.mealPlans.skipped > 0 ||
+								results.mealPlans.errored > 0) && (
 								<ResultRow
 									label="Plan entries"
 									created={results.mealPlans.created}
 									skipped={results.mealPlans.skipped}
+									errored={results.mealPlans.errored}
 								/>
 							)}
-							{(results.meals.created > 0 || results.meals.skipped > 0) && (
+							{(results.meals.created > 0 ||
+								results.meals.skipped > 0 ||
+								results.meals.errored > 0) && (
 								<ResultRow
 									label="Meals"
 									created={results.meals.created}
 									skipped={results.meals.skipped}
+									errored={results.meals.errored}
 								/>
 							)}
 							{(results.shoppingLists.created > 0 ||

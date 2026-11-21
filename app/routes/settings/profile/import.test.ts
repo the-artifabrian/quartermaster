@@ -5,6 +5,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import { MAX_RAW_TEXT_LENGTH } from '#app/utils/recipe-validation.ts'
 import { demandIdentity } from '#app/utils/shopping-demand.server.ts'
 import { createUser } from '#tests/db-utils.ts'
+import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader as exportLoader } from '../../resources/export-all-data.tsx'
 import { loader as recipeExportLoader } from '../../resources/export-recipes.tsx'
@@ -17,6 +18,13 @@ const ACTION_ARGS_BASE = {
 	context: new RouterContextProvider(),
 	pattern: '/settings/profile/import',
 	url: new URL(`${BASE_URL}/settings/profile/import`),
+}
+
+// The import form sends multipart, the only encoding the action takes.
+function formWith(fields: Record<string, string>) {
+	const form = new FormData()
+	for (const [name, value] of Object.entries(fields)) form.set(name, value)
+	return form
 }
 
 async function setupUser({ tier = 'pro' as string | null } = {}) {
@@ -61,11 +69,8 @@ async function makeImportRequest(session: { id: string }) {
 	const cookie = await getSessionCookieHeader(session)
 	return new Request(`${BASE_URL}/settings/profile/import`, {
 		method: 'POST',
-		headers: {
-			cookie,
-			'Content-Type': 'application/x-www-form-urlencoded',
-		},
-		body: new URLSearchParams({
+		headers: { cookie },
+		body: formWith({
 			importData: JSON.stringify({
 				format: 'quartermaster-full-export-v1',
 				recipes: [],
@@ -91,7 +96,7 @@ async function makeImportRequest(session: { id: string }) {
 					},
 				],
 			}),
-		}).toString(),
+		}),
 	})
 }
 
@@ -278,10 +283,8 @@ async function importPayload(session: { id: string }, payload: unknown) {
 	const cookie = await getSessionCookieHeader(session)
 	const request = new Request(`${BASE_URL}/settings/profile/import`, {
 		method: 'POST',
-		headers: { cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
-		body: new URLSearchParams({
-			importData: JSON.stringify(payload),
-		}).toString(),
+		headers: { cookie },
+		body: formWith({ importData: JSON.stringify(payload) }),
 	})
 	return action({ request, ...ACTION_ARGS_BASE })
 }
@@ -1386,7 +1389,7 @@ describe('menu import', () => {
 		})
 	})
 
-	test('menus import for free users even though Pro-only sections are skipped', async () => {
+	test('menus, Meals and Shopping all import for free users', async () => {
 		const session = await setupUser({ tier: null })
 		const result = (await importPayload(session, {
 			format: 'quartermaster-full-export-v1',
@@ -1399,10 +1402,17 @@ describe('menu import', () => {
 					],
 				},
 			],
+			mealPlans: [
+				{
+					weekStart: '2026-08-17T00:00:00.000Z',
+					meals: [{ date: '2026-08-19T00:00:00.000Z', genericText: 'Soup' }],
+				},
+			],
 			shoppingLists: [{ name: 'List', items: [{ name: 'apples' }] }],
 		})) as any
 		expect(result.results.menus.created).toBe(1)
-		expect(result.results.shoppingLists).toEqual({ created: 0, skipped: 0 })
+		expect(result.results.meals.created).toBe(1)
+		expect(result.results.shoppingLists).toEqual({ created: 1, skipped: 0 })
 	})
 })
 
@@ -1573,7 +1583,7 @@ describe('meal import', () => {
 
 		const target = await setupUser()
 		const result = (await importPayload(target, exported)) as any
-		expect(result.results.meals).toEqual({ created: 2, skipped: 0 })
+		expect(result.results.meals).toEqual({ created: 2, skipped: 0, errored: 0 })
 
 		const meals = await prisma.meal.findMany({
 			where: { mealPlan: { householdId: target.householdId } },
@@ -1628,7 +1638,7 @@ describe('meal import', () => {
 
 		// Re-importing the same file is idempotent for Meals.
 		const again = (await importPayload(target, exported)) as any
-		expect(again.results.meals).toEqual({ created: 0, skipped: 2 })
+		expect(again.results.meals).toEqual({ created: 0, skipped: 2, errored: 0 })
 	})
 
 	test('reference keys win over titles for Meal items, unknown keys stay missing, and titles work without keys', async () => {
@@ -1657,7 +1667,7 @@ describe('meal import', () => {
 				},
 			],
 		})) as any
-		expect(result.results.meals).toEqual({ created: 1, skipped: 0 })
+		expect(result.results.meals).toEqual({ created: 1, skipped: 0, errored: 0 })
 
 		const alpha = await prisma.recipe.findFirstOrThrow({
 			where: { householdId: session.householdId, title: 'Alpha' },
@@ -1715,7 +1725,7 @@ describe('meal import', () => {
 				},
 			],
 		})) as any
-		expect(result.results.meals).toEqual({ created: 1, skipped: 0 })
+		expect(result.results.meals).toEqual({ created: 1, skipped: 0, errored: 0 })
 
 		const meals = await prisma.meal.findMany({
 			where: { mealPlanId: plan.id },
@@ -1769,11 +1779,13 @@ describe('meal import', () => {
 				},
 			],
 		})) as any
-		expect(result.results.meals).toEqual({ created: 0, skipped: 0 })
+		expect(result.results.meals).toEqual({ created: 0, skipped: 0, errored: 0 })
 	})
 
 	test('a pre-#104 export restores its fixed-slot entries as Meals under the backfill rules', async () => {
 		const session = await setupUser()
+		// The entry with no Recipe in the file is logged as a failure.
+		consoleError.mockImplementation(() => {})
 		const legacyPayload = {
 			format: 'quartermaster-full-export-v1',
 			recipes: [
@@ -1805,8 +1817,8 @@ describe('meal import', () => {
 							recipe: 'Salad',
 							servings: 3,
 						},
-						// A Recipe that no longer resolves is skipped, as the legacy
-						// import path skipped it.
+						// A Recipe that no longer resolves has nothing to restore
+						// it as, so the entry fails.
 						{
 							date: '2026-08-19T00:00:00.000Z',
 							mealType: 'lunch',
@@ -1817,8 +1829,13 @@ describe('meal import', () => {
 			],
 		}
 		const result = (await importPayload(session, legacyPayload)) as any
-		expect(result.results.meals).toEqual({ created: 2, skipped: 0 })
-		expect(result.results.mealPlans).toEqual({ created: 0, skipped: 1 })
+		expect(result.results.meals).toEqual({ created: 2, skipped: 0, errored: 0 })
+		// The entry whose Recipe isn't in the file couldn't be restored.
+		expect(result.results.mealPlans).toEqual({
+			created: 0,
+			skipped: 0,
+			errored: 1,
+		})
 
 		const meals = await prisma.meal.findMany({
 			where: { mealPlan: { householdId: session.householdId } },
@@ -1854,7 +1871,7 @@ describe('meal import', () => {
 
 		// Re-importing the same legacy file is idempotent.
 		const again = (await importPayload(session, legacyPayload)) as any
-		expect(again.results.meals).toEqual({ created: 0, skipped: 2 })
+		expect(again.results.meals).toEqual({ created: 0, skipped: 2, errored: 0 })
 		expect(
 			await prisma.meal.count({
 				where: { mealPlan: { householdId: session.householdId } },
@@ -1890,8 +1907,12 @@ describe('meal import', () => {
 				},
 			],
 		})) as any
-		expect(result.results.meals).toEqual({ created: 1, skipped: 0 })
-		expect(result.results.mealPlans).toEqual({ created: 0, skipped: 0 })
+		expect(result.results.meals).toEqual({ created: 1, skipped: 0, errored: 0 })
+		expect(result.results.mealPlans).toEqual({
+			created: 0,
+			skipped: 0,
+			errored: 0,
+		})
 
 		const meals = await prisma.meal.findMany({
 			where: { mealPlan: { householdId: session.householdId } },
@@ -2054,7 +2075,7 @@ describe('meal snapshot export/import (#107)', () => {
 
 		const target = await setupUser()
 		const result = (await importPayload(target, exported)) as any
-		expect(result.results.meals).toEqual({ created: 1, skipped: 0 })
+		expect(result.results.meals).toEqual({ created: 1, skipped: 0, errored: 0 })
 
 		const restored = await prisma.meal.findFirstOrThrow({
 			where: { mealPlan: { householdId: target.householdId } },
@@ -2111,7 +2132,7 @@ describe('meal snapshot export/import (#107)', () => {
 
 		// Idempotent: the same file again restores nothing new.
 		const again = (await importPayload(target, exported)) as any
-		expect(again.results.meals).toEqual({ created: 0, skipped: 1 })
+		expect(again.results.meals).toEqual({ created: 0, skipped: 1, errored: 0 })
 
 		// Deep round-trip: the target's own export reproduces the Meal payload.
 		const reExported = await exportHousehold(target)
@@ -2148,7 +2169,7 @@ describe('meal snapshot export/import (#107)', () => {
 
 		const target = await setupUser()
 		const result = (await importPayload(target, exported)) as any
-		expect(result.results.meals).toEqual({ created: 1, skipped: 0 })
+		expect(result.results.meals).toEqual({ created: 1, skipped: 0, errored: 0 })
 		const restored = await prisma.meal.findFirstOrThrow({
 			where: { mealPlan: { householdId: target.householdId } },
 			include: {

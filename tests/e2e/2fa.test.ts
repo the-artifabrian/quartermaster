@@ -1,11 +1,12 @@
 import { invariant } from '@epic-web/invariant'
 import { faker } from '@faker-js/faker'
 import { type Page } from '@playwright/test'
+import { createOwnHousehold, getPasswordHash } from '#app/utils/auth.server.ts'
 import { generateTOTP } from '#app/utils/totp.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { readEmail } from '#tests/mocks/utils.ts'
-import { expect, test, waitFor } from '#tests/playwright-utils.ts'
+import { createUser, expect, test, waitFor } from '#tests/playwright-utils.ts'
 
 test('Users can add 2FA to their account and use it when logging in', async ({
 	page,
@@ -189,5 +190,62 @@ test('A change of email survives a reverify in the middle', async ({
 		).toEqual({ email: newEmailAddress })
 	} finally {
 		await prisma.verification.deleteMany({ where: { target: user.id } })
+	}
+})
+
+test('A 2FA sign-in left at the code step does not hold up the next person on the same browser', async ({
+	page,
+	navigate,
+	insertNewUser,
+}) => {
+	// Someone with 2FA signs in and walks away at the code step.
+	const walkedAway = await insertNewUser()
+	const { otp: _otp, ...totpConfig } = await generateTOTP()
+	await prisma.verification.create({
+		data: { ...totpConfig, type: '2fa', target: walkedAway.id },
+	})
+	// The next person has no 2FA. Their password is their username.
+	const nextPerson = await prisma.user.create({
+		data: {
+			...createUser(),
+			roles: { connect: { name: 'user' } },
+		},
+		select: { id: true, username: true, name: true },
+	})
+	await prisma.password.create({
+		data: {
+			userId: nextPerson.id,
+			hash: await getPasswordHash(nextPerson.username),
+		},
+	})
+	const household = await createOwnHousehold(prisma, nextPerson)
+	try {
+		await navigate('/login')
+		await page
+			.getByRole('textbox', { name: /username/i })
+			.fill(walkedAway.username)
+		await page.getByLabel(/^password$/i).fill(walkedAway.username)
+		await page.getByRole('button', { name: 'Log in', exact: true }).click()
+		await expect(page).toHaveURL(/\/verify\?/)
+
+		await navigate('/login')
+		await page
+			.getByRole('textbox', { name: /username/i })
+			.fill(nextPerson.username)
+		await page.getByLabel(/^password$/i).fill(nextPerson.username)
+		await page.getByRole('button', { name: 'Log in', exact: true }).click()
+		await expect(page).toHaveURL('/recipes')
+
+		await navigate('/settings/profile/change-email')
+		await expect(page).toHaveURL('/settings/profile/change-email')
+		await expect(page.getByRole('textbox', { name: 'New Email' })).toBeVisible()
+		expect(
+			(await page.context().cookies()).some(
+				(cookie) => cookie.name === 'en_verification',
+			),
+		).toBe(false)
+	} finally {
+		await prisma.user.delete({ where: { id: nextPerson.id } })
+		await prisma.household.delete({ where: { id: household.id } })
 	}
 })

@@ -245,6 +245,7 @@ test('A 2FA sign-in left at the code step does not hold up the next person on th
 			),
 		).toBe(false)
 	} finally {
+		await prisma.verification.deleteMany({ where: { target: walkedAway.id } })
 		await prisma.user.delete({ where: { id: nextPerson.id } })
 		await prisma.household.delete({ where: { id: household.id } })
 	}

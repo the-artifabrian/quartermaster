@@ -795,8 +795,9 @@ high-value AI path.
   error, because the rerun matches the Recipes already saved by title and
   leaves them as they are. A Meal's day is the date written in the file, a
   plain day or the date part of a full ISO string, and a plan's week is the
-  Monday of the day it names. A Meal dated outside its week, or a day that
-  isn't one, counts as failed.
+  Monday of the day it names. A day that isn't one counts as failed
+  (`invalid-date`), and so does a real day outside its plan's week
+  (`outside-week`).
 - LiteFS migration details and restore commands live in
   [RESTORE.md](./RESTORE.md).
 - Production requires the `APP_ORIGIN` secret (`https://useqm.app`).

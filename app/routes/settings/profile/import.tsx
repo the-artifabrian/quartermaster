@@ -672,6 +672,8 @@ interface RestoreFailure {
 	reason:
 		| 'invalid-date'
 		| 'invalid-week'
+		// A real day, but not in the week of the plan it sits in.
+		| 'outside-week'
 		| 'nothing-to-restore'
 		| 'recipe-not-in-file'
 		| 'write-refused'
@@ -1369,8 +1371,12 @@ async function importMeals(
 
 	for (const [index, meal] of meals.entries()) {
 		const date = fileDay(meal.date)
-		if (!date || getWeekStart(date).getTime() !== weekStart.getTime()) {
+		if (!date) {
 			fail(index, { reason: 'invalid-date' })
+			continue
+		}
+		if (getWeekStart(date).getTime() !== weekStart.getTime()) {
+			fail(index, { reason: 'outside-week' })
 			continue
 		}
 

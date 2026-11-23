@@ -28,7 +28,8 @@
  * - A Meal date with an offset (`T00:00:00+09:00`) is stored as an instant on
  *   the day before, at 15:00, which no day shows.
  * - A date or week with junk after its ten characters restores.
- * - A Meal dated outside its plan's week restores where no day shows it.
+ * - A Meal dated outside its plan's week restores where no day shows it, or
+ *   fails under the same reason as a day that isn't one.
  * - A real export, whose days carry `T00:00:00.000Z`, stops restoring, or
  *   stops skipping its Meals on a second restore.
  * - A plain `yyyy-MM-dd` day stops restoring.
@@ -455,9 +456,10 @@ describe('skipped and failed', () => {
 		])
 	})
 
-	test('a day with junk after it, or outside its week, counts as failed', async () => {
+	test('a day with junk after it, or outside its week, counts as failed, each for its own reason', async () => {
 		// Each failure is logged; the logging test checks what the lines say.
 		consoleError.mockImplementation(() => {})
+		posthog.captureServerEvent.mockClear()
 		const session = await setupUser()
 		const { body } = await restore(
 			session,
@@ -483,6 +485,14 @@ describe('skipped and failed', () => {
 		expect(await storedMeals(session)).toEqual([
 			{ weekStart: new Date(WEEK), date: new Date(WEDNESDAY) },
 		])
+		expect(posthog.captureServerEvent.mock.calls[0]![2]).toMatchObject({
+			failures: [
+				{ at: 'mealPlans[0]', reason: 'invalid-week', count: 1 },
+				{ at: 'mealPlans[1].meals[0]', reason: 'invalid-date' },
+				{ at: 'mealPlans[1].meals[1]', reason: 'outside-week' },
+				{ at: 'mealPlans[1].meals[2]', reason: 'outside-week' },
+			],
+		})
 	})
 
 	test('two plans whose weeks start on the same Monday restore a shared Meal once', async () => {

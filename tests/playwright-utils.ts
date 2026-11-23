@@ -252,16 +252,21 @@ export async function waitFor<ReturnValue>(
 }
 
 /**
- * Waits until the page has hydrated: React has committed, every mount effect
- * has run, and the router takes navigations. The root layout sets the marker
- * once, so after a client navigation it is already there; wait for the new
- * page's own content as well.
+ * Waits until the page has hydrated. The root layout sets the marker once, on
+ * the first load, after every mount effect has run, so the router takes
+ * navigations by then. State those effects set can still commit after it, so
+ * it doesn't mean the page has settled. After a client navigation the marker
+ * is already there.
  */
 export async function waitForHydration(page: Page) {
 	await expect(page.locator('html')).toHaveAttribute('data-hydrated')
 }
 
-/** Waits for `target` to be on the page and for the page to have hydrated. */
+/**
+ * Waits for `target` to be on the page and for the page to have hydrated.
+ * After a client navigation the marker is already set (see
+ * `waitForHydration`), so this only checks that `target` is attached.
+ */
 export async function hydrated(target: Locator) {
 	await expect(target).toBeAttached()
 	await waitForHydration(target.page())

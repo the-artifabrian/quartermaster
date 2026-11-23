@@ -901,10 +901,13 @@ get canned answers from `tests/mocks/anthropic.ts`: a Recipe whose title counts
 the images sent, or nothing found when the Household has a metadata value named
 `E2E_UNREADABLE_MARKER`.
 
-The root layout sets `data-hydrated` on `<html>` from an effect, which runs once
-every mount effect on the page has run and the router takes navigations. Before
-a test taps something that needs script, it waits with `hydrated(locator)` or
-`waitForHydration(page)` from `tests/playwright-utils.ts`. Setting
+The root layout sets `data-hydrated` on `<html>` from an effect, once, on the
+first load, after every mount effect has run, so the router takes navigations by
+then. State those effects set can still commit after it, so the marker doesn't
+mean the page has settled. Before a test taps something that needs script, it
+waits with `hydrated(locator)` or `waitForHydration(page)` from
+`tests/playwright-utils.ts`. After a client navigation the marker is already
+there, so `hydrated()` only checks that the element is attached. Setting
 `PW_CPU_THROTTLE=4` slows the page's CPU four times, which brings out the races
 a slow CI runner hits.
 

@@ -1,3 +1,10 @@
+/**
+ * Failure list for an intent the Staples page no longer sends (a tab still
+ * holding a page from before Undo, whose Staple delete now goes to
+ * resources/undo-delete):
+ * - An old `remove-staple` gets a 400 the page reads as data, and it stays a
+ *   Staple. Never a 200, a thrown error or a 500.
+ */
 import { RouterContextProvider } from 'react-router'
 import { afterEach, expect, test, vi } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
@@ -71,4 +78,20 @@ test('add returns a useful failure for the inline form', async () => {
 		},
 		init: { status: 500 },
 	})
+})
+
+test('an old page that deletes a Staple gets a 400, and it stays a Staple', async () => {
+	const session = await setupActiveStaples()
+
+	await expect(
+		post(session, { intent: 'remove-staple', itemId: session.stapleId }),
+	).resolves.toMatchObject({
+		data: { status: 'error' },
+		init: { status: 400 },
+	})
+	expect(
+		await prisma.householdIngredient.count({
+			where: { id: session.stapleId, isStaple: true },
+		}),
+	).toBe(1)
 })

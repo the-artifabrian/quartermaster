@@ -40,7 +40,6 @@ const productionEnv = {
 	DATABASE_PATH: '/data/sqlite.db',
 	DATABASE_URL: 'file:/data/sqlite.db',
 	SESSION_SECRET: 'secret',
-	INTERNAL_COMMAND_TOKEN: 'token',
 	RESEND_API_KEY: 're_key',
 	AWS_ACCESS_KEY_ID: 'id',
 	AWS_SECRET_ACCESS_KEY: 'secret',

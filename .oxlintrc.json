@@ -27,10 +27,23 @@
 		"react/refs": "off", // Existing render-time ref reads need separate behavioral review.
 		"react-hooks/rules-of-hooks": "error",
 		"react/set-state-in-effect": "off", // Existing synchronization effects need separate behavioral review.
-		"unicorn/no-empty-file": "off", // The empty dependency declaration file is an intentional placeholder.
 		"unicorn/prefer-string-starts-ends-with": "off", // This is a style-only rewrite outside the migration.
-		"vitest/expect-expect": "off", // Existing tests may assert through helpers or expected side effects.
-		"vitest/no-conditional-expect": "off", // Existing conditional assertions preserve branch-specific checks.
+		"vitest/expect-expect": [
+			"error",
+			// These test helpers assert too.
+			{
+				"assertFunctionNames": [
+					"expect",
+					"assert",
+					"assertType",
+					"expectSelected",
+					"expectLinkOnAppOrigin",
+					"expectRelativeVerifyRedirect",
+					"startWithPassword"
+				]
+			}
+		],
+		"vitest/no-conditional-expect": "error",
 		"vitest/require-mock-type-parameters": "off", // Existing inferred mocks remain valid and typechecked.
 		"vitest/require-to-throw-message": "off" // Existing throw assertions intentionally accept any matching error.
 	},

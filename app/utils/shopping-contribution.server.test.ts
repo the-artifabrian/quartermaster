@@ -230,12 +230,16 @@ describe('Meal add reads and writes in one transaction', () => {
 		// Either the check landed first and Meal B's demand sits on its own
 		// unchecked row, or Meal B's demand landed first and the check, made
 		// against the older version, changed nothing.
-		if (checkedRow.checked) {
-			expect(mealBShare!.itemId).not.toBe(onion.id)
-			expect(mealBShare!.item.checked).toBe(false)
-		} else {
-			expect(mealBShare!.itemId).toBe(onion.id)
+		const outcome = {
+			onionChecked: checkedRow.checked,
+			mealBOnOnion: mealBShare!.itemId === onion.id,
+			mealBRowChecked: mealBShare!.item.checked,
 		}
+		expect(outcome).toEqual(
+			outcome.onionChecked
+				? { onionChecked: true, mealBOnOnion: false, mealBRowChecked: false }
+				: { onionChecked: false, mealBOnOnion: true, mealBRowChecked: false },
+		)
 		expect(
 			contributions.filter((c) => c.item.checked && c.mealId === mealB.id),
 		).toEqual([])
@@ -341,15 +345,15 @@ describe('Meal add reads and writes in one transaction', () => {
 		// Either Update landed first and the check, made against the older
 		// version, changed nothing; or the check landed first and Update left
 		// the checked row alone. A checked row never shows the new amount.
-		if (rows[0]!.checked) {
-			expect(rows).toEqual([
-				expect.objectContaining({
-					display: expect.objectContaining({ quantity: '2' }),
-				}),
-			])
-		} else {
-			expect(rows.map((row) => row.display.quantity)).toEqual(['4'])
-		}
+		const outcome = rows.map((row) => ({
+			checked: row.checked,
+			quantity: row.display.quantity,
+		}))
+		expect(outcome).toEqual(
+			outcome[0]?.checked
+				? [{ checked: true, quantity: '2' }]
+				: [{ checked: false, quantity: '4' }],
+		)
 	})
 })
 
@@ -906,13 +910,16 @@ test('a check landing inside Remove generated amount never strips a checked row'
 	})
 	// Either the remove went first and the check, against the older version,
 	// changed nothing; or the check went first and the remove was refused.
-	if (row.checked) {
-		expect(result.status).toBe('conflict')
-		expect(row.mealContributions).toHaveLength(1)
-	} else {
-		expect(result.status).toBe('success')
-		expect(row.mealContributions).toHaveLength(0)
+	const outcome = {
+		checked: row.checked,
+		status: result.status,
+		shares: row.mealContributions.length,
 	}
+	expect(outcome).toEqual(
+		outcome.checked
+			? { checked: true, status: 'conflict', shares: 1 }
+			: { checked: false, status: 'success', shares: 0 },
+	)
 })
 
 describe('Edit renaming a row with a Meal share', () => {

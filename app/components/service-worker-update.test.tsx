@@ -297,24 +297,27 @@ test('a worker that becomes waiting mid-session stays waiting', async () => {
 
 // Failure list: a resume after 29 minutes does not reload; after 31 it does,
 // once. Thirty minutes is the boundary.
-test.each([
-	{ minutes: 1, activates: false },
-	{ minutes: 29, activates: false },
-	{ minutes: RESUME_ACTIVATION_AFTER_MS / MINUTE, activates: true },
-	{ minutes: 31, activates: true },
-])(
-	'a return after $minutes minutes away applies the update: $activates',
-	async ({ minutes, activates }) => {
+test.each([{ minutes: 1 }, { minutes: 29 }])(
+	'a return after $minutes minutes away applies the update: false',
+	async ({ minutes }) => {
 		using environment = setupBrowserEnvironment()
 		const { worker } = await launchThenInstallUpdate()
 
 		await returnAfter(environment, minutes)
 
-		if (!activates) {
-			expect(worker.postMessage).not.toHaveBeenCalled()
-			expect(analytics.capture).not.toHaveBeenCalled()
-			return
-		}
+		expect(worker.postMessage).not.toHaveBeenCalled()
+		expect(analytics.capture).not.toHaveBeenCalled()
+	},
+)
+
+test.each([{ minutes: RESUME_ACTIVATION_AFTER_MS / MINUTE }, { minutes: 31 }])(
+	'a return after $minutes minutes away applies the update: true',
+	async ({ minutes }) => {
+		using environment = setupBrowserEnvironment()
+		const { worker } = await launchThenInstallUpdate()
+
+		await returnAfter(environment, minutes)
+
 		await waitFor(() =>
 			expect(worker.postMessage).toHaveBeenCalledWith(ACTIVATE),
 		)

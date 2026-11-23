@@ -14,7 +14,7 @@ FROM base as deps
 
 WORKDIR /myapp
 
-ADD package.json bun.lock bunfig.toml .npmrc ./
+ADD package.json bun.lock bunfig.toml ./
 ADD patches ./patches
 # NODE_ENV=development override: base sets NODE_ENV=production, which would
 # make bun install skip devDependencies needed by the build stage.
@@ -25,7 +25,7 @@ FROM base as production-deps
 
 WORKDIR /myapp
 
-ADD package.json bun.lock bunfig.toml .npmrc ./
+ADD package.json bun.lock bunfig.toml ./
 ADD patches ./patches
 RUN bun install --frozen-lockfile --production
 
@@ -65,10 +65,6 @@ ENV NODE_ENV="production"
 RUN echo "#!/bin/sh\nset -x\nsqlite3 \$DATABASE_PATH" > /usr/local/bin/database-cli && chmod +x /usr/local/bin/database-cli
 
 WORKDIR /myapp
-
-# Generate random value and save it to .env file which will be loaded by dotenv
-RUN INTERNAL_COMMAND_TOKEN=$(openssl rand -hex 32) && \
-  echo "INTERNAL_COMMAND_TOKEN=$INTERNAL_COMMAND_TOKEN" > .env
 
 COPY --from=production-deps /myapp/node_modules /myapp/node_modules
 

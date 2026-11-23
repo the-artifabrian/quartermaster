@@ -1,5 +1,6 @@
+import { z } from 'zod'
 import { getHints } from './client-hints.tsx'
-import { todayInTimeZone } from './date.ts'
+import { getWeekStart, parseDate, todayInTimeZone } from './date.ts'
 
 /**
  * The user's today for this request, as `yyyy-MM-dd`, from the browser's
@@ -14,4 +15,16 @@ import { todayInTimeZone } from './date.ts'
  */
 export function getRequestToday(request: Request): string {
 	return todayInTimeZone(getHints(request).timeZone)
+}
+
+/**
+ * The week a request's `?weekStart=` asks for, as its Monday. Any day of the
+ * week opens that week. Without the param, or with anything that isn't a
+ * real `yyyy-MM-dd` day, it is the week holding `today` (the user's today,
+ * from `getRequestToday`).
+ */
+export function getRequestWeekStart(request: Request, today: string): Date {
+	const param = new URL(request.url).searchParams.get('weekStart')
+	const day = z.iso.date().safeParse(param)
+	return getWeekStart(parseDate(day.success ? day.data : today))
 }

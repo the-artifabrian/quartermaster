@@ -24,7 +24,10 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
-import { getRequestToday } from '#app/utils/today.server.ts'
+import {
+	getRequestToday,
+	getRequestWeekStart,
+} from '#app/utils/today.server.ts'
 import { staleWhileRevalidate } from '#app/utils/loader-cache.ts'
 import {
 	PLAN_VIEW_ONLY_PARAMS,
@@ -44,14 +47,9 @@ export const meta: Route.MetaFunction = () => {
 
 export async function loader({ request }: Route.LoaderArgs) {
 	const { householdId } = await requireUserWithHousehold(request)
-	const url = new URL(request.url)
-	const weekStartParam = url.searchParams.get('weekStart')
 	// Plan uses the browser's day to pick the week and mark Today.
 	const today = getRequestToday(request)
-
-	const weekStart = weekStartParam
-		? getWeekStart(parseDate(weekStartParam))
-		: getWeekStart(parseDate(today))
+	const weekStart = getRequestWeekStart(request, today)
 
 	// Read back by the ensured plan's id — a raw householdId/weekStart lookup
 	// cannot see plans whose weekStart is stored in the INTEGER-ms era.

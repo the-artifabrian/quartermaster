@@ -1,25 +1,14 @@
-import { type Locator, type Page } from '@playwright/test'
+import { type Page } from '@playwright/test'
 import sharp from 'sharp'
 import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { SHELL_UA, setShellSafeArea } from '#tests/native-shell.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { expect, hydrated, test } from '#tests/playwright-utils.ts'
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
 const backButton = (page: Page, label: string) =>
 	page.getByRole('link', { name: `Back to ${label}`, exact: true })
-
-/** React has hydrated an element once it has attached its props to it. */
-async function hydrated(target: Locator) {
-	await expect
-		.poll(() =>
-			target.evaluate((element) =>
-				Object.keys(element).some((key) => key.startsWith('__reactProps')),
-			),
-		)
-		.toBe(true)
-}
 
 const historyIdx = (page: Page) =>
 	page.evaluate(() => (window.history.state as { idx: number }).idx)
@@ -200,10 +189,25 @@ test('a page opened from a scrolled page does not start with its title in the ba
 	await page.goto('/settings/profile')
 	const household = page.getByRole('link', { name: /Household/ })
 	await hydrated(household)
-	// Scroll Settings' own title under the bar; its small title shows.
-	await page.evaluate(() => window.scrollTo(0, 200))
+	// Scroll Settings' own title under the bar; its small title shows. Scroll
+	// again if it doesn't, and say where the page and the bar were if it
+	// never does.
 	const title = page.locator('[data-nav-title]')
-	await expect(title).toHaveAttribute('data-shown', '')
+	await expect(async () => {
+		const where = await page.evaluate(() => {
+			window.scrollTo(0, 200)
+			return {
+				scrollY: window.scrollY,
+				barBottom: document
+					.querySelector('[data-nav-bar]')
+					?.getBoundingClientRect().bottom,
+			}
+		})
+		await expect(
+			title,
+			`small title hidden at ${JSON.stringify(where)}`,
+		).toHaveAttribute('data-shown', '', { timeout: 1000 })
+	}).toPass({ timeout: 5000 })
 	await expect(title).toHaveAttribute('data-nav-title', 'Settings')
 
 	// Record, in every frame from here on, which page is on screen (its h1;

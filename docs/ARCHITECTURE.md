@@ -18,7 +18,7 @@ Express → React Router loaders and actions
     ├── Anthropic for optional Recipe extraction and enhancement
     ├── Groq Whisper for optional speech input
     ├── Stripe for subscriptions
-    └── SSE for household refresh events
+    └── SSE for household refresh events (Pro)
 ```
 
 The app runs on Bun in Fly.io. Express owns middleware and hands application
@@ -335,7 +335,9 @@ elsewhere for it, and the toast says which rows were left. After the row is
 unchecked, the next update applies the new amount. Undo of a Meal deleted
 with its Shopping amounts puts a share whose row was checked since onto an
 unchecked row instead. The Meal writers read the list and write in one
-`writeTransaction`.
+`writeTransaction`. Add to Shopping, Update Shopping and From Plan read the Meal
+and its demand in it too (`app/utils/shopping-adds.server.ts`), and a line added
+from Recipe detail reads its target row there.
 
 A row typed in Shopping or added from Recipe detail keeps its own amount. Meal
 demand that joins it adds to that amount on display. Edit changes only the
@@ -686,17 +688,21 @@ How a change reaches other screens:
   `invalidateServiceWorkerData()` itself.
 - **A change by another household member.** Shopping mutations and Plan actions
   that touch the list write a `HouseholdEvent` row and publish it; the event
-  types are in `app/utils/household-events.server.ts`. Every open client holds
-  one `EventSource` on `/resources/household-events`
+  types are in `app/utils/household-events.server.ts`. Live updates are a Pro
+  feature. Every open Pro client holds one `EventSource` on
+  `/resources/household-events`
   (`app/utils/household-event-source.client.tsx`), polls every 30 seconds to
   cover reconnects, and drops its own events by client id. The server sends a
   `keepalive` event every 30 seconds; a stream that shows nothing for 75 seconds
   (a half-open cellular socket fires no error) is closed and reopened the way an
   error is, with polling in between. Subscribers decide what to do: Shopping
   revalidates after a 500 ms debounce, the tab bar shows a dot, and the root
-  toasts a batched summary. Edits to Recipes, Meals and Staples themselves emit
-  no event today, so another member sees them on their next navigation or pull
-  to refresh. This is refresh signalling, not collaborative editing.
+  toasts a batched summary. Those three are the only subscribers, and each is
+  gated on Pro, so a Free client opens no stream and sees another member's
+  Shopping change on its next load. Edits to Recipes, Meals and Staples
+  themselves emit no event today, so another member sees them on their next
+  navigation or pull to refresh. This is refresh signalling, not collaborative
+  editing.
 - **An app relaunch.** Memory starts empty, so the first visit to each screen
   hits the network. The service worker answers that request from its `.data`
   cache only if the network fails or has not answered in 4 seconds (the late
@@ -787,7 +793,11 @@ high-value AI path.
   reply on the page, and running it again picks up the rest. One thing a rerun
   can't bring back: a sub-Recipe link to a Recipe later in the file than the
   error, because the rerun matches the Recipes already saved by title and
-  leaves them as they are.
+  leaves them as they are. A Meal's day is the date written in the file, a
+  plain day or the date part of a full ISO string, and a plan's week is the
+  Monday of the day it names. A day that isn't one counts as failed
+  (`invalid-date`), and so does a real day outside its plan's week
+  (`outside-week`).
 - LiteFS migration details and restore commands live in
   [RESTORE.md](./RESTORE.md).
 - Production requires the `APP_ORIGIN` secret (`https://useqm.app`).
@@ -891,8 +901,18 @@ get canned answers from `tests/mocks/anthropic.ts`: a Recipe whose title counts
 the images sent, or nothing found when the Household has a metadata value named
 `E2E_UNREADABLE_MARKER`.
 
+The root layout sets `data-hydrated` on `<html>` from an effect, once, on the
+first load, after every mount effect has run, so the router takes navigations by
+then. State those effects set can still commit after it, so the marker doesn't
+mean the page has settled. Before a test taps something that needs script, it
+waits with `hydrated(locator)` or `waitForHydration(page)` from
+`tests/playwright-utils.ts`. After a client navigation the marker is already
+there, so `hydrated()` only checks that the element is attached. Setting
+`PW_CPU_THROTTLE=4` slows the page's CPU four times, which brings out the races
+a slow CI runner hits.
+
 `page.waitForFunction` does not await an async predicate: it resolves with the
 first result, even `false`. To wait on async page state such as Cache Storage,
 use `expect.poll(() => page.evaluate(async () => …))`.
 
-_Updated 21 November 2026._
+_Updated 23 November 2026._

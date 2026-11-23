@@ -72,11 +72,8 @@ import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
 import { MAX_RECIPE_DESCRIPTION_LENGTH } from '#app/utils/recipe-validation.ts'
 import { browserShareFunctions, shareOrCopy } from '#app/utils/share-link.ts'
 import { haptic } from '#app/utils/shell-bridge.ts'
-import { demandIdentity } from '#app/utils/shopping-demand.server.ts'
-import { resolveNextShopDemandTargets } from '#app/utils/shopping-horizon.server.ts'
-import { NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
+import { addRecipeLineToShopping } from '#app/utils/shopping-adds.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
-import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { useCookingProgress } from '#app/utils/use-cooking-progress.ts'
 import { getKeepAwakePreference, useWakeLock } from '#app/utils/wake-lock.ts'
@@ -348,31 +345,12 @@ export async function action({ request, params }: Route.ActionArgs) {
 			userId,
 			householdId,
 		})
-		const canonicalName = demandIdentity(shoppingItem.name)
-		const { targets, promotedIds } = await resolveNextShopDemandTargets(
-			prisma,
-			{
-				listId: ensuredShoppingList.id,
-				canonicalNames: [canonicalName],
-			},
-		)
-		const isNew = !targets.has(canonicalName)
+		const { isNew, promoted } = await addRecipeLineToShopping(prisma, {
+			listId: ensuredShoppingList.id,
+			item: shoppingItem,
+		})
 
-		if (isNew) {
-			await prisma.shoppingListItem.create({
-				data: {
-					name: shoppingItem.name,
-					quantity: shoppingItem.quantity,
-					unit: shoppingItem.unit,
-					category: guessCategory(shoppingItem.name),
-					source: 'recipe',
-					horizon: NEXT_SHOP,
-					listId: ensuredShoppingList.id,
-				},
-			})
-		}
-
-		if (isNew || promotedIds.length > 0) {
+		if (isNew || promoted) {
 			void emitHouseholdEvent({
 				originClientId: formData.get('originClientId'),
 				type: 'shopping_list_item_added',
@@ -386,7 +364,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 			success: true,
 			addedSingle: ingredientId,
 			wasNew: isNew,
-			wasPromoted: promotedIds.length > 0,
+			wasPromoted: promoted,
 		}
 	}
 

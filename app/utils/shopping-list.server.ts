@@ -16,7 +16,7 @@ export type ShoppingAvailability = {
 }
 
 export async function loadShoppingAvailability(
-	db: PrismaClient,
+	db: Pick<PrismaClient, 'householdIngredient'>,
 	householdId: string,
 ): Promise<ShoppingAvailability> {
 	const staples = await db.householdIngredient.findMany({

@@ -2,15 +2,16 @@ import { data } from 'react-router'
 import {
 	formatWeekRange,
 	formatShortDay,
-	getWeekStart,
 	MEAL_TYPE_LABELS,
-	parseDate,
 	serializeDate,
 	type MealType,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import { getRequestToday } from '#app/utils/today.server.ts'
+import {
+	getRequestToday,
+	getRequestWeekStart,
+} from '#app/utils/today.server.ts'
 import { loadMealShoppingDemand } from '#app/utils/meal-shopping.server.ts'
 import { isStapleIngredient } from '#app/utils/recipe-matching.server.ts'
 import { demandIdentity } from '#app/utils/shopping-demand.server.ts'
@@ -53,12 +54,9 @@ function mealTitle({
  */
 export async function loader({ request }: Route.LoaderArgs) {
 	const { householdId } = await requireUserWithHousehold(request)
-	const weekStartParam = new URL(request.url).searchParams.get('weekStart')
 	// The picker folds Meals on days before this, so it is the browser's day.
 	const today = getRequestToday(request)
-	const weekStart = weekStartParam
-		? getWeekStart(parseDate(weekStartParam))
-		: getWeekStart(parseDate(today))
+	const weekStart = getRequestWeekStart(request, today)
 
 	const [mealPlan, availability, listedRows] = await Promise.all([
 		prisma.mealPlan.findUnique({

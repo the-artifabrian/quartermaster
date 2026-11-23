@@ -493,11 +493,36 @@ describe('shopping list actions', () => {
 			include: { meals: { orderBy: { order: 'asc' } } },
 		})
 		const [recipeMeal, textMeal] = mealPlan.meals
+		// The outsider's Meal has real demand, so only the household check
+		// keeps its line off this list.
+		const outsiderRecipe = await prisma.recipe.create({
+			data: {
+				title: 'Paella',
+				userId: outsider.userId,
+				householdId: outsider.householdId,
+				ingredients: {
+					create: [{ name: 'saffron', amount: '1', unit: 'g', order: 0 }],
+				},
+			},
+		})
 		const outsiderPlan = await prisma.mealPlan.create({
 			data: {
 				householdId: outsider.householdId,
 				weekStart,
-				meals: { create: { date: weekStart, order: 0 } },
+				meals: {
+					create: {
+						date: weekStart,
+						order: 0,
+						recipeItems: {
+							create: {
+								order: 0,
+								recipeId: outsiderRecipe.id,
+								recipeTitle: outsiderRecipe.title,
+								scaleMultiplier: 1,
+							},
+						},
+					},
+				},
 			},
 			include: { meals: true },
 		})
@@ -511,7 +536,7 @@ describe('shopping list actions', () => {
 						lines: ['ground lamb', 'cucumber', 'retired recipe'],
 					},
 					{ mealId: textMeal!.id, lines: ['leftovers'] },
-					{ mealId: outsiderPlan.meals[0]!.id, lines: ['anything'] },
+					{ mealId: outsiderPlan.meals[0]!.id, lines: ['saffron'] },
 				]),
 			}),
 			...ACTION_ARGS_BASE,

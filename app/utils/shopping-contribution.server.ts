@@ -24,17 +24,21 @@ type Tx = Prisma.TransactionClient
  */
 export function reconcileMealShoppingContributions(
 	db: PrismaClient,
-	{
-		mealId,
-		listId,
-		lines,
-	}: {
-		mealId: string
-		listId: string
-		/** Demand lines after availability annotation (Staples already gone). */
-		lines: ShoppingDemandLine[]
-	},
-): Promise<{
+	args: ReconcileMealShoppingContributionsArgs,
+): Promise<ReconcileMealShoppingContributionsResult> {
+	return writeTransaction(db, (tx) =>
+		reconcileMealShoppingContributionsInTransaction(tx, args),
+	)
+}
+
+type ReconcileMealShoppingContributionsArgs = {
+	mealId: string
+	listId: string
+	/** Demand lines after availability annotation (Staples already gone). */
+	lines: ShoppingDemandLine[]
+}
+
+type ReconcileMealShoppingContributionsResult = {
 	/** New Shopping rows created. */
 	createdRowCount: number
 	/** Demand recorded against an already-displayed row (no visual change). */
@@ -43,77 +47,85 @@ export function reconcileMealShoppingContributions(
 	alreadyContributedCount: number
 	/** Unchecked Later rows promoted in place for this generated demand. */
 	promotedRowCount: number
-}> {
+}
+
+/**
+ * `reconcileMealShoppingContributions` inside a transaction the caller holds
+ * with `writeTransaction`, so it can read the Meal's demand under the same
+ * lock: a Meal deleted or cooked meanwhile can't slip in between.
+ */
+export async function reconcileMealShoppingContributionsInTransaction(
+	tx: Tx,
+	{ mealId, listId, lines }: ReconcileMealShoppingContributionsArgs,
+): Promise<ReconcileMealShoppingContributionsResult> {
 	// The rows are read and written in one transaction that holds the write
 	// lock, so a check, a delete or another add of this Meal lands wholly
 	// before or wholly after, never between the read and the writes.
-	return writeTransaction(db, async (tx) => {
-		const existingItems = await tx.shoppingListItem.findMany({
-			where: { listId },
-			orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-			select: {
-				id: true,
-				name: true,
-				checked: true,
-				horizon: true,
-			},
-		})
-		const existingContributions = await tx.mealShoppingContribution.findMany({
-			where: { mealId },
-			select: { canonicalName: true, itemId: true },
-		})
-
-		const itemById = new Map(existingItems.map((item) => [item.id, item]))
-		const targetByCanonical = selectNextShopDemandTargets(
-			existingItems,
-			lines.map((line) => line.canonicalName),
-		)
-		const contributionByCanonical = new Map(
-			existingContributions.map((c) => [c.canonicalName, c]),
-		)
-		const promote = promoter(tx)
-
-		let createdRowCount = 0
-		let attachedCount = 0
-		let alreadyContributedCount = 0
-		const seen = new Set<string>()
-
-		for (const line of lines) {
-			// Respect the (mealId, canonicalName) identity within one call too.
-			if (seen.has(line.canonicalName)) continue
-			seen.add(line.canonicalName)
-
-			const contributed = contributionByCanonical.get(line.canonicalName)
-			if (contributed) {
-				// Current-state record already exists — this is not a refresh (#110).
-				await promote(itemById.get(contributed.itemId))
-				alreadyContributedCount++
-				continue
-			}
-
-			const existingRow = targetByCanonical.get(line.canonicalName)
-			if (existingRow) {
-				await promote(existingRow)
-				// A compatible row is already displayed (manual or generated) —
-				// record provenance against it without creating a visual
-				// duplicate or rewriting the row.
-				await tx.mealShoppingContribution.create({
-					data: contributionData(mealId, line, existingRow.id),
-				})
-				attachedCount++
-			} else {
-				await createMealRow(tx, { mealId, listId, line })
-				createdRowCount++
-			}
-		}
-
-		return {
-			createdRowCount,
-			attachedCount,
-			alreadyContributedCount,
-			promotedRowCount: promote.count(),
-		}
+	const existingItems = await tx.shoppingListItem.findMany({
+		where: { listId },
+		orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+		select: {
+			id: true,
+			name: true,
+			checked: true,
+			horizon: true,
+		},
 	})
+	const existingContributions = await tx.mealShoppingContribution.findMany({
+		where: { mealId },
+		select: { canonicalName: true, itemId: true },
+	})
+
+	const itemById = new Map(existingItems.map((item) => [item.id, item]))
+	const targetByCanonical = selectNextShopDemandTargets(
+		existingItems,
+		lines.map((line) => line.canonicalName),
+	)
+	const contributionByCanonical = new Map(
+		existingContributions.map((c) => [c.canonicalName, c]),
+	)
+	const promote = promoter(tx)
+
+	let createdRowCount = 0
+	let attachedCount = 0
+	let alreadyContributedCount = 0
+	const seen = new Set<string>()
+
+	for (const line of lines) {
+		// Respect the (mealId, canonicalName) identity within one call too.
+		if (seen.has(line.canonicalName)) continue
+		seen.add(line.canonicalName)
+
+		const contributed = contributionByCanonical.get(line.canonicalName)
+		if (contributed) {
+			// Current-state record already exists — this is not a refresh (#110).
+			await promote(itemById.get(contributed.itemId))
+			alreadyContributedCount++
+			continue
+		}
+
+		const existingRow = targetByCanonical.get(line.canonicalName)
+		if (existingRow) {
+			await promote(existingRow)
+			// A compatible row is already displayed (manual or generated) —
+			// record provenance against it without creating a visual
+			// duplicate or rewriting the row.
+			await tx.mealShoppingContribution.create({
+				data: contributionData(mealId, line, existingRow.id),
+			})
+			attachedCount++
+		} else {
+			await createMealRow(tx, { mealId, listId, line })
+			createdRowCount++
+		}
+	}
+
+	return {
+		createdRowCount,
+		attachedCount,
+		alreadyContributedCount,
+		promotedRowCount: promote.count(),
+	}
 }
 
 /**
@@ -209,28 +221,30 @@ async function createMealRow(
  */
 export function replaceMealShoppingContributions(
 	db: PrismaClient,
-	{
-		mealId,
-		listId,
-		lines,
-		keepIdentities = new Set(),
-		neverLower = false,
-	}: {
-		mealId: string
-		listId: string
-		lines: ShoppingDemandLine[]
-		/**
-		 * Identities whose existing contribution stays exactly as it is, neither
-		 * updated nor withdrawn. These are the ones a cooked item needs.
-		 */
-		keepIdentities?: ReadonlySet<string>
-		/**
-		 * Never withdraw or lower an existing contribution, though a larger
-		 * amount still applies (see `cookedRecipeGone`).
-		 */
-		neverLower?: boolean
-	},
-): Promise<{
+	args: ReplaceMealShoppingContributionsArgs,
+): Promise<ReplaceMealShoppingContributionsResult> {
+	return writeTransaction(db, (tx) =>
+		replaceMealShoppingContributionsInTransaction(tx, args),
+	)
+}
+
+type ReplaceMealShoppingContributionsArgs = {
+	mealId: string
+	listId: string
+	lines: ShoppingDemandLine[]
+	/**
+	 * Identities whose existing contribution stays exactly as it is, neither
+	 * updated nor withdrawn. These are the ones a cooked item needs.
+	 */
+	keepIdentities?: ReadonlySet<string>
+	/**
+	 * Never withdraw or lower an existing contribution, though a larger
+	 * amount still applies (see `cookedRecipeGone`).
+	 */
+	neverLower?: boolean
+}
+
+type ReplaceMealShoppingContributionsResult = {
 	createdRowCount: number
 	attachedCount: number
 	updatedContributionCount: number
@@ -238,154 +252,168 @@ export function replaceMealShoppingContributions(
 	promotedRowCount: number
 	/** Checked rows whose share from this Meal would have changed. */
 	skippedCheckedNames: string[]
-}> {
-	return writeTransaction(db, async (tx) => {
-		const existingItems = await tx.shoppingListItem.findMany({
-			where: { listId },
-			orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-			select: {
-				id: true,
-				name: true,
-				source: true,
-				checked: true,
-				horizon: true,
-			},
-		})
-		const existingContributions = await tx.mealShoppingContribution.findMany({
-			where: { mealId },
-			select: {
-				id: true,
-				itemId: true,
-				canonicalName: true,
-				name: true,
-				quantity: true,
-				unit: true,
-			},
-		})
+}
 
-		const rowById = new Map(existingItems.map((item) => [item.id, item]))
-		const rowByCanonical = selectNextShopDemandTargets(
-			existingItems,
-			lines.map((line) => line.canonicalName),
-		)
-		const contributionByCanonical = new Map(
-			existingContributions.map((contribution) => [
-				contribution.canonicalName,
-				contribution,
-			]),
-		)
-		const freshByCanonical = new Map<string, ShoppingDemandLine>()
-		for (const line of lines) {
-			if (!freshByCanonical.has(line.canonicalName)) {
-				freshByCanonical.set(line.canonicalName, line)
-			}
+/**
+ * `replaceMealShoppingContributions` inside a transaction the caller holds
+ * with `writeTransaction`, so it can read the Meal's demand under the same
+ * lock.
+ */
+export async function replaceMealShoppingContributionsInTransaction(
+	tx: Tx,
+	{
+		mealId,
+		listId,
+		lines,
+		keepIdentities = new Set(),
+		neverLower = false,
+	}: ReplaceMealShoppingContributionsArgs,
+): Promise<ReplaceMealShoppingContributionsResult> {
+	const existingItems = await tx.shoppingListItem.findMany({
+		where: { listId },
+		orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+		select: {
+			id: true,
+			name: true,
+			source: true,
+			checked: true,
+			horizon: true,
+		},
+	})
+	const existingContributions = await tx.mealShoppingContribution.findMany({
+		where: { mealId },
+		select: {
+			id: true,
+			itemId: true,
+			canonicalName: true,
+			name: true,
+			quantity: true,
+			unit: true,
+		},
+	})
+
+	const rowById = new Map(existingItems.map((item) => [item.id, item]))
+	const rowByCanonical = selectNextShopDemandTargets(
+		existingItems,
+		lines.map((line) => line.canonicalName),
+	)
+	const contributionByCanonical = new Map(
+		existingContributions.map((contribution) => [
+			contribution.canonicalName,
+			contribution,
+		]),
+	)
+	const freshByCanonical = new Map<string, ShoppingDemandLine>()
+	for (const line of lines) {
+		if (!freshByCanonical.has(line.canonicalName)) {
+			freshByCanonical.set(line.canonicalName, line)
+		}
+	}
+
+	const promote = promoter(tx)
+	let createdRowCount = 0
+	let attachedCount = 0
+	let updatedContributionCount = 0
+	let removedContributionCount = 0
+	const possiblyEmptyMealRows = new Set<string>()
+	// One name per row, however many of this Meal's shares sit on it.
+	const skippedChecked = new Map<string, string>()
+
+	// New demand reuses only an outstanding row (Next shop first, a Later
+	// row moves up) or gets its own row, the #226 rule for every Meal add.
+	async function placeNewDemand(line: ShoppingDemandLine) {
+		const existingRow = rowByCanonical.get(line.canonicalName)
+		if (existingRow) {
+			await promote(existingRow)
+			await tx.mealShoppingContribution.create({
+				data: contributionData(mealId, line, existingRow.id),
+			})
+			return 'attached' as const
+		}
+		await createMealRow(tx, { mealId, listId, line })
+		return 'created' as const
+	}
+
+	for (const contribution of existingContributions) {
+		if (keepIdentities.has(contribution.canonicalName)) continue
+		const line = freshByCanonical.get(contribution.canonicalName)
+		const row = rowById.get(contribution.itemId)
+		const changed =
+			!line ||
+			contribution.name !== line.name ||
+			contribution.quantity !== line.quantity ||
+			contribution.unit !== line.unit
+		if (neverLower && changed && !(line && isLarger(line, contribution))) {
+			continue
 		}
 
-		const promote = promoter(tx)
-		let createdRowCount = 0
-		let attachedCount = 0
-		let updatedContributionCount = 0
-		let removedContributionCount = 0
-		const possiblyEmptyMealRows = new Set<string>()
-		// One name per row, however many of this Meal's shares sit on it.
-		const skippedChecked = new Map<string, string>()
-
-		// New demand reuses only an outstanding row (Next shop first, a Later
-		// row moves up) or gets its own row, the #226 rule for every Meal add.
-		async function placeNewDemand(line: ShoppingDemandLine) {
-			const existingRow = rowByCanonical.get(line.canonicalName)
-			if (existingRow) {
-				await promote(existingRow)
-				await tx.mealShoppingContribution.create({
-					data: contributionData(mealId, line, existingRow.id),
-				})
-				return 'attached' as const
-			}
-			await createMealRow(tx, { mealId, listId, line })
-			return 'created' as const
+		if (row?.checked) {
+			// A checked row is a purchase. Update leaves it and this Meal's
+			// share on it alone, and adds nothing elsewhere for it, until
+			// someone unchecks the row.
+			if (changed) skippedChecked.set(row.id, row.name)
+			continue
 		}
 
-		for (const contribution of existingContributions) {
-			if (keepIdentities.has(contribution.canonicalName)) continue
-			const line = freshByCanonical.get(contribution.canonicalName)
-			const row = rowById.get(contribution.itemId)
-			const changed =
-				!line ||
-				contribution.name !== line.name ||
-				contribution.quantity !== line.quantity ||
-				contribution.unit !== line.unit
-			if (neverLower && changed && !(line && isLarger(line, contribution))) {
-				continue
-			}
-
-			if (row?.checked) {
-				// A checked row is a purchase. Update leaves it and this Meal's
-				// share on it alone, and adds nothing elsewhere for it, until
-				// someone unchecks the row.
-				if (changed) skippedChecked.set(row.id, row.name)
-				continue
-			}
-
-			if (!line) {
-				await tx.mealShoppingContribution.delete({
-					where: { id: contribution.id },
-				})
-				possiblyEmptyMealRows.add(contribution.itemId)
-				removedContributionCount++
-				continue
-			}
-
-			if (changed) {
-				await tx.mealShoppingContribution.update({
-					where: { id: contribution.id },
-					data: {
-						name: line.name,
-						quantity: line.quantity,
-						unit: line.unit,
-					},
-				})
-				updatedContributionCount++
-			}
-
-			await promote(row)
-			if (row?.source === 'meal') {
-				await tx.shoppingListItem.update({
-					where: { id: row.id },
-					data: {
-						name: line.name,
-						quantity: line.quantity,
-						unit: line.unit,
-						category: line.category,
-					},
-				})
-			}
+		if (!line) {
+			await tx.mealShoppingContribution.delete({
+				where: { id: contribution.id },
+			})
+			possiblyEmptyMealRows.add(contribution.itemId)
+			removedContributionCount++
+			continue
 		}
 
-		for (const line of freshByCanonical.values()) {
-			if (contributionByCanonical.has(line.canonicalName)) continue
-			if ((await placeNewDemand(line)) === 'attached') attachedCount++
-			else createdRowCount++
+		if (changed) {
+			await tx.mealShoppingContribution.update({
+				where: { id: contribution.id },
+				data: {
+					name: line.name,
+					quantity: line.quantity,
+					unit: line.unit,
+				},
+			})
+			updatedContributionCount++
 		}
 
-		if (possiblyEmptyMealRows.size > 0) {
-			await tx.shoppingListItem.deleteMany({
-				where: {
-					id: { in: [...possiblyEmptyMealRows] },
-					source: 'meal',
-					mealContributions: { none: {} },
+		await promote(row)
+		if (row?.source === 'meal') {
+			await tx.shoppingListItem.update({
+				where: { id: row.id },
+				data: {
+					name: line.name,
+					quantity: line.quantity,
+					unit: line.unit,
+					category: line.category,
 				},
 			})
 		}
+	}
 
-		return {
-			createdRowCount,
-			attachedCount,
-			updatedContributionCount,
-			removedContributionCount,
-			promotedRowCount: promote.count(),
-			skippedCheckedNames: [...skippedChecked.values()],
-		}
-	})
+	for (const line of freshByCanonical.values()) {
+		if (contributionByCanonical.has(line.canonicalName)) continue
+		if ((await placeNewDemand(line)) === 'attached') attachedCount++
+		else createdRowCount++
+	}
+
+	if (possiblyEmptyMealRows.size > 0) {
+		await tx.shoppingListItem.deleteMany({
+			where: {
+				id: { in: [...possiblyEmptyMealRows] },
+				source: 'meal',
+				mealContributions: { none: {} },
+			},
+		})
+	}
+
+	return {
+		createdRowCount,
+		attachedCount,
+		updatedContributionCount,
+		removedContributionCount,
+		promotedRowCount: promote.count(),
+		skippedCheckedNames: [...skippedChecked.values()],
+	}
 }
 
 /**

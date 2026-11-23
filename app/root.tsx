@@ -1,4 +1,5 @@
 import { OpenImgContextProvider } from 'openimg/react'
+import { useEffect } from 'react'
 import {
 	data,
 	Link,
@@ -400,6 +401,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 	const data = useLoaderData<typeof loader | null>()
 	const nonce = useNonce()
 	const theme = useOptionalTheme()
+	// Marks the page as hydrated for the e2e tests. A parent's effects run
+	// after its children's, so by now every mount effect on the page has run
+	// and the router takes navigations. Error pages render inside this too.
+	useEffect(() => {
+		document.documentElement.dataset.hydrated = ''
+	}, [])
 	return (
 		<Document
 			nonce={nonce}

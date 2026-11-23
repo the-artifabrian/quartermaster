@@ -159,6 +159,9 @@ test.describe('Move a Meal', () => {
 		expect(await readShopping()).toEqual(shopping)
 		await page.reload()
 		await expect(movedCard).toBeVisible()
+		// Hydration focuses the linked card and scrolls it to the middle; wait
+		// for that, or the scroll can move the page under the click below.
+		await expect(movedCard).toBeFocused()
 		await page.setViewportSize({ width: 1280, height: 800 })
 		await expect(
 			page.getByTestId('desktop-plan').locator(`[data-meal-id="${meal.id}"]`),

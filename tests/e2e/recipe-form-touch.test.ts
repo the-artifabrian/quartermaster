@@ -1,6 +1,6 @@
 import { type Locator } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { expect, hydrated, test } from '#tests/playwright-utils.ts'
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
@@ -126,17 +126,12 @@ test('a swipe that starts on a drag handle scrolls the form; a hold picks the ro
 	})
 	await page.goto(`/recipes/${recipe.id}/edit`)
 	const handle = page.getByRole('button', { name: 'Reorder step 2' })
+	// Hydrated first, so nothing moves the page after the scroll below.
+	await hydrated(handle)
 	// Mid-screen, clear of the header and the tab bar.
 	await handle.evaluate((element) =>
 		element.scrollIntoView({ block: 'center' }),
 	)
-	await expect
-		.poll(() =>
-			handle.evaluate((element) =>
-				Object.keys(element).some((key) => key.startsWith('__reactProps')),
-			),
-		)
-		.toBe(true)
 	const box = (await handle.boundingBox())!
 	const x = box.x + box.width / 2
 	const y = box.y + box.height / 2

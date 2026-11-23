@@ -42,12 +42,11 @@ import {
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
-import { loadMealShoppingDemand } from '#app/utils/meal-shopping.server.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { parseTypedItem } from '#app/utils/parse-speech-item.ts'
+import { addPickedMealsToShopping } from '#app/utils/shopping-adds.server.ts'
 import {
 	editShoppingDisplayGroup,
-	reconcileMealShoppingContributions,
 	removeGeneratedShoppingAmount,
 } from '#app/utils/shopping-contribution.server.ts'
 import {
@@ -235,49 +234,16 @@ export async function action({ request }: Route.ActionArgs) {
 			pickedByMeal.set(pick.mealId, lines)
 		}
 
-		// Every Meal id is re-resolved through the household before any write;
-		// a text-only Meal has no Shopping behavior (#98 story 43).
-		const meals = await prisma.meal.findMany({
-			where: {
-				id: { in: [...pickedByMeal.keys()] },
-				mealPlan: { householdId },
-				genericText: null,
-			},
-			select: { id: true },
+		const {
+			createdRowCount,
+			attachedCount,
+			alreadyContributedCount,
+			promotedRowCount,
+		} = await addPickedMealsToShopping(prisma, {
+			householdId,
+			listId: shoppingList.id,
+			pickedByMeal,
 		})
-		const allowedMealIds = meals.map((meal) => meal.id)
-		// Cooked Recipe items add nothing (the picker never offered them).
-		const demandByMeal = await loadMealShoppingDemand(prisma, {
-			mealIds: allowedMealIds,
-		})
-
-		let createdRowCount = 0
-		let attachedCount = 0
-		let alreadyContributedCount = 0
-		let promotedRowCount = 0
-		// Sequential: each reconcile reads the list state the previous one left.
-		for (const mealId of allowedMealIds) {
-			const demand = demandByMeal.get(mealId)
-			const picked = pickedByMeal.get(mealId)
-			if (!demand || !picked) continue
-			// The tick set decides what is added. A Staple match the household
-			// ticked anyway is still added: the seam's omission is a default for
-			// generated demand, not a veto over an explicit pick.
-			const lines = demand.lines.filter((line) =>
-				picked.has(line.canonicalName),
-			)
-			if (lines.length === 0) continue
-
-			const result = await reconcileMealShoppingContributions(prisma, {
-				mealId,
-				listId: shoppingList.id,
-				lines,
-			})
-			createdRowCount += result.createdRowCount
-			attachedCount += result.attachedCount
-			alreadyContributedCount += result.alreadyContributedCount
-			promotedRowCount += result.promotedRowCount
-		}
 
 		const changedCount = createdRowCount + attachedCount + promotedRowCount
 		if (changedCount > 0) {

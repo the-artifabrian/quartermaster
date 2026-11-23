@@ -641,6 +641,9 @@ export function MealCard({
 			addToShoppingFetcher.state === 'idle'
 		) {
 			const data = addToShoppingFetcher.data
+			// Someone deleted the Meal while this add ran; the Plan reloads
+			// without it.
+			if (data?.status === 'gone') toast.info('That Meal was just deleted.')
 			if (data?.status === 'success' && data.shopping) {
 				if (data.refreshed) {
 					const changed =

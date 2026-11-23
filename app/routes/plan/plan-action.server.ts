@@ -12,7 +12,6 @@ import {
 	MealDetailsSchema,
 } from '#app/utils/meal-plan-validation.ts'
 import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
-import { loadMealShoppingDemand } from '#app/utils/meal-shopping.server.ts'
 import {
 	addRecipeToMeal,
 	createMealWithItems,
@@ -30,16 +29,9 @@ import {
 	servingInstantFromWallTime,
 	servingWallTime,
 } from '#app/utils/serving-time.ts'
-import {
-	reconcileMealShoppingContributions,
-	removeMealWithShoppingContributions,
-	replaceMealShoppingContributions,
-} from '#app/utils/shopping-contribution.server.ts'
+import { addMealToShopping } from '#app/utils/shopping-adds.server.ts'
+import { removeMealWithShoppingContributions } from '#app/utils/shopping-contribution.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
-import {
-	annotateShoppingDemand,
-	loadShoppingAvailability,
-} from '#app/utils/shopping-list.server.ts'
 import { writeTransaction } from '#app/utils/write-transaction.server.ts'
 
 /**
@@ -241,40 +233,19 @@ export function createPlanAction(
 				{ status: 400 },
 			)
 
-			// Missing cards (recipeId null) contribute nothing, so an update drops
-			// a deleted Recipe's lines. Note-card Shopping lines contribute
-			// alongside Recipe items (#109); a note-only snapshot Meal is a valid
-			// contributor.
-			const mealDemand = await loadMealShoppingDemand(db, {
-				mealIds: [meal.id],
-			})
-			const {
-				lines: demand,
-				cookedIdentities,
-				cookedRecipeGone,
-			} = mealDemand.get(meal.id)!
-
-			const availability = await loadShoppingAvailability(db, householdId)
-			const { lines } = annotateShoppingDemand(demand, availability)
-
 			const shoppingList = await ensureShoppingList(db, {
 				userId,
 				householdId,
 			})
-			const result =
-				intent === 'refreshMealShopping'
-					? await replaceMealShoppingContributions(db, {
-							mealId: meal.id,
-							listId: shoppingList.id,
-							lines,
-							keepIdentities: cookedIdentities,
-							neverLower: cookedRecipeGone,
-						})
-					: await reconcileMealShoppingContributions(db, {
-							mealId: meal.id,
-							listId: shoppingList.id,
-							lines,
-						})
+			const result = await addMealToShopping(db, {
+				mealId: meal.id,
+				householdId,
+				listId: shoppingList.id,
+				refresh: intent === 'refreshMealShopping',
+			})
+			// Deleted, or made text-only, by someone else since it was found
+			// above. The Plan reloads after this answer and shows it gone.
+			if (!result) return { status: 'gone' as const }
 
 			// Since #109, attaching or changing a contribution can alter a
 			// manual/source-Meal row's displayed total without creating a row.

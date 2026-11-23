@@ -296,65 +296,70 @@ export function IngredientFields({
 				</Button>
 			</div>
 
-			<DndContext
-				id={`${baseId}-dnd`}
-				sensors={sortable.sensors}
-				accessibility={sortable.accessibility}
-				collisionDetection={closestCenter}
-				onDragEnd={handleDragEnd}
-			>
-				<SortableContext
-					items={sortKeys}
-					strategy={verticalListSortingStrategy}
+			{/* dnd-kit adds its screen reader text after the list once it mounts.
+			    Inside the stack it would take the stack's spacing and push the
+			    list's end down 16px after the page has drawn. */}
+			<div>
+				<DndContext
+					id={`${baseId}-dnd`}
+					sensors={sortable.sensors}
+					accessibility={sortable.accessibility}
+					collisionDetection={closestCenter}
+					onDragEnd={handleDragEnd}
 				>
-					<div ref={listRef} className="divide-border divide-y">
-						{ingredients.map((ingredient, index) => {
-							const errors = rowErrors?.[index]
-							// A row with an error stays open to show the field.
-							const isExpanded =
-								!ingredient.name ||
-								expandedKeys.has(ingredient.sortKey!) ||
-								rowMessages(errors).length > 0
-							return ingredient.isHeading ? (
-								<SortableHeadingRow
-									key={ingredient.sortKey}
-									sortKey={ingredient.sortKey!}
-									ingredient={ingredient}
-									errors={errors}
-									onUpdate={(field, value) =>
-										updateIngredient(index, field, value)
-									}
-									onRemove={() => removeIngredient(index)}
-									canRemove={ingredients.length > 1}
-									onConvertToIngredient={() => convertToIngredient(index)}
-								/>
-							) : (
-								<SortableIngredientRow
-									allowRecipeLinks={allowRecipeLinks}
-									key={ingredient.sortKey}
-									sortKey={ingredient.sortKey!}
-									number={ingredientNumbers.get(ingredient.sortKey!)!}
-									ingredient={ingredient}
-									errors={errors}
-									isExpanded={isExpanded}
-									onToggleExpand={() => toggleExpanded(ingredient.sortKey!)}
-									onUpdate={(field, value) =>
-										updateIngredient(index, field, value)
-									}
-									onRemove={() => removeIngredient(index)}
-									onLinkRecipe={(recipeId, recipeTitle) =>
-										linkRecipe(index, recipeId, recipeTitle)
-									}
-									onUnlinkRecipe={() => unlinkRecipe(index)}
-									onConvertToHeading={() => convertToHeading(index)}
-									excludeRecipeId={excludeRecipeId}
-									canRemove={ingredients.length > 1}
-								/>
-							)
-						})}
-					</div>
-				</SortableContext>
-			</DndContext>
+					<SortableContext
+						items={sortKeys}
+						strategy={verticalListSortingStrategy}
+					>
+						<div ref={listRef} className="divide-border divide-y">
+							{ingredients.map((ingredient, index) => {
+								const errors = rowErrors?.[index]
+								// A row with an error stays open to show the field.
+								const isExpanded =
+									!ingredient.name ||
+									expandedKeys.has(ingredient.sortKey!) ||
+									rowMessages(errors).length > 0
+								return ingredient.isHeading ? (
+									<SortableHeadingRow
+										key={ingredient.sortKey}
+										sortKey={ingredient.sortKey!}
+										ingredient={ingredient}
+										errors={errors}
+										onUpdate={(field, value) =>
+											updateIngredient(index, field, value)
+										}
+										onRemove={() => removeIngredient(index)}
+										canRemove={ingredients.length > 1}
+										onConvertToIngredient={() => convertToIngredient(index)}
+									/>
+								) : (
+									<SortableIngredientRow
+										allowRecipeLinks={allowRecipeLinks}
+										key={ingredient.sortKey}
+										sortKey={ingredient.sortKey!}
+										number={ingredientNumbers.get(ingredient.sortKey!)!}
+										ingredient={ingredient}
+										errors={errors}
+										isExpanded={isExpanded}
+										onToggleExpand={() => toggleExpanded(ingredient.sortKey!)}
+										onUpdate={(field, value) =>
+											updateIngredient(index, field, value)
+										}
+										onRemove={() => removeIngredient(index)}
+										onLinkRecipe={(recipeId, recipeTitle) =>
+											linkRecipe(index, recipeId, recipeTitle)
+										}
+										onUnlinkRecipe={() => unlinkRecipe(index)}
+										onConvertToHeading={() => convertToHeading(index)}
+										excludeRecipeId={excludeRecipeId}
+										canRemove={ingredients.length > 1}
+									/>
+								)
+							})}
+						</div>
+					</SortableContext>
+				</DndContext>
+			</div>
 		</div>
 	)
 }

@@ -290,7 +290,7 @@ export async function validateRequest(
 			}
 			// Only someone with the password can start a sign-in, so a cap on
 			// its tries can't lock the owner out.
-			const tries = forPending ? takePendingSignInTry(pending) : 0
+			const tries = forPending ? await takePendingSignInTry(pending) : 0
 			if (forPending && tries > MAX_PENDING_SIGN_IN_TRIES) {
 				await endPendingSignIn(pending.id)
 				logInAgain = 'too-many-tries'

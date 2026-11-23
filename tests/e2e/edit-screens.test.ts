@@ -1,7 +1,7 @@
 import { type Locator, type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
 import { SHELL_UA, setShellSafeArea } from '#tests/native-shell.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { expect, hydrated, test } from '#tests/playwright-utils.ts'
 
 // Recipe and Menu edit screens (edit and new): every error that holds Save
 // back shows at what it is about, the tab bar is gone, leaving with changes
@@ -11,17 +11,6 @@ import { expect, test } from '#tests/playwright-utils.ts'
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
 type User = { id: string; householdId: string }
-
-/** React has hydrated an element once it has attached its props to it. */
-async function hydrated(target: Locator) {
-	await expect
-		.poll(() =>
-			target.evaluate((element) =>
-				Object.keys(element).some((key) => key.startsWith('__reactProps')),
-			),
-		)
-		.toBe(true)
-}
 
 const historyIdx = (page: Page) =>
 	page.evaluate(() => (window.history.state as { idx: number }).idx)
@@ -372,6 +361,44 @@ test.describe('no tab bar on edit screens', () => {
 		// and no room left for a 54pt tab bar.
 		expect(gap).toBeGreaterThanOrEqual(34 + 16)
 		expect(gap).toBeLessThan(34 + 16 + 10)
+	})
+
+	test('the Ingredients and Steps lists keep their height once the page hydrates', async ({
+		page,
+		login,
+		browser,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		// Where the controls below each list sit on the page.
+		const positions = (target: Page) =>
+			Promise.all(
+				[
+					target.getByRole('button', { name: 'Add Step' }),
+					target.getByRole('button', { name: 'Delete Recipe' }),
+				].map((control) =>
+					control.evaluate(
+						(element) => element.getBoundingClientRect().top + window.scrollY,
+					),
+				),
+			)
+		// The page as the server drew it, with no script to hydrate it.
+		const serverOnly = await browser.newContext({
+			baseURL: test.info().project.use.baseURL,
+			javaScriptEnabled: false,
+			viewport: { width: 390, height: 844 },
+			storageState: await page.context().storageState(),
+		})
+		const drawn = await serverOnly.newPage()
+		await drawn.goto(`/recipes/${recipe.id}/edit`)
+		const before = await positions(drawn)
+		await serverOnly.close()
+
+		await page.goto(`/recipes/${recipe.id}/edit`)
+		await hydrated(saveButton(page))
+		// dnd-kit adds its screen reader text a render after its first.
+		await expect(page.locator('[id^="DndLiveRegion"]')).toHaveCount(2)
+		expect(await positions(page)).toEqual(before)
 	})
 })
 

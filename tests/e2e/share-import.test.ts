@@ -1,13 +1,13 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { faker } from '@faker-js/faker'
-import { type Locator, type Page, type Route } from '@playwright/test'
+import { type Page } from '@playwright/test'
 import sharp from 'sharp'
 import { prisma } from '#app/utils/db.server.ts'
 import { E2E_UNREADABLE_MARKER } from '#tests/mocks/anthropic.ts'
 import { SHELL_UA } from '#tests/native-shell.ts'
 import { E2E_MISSING_URL, E2E_RECIPE_URL } from '#tests/mocks/recipe-pages.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { expect, hydrated, test } from '#tests/playwright-utils.ts'
 
 // A link shared through the iOS app's own Share Extension imports at once.
 // The shell hands it to the import page natively (ios/README.md, "Share
@@ -80,17 +80,6 @@ function countFetches(page: Page) {
 			count.fetches++
 	})
 	return count
-}
-
-/** React has hydrated an element once it has attached its props to it. */
-async function hydrated(target: Locator) {
-	await expect
-		.poll(() =>
-			target.evaluate((element) =>
-				Object.keys(element).some((key) => key.startsWith('__reactProps')),
-			),
-		)
-		.toBe(true)
 }
 
 const offer = (page: Page) =>

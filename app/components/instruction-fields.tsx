@@ -104,33 +104,38 @@ export function InstructionFields({
 				</Button>
 			</div>
 
-			<DndContext
-				id={dndId}
-				sensors={sortable.sensors}
-				accessibility={sortable.accessibility}
-				collisionDetection={closestCenter}
-				onDragEnd={handleDragEnd}
-			>
-				<SortableContext
-					items={sortKeys}
-					strategy={verticalListSortingStrategy}
+			{/* dnd-kit adds its screen reader text after the list once it mounts.
+			    Inside the stack it would take the stack's spacing and push the
+			    list's end down 16px after the page has drawn. */}
+			<div>
+				<DndContext
+					id={dndId}
+					sensors={sortable.sensors}
+					accessibility={sortable.accessibility}
+					collisionDetection={closestCenter}
+					onDragEnd={handleDragEnd}
 				>
-					<div className="space-y-3">
-						{instructions.map((instruction, index) => (
-							<SortableInstructionRow
-								key={instruction.sortKey}
-								sortKey={instruction.sortKey!}
-								instruction={instruction}
-								errors={rowErrors?.[index]}
-								index={index}
-								onUpdate={(content) => updateInstruction(index, content)}
-								onRemove={() => removeInstruction(index)}
-								canRemove={instructions.length > 1}
-							/>
-						))}
-					</div>
-				</SortableContext>
-			</DndContext>
+					<SortableContext
+						items={sortKeys}
+						strategy={verticalListSortingStrategy}
+					>
+						<div className="space-y-3">
+							{instructions.map((instruction, index) => (
+								<SortableInstructionRow
+									key={instruction.sortKey}
+									sortKey={instruction.sortKey!}
+									instruction={instruction}
+									errors={rowErrors?.[index]}
+									index={index}
+									onUpdate={(content) => updateInstruction(index, content)}
+									onRemove={() => removeInstruction(index)}
+									canRemove={instructions.length > 1}
+								/>
+							))}
+						</div>
+					</SortableContext>
+				</DndContext>
+			</div>
 		</div>
 	)
 }

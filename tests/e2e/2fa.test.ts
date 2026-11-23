@@ -6,7 +6,13 @@ import { generateTOTP } from '#app/utils/totp.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { readEmail } from '#tests/mocks/utils.ts'
-import { createUser, expect, test, waitFor } from '#tests/playwright-utils.ts'
+import {
+	createUser,
+	expect,
+	hydrated,
+	test,
+	waitFor,
+} from '#tests/playwright-utils.ts'
 
 test('Users can add 2FA to their account and use it when logging in', async ({
 	page,
@@ -100,13 +106,7 @@ test('Reverifying from Settings lands on the page the user opened, not its data'
 
 	await navigate('/settings/profile')
 	const emailRow = page.getByRole('link', { name: `Email ${user.email}` })
-	await expect
-		.poll(() =>
-			emailRow.evaluate((element) =>
-				Object.keys(element).some((key) => key.startsWith('__reactProps')),
-			),
-		)
-		.toBe(true)
+	await hydrated(emailRow)
 	// A client navigation: the router asks for the page's data.
 	const dataRequest = page.waitForRequest((request) =>
 		new URL(request.url()).pathname.endsWith('/change-email.data'),

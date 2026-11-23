@@ -1,8 +1,8 @@
-import { type Locator, type Page } from '@playwright/test'
+import { type Page } from '@playwright/test'
 import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { SAFARI_UA, SHELL_UA } from '#tests/native-shell.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { expect, hydrated, test } from '#tests/playwright-utils.ts'
 
 // In the iOS app every push into a page with a nav bar slides in from the
 // right, and the nav bar's Back, Cancel, and an edit screen's leave after
@@ -223,17 +223,6 @@ async function instrument(page: Page) {
 		expectNoTransition,
 		hapticsOf,
 	}
-}
-
-/** React has hydrated an element once it has attached its props to it. */
-async function hydrated(target: Locator) {
-	await expect
-		.poll(() =>
-			target.evaluate((element) =>
-				Object.keys(element).some((key) => key.startsWith('__reactProps')),
-			),
-		)
-		.toBe(true)
 }
 
 const navBar = (page: Page) => page.locator('[data-nav-bar]')

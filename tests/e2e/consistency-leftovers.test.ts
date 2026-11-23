@@ -8,7 +8,7 @@ import {
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { SHELL_UA } from '#tests/native-shell.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { expect, hydrated, test } from '#tests/playwright-utils.ts'
 
 test.use({
 	viewport: { width: 390, height: 844 },
@@ -254,13 +254,7 @@ test('after a week swipe, Plan’s + adds to the day showing in the new week', a
 	const nextWeek = addDaysUTC(weekStart, 7)
 	await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
 	const strip = page.locator('[data-slot="mobile-week-days"]')
-	await expect
-		.poll(() =>
-			strip.evaluate((element) =>
-				Object.keys(element).some((key) => key.startsWith('__reactProps')),
-			),
-		)
-		.toBe(true)
+	await hydrated(strip)
 	await drag(page, strip, { fromX: 0.8, toX: 0.2 })
 	await expect(page).toHaveURL(
 		new RegExp(`weekStart=${serializeDate(nextWeek)}`),
@@ -356,7 +350,10 @@ test('a Staple row swiped left shows a red Delete that removes it at once, with 
 	).toBeVisible()
 
 	await drag(page, salt, { fromX: 0.8, toX: 0.2 })
-	await expect.poll(() => onTop(del)).toBe(true)
+	// The drag overshoots and the row eases back to rest. Wait for it to
+	// settle, so the button isn't still sliding when the finger lands.
+	await expect.poll(() => restingX(salt)).toBe(-76)
+	expect(await onTop(del)).toBe(true)
 	// This step has failed on CI only (twice, all retries): the tap reached
 	// the page but the Staple stayed. Record what the finger hit and which
 	// events arrived, so a failure says why.

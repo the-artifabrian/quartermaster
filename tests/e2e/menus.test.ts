@@ -1,5 +1,5 @@
 import { prisma } from '#app/utils/db.server.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { expect, hydrated, test } from '#tests/playwright-utils.ts'
 
 /**
  * Release 1A critical path (#102): the Recipes / Menus switch, a five-Recipe
@@ -311,13 +311,7 @@ test('a Menu card another member adds while the edit form is open survives Save'
 
 	await page.goto(`/recipes/menus/${menu.id}/edit`)
 	const save = page.locator('[data-nav-save]')
-	await expect
-		.poll(() =>
-			save.evaluate((element) =>
-				Object.keys(element).some((key) => key.startsWith('__reactProps')),
-			),
-		)
-		.toBe(true)
+	await hydrated(save)
 	const added = await prisma.menuItem.create({
 		data: {
 			kind: 'recipe',

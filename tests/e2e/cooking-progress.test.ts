@@ -1,17 +1,5 @@
-import { type Locator } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
-
-/** React has hydrated an element once it has attached its props to it. */
-async function hydrated(target: Locator) {
-	await expect
-		.poll(() =>
-			target.evaluate((element) =>
-				Object.keys(element).some((key) => key.startsWith('__reactProps')),
-			),
-		)
-		.toBe(true)
-}
+import { expect, hydrated, test } from '#tests/playwright-utils.ts'
 
 for (const width of [390, 1280]) {
 	test(`cooking checks resume, stay with their Recipe, and reset at ${width}px`, async ({

@@ -1,5 +1,5 @@
 import { type Locator, type Page } from '@playwright/test'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { expect, hydrated, test } from '#tests/playwright-utils.ts'
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
@@ -41,17 +41,6 @@ async function swipe(
 		touchPoints: [],
 	})
 	await cdp.detach()
-}
-
-/** React has hydrated an element once it has attached its props to it. */
-async function hydrated(target: Locator) {
-	await expect
-		.poll(() =>
-			target.evaluate((element) =>
-				Object.keys(element).some((key) => key.startsWith('__reactProps')),
-			),
-		)
-		.toBe(true)
 }
 
 test('swiping the Plan day strip turns the week; a short swipe does not', async ({

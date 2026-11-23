@@ -1,4 +1,9 @@
-import { test as base, type Page, type Response } from '@playwright/test'
+import {
+	test as base,
+	type Locator,
+	type Page,
+	type Response,
+} from '@playwright/test'
 import { href, type Register } from 'react-router'
 import * as setCookieParser from 'set-cookie-parser'
 import { type User as UserModel } from '#app/generated/prisma/client.ts'
@@ -81,6 +86,10 @@ async function getOrInsertUser({
 
 export type AppPages = keyof Register['pages']
 
+// `PW_CPU_THROTTLE=4` slows the page's CPU four times, to bring out the races
+// a slow CI runner hits: an effect landing after the test has moved on.
+const cpuThrottle = Number(process.env.PW_CPU_THROTTLE) || 0
+
 export const test = base.extend<{
 	navigate: <Path extends AppPages>(
 		...args: Parameters<typeof href<Path>>
@@ -89,6 +98,15 @@ export const test = base.extend<{
 	login(options?: GetOrInsertUserOptions): Promise<LoggedInUser>
 	prepareGoogleUser(): Promise<GoogleUser>
 }>({
+	page: async ({ page }, use) => {
+		if (cpuThrottle > 1) {
+			// The session stays open for the whole test: closing it ends the
+			// throttling.
+			const cdp = await page.context().newCDPSession(page)
+			await cdp.send('Emulation.setCPUThrottlingRate', { rate: cpuThrottle })
+		}
+		await use(page)
+	},
 	navigate: async ({ page }, use) => {
 		await use((...args) => {
 			return page.goto(href(...args))
@@ -231,6 +249,22 @@ export async function waitFor<ReturnValue>(
 		await new Promise((r) => setTimeout(r, 100))
 	}
 	throw lastError
+}
+
+/**
+ * Waits until the page has hydrated: React has committed, every mount effect
+ * has run, and the router takes navigations. The root layout sets the marker
+ * once, so after a client navigation it is already there; wait for the new
+ * page's own content as well.
+ */
+export async function waitForHydration(page: Page) {
+	await expect(page.locator('html')).toHaveAttribute('data-hydrated')
+}
+
+/** Waits for `target` to be on the page and for the page to have hydrated. */
+export async function hydrated(target: Locator) {
+	await expect(target).toBeAttached()
+	await waitForHydration(target.page())
 }
 
 /** Opens Shopping and waits until it has hydrated: it fills its client id then. */

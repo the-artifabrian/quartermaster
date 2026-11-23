@@ -9,7 +9,6 @@ import {
 	logout,
 	sessionKey,
 } from '#app/utils/auth.server.ts'
-import { startOfUsageDay } from '#app/utils/ai-rate-limit.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { generateTOTP } from '#app/utils/totp.server.ts'
@@ -17,7 +16,6 @@ import { verifySessionStorage } from '#app/utils/verification.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { createWalDatabase } from '#tests/sqlite-concurrency.ts'
 import { BASE_URL } from '#tests/utils.ts'
-import { pruneExpiredData } from '../../../server/scheduled-maintenance.ts'
 import {
 	endPendingSignIn,
 	handleNewSession,
@@ -82,17 +80,15 @@ import '#tests/setup/mocks-setup.ts'
 //     cookie can't end or reuse the signed-in session.
 // 22. A request that read the pending row just before another request ended
 //     it doesn't start counting again from 1.
-// The try count lives in the database, so it holds across:
+// The try count is on the pending Session row, so it holds across:
 // 23. A restart (a deploy) between two wrong codes. The count carries on, and
 //     the fifth code still ends the sign-in.
 // 24. Two wrong codes at once in WAL mode, as production runs. Each counts,
 //     one as the first try and one as the second.
 // 25. Two pending sign-ins of the same user, on two devices. Tries on one
 //     don't count against the other.
-// 26. The nightly prune of usage rows running just after midnight, while a
-//     sign-in that started just before it is still waiting for its code.
-// 27. A sign-in that ends, by its code or by too many tries, leaves no tries
-//     behind.
+// 26. A sign-in ended by five wrong codes. Logging in again starts a new
+//     count, so the owner isn't held to the old one.
 
 const twoHoursAgo = (extraMinutes: number) =>
 	Date.now() - 1000 * 60 * (120 + extraMinutes)
@@ -455,58 +451,30 @@ describe('pending 2FA sign-in limits', () => {
 		expect(await takePendingSignInTry(await pendingRow(other.id))).toBe(1)
 	})
 
-	test('the nightly prune just after midnight keeps a waiting sign-in’s tries', async () => {
-		const midnight = startOfUsageDay().getTime()
-		const { pending } = await pendingSignIn()
-		await prisma.session.update({
-			where: { id: pending.id },
-			data: { createdAt: new Date(midnight - 5 * 60 * 1000) },
-		})
-		const row = await pendingRow(pending.id)
-		vi.useFakeTimers({ toFake: ['Date'] })
-		try {
-			vi.setSystemTime(midnight - 3 * 60 * 1000)
-			for (let i = 0; i < 4; i++) await takePendingSignInTry(row)
-			vi.setSystemTime(midnight + 60 * 1000)
-
-			await pruneExpiredData(new Date())
-
-			expect(await takePendingSignInTry(row)).toBe(MAX_PENDING_SIGN_IN_TRIES)
-		} finally {
-			vi.useRealTimers()
-		}
-	})
-
-	test('a sign-in that ends leaves no tries behind', async () => {
-		const tryRows = () =>
-			prisma.usageEvent.count({ where: { type: { startsWith: '2fa' } } })
-		const finished = await pendingSignIn()
-		const wrongForFinished = await wrongCodeFor(finished.user)
-		await submitVerify(
-			{ code: wrongForFinished, type: '2fa', target: finished.user.id },
-			finished.cookie,
-		)
-		const signedIn = await submitVerify(
-			{
-				code: await totpFor(finished.user),
-				type: '2fa',
-				target: finished.user.id,
-			},
-			finished.cookie,
-		)
-		expect(signedIn.location).toBe('/recipes')
-
-		const capped = await pendingSignIn()
-		const wrong = await wrongCodeFor(capped.user)
+	test('a sign-in ended by wrong codes doesn’t hold the next one to its count', async () => {
+		const { user, pending, cookie } = await pendingSignIn()
+		const wrong = await wrongCodeFor(user)
 		for (let i = 0; i < MAX_PENDING_SIGN_IN_TRIES; i++) {
+			await submitVerify({ code: wrong, type: '2fa', target: user.id }, cookie)
+		}
+		expect(await sessionExists(pending.id)).toBe(false)
+
+		const again = await createSession(user.id)
+		const againCookie = await cookieHeader({
+			verify: { [pendingKey]: again.id },
+		})
+		for (let i = 0; i < MAX_PENDING_SIGN_IN_TRIES - 1; i++) {
 			await submitVerify(
-				{ code: wrong, type: '2fa', target: capped.user.id },
-				capped.cookie,
+				{ code: wrong, type: '2fa', target: user.id },
+				againCookie,
 			)
 		}
-		expect(await sessionExists(capped.pending.id)).toBe(false)
+		const outcome = await submitVerify(
+			{ code: await totpFor(user), type: '2fa', target: user.id },
+			againCookie,
+		)
 
-		expect(await tryRows()).toBe(0)
+		expect(outcome.location).toBe('/recipes')
 	})
 
 	test('a kept copy of the verify cookie can’t touch the session it became', async () => {

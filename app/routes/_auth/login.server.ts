@@ -10,7 +10,6 @@ import { shouldRememberSession } from '#app/utils/native-shell.server.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
-import { writeTransaction } from '#app/utils/write-transaction.server.ts'
 import { getRedirectToUrl, type VerifyFunctionArgs } from './verify.server.ts'
 
 const verifiedTimeKey = 'verified-time'
@@ -59,51 +58,29 @@ export async function findPendingSignIn(
 }
 
 /**
- * The UsageEvent type that counts codes tried against one pending sign-in.
- * Kept in the database, so a restart doesn't hand a pending sign-in 5 more.
- */
-function signInTryType(pendingId: string) {
-	return `2fa-sign-in-try:${pendingId}`
-}
-
-/**
  * Counts one code tried against a pending sign-in and returns how many it
  * has had, this one included. Counted before the code is checked, so codes
- * sent at once can't share a count. A sign-in that has already ended counts
- * as over the cap, so a request that read its row just before another one
- * ended it can't start again from 1.
- *
- * Each try is a UsageEvent row whose `createdAt` is when the pending sign-in
- * runs out. The nightly prune drops usage rows from before today began, so
- * that keeps a sign-in started just before midnight from losing its tries.
+ * sent at once can't share a count. The count is on the pending Session row,
+ * so a restart doesn't reset it, and one statement both adds the try and
+ * reads the total. A sign-in whose row has gone counts as over the cap, so a
+ * request that read the row just before another one ended it can't start
+ * again from 1.
  */
 export async function takePendingSignInTry(
-	pending: { id: string; userId: string; createdAt: Date },
+	pending: { id: string },
 	db: PrismaClient = prisma,
 ) {
-	const type = signInTryType(pending.id)
-	return writeTransaction(db, async (tx) => {
-		const live = await tx.session.count({ where: { id: pending.id } })
-		if (!live) return Infinity
-		await tx.usageEvent.create({
-			data: {
-				type,
-				userId: pending.userId,
-				createdAt: new Date(
-					pending.createdAt.getTime() + PENDING_SIGN_IN_LIFETIME_MS,
-				),
-			},
-		})
-		return tx.usageEvent.count({ where: { type } })
+	const [row] = await db.session.updateManyAndReturn({
+		where: { id: pending.id },
+		data: { signInTries: { increment: 1 } },
+		select: { signInTries: true },
 	})
+	return row ? row.signInTries : Infinity
 }
 
 /** Deletes a pending sign-in's Session row, so its code can't finish it. */
 export async function endPendingSignIn(id: string) {
-	await prisma.$transaction([
-		prisma.session.deleteMany({ where: { id } }),
-		prisma.usageEvent.deleteMany({ where: { type: signInTryType(id) } }),
-	])
+	await prisma.session.deleteMany({ where: { id } })
 }
 
 export async function handleNewSession(
@@ -225,9 +202,6 @@ export async function handleVerification({
 				where: { id: pending.id },
 			})
 			if (count !== 1) return null
-			await tx.usageEvent.deleteMany({
-				where: { type: signInTryType(pending.id) },
-			})
 			return tx.session.create({
 				select: { id: true },
 				data: {

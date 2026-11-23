@@ -50,6 +50,10 @@ model Session {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   userId String
 
+  /// Codes tried against this session while it waits for its 2FA code.
+  /// Unused once the sign-in finishes, since that makes a new session.
+  signInTries Int @default(0)
+
   // non-unique foreign key
   @@index([userId])
 }

@@ -470,11 +470,9 @@ wrong one its row is deleted and the person logs in again. Only someone with the
 password can start one, so the cap can't lock the owner out. That is at most 5 ×
 3 ÷ 10^6 = 1.5 × 10^-5 per sign-in, and each new one needs the password, with
 sign-in and `/verify` sharing the auth tier's 10 POSTs a minute per address. The
-count is kept in the database, one `UsageEvent` row per code, typed
-`2fa-sign-in-try:` and the pending session's id, so a restart doesn't reset it.
-Each row's `createdAt` is when its sign-in runs out, which keeps the nightly
-prune of usage rows from dropping the tries of a sign-in that started just
-before midnight. Ending the sign-in deletes its rows. A code for
+count is the pending `Session` row's `signInTries`, so a restart doesn't reset
+it. One `UPDATE … RETURNING` adds each try and reads the total, and a row that
+has gone counts as over the cap. A code for
 any account other than the browser's pending sign-in or its signed-in user isn't
 checked at all. Over a day, from one address: each cycle is one login POST and 5
 codes, so the auth tier's 10 POSTs a minute allow about 8.3 codes a minute,

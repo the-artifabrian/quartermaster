@@ -11,6 +11,8 @@
  *   is added for it.
  * - An ingredient a cooked and an uncooked item share. An existing amount
  *   stays as it is; with none, only the uncooked item's share is added.
+ * - A cooked item whose Recipe was deleted since. Update doesn't withdraw
+ *   or lower what the Meal already put on Shopping.
  *
  * Household events from Meal → Shopping writes:
  * - Add to Shopping and Update Shopping from the Meal card carry the
@@ -1780,43 +1782,71 @@ describe('cooked Recipe items never add Shopping amounts', () => {
 		})
 		expect(await amounts(session.householdId)).toMatchObject({ onion: '2' })
 	})
-})
 
-describe('Meal → Shopping events name the device that made them', () => {
-	test('Add to Shopping and Update Shopping carry the client id', async () => {
+	test('a cooked item whose Recipe was deleted keeps what the Meal put on Shopping', async () => {
 		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId, session.householdId)
-		const meal = await setupMeal(session.householdId, recipe)
-		const item = await prisma.mealRecipeItem.findFirstOrThrow({
-			where: { mealId: meal.id },
-		})
-		vi.mocked(emitHouseholdEvent).mockClear()
-
+		const { meal, curryItem } = await setupTwoRecipeMeal(session)
 		await runPlanAction(session, {
 			intent: 'addMealToShopping',
 			mealId: meal.id,
-			originClientId: 'this-phone',
 		})
-		await runPlanAction(session, {
-			intent: 'setItemMultiplier',
-			itemId: item.id,
-			multiplier: '2',
+		const before = await getContributions(session.householdId)
+		await prisma.mealRecipeItem.update({
+			where: { id: curryItem.id },
+			data: { cooked: true },
 		})
+		await prisma.recipe.delete({ where: { id: curryItem.recipeId! } })
+
 		await runPlanAction(session, {
 			intent: 'refreshMealShopping',
 			mealId: meal.id,
-			originClientId: 'this-phone',
 		})
 
-		const calls = vi
-			.mocked(emitHouseholdEvent)
-			.mock.calls.map(([event]) => event)
-		expect(calls).toHaveLength(2)
-		for (const event of calls) {
-			expect(event).toMatchObject({
-				type: 'shopping_list_generated',
+		// The curry's coconut milk and its share of the onion stay.
+		expect(await getContributions(session.householdId)).toEqual(before)
+		expect(await amounts(session.householdId)).toEqual({
+			'coconut milk': '1',
+			cucumber: '1',
+			onion: '3',
+		})
+	})
+
+	describe('Meal → Shopping events name the device that made them', () => {
+		test('Add to Shopping and Update Shopping carry the client id', async () => {
+			const session = await setupUser()
+			const recipe = await setupRecipe(session.userId, session.householdId)
+			const meal = await setupMeal(session.householdId, recipe)
+			const item = await prisma.mealRecipeItem.findFirstOrThrow({
+				where: { mealId: meal.id },
+			})
+			vi.mocked(emitHouseholdEvent).mockClear()
+
+			await runPlanAction(session, {
+				intent: 'addMealToShopping',
+				mealId: meal.id,
 				originClientId: 'this-phone',
 			})
-		}
+			await runPlanAction(session, {
+				intent: 'setItemMultiplier',
+				itemId: item.id,
+				multiplier: '2',
+			})
+			await runPlanAction(session, {
+				intent: 'refreshMealShopping',
+				mealId: meal.id,
+				originClientId: 'this-phone',
+			})
+
+			const calls = vi
+				.mocked(emitHouseholdEvent)
+				.mock.calls.map(([event]) => event)
+			expect(calls).toHaveLength(2)
+			for (const event of calls) {
+				expect(event).toMatchObject({
+					type: 'shopping_list_generated',
+					originClientId: 'this-phone',
+				})
+			}
+		})
 	})
 })

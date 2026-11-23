@@ -16,6 +16,12 @@ export type MealShoppingDemand = {
 	 * Shopping leaves this Meal's existing amounts for them as they are.
 	 */
 	cookedIdentities: Set<string>
+	/**
+	 * A cooked Recipe item whose Recipe has since been deleted. What it needed
+	 * can't be known, so Update Shopping leaves every amount this Meal already
+	 * put on Shopping as it is.
+	 */
+	cookedRecipeGone: boolean
 }
 
 /**
@@ -28,8 +34,10 @@ export type MealShoppingDemand = {
  * already put on Shopping stay as they are, checked or not. The caller
  * passes `cookedIdentities` on, and an identity in it is neither added to
  * nor withdrawn. An ingredient a cooked and an uncooked item share counts as
- * cooked there, so an existing amount stays; with none on Shopping, only the
- * uncooked share is added.
+ * cooked there, so an existing amount stays, even when the uncooked item
+ * changed; with none on Shopping, only the uncooked share is added. A cooked
+ * item whose Recipe was deleted could have needed anything, so then every
+ * amount the Meal already has on Shopping stays (`cookedRecipeGone`).
  *
  * Missing cards (recipeId null) and text-only Meals simply contribute nothing.
  * Every Meal id must already be resolved through the caller's household.
@@ -94,6 +102,7 @@ export async function loadMealShoppingDemand(
 					(line) => line.canonicalName,
 				),
 			),
+			cookedRecipeGone: cooked.some((item) => !item.recipe),
 		})
 	}
 	return demand

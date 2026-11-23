@@ -197,6 +197,7 @@ export function replaceMealShoppingContributions(
 		listId,
 		lines,
 		keepIdentities = new Set(),
+		keepAllExisting = false,
 	}: {
 		mealId: string
 		listId: string
@@ -206,6 +207,8 @@ export function replaceMealShoppingContributions(
 		 * updated nor withdrawn. These are the ones a cooked item needs.
 		 */
 		keepIdentities?: ReadonlySet<string>
+		/** Leave every existing contribution as it is (see `cookedRecipeGone`). */
+		keepAllExisting?: boolean
 	},
 ): Promise<{
 	createdRowCount: number
@@ -282,7 +285,9 @@ export function replaceMealShoppingContributions(
 		}
 
 		for (const contribution of existingContributions) {
-			if (keepIdentities.has(contribution.canonicalName)) continue
+			if (keepAllExisting || keepIdentities.has(contribution.canonicalName)) {
+				continue
+			}
 			const line = freshByCanonical.get(contribution.canonicalName)
 			const row = rowById.get(contribution.itemId)
 			const changed =

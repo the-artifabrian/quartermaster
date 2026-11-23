@@ -112,7 +112,9 @@ plan into Shopping.
   collapsible section below it for things to buy another time. Rows move between
   them, Later has its own quick add, and adding a row already waiting in the
   other horizon offers to move it.
-- Sync household changes through SSE with polling fallback.
+- On Pro, show another member's Shopping changes as they happen (SSE with
+  polling fallback), with a dot on the Shopping tab. Free sees them on its next
+  load.
 
 ## Supporting features
 
@@ -196,4 +198,4 @@ Product terms live in [GLOSSARY.md](../GLOSSARY.md). Shipped, stopped, and
 deferred roadmap outcomes live in [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md)
 and roadmap #98.
 
-_Updated 20 November 2026._
+_Updated 23 November 2026._

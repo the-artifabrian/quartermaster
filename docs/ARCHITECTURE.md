@@ -18,7 +18,7 @@ Express → React Router loaders and actions
     ├── Anthropic for optional Recipe extraction and enhancement
     ├── Groq Whisper for optional speech input
     ├── Stripe for subscriptions
-    └── SSE for household refresh events
+    └── SSE for household refresh events (Pro)
 ```
 
 The app runs on Bun in Fly.io. Express owns middleware and hands application
@@ -686,17 +686,20 @@ How a change reaches other screens:
   `invalidateServiceWorkerData()` itself.
 - **A change by another household member.** Shopping mutations and Plan actions
   that touch the list write a `HouseholdEvent` row and publish it; the event
-  types are in `app/utils/household-events.server.ts`. Every open client holds
-  one `EventSource` on `/resources/household-events`
-  (`app/utils/household-event-source.client.tsx`), polls every 30 seconds to
-  cover reconnects, and drops its own events by client id. The server sends a
-  `keepalive` event every 30 seconds; a stream that shows nothing for 75 seconds
-  (a half-open cellular socket fires no error) is closed and reopened the way an
-  error is, with polling in between. Subscribers decide what to do: Shopping
-  revalidates after a 500 ms debounce, the tab bar shows a dot, and the root
-  toasts a batched summary. Edits to Recipes, Meals and Staples themselves emit
-  no event today, so another member sees them on their next navigation or pull
-  to refresh. This is refresh signalling, not collaborative editing.
+  types are in `app/utils/household-events.server.ts`. Live updates are a Pro
+  feature. Every open Pro client holds one `EventSource` on
+  `/resources/household-events` (`app/utils/household-event-source.client.tsx`),
+  polls every 30 seconds to cover reconnects, and drops its own events by client
+  id. The server sends a `keepalive` event every 30 seconds; a stream that shows
+  nothing for 75 seconds (a half-open cellular socket fires no error) is closed
+  and reopened the way an error is, with polling in between. Subscribers decide
+  what to do: Shopping revalidates after a 500 ms debounce, the tab bar shows a
+  dot, and the root toasts a batched summary. Those three are the only
+  subscribers, and each is gated on Pro, so a Free client opens no stream and
+  sees another member's Shopping change on its next load. Edits to Recipes,
+  Meals and Staples themselves emit no event today, so another member sees them
+  on their next navigation or pull to refresh. This is refresh signalling, not
+  collaborative editing.
 - **An app relaunch.** Memory starts empty, so the first visit to each screen
   hits the network. The service worker answers that request from its `.data`
   cache only if the network fails or has not answered in 4 seconds (the late
@@ -891,8 +894,15 @@ get canned answers from `tests/mocks/anthropic.ts`: a Recipe whose title counts
 the images sent, or nothing found when the Household has a metadata value named
 `E2E_UNREADABLE_MARKER`.
 
+The root layout sets `data-hydrated` on `<html>` from an effect, which runs once
+every mount effect on the page has run and the router takes navigations. Before
+a test taps something that needs script, it waits with `hydrated(locator)` or
+`waitForHydration(page)` from `tests/playwright-utils.ts`. Setting
+`PW_CPU_THROTTLE=4` slows the page's CPU four times, which brings out the races
+a slow CI runner hits.
+
 `page.waitForFunction` does not await an async predicate: it resolves with the
 first result, even `false`. To wait on async page state such as Cache Storage,
 use `expect.poll(() => page.evaluate(async () => …))`.
 
-_Updated 21 November 2026._
+_Updated 23 November 2026._

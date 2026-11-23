@@ -5,13 +5,18 @@
  *   save, or lands among the editor's cards.
  * - A section another member added meanwhile is deleted with its cards.
  * - A card added meanwhile to a section the editor removed goes with that
- *   section.
+ *   section, or keeps the section and leaves two unnamed sections behind.
  * - A card the editor changed, which another member removed meanwhile, fails
  *   the whole save.
  * - A card or section id from another Menu changes that Menu.
  * - A card or section the editor loaded and removed stays.
  * - A form from before the loaded-ids field stops removing cards.
+ * - A missing card (its Recipe deleted) that another member removed
+ *   meanwhile fails the save.
+ * - A Save that reaches the server twice adds its new cards and sections
+ *   twice.
  */
+import { createId } from '@paralleldrive/cuid2'
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
@@ -148,6 +153,12 @@ async function createMenuWithId(
 	})
 }
 
+/**
+ * Posts an edit. Unless a test adds `loadedSectionIds` and `loadedItemIds`,
+ * the post carries no loaded ids, so it runs the fallback for a tab opened
+ * before forms sent them: every stored section and card counts as loaded,
+ * and whatever the post leaves out is removed.
+ */
 async function saveMenu(
 	session: { id: string },
 	menuId: string,
@@ -984,7 +995,7 @@ describe('menu sections and ordering', () => {
 		expect(after[0]!.items.map((i) => i.id)).toContain(knafehItem!.id)
 	})
 
-	test('omitting a custom section and its items deletes both — the save is the full state', async () => {
+	test('leaving out a custom section and its items deletes both', async () => {
 		const { session, menu, hummus, unnamed } = await setupSectionedMenu()
 		const [hummusItem] = (await menuSections(menu.id))[0]!.items
 
@@ -1028,7 +1039,7 @@ describe('menu sections and ordering', () => {
 			'Dessert',
 		])
 
-		// Omitting it removes it — the save is the full state, like any section
+		// Leaving it out removes it, as for any section the form loaded.
 		redirectLocation(
 			await saveMenu(session, menu.id, {
 				title: 'Feast',
@@ -1294,22 +1305,22 @@ describe('menu edit keeps changes made while the form was open', () => {
 		expect(sections[2]!.items.map((item) => item.note)).toEqual(['Ice cream'])
 	})
 
-	test('a card added meanwhile to a section the editor removed keeps that section', async () => {
+	test('a card added meanwhile to a section the editor removed moves to the end of the first section', async () => {
 		const session = await setupUser()
 		const menu = await createMenuWithId(session, 'Picnic')
 		const unnamed = await unnamedSection(menu.id)
 		redirectLocation(
 			await saveMenu(session, menu.id, {
 				title: 'Picnic',
-				...sectionFields(0, { id: unnamed.id }, [
-					{ kind: 'note', text: 'Sandwiches' },
-				]),
-				...sectionFields(1, { name: 'Drinks' }, [
+				...sectionFields(0, { name: 'Drinks' }, [
 					{ kind: 'note', text: 'Lemonade' },
+				]),
+				...sectionFields(1, { id: unnamed.id }, [
+					{ kind: 'note', text: 'Sandwiches' },
 				]),
 			}),
 		)
-		const [main, drinks] = await menuSections(menu.id)
+		const [drinks, main] = await menuSections(menu.id)
 		const loaded = await loadedIds(menu.id)
 		const added = await prisma.menuItem.create({
 			data: { kind: 'note', order: 1, sectionId: drinks!.id, note: 'Iced tea' },
@@ -1327,11 +1338,104 @@ describe('menu edit keeps changes made while the form was open', () => {
 		)
 
 		const sections = await menuSections(menu.id)
-		expect(sections.map((section) => section.id)).toEqual([
-			unnamed.id,
-			drinks!.id,
+		expect(sections.map((section) => section.id)).toEqual([unnamed.id])
+		expect(sections[0]!.items.map((item) => [item.id, item.order])).toEqual([
+			[main!.items[0]!.id, 0],
+			[added.id, 1],
 		])
-		expect(sections[1]!.items.map((item) => item.id)).toEqual([added.id])
+		// The next edit of the Menu saves as usual.
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Picnic',
+				...(await loadedIds(menu.id)),
+				...sectionFields(0, { id: unnamed.id }, [
+					{ id: main!.items[0]!.id, kind: 'note', text: 'Sandwiches' },
+					{ id: added.id, kind: 'note', text: 'Iced tea' },
+				]),
+			}),
+		)
+	})
+
+	test('a missing card another member removed meanwhile stays removed', async () => {
+		const { session, menu, recipes, unnamed, cards } = await menuWithCards([
+			'Roast chicken',
+			'Old trifle',
+		])
+		// Its Recipe was deleted, so the card shows as missing.
+		await prisma.recipe.delete({ where: { id: recipes[1]!.id } })
+		const loaded = await loadedIds(menu.id)
+		await prisma.menuItem.delete({ where: { id: cards[1]!.id } })
+
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Sunday lunch',
+				...loaded,
+				...sectionFields(0, { id: unnamed.id }, [
+					{
+						id: cards[0]!.id,
+						recipeId: recipes[0]!.id,
+						scaleMultiplier: '1',
+					},
+					{ id: cards[1]!.id, scaleMultiplier: '2' },
+				]),
+			}),
+		)
+
+		const after = await menuItems(menu.id)
+		expect(after.map((item) => item.id)).toEqual([cards[0]!.id])
+	})
+
+	test('the same Save posted twice adds each new card and section once', async () => {
+		const { session, menu, recipes, unnamed, cards } = await menuWithCards([
+			'Roast chicken',
+		])
+		const loaded = await loadedIds(menu.id)
+		const potatoes = await createRecipe(
+			session,
+			session.householdId,
+			'Potatoes',
+		)
+		// The form gives a card or section its id when it is added.
+		const body = {
+			title: 'Sunday lunch',
+			...loaded,
+			...sectionFields(0, { id: unnamed.id }, [
+				{
+					id: cards[0]!.id,
+					recipeId: recipes[0]!.id,
+					scaleMultiplier: '1',
+				},
+				{ id: createId(), recipeId: potatoes.id, scaleMultiplier: '1' },
+			]),
+			...sectionFields(1, { id: createId(), name: 'Dessert' }, [
+				{ id: createId(), kind: 'note', text: 'Ice cream' },
+			]),
+		}
+
+		redirectLocation(await saveMenu(session, menu.id, body))
+		const first = await menuSections(menu.id)
+		redirectLocation(await saveMenu(session, menu.id, body))
+
+		const second = await menuSections(menu.id)
+		expect(second).toEqual(
+			first.map((section) => ({
+				...section,
+				updatedAt: expect.any(Date),
+				items: section.items.map((item) => ({
+					...item,
+					updatedAt: expect.any(Date),
+				})),
+			})),
+		)
+		expect(second.map((section) => section.name)).toEqual([null, 'Dessert'])
+		expect(second[0]!.items.map((item) => item.recipeTitle)).toEqual([
+			'Roast chicken',
+			'Potatoes',
+		])
+		expect(second[0]!.items[1]!.id).toBe(
+			body['sections[0].items[1].id' as keyof typeof body],
+		)
+		expect(second[1]!.id).toBe(body['sections[1].id' as keyof typeof body])
 	})
 
 	test('a section the editor loaded and removed goes, with the cards they saw in it', async () => {
@@ -1439,7 +1543,7 @@ describe('menu note cards', () => {
 		let items = await menuItems(menu.id)
 		expect(items.map((i) => i.kind)).toEqual(['note', 'recipe'])
 
-		// …then reordered the other way round in one full-state save.
+		// …then reordered the other way round in one save.
 		redirectLocation(
 			await saveMenu(session, menu.id, {
 				title: 'Terrace Dinner',
@@ -1554,7 +1658,7 @@ describe('menu note cards', () => {
 		)
 		expect(await menuShoppingLines(menu.id)).toHaveLength(1)
 
-		// Full-state save without the note removes the card and its lines
+		// A save without the note removes the card and its lines.
 		redirectLocation(
 			await saveMenu(session, menu.id, {
 				title: 'Terrace Dinner',
@@ -1621,8 +1725,8 @@ describe('menu note cards', () => {
 		const after = await menuSections(menu.id)
 		expect(after[0]!.items).toHaveLength(0)
 		expect(after[1]!.items.map((i) => i.id)).toEqual([note!.id])
-		// Careful: this save's note submitted no lines, so the full-state
-		// rewrite intentionally cleared them — submit lines to keep them.
+		// This save's note posted no lines, so its lines were rewritten to
+		// none. A note keeps its lines only by posting them.
 		expect(await menuShoppingLines(menu.id)).toHaveLength(0)
 	})
 

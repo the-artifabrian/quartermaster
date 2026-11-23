@@ -1,5 +1,6 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
+import { createId } from '@paralleldrive/cuid2'
 import { Img } from 'openimg/react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Form, useActionData } from 'react-router'
@@ -123,6 +124,17 @@ function FormSection({
 
 /** The id the nav bar's Save submits (the route handle's `navForm`). */
 export const RECIPE_FORM_ID = 'recipe-form'
+
+/**
+ * Gives each row its id once it is added or first changed, and Save posts
+ * it. A Save that reaches the server twice then finds the rows the first
+ * one added instead of adding them again (loaded-rows.ts). Rows get it on a
+ * change, not on the first render, so the server's render and the
+ * browser's agree.
+ */
+function withRowIds<Row extends { id?: string }>(rows: Row[]) {
+	return rows.map((row) => (row.id ? row : { ...row, id: createId() }))
+}
 
 export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 	const actionData = useActionData<
@@ -347,7 +359,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 			>
 				<IngredientFields
 					ingredients={ingredients}
-					onChange={setIngredients}
+					onChange={(rows) => setIngredients(withRowIds(rows))}
 					excludeRecipeId={recipe?.id}
 					rowErrors={ingredientErrors.rows}
 				/>
@@ -458,7 +470,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 			>
 				<InstructionFields
 					instructions={instructions}
-					onChange={setInstructions}
+					onChange={(rows) => setInstructions(withRowIds(rows))}
 					rowErrors={instructionErrors.rows}
 				/>
 			</FormSection>

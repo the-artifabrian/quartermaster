@@ -21,7 +21,15 @@
  *   stops removing the rows it removed.
  * - New saves something different once the parser is shared, or takes a
  *   submitted id.
+ * - A Save that reaches the server twice (the first answer was lost, so the
+ *   form still shows "not saved" and the editor saves again) adds every new
+ *   row twice.
+ * - A new row's posted id that already belongs to another Recipe's row is
+ *   used for the new row, or changes that row.
+ * - A linked Recipe deleted while the form was open fails the Save with an
+ *   error page, or saves part of it.
  */
+import { createId } from '@paralleldrive/cuid2'
 import { RouterContextProvider } from 'react-router'
 import { expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
@@ -649,4 +657,116 @@ test('New saves the posted rows as they were and takes no posted id', async () =
 		id: other.instructions[0]!.id,
 		content: 'Soften the onion.',
 	})
+})
+
+test('the same Save posted twice adds each new row once', async () => {
+	const session = await setupUser()
+	const recipe = await createRecipe(session)
+	const { ingredients, steps } = loadedRows(recipe)
+	// The form gives a row its id when the row is added.
+	const garlic = { id: createId(), name: 'garlic', amount: '2' }
+	const blend = { id: createId(), content: 'Blend until smooth.' }
+	const keptIngredients = [
+		...ingredients.filter((_, index) => index !== 2),
+		garlic,
+	]
+	const keptSteps = [...steps, blend]
+
+	await saveEdit(session, recipe, keptIngredients, keptSteps)
+	await saveEdit(session, recipe, keptIngredients, keptSteps)
+
+	const saved = await savedRows(recipe.id)
+	expect(saved.ingredients.map((row) => [row.id, row.name])).toEqual([
+		[ingredients[0]!.id, 'Soup'],
+		[ingredients[1]!.id, 'tomatoes'],
+		[ingredients[3]!.id, 'stock'],
+		[garlic.id, 'garlic'],
+	])
+	expect(saved.instructions.map((row) => row.id)).toEqual([
+		...steps.map((step) => step.id),
+		blend.id,
+	])
+})
+
+test('a new row’s id that another Recipe’s row already has gets a fresh one', async () => {
+	const session = await setupUser()
+	const recipe = await createRecipe(session)
+	const stranger = await setupUser()
+	const theirs = await prisma.recipe.create({
+		data: {
+			title: 'Their stew',
+			userId: stranger.userId,
+			householdId: stranger.householdId,
+			ingredients: { create: { id: createId(), name: 'beans', order: 0 } },
+			instructions: {
+				create: { id: createId(), content: 'Stew slowly.', order: 0 },
+			},
+		},
+		include: { ingredients: true, instructions: true },
+	})
+	const { ingredients, steps } = loadedRows(recipe)
+
+	await saveEdit(
+		session,
+		recipe,
+		[...ingredients, { id: theirs.ingredients[0]!.id, name: 'chickpeas' }],
+		[...steps, { id: theirs.instructions[0]!.id, content: 'Serve.' }],
+	)
+
+	const saved = await savedRows(recipe.id)
+	expect(saved.ingredients[4]!.name).toBe('chickpeas')
+	expect(saved.ingredients[4]!.id).not.toBe(theirs.ingredients[0]!.id)
+	expect(saved.instructions[3]!.content).toBe('Serve.')
+	expect(saved.instructions[3]!.id).not.toBe(theirs.instructions[0]!.id)
+	const untouched = await savedRows(theirs.id)
+	expect(untouched.ingredients).toMatchObject([
+		{ id: theirs.ingredients[0]!.id, name: 'beans', order: 0 },
+	])
+	expect(untouched.instructions).toMatchObject([
+		{ id: theirs.instructions[0]!.id, content: 'Stew slowly.', order: 0 },
+	])
+})
+
+test('a linked Recipe deleted while the form was open stops the Save at its row', async () => {
+	const session = await setupUser()
+	const pesto = await prisma.recipe.create({
+		data: {
+			title: 'Pesto',
+			userId: session.userId,
+			householdId: session.householdId,
+		},
+	})
+	const recipe = await createRecipe(session)
+	const { ingredients, steps } = loadedRows(recipe)
+	await prisma.recipe.delete({ where: { id: pesto.id } })
+
+	const response = await editAction({
+		request: await post(session, `/recipes/${recipe.id}/edit`, [
+			['title', 'Renamed soup'],
+			...rowFields(
+				[...ingredients, { name: 'Pesto', linkedRecipeId: pesto.id }],
+				steps,
+			),
+			...loadedIdFields(recipe),
+		]),
+		...routeArgs('/recipes/:recipeId/edit', { recipeId: recipe.id }),
+	})
+
+	expect(response).toMatchObject({
+		init: { status: 400 },
+		data: {
+			result: {
+				error: {
+					'ingredients[4].linkedRecipeId': [
+						'This linked Recipe was deleted. Remove the link to save.',
+					],
+				},
+			},
+		},
+	})
+	const after = await prisma.recipe.findUniqueOrThrow({
+		where: { id: recipe.id },
+		select: { title: true, _count: { select: { ingredients: true } } },
+	})
+	expect(after).toEqual({ title: 'Tomato soup', _count: { ingredients: 4 } })
 })

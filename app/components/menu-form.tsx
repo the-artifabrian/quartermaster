@@ -7,6 +7,7 @@ import {
 	type FormMetadata,
 } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
+import { createId } from '@paralleldrive/cuid2'
 import { useEffect, useState } from 'react'
 import { Form, useActionData } from 'react-router'
 import {
@@ -424,14 +425,16 @@ function MenuSectionsBuilder({
 			if (unnamed) unnamed.items.push(...removed.items)
 			else {
 				sections.splice(sectionIndex, 0, {
-					id: '',
+					id: createId(),
 					name: '',
 					items: removed.items,
 				})
 			}
 		}
 		// Cards need somewhere to live — an emptied menu keeps one blank section.
-		if (sections.length === 0) sections.push({ id: '', name: '', items: [] })
+		if (sections.length === 0) {
+			sections.push({ id: createId(), name: '', items: [] })
+		}
 		form.update({ name: fields.sections.name, value: sections })
 	}
 
@@ -474,7 +477,9 @@ function MenuSectionsBuilder({
 					onClick={() =>
 						form.insert({
 							name: fields.sections.name,
-							defaultValue: { id: '', name: '', items: [] },
+							// A new card or section gets its id now, and Save posts it,
+							// so a Save that reaches the server twice adds it once.
+							defaultValue: { id: createId(), name: '', items: [] },
 						})
 					}
 				>
@@ -619,7 +624,7 @@ function MenuSectionCard({
 						form.insert({
 							name: section.items.name,
 							defaultValue: {
-								id: '',
+								id: createId(),
 								kind: 'recipe',
 								recipeId: recipe.id,
 								scaleMultiplier: '1',
@@ -637,7 +642,7 @@ function MenuSectionCard({
 						form.insert({
 							name: section.items.name,
 							defaultValue: {
-								id: '',
+								id: createId(),
 								kind: 'note',
 								text: '',
 								shoppingLines: [],

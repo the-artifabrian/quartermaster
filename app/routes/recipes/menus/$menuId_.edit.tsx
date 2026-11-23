@@ -37,7 +37,13 @@ import {
 } from '#app/utils/nav-back.ts'
 import { historyIndex } from '#app/utils/nav-direction.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
-import { matchRows, readLoadedIds } from '#app/utils/loaded-rows.ts'
+import {
+	existingIds,
+	matchRows,
+	newRowIdCandidates,
+	newRowIds,
+	readLoadedIds,
+} from '#app/utils/loaded-rows.ts'
 import {
 	DUPLICATE_MENU_TITLE_MESSAGE,
 	isUniqueConstraintError,
@@ -330,6 +336,27 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 			// Sections first: new ones need ids before their items persist, and
 			// every posted section takes its submitted position.
+			// A new section or card is created with the id the form gave it
+			// when no row has that id yet, so a replayed Save pairs with it.
+			const postedSections = sections.map((section) => section.id)
+			const newSectionIds = newRowIds(
+				postedSections,
+				sectionMatch.matches,
+				await existingIds(
+					tx.menuSection,
+					newRowIdCandidates(postedSections, sectionMatch.matches),
+				),
+			)
+			const postedItems = items.map((item) => item.id)
+			const newItemIds = newRowIds(
+				postedItems,
+				itemMatch.matches,
+				await existingIds(
+					tx.menuItem,
+					newRowIdCandidates(postedItems, itemMatch.matches),
+				),
+			)
+
 			const sectionIds: string[] = []
 			for (const [index, section] of sections.entries()) {
 				const stored = sectionMatch.matches[index]
@@ -341,7 +368,12 @@ export async function action({ request, params }: Route.ActionArgs) {
 					sectionIds.push(stored.id)
 				} else {
 					const created = await tx.menuSection.create({
-						data: { menuId, name: section.name ?? null, order: index },
+						data: {
+							id: newSectionIds[index],
+							menuId,
+							name: section.name ?? null,
+							order: index,
+						},
 						select: { id: true },
 					})
 					sectionIds.push(created.id)
@@ -374,6 +406,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 					} else {
 						await tx.menuItem.create({
 							data: {
+								id: newItemIds[index],
 								kind: 'note',
 								order: item.itemIndex,
 								sectionId,
@@ -412,6 +445,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 					const recipe = recipesById.get(recipeId)!
 					await tx.menuItem.create({
 						data: {
+							id: newItemIds[index],
 							kind: 'recipe',
 							order: item.itemIndex,
 							sectionId,
@@ -425,7 +459,9 @@ export async function action({ request, params }: Route.ActionArgs) {
 			}
 
 			// Only cards the form loaded and left out go. A card added after the
-			// form loaded stays, after the saved cards of its section.
+			// form loaded stays, after the saved cards of its section. One in a
+			// section the editor removed moves to the end of the first section,
+			// so the removed section can go.
 			if (itemMatch.removed.length > 0) {
 				await tx.menuItem.deleteMany({
 					where: { id: { in: itemMatch.removed.map((item) => item.id) } },
@@ -434,37 +470,34 @@ export async function action({ request, params }: Route.ActionArgs) {
 			const postedCount = new Map(
 				sectionIds.map((id, index) => [id, sections[index]!.items.length]),
 			)
-			for (const item of itemMatch.unseen) {
-				const count = postedCount.get(item.sectionId)
-				if (count == null) continue
-				postedCount.set(item.sectionId, count + 1)
+			const removedSectionIds = new Set(
+				sectionMatch.removed.map((section) => section.id),
+			)
+			const firstSectionId = sectionIds[0]!
+			const unseenItems = [
+				...itemMatch.unseen.filter((item) => postedCount.has(item.sectionId)),
+				...itemMatch.unseen.filter((item) =>
+					removedSectionIds.has(item.sectionId),
+				),
+			]
+			for (const item of unseenItems) {
+				const sectionId = postedCount.has(item.sectionId)
+					? item.sectionId
+					: firstSectionId
+				const order = postedCount.get(sectionId)!
+				postedCount.set(sectionId, order + 1)
 				await tx.menuItem.update({
 					where: { id: item.id },
-					data: { order: count },
+					data: { order, sectionId },
 				})
 			}
-
-			// A removed section goes once its cards have moved or gone above,
-			// unless it still holds a card added after the form loaded. That
-			// section stays, after the saved ones, as does a section added
-			// after the form loaded.
-			const holdsUnseen = new Set(
-				itemMatch.unseen.map((item) => item.sectionId),
-			)
-			const removedSectionIds = sectionMatch.removed
-				.filter((section) => !holdsUnseen.has(section.id))
-				.map((section) => section.id)
-			if (removedSectionIds.length > 0) {
+			if (removedSectionIds.size > 0) {
 				await tx.menuSection.deleteMany({
-					where: { id: { in: removedSectionIds } },
+					where: { id: { in: [...removedSectionIds] } },
 				})
 			}
-			const trailing = storedSections.filter(
-				(section) =>
-					!sectionIds.includes(section.id) &&
-					!removedSectionIds.includes(section.id),
-			)
-			for (const [index, section] of trailing.entries()) {
+			// A section added after the form loaded stays, after the saved ones.
+			for (const [index, section] of sectionMatch.unseen.entries()) {
 				await tx.menuSection.update({
 					where: { id: section.id },
 					data: { order: sections.length + index },

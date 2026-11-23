@@ -60,3 +60,57 @@ export function matchRows<Stored extends { id: string }>(
 export function loadedIdsValue(rows: Array<{ id: string }>) {
 	return JSON.stringify(rows.map((row) => row.id))
 }
+
+/** The shape of `createId()`, which the forms give each row they add. */
+const NEW_ROW_ID = /^[a-z][0-9a-z]{23}$/
+
+/**
+ * The posted ids a Save may use for the rows it adds: well formed, not
+ * paired with a stored row, and once each. The caller keeps only those no
+ * row anywhere has yet (`existing`), and gives the other rows a fresh id.
+ * A Save that reaches the server twice then pairs its new rows with the
+ * rows the first one added, instead of adding them again.
+ */
+export function newRowIdCandidates(
+	postedIds: Array<string | null | undefined>,
+	matches: Array<unknown>,
+) {
+	return postedIds.flatMap((id, index) =>
+		id != null && matches[index] == null && NEW_ROW_ID.test(id) ? [id] : [],
+	)
+}
+
+/** The id to create each unpaired posted row with, or undefined for fresh. */
+export function newRowIds(
+	postedIds: Array<string | null | undefined>,
+	matches: Array<unknown>,
+	existing: Iterable<string>,
+) {
+	const taken = new Set(existing)
+	const usable = new Set(newRowIdCandidates(postedIds, matches))
+	return postedIds.map((id, index) => {
+		if (id == null || matches[index] != null || !usable.has(id))
+			return undefined
+		if (taken.has(id)) return undefined
+		taken.add(id)
+		return id
+	})
+}
+
+/** Which of `ids` a row of this table already has, wherever it belongs. */
+export async function existingIds(
+	delegate: {
+		findMany(args: {
+			where: { id: { in: string[] } }
+			select: { id: true }
+		}): Promise<Array<{ id: string }>>
+	},
+	ids: string[],
+) {
+	if (ids.length === 0) return []
+	const rows = await delegate.findMany({
+		where: { id: { in: ids } },
+		select: { id: true },
+	})
+	return rows.map((row) => row.id)
+}

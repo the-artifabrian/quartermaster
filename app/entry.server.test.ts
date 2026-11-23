@@ -17,6 +17,9 @@ import { connectSources, handleError } from './entry.server.tsx'
 //   and print no stack, since the request log already has the status
 // - a 5xx error response, a thrown 5xx Response and a thrown value that isn't
 //   an Error still send server_error
+// - React Router's origin check answers 400 but hands over a plain Error. It
+//   stays reported on purpose: a mismatch can mean the proxy or its
+//   X-Forwarded-Host setup broke, which turns away every form on the site
 
 const { captureServerEvent } = vi.hoisted(() => ({
 	captureServerEvent: vi.fn(),
@@ -108,6 +111,18 @@ test('a 5xx response and a thrown value that is not an Error still send server_e
 		'server_error',
 		'server_error',
 	])
+})
+
+test('a failed origin check is still reported, though it answers 400', async () => {
+	captureServerEvent.mockClear()
+	consoleError.mockImplementation(() => {})
+	await report(
+		new Error(
+			'The `request.url` host does not match `origin` header from a forwarded action request. Aborting the action.',
+		),
+	)
+	expect(captureServerEvent).toHaveBeenCalledTimes(1)
+	expect(captureServerEvent.mock.calls[0]![1]).toBe('server_error')
 })
 
 // Failure list for connect-src:

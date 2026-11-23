@@ -3,7 +3,11 @@
 /node_modules
 *.log
 .DS_Store
-.env
+# Patterns here match from the build context's root only, so a bare .env would
+# leave the ones in nested checkouts (.worktrees/*/.env) in the image.
+**/.env
+/.worktrees
+/ios
 /.cache
 /public/build
 /build

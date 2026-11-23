@@ -48,6 +48,7 @@ import {
 import { ClientHintCheck, getHints } from './utils/client-hints.tsx'
 import { prisma } from './utils/db.server.ts'
 import { getEnv } from './utils/env.server.ts'
+import { formBodyMiddleware } from './utils/form-body.server.ts'
 import { pipeHeaders } from './utils/headers.server.ts'
 import { getAppOrigin } from './utils/app-origin.server.ts'
 import { IMAGE_BREAKPOINTS } from './utils/image-route.ts'
@@ -299,6 +300,8 @@ export function shouldRevalidate({
 }
 
 export const headers: Route.HeadersFunction = pipeHeaders
+
+export const middleware: Route.MiddlewareFunction[] = [formBodyMiddleware]
 
 function Document({
 	children,

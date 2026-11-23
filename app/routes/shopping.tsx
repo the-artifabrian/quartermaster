@@ -706,8 +706,8 @@ async function rowChanged(householdId: string, itemId: string) {
 					...item,
 					contributions: item.mealContributions,
 				}),
-				// A row with its own amount: the editor holds only that amount,
-				// so the page says what Meals add on top of it.
+				// On a row with its own amount the editor holds only that amount,
+				// so the page also says how much of the total is from Meals.
 				mealShare:
 					keepsOwnAmount(item.source) && parts.length > 0
 						? combineDemandParts(parts)

@@ -30,9 +30,9 @@ export function skippedCheckedMessage(
 }
 
 /**
- * The row changed while it was open in Edit. A row with its own amount says
- * what Meals add on top of the amount in the field; a Meal-only row says
- * the total it now shows.
+ * The row changed while it was open in Edit. It says what the row now
+ * shows, and for a row with its own amount how much of that is from Meals,
+ * since the field holds only the row's own amount.
  */
 export function rowChangedMessage({
 	display,
@@ -43,12 +43,10 @@ export function rowChangedMessage({
 }) {
 	const amountOf = (value: { quantity: string | null; unit: string | null }) =>
 		[value.quantity, value.unit].filter(Boolean).join(' ')
-	const share = mealShare ? amountOf(mealShare) : ''
-	if (share) {
-		return `This item changed. Meals now add ${share} on top of your amount.`
-	}
 	const amount = amountOf(display)
-	return amount
-		? `This item changed and now says ${amount}. Check your amount, then save again.`
-		: 'This item changed. Check your amount, then save again.'
+	if (!amount) return 'This item changed. Check it before saving again.'
+	const share = mealShare ? amountOf(mealShare) : ''
+	return share
+		? `This item changed. It now says ${amount}, with ${share} from Meals.`
+		: `This item changed. It now says ${amount}.`
 }

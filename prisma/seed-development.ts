@@ -26,6 +26,18 @@ export const SECOND_USER = {
 }
 
 /**
+ * Throws on Fly or with NODE_ENV=production. Without it, `prisma db seed` in a
+ * production shell would make an admin whose password the README gives.
+ */
+export function assertLocalDatabase() {
+	if (process.env.FLY || process.env.NODE_ENV === 'production') {
+		throw new Error(
+			'The development seed is for a local database only. Production runs prisma/run-seed-infrastructure.ts.',
+		)
+	}
+}
+
+/**
  * Creates both users, each with their own Household and Pro, and fills the
  * owner's Household with sample data for the week of `today`. Safe to run
  * again: users are found by username, and fillSampleHousehold adds only what
@@ -35,13 +47,7 @@ export async function seedDevelopment(
 	db: PrismaClient,
 	{ today }: { today: string },
 ) {
-	// Without this, `prisma db seed` in a production shell would make an
-	// admin whose password the README gives.
-	if (process.env.FLY || process.env.NODE_ENV === 'production') {
-		throw new Error(
-			'The development seed is for a local database only. Production runs prisma/run-seed-infrastructure.ts.',
-		)
-	}
+	assertLocalDatabase()
 	const owner = await ensureUser(db, SAMPLE_OWNER)
 	const second = await ensureUser(db, SECOND_USER)
 	for (const user of [owner, second]) {

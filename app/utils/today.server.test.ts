@@ -1,6 +1,5 @@
 /**
- * The user's today comes from the browser's timezone hint, never from the
- * server's clock zone or from UTC.
+ * The user's today is the date in the zone the browser's timezone hint names.
  *
  * Failure list:
  * - Europe/Bucharest at 00:30 on a Monday, while UTC is still Sunday: today is

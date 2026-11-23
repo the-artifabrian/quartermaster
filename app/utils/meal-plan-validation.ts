@@ -12,8 +12,8 @@ export const GENERIC_TEXT_MAX_LENGTH = 200
 /**
  * A Meal's day as the forms send it, `yyyy-MM-dd`, read as that UTC calendar
  * day (UTC midnight), the way stored days are kept. A timestamp or a full
- * datetime is refused rather than turned into an instant, which could land
- * on the day before or after.
+ * datetime is refused: read as an instant, it could land on the day before
+ * or after.
  */
 function mealDay(message: string) {
 	return z.iso.date({ message }).transform(parseDate)

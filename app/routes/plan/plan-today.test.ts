@@ -8,7 +8,7 @@
  * - Plan opened in Los Angeles at 20:00 on a Sunday (UTC already Monday)
  *   opens next week, and Sunday isn't Today.
  * - Plan on New Year's night in Bucharest opens the old year's last week.
- * - Plan with no hint cookie falls back to UTC rather than failing.
+ * - Plan with no hint cookie fails to load; it should use the UTC day.
  * - Plan with a `weekStart` keeps that week but still knows today.
  * - Shopping's From Plan offers the wrong week as the current one.
  * - The From Plan picker folds a day as past by the server's day.

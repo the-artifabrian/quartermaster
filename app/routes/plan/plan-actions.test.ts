@@ -30,6 +30,7 @@ import { createUser } from '#tests/db-utils.ts'
 import {
 	createWalDatabase,
 	settlesWithin,
+	writeAfterFirstRead,
 	writeFromAnotherConnection,
 } from '#tests/sqlite-concurrency.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
@@ -1516,60 +1517,6 @@ describe('Add to Shopping reads the Meal under the write lock', () => {
 			planUser: { userId: user.id, householdId: household.id },
 			meal,
 		}
-	}
-
-	/**
-	 * `wal`, with `sql` sent from another connection just after the first
-	 * `model.findX` call returns, on the client itself or inside a
-	 * transaction. `state` says whether that write landed at once or waited.
-	 */
-	function writeAfterFirstRead(
-		wal: typeof prisma,
-		url: string,
-		[model, method]: ['mealRecipeItem', 'findMany'] | ['meal', 'findFirst'],
-		sql: string,
-		args: Array<string | number>,
-	) {
-		const state: {
-			other?: ReturnType<typeof writeFromAnotherConnection>
-			landedAtOnce?: boolean
-		} = {}
-		async function afterRead() {
-			if (state.other) return
-			state.other = writeFromAnotherConnection(url, sql, args)
-			await state.other.executing
-			state.landedAtOnce = await settlesWithin(state.other.committed, 300)
-		}
-		function hooked<Client extends object>(client: Client): Client {
-			const delegate = Reflect.get(client, model) as object
-			const wrapped = new Proxy(delegate, {
-				get(target, key) {
-					const value = Reflect.get(target, key) as unknown
-					if (key !== method || typeof value !== 'function') return value
-					return async (...args: unknown[]) => {
-						const found = await (
-							value as (...args: unknown[]) => Promise<unknown>
-						).apply(target, args)
-						await afterRead()
-						return found
-					}
-				},
-			})
-			return new Proxy(client, {
-				get(target, key) {
-					if (key === model) return wrapped
-					if (key === '$transaction') {
-						return (work: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
-							(target as unknown as typeof prisma).$transaction((tx) =>
-								work(hooked(tx)),
-							)
-					}
-					const value = Reflect.get(target, key)
-					return typeof value === 'function' ? value.bind(target) : value
-				},
-			})
-		}
-		return { db: hooked(wal), state }
 	}
 
 	function shoppingRequest(intent: string, mealId: string) {

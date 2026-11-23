@@ -6,7 +6,7 @@ vi.mock('#app/utils/household-events.server.ts', () => ({
 }))
 
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
-import { getCurrentWeekStart } from '#app/utils/date.ts'
+import { getWeekStart } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
@@ -135,7 +135,7 @@ async function setupMeal(
 	session: TestSession,
 	recipe: { id: string; title: string },
 ) {
-	const weekStart = getCurrentWeekStart()
+	const weekStart = getWeekStart(new Date())
 	const mealPlan = await prisma.mealPlan.create({
 		data: { householdId: session.householdId, weekStart },
 	})

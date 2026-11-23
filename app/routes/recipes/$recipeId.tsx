@@ -39,6 +39,7 @@ import {
 	MEAL_TYPES,
 	MEAL_TYPE_LABELS,
 	type MealType,
+	parseDate,
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
@@ -48,6 +49,7 @@ import {
 	scaleAmount,
 } from '#app/utils/fractions.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
+import { getRequestToday } from '#app/utils/today.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	IMPORTED_FROM,
@@ -204,6 +206,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		householdId,
 		isProActive: tierInfo.isProActive,
 		sameTitle,
+		// Add to Plan's Today chip, the browser's day (see getRequestToday).
+		today: getRequestToday(request),
 	}
 }
 
@@ -532,11 +536,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		date: '',
 		label: null,
 	})
-	const today = new Date()
-	const todayUTC = new Date(
-		Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
-	)
-	const [planDate, setPlanDate] = useState(() => serializeDate(todayUTC))
+	const todayUTC = parseDate(loaderData.today)
+	const [planDate, setPlanDate] = useState(loaderData.today)
 	const [planMealType, setPlanMealType] = useState<MealType | null>('dinner')
 
 	const allStepsChecked =
@@ -608,8 +609,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		) {
 			setPlanPickerOpen(false)
 			const { date, label } = submittedPlanRef.current
-			const d = new Date(date + 'T00:00:00.000Z')
-			const dayLabel = isToday(d) ? 'Today' : formatDayLabel(d)
+			const d = parseDate(date)
+			const dayLabel = isToday(d, loaderData.today)
+				? 'Today'
+				: formatDayLabel(d)
 			const where = label ? `${dayLabel} ${MEAL_TYPE_LABELS[label]}` : dayLabel
 			const meal = planFetcher.data.meal
 			if (meal && !meal.created) {
@@ -631,7 +634,13 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			toast.error(`Could not add ${recipe.title} to Plan`)
 		}
 		prevPlanFetcherState.current = planFetcher.state
-	}, [planFetcher.state, planFetcher.data, navigate, recipe.title])
+	}, [
+		planFetcher.state,
+		planFetcher.data,
+		navigate,
+		recipe.title,
+		loaderData.today,
+	])
 
 	function handleAddToPlanSubmit() {
 		submittedPlanRef.current = { date: planDate, label: planMealType }

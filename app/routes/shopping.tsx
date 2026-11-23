@@ -33,9 +33,10 @@ import {
 	type TranscribedItem,
 } from '#app/hooks/use-speech-to-text.ts'
 import {
-	getCurrentWeekStart,
 	getPreviousWeek,
 	getNextWeek,
+	getWeekStart,
+	parseDate,
 	serializeDate,
 	formatWeekRange,
 } from '#app/utils/date.ts'
@@ -75,6 +76,7 @@ import {
 	mergeOptimisticShoppingItems,
 } from '#app/utils/shopping-optimistic.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
+import { getRequestToday } from '#app/utils/today.server.ts'
 import { useShoppingChecks } from '#app/hooks/use-shopping-checks.tsx'
 import {
 	getHouseholdClientId,
@@ -130,8 +132,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 			a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
 	)
 
-	// Check prev/current/next weeks for meal plans
-	const currentWeek = getCurrentWeekStart()
+	// Check prev/current/next weeks for meal plans. "Current" is the week of
+	// the browser's today.
+	const today = getRequestToday(request)
+	const currentWeek = getWeekStart(parseDate(today))
 	const prevWeek = getPreviousWeek(currentWeek)
 	const nextWeek = getNextWeek(currentWeek)
 
@@ -169,7 +173,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		)
 		.map((week) => ({
 			weekStart: serializeDate(week),
-			label: formatWeekRange(week),
+			label: formatWeekRange(week, today),
 			isCurrent: week.getTime() === currentWeek.getTime(),
 		}))
 

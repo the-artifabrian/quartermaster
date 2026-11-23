@@ -285,6 +285,19 @@ individually added Recipes or plain text.
 Meals have explicit order within a day. Labels and serving times are optional
 context and do not control order.
 
+A Meal's day is a calendar day, stored as UTC midnight and sent by forms as
+`yyyy-MM-dd` (`z.iso.date()`, never a timestamp). Which day is today belongs to
+the user: `getRequestToday` (`app/utils/today.server.ts`) reads the browser's
+timezone hint cookie and returns that zone's date. Each loader that draws
+Today, past days or "this week" (Plan, Shopping's From Plan, Add to Plan on a
+Recipe or Menu) puts it in its data, and components compare against it rather
+than the clock, so the server and the browser render the same day. Without a
+hint, on the first request before the hint check reloads, or with a zone the
+server doesn't know, today is the UTC day. Today is fixed per load: a page left
+open past midnight, or shown from the loader or service worker cache, keeps
+the old day until its next server load. Plan revalidates behind a cached entry
+at once; offline it waits for the network.
+
 ## Shopping
 
 Shopping is built in stages:

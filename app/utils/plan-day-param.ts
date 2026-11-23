@@ -15,6 +15,8 @@ type SelectedDayArgs = {
 	mealId: string | null
 	/** The `day` search param. */
 	day: string | null
+	/** The user's today, `yyyy-MM-dd`, from the loader. */
+	today: string
 }
 
 /**
@@ -26,7 +28,7 @@ export function selectedDayFromUrl({
 	meals,
 	mealId,
 	day,
-}: SelectedDayArgs): string | null {
+}: Omit<SelectedDayArgs, 'today'>): string | null {
 	const mealDate = mealId
 		? meals.find((meal) => meal.id === mealId)?.dateStr
 		: undefined
@@ -36,15 +38,20 @@ export function selectedDayFromUrl({
 }
 
 /** Today when it is in the week, else the first day with Meals, else the first day. */
-export function defaultSelectedDay(weekDays: Date[], meals: DayMeal[]): string {
-	const today = weekDays.find(isToday)
-	if (today) return serializeDate(today)
+export function defaultSelectedDay(
+	weekDays: Date[],
+	meals: DayMeal[],
+	today: string,
+): string {
+	const todayInWeek = weekDays.find((date) => isToday(date, today))
+	if (todayInWeek) return serializeDate(todayInWeek)
 	return meals[0]?.dateStr ?? serializeDate(weekDays[0]!)
 }
 
 export function resolveSelectedDay(args: SelectedDayArgs): string {
 	return (
-		selectedDayFromUrl(args) ?? defaultSelectedDay(args.weekDays, args.meals)
+		selectedDayFromUrl(args) ??
+		defaultSelectedDay(args.weekDays, args.meals, args.today)
 	)
 }
 

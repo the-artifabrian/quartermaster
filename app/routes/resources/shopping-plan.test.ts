@@ -1,7 +1,7 @@
 import { RouterContextProvider } from 'react-router'
 import { expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
-import { getCurrentWeekStart, serializeDate } from '#app/utils/date.ts'
+import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { createUser } from '#tests/db-utils.ts'
@@ -85,7 +85,7 @@ test('default ticks skip a Staple, a pantry line and a line already on the list'
 			},
 		},
 	})
-	const weekStart = getCurrentWeekStart()
+	const weekStart = getWeekStart(new Date())
 	await prisma.mealPlan.create({
 		data: {
 			householdId: session.householdId,
@@ -146,7 +146,7 @@ test('an unsaved ingredient is needed, and cooked items are never offered', asyn
 			ingredients: { create: [{ name: 'sourdough', order: 0 }] },
 		},
 	})
-	const weekStart = getCurrentWeekStart()
+	const weekStart = getWeekStart(new Date())
 	await prisma.mealPlan.create({
 		data: {
 			householdId: session.householdId,
@@ -201,7 +201,7 @@ test('an unsaved ingredient is needed, and cooked items are never offered', asyn
 
 test('note-card Shopping lines are offered alongside Recipe lines', async () => {
 	const session = await setupHousehold('Menu household')
-	const weekStart = getCurrentWeekStart()
+	const weekStart = getWeekStart(new Date())
 	await prisma.mealPlan.create({
 		data: {
 			householdId: session.householdId,

@@ -8,6 +8,7 @@ import {
 	getSessionExpirationDate,
 	sessionKey,
 } from '#app/utils/auth.server.ts'
+import { parseDate, todayInTimeZone } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { MOCK_CODE_GOOGLE_HEADER } from '#app/utils/providers/constants.ts'
 import { normalizeEmail } from '#app/utils/providers/provider.ts'
@@ -20,6 +21,17 @@ import {
 } from './mocks/google.ts'
 
 export * from './db-utils.ts'
+
+/**
+ * Today as the app sees it in these tests, as a UTC-midnight Date. The app's
+ * today follows the browser's timezone, and Playwright's browser runs in the
+ * machine's zone unless a test sets `timezoneId`.
+ */
+export function browserToday() {
+	return parseDate(
+		todayInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone),
+	)
+}
 
 type GetOrInsertUserOptions = {
 	id?: string

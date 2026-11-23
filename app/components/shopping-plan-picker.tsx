@@ -30,6 +30,8 @@ export type PlanPickerWeek = {
 type WeekChoices = {
 	weekStart: string
 	weekLabel: string
+	/** The user's today, `yyyy-MM-dd`, as the server worked it out. */
+	today: string
 	days: PlanPickerDay[]
 }
 
@@ -64,6 +66,7 @@ function isWeekChoices(value: unknown): value is WeekChoices {
 	return (
 		typeof candidate.weekStart === 'string' &&
 		typeof candidate.weekLabel === 'string' &&
+		typeof candidate.today === 'string' &&
 		Array.isArray(candidate.days)
 	)
 }
@@ -72,9 +75,9 @@ function lineAmount(line: PlanPickerLine) {
 	return [line.quantity, line.unit].filter(Boolean).join(' ')
 }
 
-/** The phone's today, as the Plan calendar reckons it, against a `yyyy-MM-dd` day. */
-function isPastDay(date: string) {
-	return isPast(parseDate(date))
+/** A `yyyy-MM-dd` day before the user's today, the same today Plan uses. */
+function isPastDay(date: string, today: string) {
+	return isPast(parseDate(date), today)
 }
 
 const STATUS_NOTE: Record<PlanPickerLine['status'], string | null> = {
@@ -133,7 +136,10 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 			// whole Meals on days already gone. Those start folded too, so the
 			// week opens on what is still ahead.
 			const meals = result.days.flatMap((day) =>
-				day.meals.map((meal) => ({ meal, past: isPastDay(day.date) })),
+				day.meals.map((meal) => ({
+					meal,
+					past: isPastDay(day.date, result.today),
+				})),
 			)
 			setPicks(
 				new Map(
@@ -158,6 +164,8 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 	useEffect(() => () => choiceRequest.current?.abort(), [])
 
 	const days = choiceState.status === 'success' ? choiceState.choices.days : []
+	const today =
+		choiceState.status === 'success' ? choiceState.choices.today : ''
 	const pickedMeals = days.flatMap((day) =>
 		day.meals.flatMap((meal) => {
 			const lines = [...(picks.get(meal.id) ?? [])]
@@ -358,7 +366,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 							// cards do. A single-Recipe Meal is already named after
 							// its Recipe, so the familiar label is what is left to say.
 							const subtitle = [
-								isPastDay(day.date) ? 'Already past' : null,
+								isPastDay(day.date, today) ? 'Already past' : null,
 								meal.recipeTitles.length > 1
 									? meal.recipeTitles.join(', ')
 									: meal.label,

@@ -104,6 +104,8 @@ function makeMeal({
 }
 
 const weekDays = getWeekDays(parseDate('2026-04-06'))
+/** A today outside `weekDays`, so no day of the week is Today. */
+const today = '2026-05-04'
 const meals = [
 	makeMeal({ id: 'meal-1', dateStr: '2026-04-08', title: 'Banana Bread' }),
 	makeMeal({ id: 'meal-2', dateStr: '2026-04-09', title: 'Bolognese' }),
@@ -135,6 +137,7 @@ function renderCalendar(
 				<MealPlanCalendar
 					weekDays={calendarWeekDays}
 					meals={calendarMeals}
+					today={today}
 					renderHeader={(titleAction) => (
 						<div data-testid="plan-title">{titleAction}</div>
 					)}
@@ -192,7 +195,11 @@ test('opening another Meal on the same target date restores that day after manua
 			Component: () => (
 				<>
 					<Link to="/?mealId=meal-3">Open another Meal</Link>
-					<MealPlanCalendar weekDays={weekDays} meals={calendarMeals} />
+					<MealPlanCalendar
+						weekDays={weekDays}
+						meals={calendarMeals}
+						today={today}
+					/>
 				</>
 			),
 		},
@@ -218,7 +225,7 @@ test('the Plan tab again (no day in the URL) goes back to the default day', asyn
 				<>
 					<Link to="/">Plan tab</Link>
 					<Link to="/?mealId=meal-gone">Removed Meal</Link>
-					<MealPlanCalendar weekDays={weekDays} meals={meals} />
+					<MealPlanCalendar weekDays={weekDays} meals={meals} today={today} />
 				</>
 			),
 		},

@@ -1,4 +1,4 @@
-import { expect, test, vi } from 'vitest'
+import { expect, test } from 'vitest'
 import { getWeekDays, parseDate } from './date.ts'
 import { planShouldRevalidate, resolveSelectedDay } from './plan-day-param.ts'
 
@@ -8,86 +8,107 @@ const meals = [
 	{ id: 'meal-thu', dateStr: '2026-04-09' },
 ]
 
-/** Local noon on the given day, since "today" is the user's local date. */
-function today(year: number, monthIndex: number, day: number) {
-	vi.useFakeTimers({ toFake: ['Date'] })
-	vi.setSystemTime(new Date(year, monthIndex, day, 12))
-	return {
-		[Symbol.dispose]() {
-			vi.useRealTimers()
-		},
-	}
-}
-
 /** Friday 2026-04-10, inside the week. */
-const inWeek = () => today(2026, 3, 10)
+const IN_WEEK = '2026-04-10'
+/** A Monday after the week. */
+const LATER = '2026-04-20'
 
 test("a linked Meal's day wins over the day param", () => {
-	using _today = inWeek()
 	expect(
 		resolveSelectedDay({
 			weekDays,
 			meals,
 			mealId: 'meal-thu',
 			day: '2026-04-06',
+			today: IN_WEEK,
 		}),
 	).toBe('2026-04-09')
 })
 
 test('a mealId that names no loaded Meal falls through to the day param', () => {
-	using _today = inWeek()
 	expect(
 		resolveSelectedDay({
 			weekDays,
 			meals,
 			mealId: 'meal-gone',
 			day: '2026-04-07',
+			today: IN_WEEK,
 		}),
 	).toBe('2026-04-07')
 })
 
 test('a day param inside the week wins over today', () => {
-	using _today = inWeek()
 	expect(
-		resolveSelectedDay({ weekDays, meals, mealId: null, day: '2026-04-07' }),
+		resolveSelectedDay({
+			weekDays,
+			meals,
+			mealId: null,
+			day: '2026-04-07',
+			today: IN_WEEK,
+		}),
 	).toBe('2026-04-07')
 })
 
 test('a day param from another week is ignored', () => {
-	using _today = inWeek()
 	expect(
-		resolveSelectedDay({ weekDays, meals, mealId: null, day: '2026-04-13' }),
+		resolveSelectedDay({
+			weekDays,
+			meals,
+			mealId: null,
+			day: '2026-04-13',
+			today: IN_WEEK,
+		}),
 	).toBe('2026-04-10')
 })
 
 test.each(['2026-13-40', 'foo', '', '2026-4-7', '2026-04-07T00:00:00Z'])(
 	'a malformed day param %j is ignored',
 	(day) => {
-		using _today = inWeek()
-		expect(resolveSelectedDay({ weekDays, meals, mealId: null, day })).toBe(
-			'2026-04-10',
-		)
+		expect(
+			resolveSelectedDay({
+				weekDays,
+				meals,
+				mealId: null,
+				day,
+				today: IN_WEEK,
+			}),
+		).toBe('2026-04-10')
 	},
 )
 
 test('without params, today is selected when it is in the week', () => {
-	using _today = inWeek()
-	expect(resolveSelectedDay({ weekDays, meals, mealId: null, day: null })).toBe(
-		'2026-04-10',
-	)
+	expect(
+		resolveSelectedDay({
+			weekDays,
+			meals,
+			mealId: null,
+			day: null,
+			today: IN_WEEK,
+		}),
+	).toBe('2026-04-10')
 })
 
 test('without params and today outside the week, the first day with Meals is selected', () => {
-	using _today = today(2026, 3, 20)
-	expect(resolveSelectedDay({ weekDays, meals, mealId: null, day: null })).toBe(
-		'2026-04-08',
-	)
+	expect(
+		resolveSelectedDay({
+			weekDays,
+			meals,
+			mealId: null,
+			day: null,
+			today: LATER,
+		}),
+	).toBe('2026-04-08')
 })
 
 test('without params, today outside the week and no Meals, the first day is selected', () => {
-	using _today = today(2026, 3, 20)
 	expect(
-		resolveSelectedDay({ weekDays, meals: [], mealId: null, day: null }),
+		resolveSelectedDay({
+			weekDays,
+			meals: [],
+			mealId: null,
+			day: null,
+			today: LATER,
+		}),
 	).toBe('2026-04-06')
 })
 

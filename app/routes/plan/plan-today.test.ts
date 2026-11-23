@@ -10,6 +10,8 @@
  * - Plan on New Year's night in Bucharest opens the old year's last week.
  * - Plan with no hint cookie fails to load; it should use the UTC day.
  * - Plan with a `weekStart` keeps that week but still knows today.
+ * - A malformed `weekStart` on Plan or the From Plan picker fails the load;
+ *   it should open today's week. A mid-week day opens its own week.
  * - Shopping's From Plan offers the wrong week as the current one.
  * - The From Plan picker folds a day as past by the server's day.
  * - Add to Plan on a Recipe or a Menu starts on the server's day.
@@ -118,6 +120,41 @@ test('Plan for a chosen week keeps that week and still knows today', async () =>
 	)
 	expect(result.weekStart).toBe('2026-11-30')
 	expect(result.today).toBe('2026-11-23')
+})
+
+test.each(['soon', '2026-02-30', '2026-11-30T00:00:00Z'])(
+	'Plan and the From Plan picker open this week for weekStart=%s',
+	async (weekStart) => {
+		const user = await signedInAt('2026-11-22T22:30:00Z')
+		const query = `weekStart=${encodeURIComponent(weekStart)}`
+		const plan = await planLoader(
+			args(user.request(`/plan?${query}`, 'Europe/Bucharest')),
+		)
+		expect(plan.weekStart).toBe('2026-11-23')
+		const picker = await pickerLoader(
+			args(
+				user.request(`/resources/shopping-plan?${query}`, 'Europe/Bucharest'),
+			),
+		)
+		expect(picker.data).toMatchObject({ weekStart: '2026-11-23' })
+	},
+)
+
+test('Plan and the From Plan picker open the week a mid-week day falls in', async () => {
+	const user = await signedInAt('2026-11-22T22:30:00Z')
+	const plan = await planLoader(
+		args(user.request('/plan?weekStart=2026-12-03', 'Europe/Bucharest')),
+	)
+	expect(plan.weekStart).toBe('2026-11-30')
+	const picker = await pickerLoader(
+		args(
+			user.request(
+				'/resources/shopping-plan?weekStart=2026-12-03',
+				'Europe/Bucharest',
+			),
+		),
+	)
+	expect(picker.data).toMatchObject({ weekStart: '2026-11-30' })
 })
 
 test("From Plan marks the browser's week as the current one", async () => {

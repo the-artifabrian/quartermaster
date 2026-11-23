@@ -18,9 +18,10 @@
  *   day, and no error.
  * - The hint cookie among other cookies is still found.
  */
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { consoleWarn } from '#tests/setup/setup-test-env.ts'
-import { getRequestToday } from './today.server.ts'
+import { serializeDate } from './date.ts'
+import { getRequestToday, getRequestWeekStart } from './today.server.ts'
 
 afterEach(() => {
 	vi.useRealTimers()
@@ -131,4 +132,61 @@ test('the hint is read from among other cookies', () => {
 	at('2026-11-22T22:30:00Z')
 	const cookie = `theme=dark; CH-time-zone=${encodeURIComponent('Europe/Bucharest')}; en_session=abc`
 	expect(getRequestToday(requestWithCookie(cookie))).toBe('2026-11-23')
+})
+
+/*
+ * The week a request asks for with `?weekStart=`.
+ *
+ * Failure list:
+ * - No param, or an empty one: the week holding the user's today.
+ * - A malformed value (`abc`, `2026-1-5`), or one that names no real day
+ *   (`2026-02-30`): today's week, and no error from an invalid Date.
+ * - A full datetime (`2026-10-21T00:00:00Z`) is not a day: today's week.
+ * - A Wednesday or a Sunday: the Monday that starts its week.
+ * - A Monday stays that Monday.
+ * - Today's week follows the hint's zone, as today does: Bucharest just after
+ *   midnight on a Monday is in the new week while UTC is still Sunday.
+ */
+describe('getRequestWeekStart', () => {
+	function weekOf(url: string, timeZone = 'UTC') {
+		const request = new Request(url, {
+			headers: { cookie: `CH-time-zone=${encodeURIComponent(timeZone)}` },
+		})
+		return serializeDate(getRequestWeekStart(request, getRequestToday(request)))
+	}
+
+	test.each([
+		['no param', 'https://useqm.app/plan'],
+		['an empty param', 'https://useqm.app/plan?weekStart='],
+		['words', 'https://useqm.app/plan?weekStart=abc'],
+		['a short month', 'https://useqm.app/plan?weekStart=2026-1-5'],
+		[
+			'a day that does not exist',
+			'https://useqm.app/plan?weekStart=2026-02-30',
+		],
+		[
+			'a full datetime',
+			'https://useqm.app/plan?weekStart=2026-10-21T00:00:00Z',
+		],
+	])('%s opens the week holding today', (_, url) => {
+		at('2026-11-25T12:00:00Z')
+		expect(weekOf(url)).toBe('2026-11-23')
+	})
+
+	test.each([
+		['a Monday', '2026-10-19', '2026-10-19'],
+		['a Wednesday', '2026-10-21', '2026-10-19'],
+		['a Sunday', '2026-10-25', '2026-10-19'],
+		['a leap day', '2024-02-29', '2024-02-26'],
+	])('%s opens the week it falls in', (_, day, week) => {
+		expect(weekOf(`https://useqm.app/plan?weekStart=${day}`)).toBe(week)
+	})
+
+	test("today's week is in the user's zone", () => {
+		at('2026-11-22T22:30:00Z')
+		expect(weekOf('https://useqm.app/plan', 'Europe/Bucharest')).toBe(
+			'2026-11-23',
+		)
+		expect(weekOf('https://useqm.app/plan', 'UTC')).toBe('2026-11-16')
+	})
 })

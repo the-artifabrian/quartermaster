@@ -1,6 +1,6 @@
 import { todayInTimeZone } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { seedDevelopment } from './seed-development.ts'
+import { assertLocalDatabase, seedDevelopment } from './seed-development.ts'
 import { seedInfrastructure } from './seed-infrastructure.ts'
 
 /**
@@ -8,6 +8,8 @@ import { seedInfrastructure } from './seed-infrastructure.ts'
  * and the sample Household (seed-development.ts). Development only.
  */
 async function seed() {
+	// Before any write, roles included.
+	assertLocalDatabase()
 	console.time('Seeded the database')
 	await seedInfrastructure()
 

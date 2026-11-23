@@ -134,28 +134,14 @@ export async function action({ request }: Route.ActionArgs) {
 		notes,
 	} = submission.value
 
-	// A sub-Recipe another member deleted while the form was open: the form
-	// stays with its edits and says so at the row.
-	const unlinkable = await unlinkableRows(ingredients, householdId)
-	if (unlinkable.length > 0) {
-		return data(
-			{
-				result: submission.reply({
-					fieldErrors: Object.fromEntries(
-						unlinkable.map((index) => [
-							`ingredients[${index}].linkedRecipeId`,
-							[LINKED_RECIPE_GONE_MESSAGE],
-						]),
-					),
-				}),
-			},
-			{ status: 400 },
-		)
-	}
-
-	let recipe: { id: string }
+	let saved: { unlinkable: number[] } | { id: string }
 	try {
-		recipe = await writeTransaction(prisma, async (tx) => {
+		saved = await writeTransaction(prisma, async (tx) => {
+			// A sub-Recipe another member deleted while the form was open:
+			// nothing is saved, and the form keeps its edits and says so at the
+			// row. Checked here, so a delete just before the Save can't slip in.
+			const unlinkable = await unlinkableRows(ingredients, householdId, tx)
+			if (unlinkable.length > 0) return { unlinkable }
 			const metadataValueIds = await resolveRecipeMetadataValueIds(
 				tx,
 				householdId,
@@ -211,6 +197,23 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 		throw error
 	}
+
+	if ('unlinkable' in saved) {
+		return data(
+			{
+				result: submission.reply({
+					fieldErrors: Object.fromEntries(
+						saved.unlinkable.map((index) => [
+							`ingredients[${index}].linkedRecipeId`,
+							[LINKED_RECIPE_GONE_MESSAGE],
+						]),
+					),
+				}),
+			},
+			{ status: 400 },
+		)
+	}
+	const recipe = saved
 
 	// Upload image if provided
 	if (photo) {

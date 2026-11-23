@@ -313,38 +313,6 @@ export async function setItemMultiplier(
 }
 
 /**
- * Remove one Recipe item. Removing the last item removes the Meal itself — a
- * Recipe Meal with nothing in it is not a planned thing. Frozen snapshot note
- * cards count as content: a note-only snapshot Meal is valid (#98 readiness
- * corrections), so the Meal survives while any note card remains.
- */
-export async function removeRecipeItem(
-	db: PrismaClient,
-	{ item }: { item: { id: string; mealId: string } },
-) {
-	return db.$transaction(async (tx) => {
-		await tx.mealRecipeItem.delete({ where: { id: item.id } })
-		const [remainingRecipes, remainingNotes] = await Promise.all([
-			tx.mealRecipeItem.count({ where: { mealId: item.mealId } }),
-			tx.mealNoteItem.count({ where: { mealId: item.mealId } }),
-		])
-		if (remainingRecipes === 0 && remainingNotes === 0) {
-			await tx.meal.delete({ where: { id: item.mealId } })
-			return { mealDeleted: true as const }
-		}
-		return { mealDeleted: false as const }
-	})
-}
-
-export async function removeMeal(
-	db: PrismaClient,
-	{ mealId }: { mealId: string },
-) {
-	// Items cascade with the Meal.
-	await db.meal.delete({ where: { id: mealId } })
-}
-
-/**
  * Move a Meal one step within its day. Explicit manual order is authoritative
  * (#98) — label and serving time never reorder anything. Rewrites the whole
  * day 0..n so gaps and ties repair themselves.

@@ -334,14 +334,14 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 		page.getByRole('heading', { level: 1, name: /^Shopping/ }),
 	).toBeVisible()
 
-	// Keep both audited actions pending long enough for delayed local feedback.
+	// Keep the From Plan add pending long enough for delayed local feedback.
 	await page.route('**/shopping*', async (route) => {
 		const request = route.request()
 		const form =
 			request.method() === 'POST'
 				? (request.postDataJSON() as Record<string, unknown>)
 				: null
-		if (form?.intent === 'add-from-plan' || form?.intent === 'clear-checked') {
+		if (form?.intent === 'add-from-plan') {
 			await new Promise((resolve) => setTimeout(resolve, 1250))
 		}
 		await route.continue()
@@ -876,4 +876,31 @@ test('a comma decimal reads as one number on the Recipe, when scaled, and in the
 	await expect(flourItem).toContainText('2 kg')
 	await page.reload()
 	await expect(flourItem).toContainText('2 kg')
+})
+
+test('the old Shopping address still opens Shopping, and a form posted to it saves nothing', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+
+	// A form posted to the old address used to be sent on to Shopping without
+	// its body, so the page saw no answer and nothing was saved.
+	const posted = await page.request.post('/plan/shopping-list', {
+		form: { intent: 'add', name: 'oat milk' },
+		maxRedirects: 0,
+	})
+	expect(posted.status()).toBe(405)
+	expect(posted.headers()['location']).toBeUndefined()
+	expect(
+		await prisma.shoppingListItem.count({
+			where: { list: { householdId: user.householdId } },
+		}),
+	).toBe(0)
+
+	await page.goto('/plan/shopping-list?horizon=later')
+	await expect(page).toHaveURL('/shopping?horizon=later')
+	await expect(
+		page.getByRole('heading', { level: 1, name: /^Shopping/ }),
+	).toBeVisible()
 })

@@ -395,15 +395,32 @@ describe('gone', () => {
 		const theirs = await prisma.shoppingListItem.create({
 			data: { listId: other.listId, name: 'salt' },
 		})
+		const theirMeal = await seedMeal(other)
+		const theirCard = theirMeal.recipeItems[0]!
+		const theirStaple = await prisma.householdIngredient.create({
+			data: {
+				householdId: other.householdId,
+				displayName: 'Salt',
+				canonicalKey: 'salt',
+				isStaple: true,
+			},
+		})
 		for (const body of [
 			{ intent: 'delete-shopping', itemIds: [theirs.id] },
 			{ intent: 'delete-shopping', itemIds: ['missing'] },
 			{
 				intent: 'delete-meal',
+				mealId: theirMeal.id,
+				removeShoppingContributions: true,
+			},
+			{
+				intent: 'delete-meal',
 				mealId: 'missing',
 				removeShoppingContributions: false,
 			},
+			{ intent: 'delete-meal-item', itemId: theirCard.id },
 			{ intent: 'delete-meal-item', itemId: 'missing' },
+			{ intent: 'remove-staple', stapleId: theirStaple.id },
 			{ intent: 'remove-staple', stapleId: 'missing' },
 		]) {
 			expect(await send(session, body)).toEqual({
@@ -413,6 +430,15 @@ describe('gone', () => {
 		}
 		expect(
 			await prisma.shoppingListItem.count({ where: { id: theirs.id } }),
+		).toBe(1)
+		expect(await prisma.meal.count({ where: { id: theirMeal.id } })).toBe(1)
+		expect(
+			await prisma.mealRecipeItem.count({ where: { id: theirCard.id } }),
+		).toBe(1)
+		expect(
+			await prisma.householdIngredient.count({
+				where: { id: theirStaple.id, isStaple: true },
+			}),
 		).toBe(1)
 	})
 

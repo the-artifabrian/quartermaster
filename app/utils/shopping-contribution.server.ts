@@ -591,28 +591,3 @@ export function removeGeneratedShoppingAmount(
 		return { status: 'success' as const, name: item.name }
 	})
 }
-
-/** Delete a Meal and its chosen generated Shopping component atomically. */
-export function removeMealWithShoppingContributions(
-	db: PrismaClient,
-	{ mealId }: { mealId: string },
-) {
-	return writeTransaction(db, async (tx) => {
-		const contributions = await tx.mealShoppingContribution.findMany({
-			where: { mealId },
-			select: { itemId: true },
-		})
-		const itemIds = [...new Set(contributions.map((entry) => entry.itemId))]
-		await tx.mealShoppingContribution.deleteMany({ where: { mealId } })
-		await tx.meal.delete({ where: { id: mealId } })
-		if (itemIds.length > 0) {
-			await tx.shoppingListItem.deleteMany({
-				where: {
-					id: { in: itemIds },
-					source: 'meal',
-					mealContributions: { none: {} },
-				},
-			})
-		}
-	})
-}

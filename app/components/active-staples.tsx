@@ -18,7 +18,7 @@ type StaplesResponse = {
 	status: 'success' | 'error'
 	message?: string
 	shoppingEffect?: 'added' | 'moved' | 'resurfaced' | 'already-in-next-shop'
-	action?: 'add-staple' | 'add-staple-to-shop' | 'remove-staple'
+	action?: 'add-staple' | 'add-staple-to-shop'
 }
 
 type Staple = {

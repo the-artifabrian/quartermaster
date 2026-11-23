@@ -3,8 +3,8 @@ import { describe, expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { removeRecipeItem } from '#app/utils/meal.server.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
+import { deleteMealItem } from '#app/utils/undo-delete.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { action as planAction } from './$menuId.tsx'
@@ -457,10 +457,12 @@ describe('add to plan from menu detail', () => {
 		const meal = await loadPlannedMeal(menu.id)
 		const item = meal.recipeItems[0]!
 
-		const result = await removeRecipeItem(prisma, {
-			item: { id: item.id, mealId: meal.id },
+		// What the Plan's remove sends (through resources/undo-delete).
+		const result = await deleteMealItem(prisma, {
+			householdId: session.householdId,
+			itemId: item.id,
 		})
-		expect(result.mealDeleted).toBe(false)
+		expect(result).toMatchObject({ snapshot: { kind: 'meal-item' } })
 		const survivor = await loadPlannedMeal(menu.id)
 		expect(survivor.recipeItems).toHaveLength(0)
 		expect(survivor.noteItems.map((note) => note.text)).toEqual([

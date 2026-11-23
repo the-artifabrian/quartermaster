@@ -14,6 +14,13 @@
  * - An item is marked cooked after the demand is read: its amounts still
  *   land, though a cooked item adds nothing.
  * - Update Shopping has the same gap as Add to Shopping.
+ *
+ * Failure list for an intent the page no longer sends (a tab still holding a
+ * page from before Undo, whose deletes now go to resources/undo-delete):
+ * - An old `removeItem` or `removeMeal` (even one asking to remove its
+ *   Shopping amounts) gets a 400 the page reads as data, and the Meal, its
+ *   cards, its Shopping row and the amount linking them all stay. Never a 200
+ *   that saved nothing, a thrown error or a 500.
  */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
@@ -24,8 +31,10 @@ vi.mock('#app/utils/household-events.server.ts', () => ({
 import { type Prisma } from '#app/generated/prisma/client.ts'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
 import { servingWallTime } from '#app/utils/serving-time.ts'
+import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import {
 	createWalDatabase,
@@ -979,8 +988,6 @@ describe('meal plan actions', () => {
 			{ intent: 'setMealCooked', mealId: meal!.id, cooked: 'true' },
 			{ intent: 'setItemCooked', itemId: item.id, cooked: 'true' },
 			{ intent: 'setItemMultiplier', itemId: item.id, multiplier: '2' },
-			{ intent: 'removeItem', itemId: item.id },
-			{ intent: 'removeMeal', mealId: meal!.id },
 			{ intent: 'moveMeal', mealId: meal!.id, direction: 'up' },
 			{ intent: 'addRecipeToMeal', mealId: meal!.id, recipeId: recipe.id },
 			{ intent: 'updateMealDetails', mealId: meal!.id, date: '2026-02-02' },
@@ -1197,68 +1204,6 @@ describe('meal plan actions', () => {
 				})
 			).scaleMultiplier,
 		).toBe(2.5)
-	})
-
-	test('removeItem deletes the item; removing the last item removes the Meal', async () => {
-		const session = await setupUser()
-		const first = await setupRecipe(
-			session.userId,
-			session.householdId,
-			'First',
-		)
-		const second = await setupRecipe(
-			session.userId,
-			session.householdId,
-			'Second',
-		)
-		await act(session, {
-			intent: 'addMeal',
-			date: '2026-02-02',
-			recipeId: first.id,
-		})
-		const [meal] = await findHouseholdMeals(session.householdId)
-		await act(session, {
-			intent: 'addRecipeToMeal',
-			mealId: meal!.id,
-			recipeId: second.id,
-		})
-
-		let [current] = await findHouseholdMeals(session.householdId)
-		await act(session, {
-			intent: 'removeItem',
-			itemId: current!.recipeItems[1]!.id,
-		})
-		;[current] = await findHouseholdMeals(session.householdId)
-		expect(current!.recipeItems).toHaveLength(1)
-
-		await act(session, {
-			intent: 'removeItem',
-			itemId: current!.recipeItems[0]!.id,
-		})
-		expect(await findHouseholdMeals(session.householdId)).toHaveLength(0)
-	})
-
-	test('removeMeal deletes the Meal and its items', async () => {
-		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId, session.householdId)
-		await act(session, {
-			intent: 'addMeal',
-			date: '2026-02-02',
-			recipeId: recipe.id,
-		})
-		const [meal] = await findHouseholdMeals(session.householdId)
-
-		const result = await act(session, {
-			intent: 'removeMeal',
-			mealId: meal!.id,
-		})
-		expect(result).toEqual({ status: 'success' })
-		expect(await findHouseholdMeals(session.householdId)).toHaveLength(0)
-		expect(
-			await prisma.mealRecipeItem.count({
-				where: { meal: { mealPlan: { householdId: session.householdId } } },
-			}),
-		).toBe(0)
 	})
 
 	test('moveMeal swaps explicit day order and no-ops at the edges', async () => {
@@ -1606,4 +1551,48 @@ describe('Add to Shopping reads the Meal under the write lock', () => {
 			).toEqual([{ name: 'onion' }])
 		},
 	)
+})
+
+test('an old page that deletes a Meal and its Shopping amounts gets a 400, and all of it stays', async () => {
+	const session = await setupUser()
+	const recipe = await setupRecipe(session.userId, session.householdId)
+	await act(session, {
+		intent: 'addMeal',
+		date: '2026-02-02',
+		recipeId: recipe.id,
+	})
+	const [meal] = await findHouseholdMeals(session.householdId)
+	const list = await ensureShoppingList(prisma, session)
+	const row = await prisma.shoppingListItem.create({
+		data: {
+			listId: list.id,
+			name: 'lentils',
+			source: 'meal',
+			mealContributions: {
+				create: { mealId: meal!.id, canonicalName: 'lentils', name: 'lentils' },
+			},
+		},
+	})
+	vi.mocked(emitHouseholdEvent).mockClear()
+
+	await expect(
+		act(session, {
+			intent: 'removeMeal',
+			mealId: meal!.id,
+			removeShoppingContributions: 'true',
+		}),
+	).resolves.toMatchObject({
+		data: { status: 'error' },
+		init: { status: 400 },
+	})
+	const [kept] = await findHouseholdMeals(session.householdId)
+	expect(kept).toMatchObject({ id: meal!.id })
+	expect(kept!.recipeItems).toHaveLength(1)
+	expect(await prisma.shoppingListItem.count({ where: { id: row.id } })).toBe(1)
+	expect(
+		await prisma.mealShoppingContribution.count({
+			where: { mealId: meal!.id, itemId: row.id },
+		}),
+	).toBe(1)
+	expect(emitHouseholdEvent).not.toHaveBeenCalled()
 })

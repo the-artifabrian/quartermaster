@@ -13,6 +13,16 @@
  * Failure list for Edit:
  * - A row named by a long Staple (101 to 200 characters) can be edited and
  *   keep its name; longer names are refused.
+ *
+ * Failure list for an intent the page no longer sends (a tab still holding a
+ * page from before Undo, whose deletes now go to resources/undo-delete):
+ * - An old `delete` or `clear-checked` gets a 400 the page reads as data,
+ *   nothing is deleted, and the other member hears nothing. Never a 200 that
+ *   saved nothing (the page would take it as done), a thrown error (the
+ *   error page) or a 500.
+ * - A form posted to /plan/shopping-list, Shopping's old address, gets a 405
+ *   rather than a redirect that drops its body (tests/e2e/shopping-list.test.ts,
+ *   since only the built router answers a route with no action).
  */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
@@ -23,6 +33,7 @@ vi.mock('#app/utils/household-events.server.ts', () => ({
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { getWeekStart } from '#app/utils/date.ts'
 import { createPrismaClient, prisma } from '#app/utils/db.server.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
@@ -847,101 +858,6 @@ describe('shopping list actions', () => {
 		).toBe(2)
 	})
 
-	test('Clear checked excludes an unsynced item even if its save already committed', async () => {
-		const session = await setupUser()
-		const list = await ensureShoppingList(prisma, session)
-		const pending = await prisma.shoppingListItem.create({
-			data: { listId: list.id, name: 'Rice', checked: true },
-		})
-		await prisma.shoppingListItem.create({
-			data: { listId: list.id, name: 'Milk', checked: true },
-		})
-		await action({
-			...ACTION_ARGS_BASE,
-			request: await makeRequest(session, {
-				intent: 'clear-checked',
-				pendingItemId: pending.id,
-			}),
-		})
-		expect(
-			await prisma.shoppingListItem.findMany({
-				where: { listId: list.id },
-				select: { id: true },
-			}),
-		).toEqual([{ id: pending.id }])
-	})
-
-	test('delete item', async () => {
-		const session = await setupUser()
-
-		await action({
-			request: await makeRequest(session, {
-				intent: 'add',
-				name: 'Milk',
-			}),
-			...ACTION_ARGS_BASE,
-		})
-
-		const list = await prisma.shoppingList.findFirst({
-			where: { userId: session.userId },
-			include: { items: true },
-		})
-		const item = list!.items[0]!
-
-		const result = (await action({
-			request: await makeRequest(session, {
-				intent: 'delete',
-				itemId: item.id,
-			}),
-			...ACTION_ARGS_BASE,
-		})) as { status: string }
-		expect(result.status).toBe('success')
-
-		const deleted = await prisma.shoppingListItem.findUnique({
-			where: { id: item.id },
-		})
-		expect(deleted).toBeNull()
-	})
-
-	test('clear checked is scoped to its requested section', async () => {
-		const session = await setupUser()
-		const list = await ensureShoppingList(prisma, {
-			userId: session.userId,
-			householdId: session.householdId,
-		})
-		await prisma.shoppingListItem.createMany({
-			data: [
-				{
-					name: 'Milk',
-					listId: list.id,
-					checked: true,
-					horizon: 'next',
-				},
-				{
-					name: 'Candles',
-					listId: list.id,
-					checked: true,
-					horizon: 'later',
-				},
-			],
-		})
-
-		await action({
-			request: await makeRequest(session, {
-				intent: 'clear-checked',
-				horizon: 'next',
-			}),
-			...ACTION_ARGS_BASE,
-		})
-
-		expect(
-			await prisma.shoppingListItem.findMany({
-				where: { listId: list.id },
-				select: { name: true, horizon: true, checked: true },
-			}),
-		).toEqual([{ name: 'Candles', horizon: 'later', checked: true }])
-	})
-
 	test('bulk-add normalizes note lines: trims, dedups by canonical identity, keeps explicit staples', async () => {
 		const session = await setupUser()
 
@@ -1084,4 +1000,26 @@ describe('shopping list actions', () => {
 		})
 		expect(list!.items.map((i) => i.name).sort()).toEqual(['Bananas', 'milk'])
 	})
+})
+
+test('an old page that deletes a row gets a 400, and the row stays', async () => {
+	const session = await setupUser()
+	const list = await ensureShoppingList(prisma, session)
+	const row = await prisma.shoppingListItem.create({
+		data: { listId: list.id, name: 'milk' },
+	})
+
+	await expect(
+		action({
+			request: await makeRequest(session, { intent: 'delete', itemId: row.id }),
+			...ACTION_ARGS_BASE,
+		}),
+	).resolves.toMatchObject({
+		data: { status: 'error' },
+		init: { status: 400 },
+	})
+	expect(await prisma.shoppingListItem.count({ where: { id: row.id } })).toBe(1)
+	expect(emitHouseholdEvent).not.toHaveBeenCalledWith(
+		expect.objectContaining({ householdId: session.householdId }),
+	)
 })

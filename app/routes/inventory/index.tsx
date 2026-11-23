@@ -108,7 +108,7 @@ export async function action({ request }: Route.ActionArgs) {
 		return { status: 'success' as const, action: 'add-staple' as const }
 	}
 
-	if (intent === 'add-staple-to-shop' || intent === 'remove-staple') {
+	if (intent === 'add-staple-to-shop') {
 		const itemId = formData.get('itemId')
 		invariantResponse(typeof itemId === 'string', 'Staple ID is required')
 		const staple = await prisma.householdIngredient.findFirst({
@@ -117,80 +117,61 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 		invariantResponse(staple, 'Staple not found', { status: 404 })
 
-		if (intent === 'add-staple-to-shop') {
-			// The same resolution the Shopping page's Staples picker uses: a row
-			// already in Next shop is left alone, a Later one moves up, and a
-			// checked one comes back rather than arriving twice.
-			let shoppingEffect: NextShopRestockEffect
-			try {
-				shoppingEffect = await prisma.$transaction(async (tx) => {
-					const shoppingList = await ensureShoppingList(tx, {
-						userId,
-						householdId,
-					})
-					return resolveNextShopRestockTarget(tx, {
-						listId: shoppingList.id,
-						name: staple.displayName,
-						category: guessCategory(staple.displayName),
-					})
-				})
-			} catch {
-				return data(
-					{
-						status: 'error' as const,
-						action: 'add-staple-to-shop' as const,
-						message: `Could not add ${staple.displayName} to Next shop. Try again.`,
-					},
-					{ status: 500 },
-				)
-			}
-
-			// Only tell the other member something happened when it did. A row
-			// already waiting in Next shop is not an addition.
-			if (shoppingEffect !== 'already-in-next-shop') {
-				await emitHouseholdEvent({
-					originClientId: formData.get('originClientId'),
-					type: 'shopping_list_item_added',
-					payload: { name: staple.displayName },
+		// The same resolution the Shopping page's Staples picker uses: a row
+		// already in Next shop is left alone, a Later one moves up, and a
+		// checked one comes back rather than arriving twice.
+		let shoppingEffect: NextShopRestockEffect
+		try {
+			shoppingEffect = await prisma.$transaction(async (tx) => {
+				const shoppingList = await ensureShoppingList(tx, {
 					userId,
 					householdId,
 				})
-			}
-			return {
-				status: 'success' as const,
-				action: 'add-staple-to-shop' as const,
-				shoppingEffect,
-				message:
-					shoppingEffect === 'added'
-						? `${staple.displayName} was added to Next shop.`
-						: shoppingEffect === 'moved'
-							? `${staple.displayName} was moved to Next shop.`
-							: shoppingEffect === 'resurfaced'
-								? `${staple.displayName} was brought back to Next shop.`
-								: `${staple.displayName} is already in Next shop.`,
-			}
-		}
-
-		try {
-			// The identity survives its classification: other household data may
-			// reference this canonical key.
-			await prisma.householdIngredient.update({
-				where: { id: staple.id },
-				data: { isStaple: false },
+				return resolveNextShopRestockTarget(tx, {
+					listId: shoppingList.id,
+					name: staple.displayName,
+					category: guessCategory(staple.displayName),
+				})
 			})
 		} catch {
 			return data(
 				{
 					status: 'error' as const,
-					action: 'remove-staple' as const,
-					message: `Could not delete ${staple.displayName}. Try again.`,
+					action: 'add-staple-to-shop' as const,
+					message: `Could not add ${staple.displayName} to Next shop. Try again.`,
 				},
 				{ status: 500 },
 			)
 		}
-		return { status: 'success' as const, action: 'remove-staple' as const }
+
+		// Only tell the other member something happened when it did. A row
+		// already waiting in Next shop is not an addition.
+		if (shoppingEffect !== 'already-in-next-shop') {
+			await emitHouseholdEvent({
+				originClientId: formData.get('originClientId'),
+				type: 'shopping_list_item_added',
+				payload: { name: staple.displayName },
+				userId,
+				householdId,
+			})
+		}
+		return {
+			status: 'success' as const,
+			action: 'add-staple-to-shop' as const,
+			shoppingEffect,
+			message:
+				shoppingEffect === 'added'
+					? `${staple.displayName} was added to Next shop.`
+					: shoppingEffect === 'moved'
+						? `${staple.displayName} was moved to Next shop.`
+						: shoppingEffect === 'resurfaced'
+							? `${staple.displayName} was brought back to Next shop.`
+							: `${staple.displayName} is already in Next shop.`,
+		}
 	}
 
+	// An intent this page no longer sends, such as an old tab's remove-staple
+	// from before Undo (it goes to resources/undo-delete now).
 	return data({ status: 'error' as const }, { status: 400 })
 }
 

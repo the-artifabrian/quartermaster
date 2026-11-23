@@ -104,7 +104,12 @@ async function deleteFromMenu(page: Page, name: string) {
 
 async function seedShopping(
 	user: { id: string; householdId: string },
-	items: Array<{ name: string; checked?: boolean; quantity?: string }>,
+	items: Array<{
+		name: string
+		checked?: boolean
+		quantity?: string
+		horizon?: 'next' | 'later'
+	}>,
 ) {
 	await prisma.shoppingList.create({
 		data: {
@@ -260,7 +265,7 @@ test('under reduced motion a deleted row fades where it is, then gives up its sp
 	])
 })
 
-test('Clear checked clears at once; Undo brings the rows back checked', async ({
+test('Clear checked clears its own section at once; Undo brings the rows back checked', async ({
 	page,
 	login,
 }) => {
@@ -269,6 +274,7 @@ test('Clear checked clears at once; Undo brings the rows back checked', async ({
 		{ name: 'bread', checked: true },
 		{ name: 'butter', checked: true },
 		{ name: 'jam' },
+		{ name: 'candles', checked: true, horizon: 'later' },
 	])
 	await openShopping(page)
 	const before = await saved(user.householdId)
@@ -281,7 +287,10 @@ test('Clear checked clears at once; Undo brings the rows back checked', async ({
 	await expect(toastOf(undoButton(page))).toContainText(
 		'Cleared 2 checked items',
 	)
-	await expect.poll(() => savedNames(user.householdId)).toEqual(['jam'])
+	// The checked row in Later is another section's, so it stays.
+	await expect
+		.poll(() => savedNames(user.householdId))
+		.toEqual(['candles', 'jam'])
 
 	await undoButton(page).click()
 	await expect(row(page, 'bread')).toBeVisible()

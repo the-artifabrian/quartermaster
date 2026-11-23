@@ -274,30 +274,16 @@ export async function action({ request, params }: Route.ActionArgs) {
 		notes,
 	} = submission.value
 
-	// A sub-Recipe another member deleted while the form was open: the form
-	// stays with its edits and says so at the row.
-	const unlinkable = await unlinkableRows(ingredients, householdId)
-	if (unlinkable.length > 0) {
-		return data(
-			{
-				result: submission.reply({
-					fieldErrors: Object.fromEntries(
-						unlinkable.map((index) => [
-							`ingredients[${index}].linkedRecipeId`,
-							[LINKED_RECIPE_GONE_MESSAGE],
-						]),
-					),
-				}),
-			},
-			{ status: 400 },
-		)
-	}
-
 	// One transaction for the Recipe and its rows. Classification identity
 	// resolves inside it, so a spoofed foreign-household value cannot
 	// partially change the Recipe.
 	try {
-		await writeTransaction(prisma, async (tx) => {
+		const unlinkable = await writeTransaction(prisma, async (tx) => {
+			// A sub-Recipe another member deleted while the form was open:
+			// nothing is saved, and the form keeps its edits and says so at the
+			// row. Checked here, so a delete just before the Save can't slip in.
+			const unlinkable = await unlinkableRows(ingredients, householdId, tx)
+			if (unlinkable.length > 0) return unlinkable
 			const metadataValueIds = await resolveRecipeMetadataValueIds(
 				tx,
 				householdId,
@@ -334,7 +320,23 @@ export async function action({ request, params }: Route.ActionArgs) {
 					instructions: readLoadedIds(formData, 'loadedInstructionIds'),
 				},
 			)
+			return []
 		})
+		if (unlinkable.length > 0) {
+			return data(
+				{
+					result: submission.reply({
+						fieldErrors: Object.fromEntries(
+							unlinkable.map((index) => [
+								`ingredients[${index}].linkedRecipeId`,
+								[LINKED_RECIPE_GONE_MESSAGE],
+							]),
+						),
+					}),
+				},
+				{ status: 400 },
+			)
+		}
 	} catch (error) {
 		if (error instanceof RecipeMetadataSelectionError) {
 			return data(

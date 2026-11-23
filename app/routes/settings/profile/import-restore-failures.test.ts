@@ -59,8 +59,10 @@ import { createUser } from '#tests/db-utils.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader as recipesLoader } from '../../recipes/index.tsx'
+import { z } from 'zod'
 import {
 	action,
+	boundedArray,
 	RESTORE_JSON_LIMITS,
 	RESTORE_LIMITS,
 	RESTORE_MAX_FILE_BYTES,
@@ -421,7 +423,7 @@ describe('skipped and failed', () => {
 		)
 		expect(status).toBe(400)
 		expect(body.error).toBe(
-			'Item 2 in your Shopping list has no name. (at shoppingLists.0.items.1.name)',
+			'Item 2 on Shopping has no name (at shoppingLists.0.items.1.name).',
 		)
 		expect(
 			await prisma.recipe.count({
@@ -429,6 +431,34 @@ describe('skipped and failed', () => {
 			}),
 		).toBe(0)
 	})
+
+	test.each([
+		{
+			recipe: { ingredients: [], instructions: [] },
+			error: 'Recipe 1 has no title (at recipes.0.title).',
+		},
+		{
+			recipe: { title: 'Soup', ingredients: [{}], instructions: [] },
+			error:
+				'Ingredient 1 of Recipe 1 has no name (at recipes.0.ingredients.0.name).',
+		},
+		{
+			recipe: { title: 'Soup', ingredients: [], instructions: [7] },
+			error:
+				'Step 1 of Recipe 1 isn’t in the format Quartermaster exports (at recipes.0.instructions.0).',
+		},
+	])(
+		'a malformed Recipe is named in words: $error',
+		async ({ recipe, error }) => {
+			const session = await setupUser()
+			const { status, body } = await restore(session, {
+				recipeCount: 1,
+				recipes: [recipe],
+			})
+			expect(status).toBe(400)
+			expect(body.error).toBe(error)
+		},
+	)
 
 	test('an unexpected database error stops the restore with a reply the page can show, and a second run finishes it without duplicates', async () => {
 		consoleError.mockImplementation(() => {})
@@ -465,8 +495,13 @@ describe('skipped and failed', () => {
 			'server_error',
 			expect.objectContaining({
 				operation: 'restore',
-				error: expect.stringMatching(/integer overflow/),
+				errorName: 'DriverAdapterError',
+				stack: expect.stringMatching(/^\s*at /),
 			}),
+		)
+		// The message can quote the user's values, so it stays out.
+		expect(JSON.stringify(posthog.captureServerEvent.mock.calls)).not.toMatch(
+			/integer overflow/,
 		)
 		expect(await countMeals(session)).toBe(1)
 		expect(
@@ -796,6 +831,35 @@ describe('size and count limits', () => {
 		},
 	)
 
+	test.each([
+		{ text: `a " ${'['.repeat(20)} " b` },
+		// A text ending in a backslash: its closing quote still closes it.
+		{ text: 'ends in a backslash \\', after: '['.repeat(20) },
+	])(
+		'escaped quotes and backslashes keep brackets inside their text: %j',
+		async ({ text, after }) => {
+			const session = await setupUser()
+			const { status, body } = await restore(session, {
+				recipeCount: 1,
+				recipes: [
+					{
+						title: 'Escapes',
+						description: text,
+						notes: after ?? null,
+						ingredients: [],
+						instructions: [],
+					},
+				],
+			})
+			expect(status).toBe(200)
+			expect(body.results.recipes).toEqual({
+				created: 1,
+				skipped: 0,
+				errored: 0,
+			})
+		},
+	)
+
 	test('brackets and quotes inside text are not counted as structure', async () => {
 		const session = await setupUser()
 		const tricky = `${'['.repeat(40)} "quoted" \\ ${'{'.repeat(40)}`
@@ -831,24 +895,73 @@ describe('size and count limits', () => {
 				await held
 				return (findMany as any)(...args)
 			}) as any)
+		const first = restore(session, file)
 		try {
-			const first = restore(session, file)
 			await vi.waitFor(() => expect(spy).toHaveBeenCalled())
 
-			expect(await restore(session, file)).toEqual({
-				status: 409,
-				body: {
-					error: 'Another restore is running. Try again in a minute.',
-					results: null,
+			// The second request is turned away before its body is read.
+			let pulls = 0
+			const body = new ReadableStream<Uint8Array>(
+				{
+					pull(controller) {
+						pulls++
+						controller.close()
+					},
 				},
-			})
+				{ highWaterMark: 0 },
+			)
+			const second = (await action({
+				request: new Request(IMPORT_URL, {
+					method: 'POST',
+					headers: {
+						cookie: await getSessionCookieHeader(session),
+						'Content-Type': 'multipart/form-data; boundary=restore-test',
+					},
+					body,
+					// @ts-expect-error Node needs this for a streamed request body.
+					duplex: 'half',
+				}),
+				...ARGS_BASE,
+			})) as any
+			expect(second.init.status).toBe(409)
+			expect(second.data.error).toBe(
+				'Another restore is running. Try again in a minute.',
+			)
+			expect(pulls).toBe(0)
 
 			release()
 			expect((await first).status).toBe(200)
 			expect((await restore(session, file)).status).toBe(200)
 		} finally {
+			// Let the first restore finish even when an assertion failed, so the
+			// lock doesn't outlive this test.
+			release()
+			await first.catch(() => {})
 			spy.mockRestore()
 		}
+	})
+
+	test('a small file of many empty Recipes is refused on its count, before the schema looks at them', async () => {
+		const session = await setupUser()
+		const count = RESTORE_JSON_LIMITS.containers - 10
+		const text = `{"recipeCount":0,"recipes":[${Array(count).fill('{}').join(',')}]}`
+		const result = (await restoreText(session, text)) as any
+		expect(result.init.status).toBe(400)
+		// Only the count check before the schema writes this; the schema would
+		// complain about a Recipe with no title.
+		expect(result.data.error).toBe(
+			`This file has ${count.toLocaleString('en-US')} Recipes. A restore takes up to 500.`,
+		)
+	})
+
+	test('a list within its limit stops at its first bad element', () => {
+		const item = z.object({ name: z.string() })
+		const bad = Array(1000).fill({})
+		expect(z.array(item).safeParse(bad).error!.issues).toHaveLength(1000)
+		const result = boundedArray(item, 1000).safeParse(bad)
+		expect(result.error!.issues).toHaveLength(1)
+		expect(result.error!.issues[0]!.path).toEqual([0, 'name'])
+		expect(boundedArray(item, 2).safeParse(bad).error!.issues).toHaveLength(1)
 	})
 
 	test('a file with more Meals than a restore takes is refused, naming the limit, with nothing written', async () => {

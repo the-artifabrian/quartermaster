@@ -33,7 +33,6 @@ import {
 	NEXT_SHOP,
 	ShoppingHorizonSchema,
 } from '#app/utils/shopping-horizon.ts'
-import { serializeError } from '#app/utils/serialize-error.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { writeTransaction } from '#app/utils/write-transaction.server.ts'
 import { type Route } from './+types/import.ts'
@@ -53,7 +52,75 @@ export async function loader({ request }: Route.LoaderArgs) {
 	return {}
 }
 
+/**
+ * The most of each list a restore takes, checked on the parsed JSON before the
+ * schema runs, so a crafted file is refused before Zod looks at its elements.
+ * The first group are the file's own lists. The rest are totals across the
+ * whole file: nested lists multiply, and every Meal is its own write. 5,000
+ * Meals took about 6 seconds locally, which is about a minute on the server.
+ * These sit well above what a Household builds up (a busy one plans about 600
+ * Meals a year), so only a crafted file reaches them.
+ */
+export const RESTORE_LIMITS = {
+	recipes: 500,
+	menus: 200,
+	weeks: 200,
+	shoppingLists: 100,
+	staples: 1000,
+	recipeClassifications: 300,
+	oldPantryItems: 1000,
+	recipeLines: 50_000,
+	menuCards: 5_000,
+	meals: 3_000,
+	mealCards: 12_000,
+	shoppingItems: 2_000,
+	shoppingMealLinks: 10_000,
+}
+
+const RESTORE_LIMIT_LABELS: Record<keyof typeof RESTORE_LIMITS, string> = {
+	recipes: 'Recipes',
+	menus: 'Menus',
+	weeks: 'weeks in the Plan',
+	shoppingLists: 'lists of Shopping items',
+	staples: 'Staples',
+	recipeClassifications: 'Recipe classifications',
+	oldPantryItems: 'old Pantry items',
+	recipeLines: 'Recipe ingredients and steps',
+	menuCards: 'cards on Menus',
+	meals: 'Meals',
+	mealCards: 'cards on Meals',
+	shoppingItems: 'Shopping items',
+	shoppingMealLinks: 'Meal links on Shopping items',
+}
+
 // --- Zod Schemas ---
+
+/**
+ * An array schema that checks its length before its elements and stops at the
+ * first element that fails. A plain `z.array` reports every bad element, so a
+ * crafted file of small invalid objects would build an issue for each.
+ */
+export function boundedArray<T extends z.ZodType>(item: T, max: number) {
+	return z
+		.array(z.unknown())
+		.max(max)
+		.transform((elements, context) => {
+			const parsed: Array<z.output<T>> = []
+			for (const [index, element] of elements.entries()) {
+				const result = item.safeParse(element, { reportInput: true })
+				if (!result.success) {
+					const issue = result.error.issues[0]!
+					context.issues.push({
+						...issue,
+						path: [index, ...issue.path],
+					} as z.core.$ZodRawIssue)
+					return z.NEVER
+				}
+				parsed.push(result.data)
+			}
+			return parsed
+		})
+}
 
 const ImportIngredientSchema = z.object({
 	name: z.string().min(1).max(200),
@@ -113,16 +180,18 @@ const ImportRecipeSchema = z
 			.nullable()
 			.optional(),
 		notes: z.string().max(5000).nullable().optional(),
-		metadataValues: z.array(ImportRecipeMetadataValueSchema).max(60).optional(),
-		ingredients: z.array(ImportIngredientSchema).max(200),
-		instructions: z
-			.array(
-				z.union([
-					z.string().min(1).max(5000),
-					z.object({ content: z.string().min(1).max(5000) }),
-				]),
-			)
-			.max(200),
+		metadataValues: boundedArray(
+			ImportRecipeMetadataValueSchema,
+			60,
+		).optional(),
+		ingredients: boundedArray(ImportIngredientSchema, 200),
+		instructions: boundedArray(
+			z.union([
+				z.string().min(1).max(5000),
+				z.object({ content: z.string().min(1).max(5000) }),
+			]),
+			200,
+		),
 		tags: z.any().optional(),
 		image: z.any().optional(),
 	})
@@ -195,14 +264,14 @@ const ImportMealItemSchema = z.object({
 	cooked: z.boolean().optional(),
 	note: z.string().max(500).nullable().optional(),
 	text: z.string().max(1000).nullable().optional(),
-	shoppingLines: z.array(ImportMenuShoppingLineSchema).max(20).optional(),
+	shoppingLines: boundedArray(ImportMenuShoppingLineSchema, 20).optional(),
 })
 
 // A frozen snapshot section (#107): name (null = the unnamed section) plus
 // Recipe and note cards interleaved in their shared order.
 const ImportMealSectionSchema = z.object({
 	name: z.string().min(1).max(100).nullable().optional(),
-	items: z.array(ImportMealItemSchema).max(100).optional(),
+	items: boundedArray(ImportMealItemSchema, 100).optional(),
 })
 
 const ImportMealSchema = z
@@ -219,9 +288,9 @@ const ImportMealSchema = z
 		guestCount: z.number().int().positive().max(999).nullable().optional(),
 		sourceMenuTitle: z.string().max(100).nullable().optional(),
 		sourceMenuRevision: z.string().nullable().optional(),
-		items: z.array(ImportMealItemSchema).max(100).optional(),
+		items: boundedArray(ImportMealItemSchema, 100).optional(),
 		// Optional so every pre-#107 export stays importable.
-		sections: z.array(ImportMealSectionSchema).max(20).optional(),
+		sections: boundedArray(ImportMealSectionSchema, 20).optional(),
 	})
 	// Generic text and Recipe/snapshot content are mutually exclusive on a
 	// saved Meal (#98 readiness corrections).
@@ -243,9 +312,9 @@ const ImportMealPlanSchema = z.object({
 	weekStart: z.string(),
 	// Optional since #106 stopped exporting the legacy shape; when a file
 	// carries only entries (pre-#104 exports) they restore as Meals.
-	entries: z.array(ImportMealPlanEntrySchema).max(100).optional(),
+	entries: boundedArray(ImportMealPlanEntrySchema, 100).optional(),
 	// Optional so every pre-Meal export stays importable (#104).
-	meals: z.array(ImportMealSchema).max(200).optional(),
+	meals: boundedArray(ImportMealSchema, 200).optional(),
 })
 
 const ImportShoppingListItemSchema = z.object({
@@ -258,26 +327,24 @@ const ImportShoppingListItemSchema = z.object({
 	// Optional so exports from before Shopping horizons restore to Next shop.
 	horizon: ShoppingHorizonSchema.optional().default(NEXT_SHOP),
 	// Optional so pre-#110 exports remain importable.
-	mealContributions: z
-		.array(
-			z.object({
-				sourceMealRef: z.string().max(50).nullable(),
-				orphaned: z.boolean(),
-				fingerprint: z.object({
-					canonicalName: z.string().min(1).max(200),
-					name: z.string().min(1).max(200),
-					quantity: z.string().max(50).nullable(),
-					unit: z.string().max(50).nullable(),
-				}),
+	mealContributions: boundedArray(
+		z.object({
+			sourceMealRef: z.string().max(50).nullable(),
+			orphaned: z.boolean(),
+			fingerprint: z.object({
+				canonicalName: z.string().min(1).max(200),
+				name: z.string().min(1).max(200),
+				quantity: z.string().max(50).nullable(),
+				unit: z.string().max(50).nullable(),
 			}),
-		)
-		.max(500)
-		.optional(),
+		}),
+		500,
+	).optional(),
 })
 
 const ImportShoppingListSchema = z.object({
 	name: z.string().min(1).max(200).optional().default('Shopping List'),
-	items: z.array(ImportShoppingListItemSchema).max(500),
+	items: boundedArray(ImportShoppingListItemSchema, 500),
 })
 
 // One schema for both card kinds — Recipe fields and note fields are each
@@ -289,13 +356,13 @@ const ImportMenuItemSchema = z.object({
 	scaleMultiplier: z.number().positive().max(100).nullable().optional(),
 	note: z.string().max(500).nullable().optional(),
 	text: z.string().max(1000).nullable().optional(),
-	shoppingLines: z.array(ImportMenuShoppingLineSchema).max(20).optional(),
+	shoppingLines: boundedArray(ImportMenuShoppingLineSchema, 20).optional(),
 })
 
 const ImportMenuSectionSchema = z.object({
 	// null marks the headingless unnamed section
 	name: z.string().min(1).max(100).nullable().optional(),
-	items: z.array(ImportMenuItemSchema).max(100).optional(),
+	items: boundedArray(ImportMenuItemSchema, 100).optional(),
 })
 
 const ImportMenuSchema = z.object({
@@ -303,36 +370,42 @@ const ImportMenuSchema = z.object({
 	title: z.string().trim().min(1).max(100),
 	description: z.string().max(500).nullable().optional(),
 	defaultGuestCount: z.number().int().positive().max(999).nullable().optional(),
-	sections: z.array(ImportMenuSectionSchema).max(20).optional(),
+	sections: boundedArray(ImportMenuSectionSchema, 20).optional(),
 })
 
 // Older full exports may contain a `cookingLogs` array — the feature was
 // removed, and the loose object lets those files import with logs ignored.
 const FullExportSchema = z.looseObject({
 	format: z.literal('quartermaster-full-export-v1'),
-	recipes: z.array(ImportRecipeSchema).max(500),
+	recipes: boundedArray(ImportRecipeSchema, RESTORE_LIMITS.recipes),
 	// The retired cutover boundary and legacy Pantry (#289). Nothing reads
 	// either one, so nothing validates them: an older full export must not be
 	// rejected over a section this release throws away.
 	household: z.unknown().optional(),
-	householdIngredients: z
-		.array(ImportHouseholdIngredientSchema)
-		.max(1000)
-		.optional(),
-	recipeMetadataValues: z
-		.array(ImportRecipeMetadataValueSchema)
-		.max(300)
-		.optional(),
-	inventory: z.array(z.unknown()).max(1000).optional(),
-	mealPlans: z.array(ImportMealPlanSchema).max(200).optional(),
-	shoppingLists: z.array(ImportShoppingListSchema).max(100).optional(),
+	householdIngredients: boundedArray(
+		ImportHouseholdIngredientSchema,
+		RESTORE_LIMITS.staples,
+	).optional(),
+	recipeMetadataValues: boundedArray(
+		ImportRecipeMetadataValueSchema,
+		RESTORE_LIMITS.recipeClassifications,
+	).optional(),
+	inventory: z.array(z.unknown()).max(RESTORE_LIMITS.oldPantryItems).optional(),
+	mealPlans: boundedArray(
+		ImportMealPlanSchema,
+		RESTORE_LIMITS.weeks,
+	).optional(),
+	shoppingLists: boundedArray(
+		ImportShoppingListSchema,
+		RESTORE_LIMITS.shoppingLists,
+	).optional(),
 	// Optional so every pre-Menu export stays importable (#102).
-	menus: z.array(ImportMenuSchema).max(200).optional(),
+	menus: boundedArray(ImportMenuSchema, RESTORE_LIMITS.menus).optional(),
 })
 
 const RecipeOnlyExportSchema = z.looseObject({
 	recipeCount: z.number(),
-	recipes: z.array(ImportRecipeSchema).max(500),
+	recipes: boundedArray(ImportRecipeSchema, RESTORE_LIMITS.recipes),
 })
 
 type FullExport = z.infer<typeof FullExportSchema>
@@ -343,73 +416,87 @@ type ImportRecipe = z.infer<typeof ImportRecipeSchema>
  * The largest export file a restore takes. The form checks it before sending
  * and the action before parsing. The largest Household in production exports
  * about 3 MB. The server has 512 MB, and the worst-shaped 10 MB file that
- * passes the checks before parsing (one object with 368,000 keys) took about
- * 140 MB of extra memory locally.
+ * passes every check before the schema (one object with 368,000 keys) took
+ * about 140 MB of extra memory locally. A 0.5 MB file of 184,000 empty
+ * Recipes, which Zod alone would turn into hundreds of thousands of issues,
+ * is refused on its count for under 40 MB.
  */
 export const RESTORE_MAX_FILE_BYTES = 10 * 1024 * 1024
 const FILE_TOO_BIG = 'That file is too big. A restore takes files up to 10 MB.'
 
+/** The list at `key` of a parsed JSON value, or an empty list. */
+function listAt(value: unknown, key: string): unknown[] {
+	const found =
+		value !== null && typeof value === 'object'
+			? (value as Record<string, unknown>)[key]
+			: undefined
+	return Array.isArray(found) ? found : []
+}
+
 /**
- * Totals across the whole file. Each list already has its own limit, but
- * nested lists multiply, and every Meal is its own write: 5,000 Meals took
- * about 6 seconds locally, which is about a minute on the server. These sit
- * well above what a Household builds up (a busy one plans about 600 Meals a
- * year), so only a crafted file reaches them.
+ * Counts the lists in a parsed file that hasn't been through the schema yet.
+ * Anything that isn't a list counts as empty; the schema refuses it later.
  */
-export const RESTORE_LIMITS = {
-	recipeLines: 50_000,
-	menuCards: 5_000,
-	meals: 3_000,
-	mealCards: 12_000,
-	shoppingItems: 2_000,
-	shoppingMealLinks: 10_000,
-}
-
-const RESTORE_LIMIT_LABELS: Record<keyof typeof RESTORE_LIMITS, string> = {
-	recipeLines: 'Recipe ingredients and steps',
-	menuCards: 'cards on Menus',
-	meals: 'Meals',
-	mealCards: 'cards on Meals',
-	shoppingItems: 'Shopping items',
-	shoppingMealLinks: 'Meal links on Shopping items',
-}
-
 function countRestoreTotals(
-	recipes: ImportRecipe[],
-	full: FullExport | null,
+	file: unknown,
+	isFull: boolean,
 ): Record<keyof typeof RESTORE_LIMITS, number> {
-	const sum = <T,>(list: T[] | undefined, count: (item: T) => number) =>
-		(list ?? []).reduce((total, item) => total + count(item), 0)
+	const sum = (list: unknown[], count: (item: unknown) => number) =>
+		list.reduce<number>((total, item) => total + count(item), 0)
+	const fullList = (key: string) => (isFull ? listAt(file, key) : [])
+	const recipes = listAt(file, 'recipes')
+	const menus = fullList('menus')
+	const mealPlans = fullList('mealPlans')
+	const shoppingLists = fullList('shoppingLists')
 	return {
+		recipes: recipes.length,
+		menus: menus.length,
+		weeks: mealPlans.length,
+		shoppingLists: shoppingLists.length,
+		staples: fullList('householdIngredients').length,
+		recipeClassifications: fullList('recipeMetadataValues').length,
+		oldPantryItems: fullList('inventory').length,
 		recipeLines: sum(
 			recipes,
-			(recipe) => recipe.ingredients.length + recipe.instructions.length,
+			(recipe) =>
+				listAt(recipe, 'ingredients').length +
+				listAt(recipe, 'instructions').length,
 		),
-		menuCards: sum(full?.menus, (menu) =>
-			sum(menu.sections, (section) => section.items?.length ?? 0),
+		menuCards: sum(menus, (menu) =>
+			sum(
+				listAt(menu, 'sections'),
+				(section) => listAt(section, 'items').length,
+			),
 		),
 		// A plan that carries Meals restores only them; its entries are their
 		// mirrors.
-		meals: sum(full?.mealPlans, (plan) =>
-			plan.meals?.length ? plan.meals.length : (plan.entries?.length ?? 0),
-		),
-		mealCards: sum(full?.mealPlans, (plan) =>
+		meals: sum(mealPlans, (plan) => {
+			const meals = listAt(plan, 'meals').length
+			return meals > 0 ? meals : listAt(plan, 'entries').length
+		}),
+		mealCards: sum(mealPlans, (plan) =>
 			sum(
-				plan.meals,
+				listAt(plan, 'meals'),
 				(meal) =>
-					(meal.items?.length ?? 0) +
-					sum(meal.sections, (section) => section.items?.length ?? 0),
+					listAt(meal, 'items').length +
+					sum(
+						listAt(meal, 'sections'),
+						(section) => listAt(section, 'items').length,
+					),
 			),
 		),
-		shoppingItems: sum(full?.shoppingLists, (list) => list.items.length),
-		shoppingMealLinks: sum(full?.shoppingLists, (list) =>
-			sum(list.items, (item) => item.mealContributions?.length ?? 0),
+		shoppingItems: sum(shoppingLists, (list) => listAt(list, 'items').length),
+		shoppingMealLinks: sum(shoppingLists, (list) =>
+			sum(
+				listAt(list, 'items'),
+				(item) => listAt(item, 'mealContributions').length,
+			),
 		),
 	}
 }
 
-function overLimitError(recipes: ImportRecipe[], full: FullExport | null) {
-	const totals = countRestoreTotals(recipes, full)
+function overLimitError(file: unknown, isFull: boolean) {
+	const totals = countRestoreTotals(file, isFull)
 	for (const key of Object.keys(RESTORE_LIMITS) as Array<
 		keyof typeof RESTORE_LIMITS
 	>) {
@@ -421,23 +508,34 @@ function overLimitError(recipes: ImportRecipe[], full: FullExport | null) {
 	return null
 }
 
-/** What a schema path points at, in words, for the paths that map easily. */
-function describeFilePath(path: PropertyKey[]) {
+/**
+ * What a schema path points at, in words, for the paths that map easily, and
+ * how many of the path's parts that covers.
+ */
+function describeFilePath(path: PropertyKey[]): [string, number] | null {
 	const [section, first, list, second] = path
 	const n = (index: unknown) => Number(index) + 1
 	if (typeof first !== 'number') return null
-	if (section === 'recipes') return `Recipe ${n(first)}`
-	if (section === 'menus') return `Menu ${n(first)}`
+	const nth = typeof second === 'number'
+	if (section === 'recipes') {
+		if (list === 'ingredients' && nth) {
+			return [`Ingredient ${n(second)} of Recipe ${n(first)}`, 4]
+		}
+		if (list === 'instructions' && nth) {
+			return [`Step ${n(second)} of Recipe ${n(first)}`, 4]
+		}
+		return [`Recipe ${n(first)}`, 2]
+	}
+	if (section === 'menus') return [`Menu ${n(first)}`, 2]
 	if (section === 'shoppingLists') {
-		return list === 'items' && typeof second === 'number'
-			? `Item ${n(second)} in your Shopping list`
-			: 'Your Shopping list'
+		return list === 'items' && nth
+			? [`Item ${n(second)} on Shopping`, 4]
+			: ['Part of Shopping', 2]
 	}
 	if (section === 'mealPlans') {
-		if (list === 'meals' && typeof second === 'number') {
-			return `Meal ${n(second)} in week ${n(first)}`
-		}
-		return `Week ${n(first)} of your Plan`
+		return list === 'meals' && nth
+			? [`Meal ${n(second)} in week ${n(first)}`, 4]
+			: [`Week ${n(first)} in the Plan`, 2]
 	}
 	return null
 }
@@ -450,28 +548,31 @@ const MISSING_FIELD_WORDS: Record<string, string> = {
 }
 
 /**
- * A schema error in words, with where it is in the file after it for anyone
- * who edits export files by hand.
+ * A schema error in words, with where it is in the file inside the sentence
+ * for anyone who edits export files by hand. The schema runs with
+ * `reportInput`, so a field that is missing shows as an issue whose input is
+ * undefined.
  */
 function invalidDataError(error: z.ZodError) {
 	const issue = error.issues[0]
-	const general = 'Part of this file isn’t in the format Quartermaster exports.'
-	if (!issue) return general
+	const notOurFormat = 'isn’t in the format Quartermaster exports'
+	if (!issue) return `Part of this file ${notOurFormat}.`
 	const at = issue.path.join('.')
 	const where = at ? ` (at ${at})` : ''
-	if (issue.code === 'custom') return `${issue.message}.${where}`
-	const subject = describeFilePath(issue.path)
+	if (issue.code === 'custom') return `${issue.message}${where}.`
+	const [subject, covered] = describeFilePath(issue.path) ?? []
 	const field = issue.path.at(-1)
+	// "has no title" only when the missing field sits on the subject itself.
 	const missing =
 		issue.code === 'invalid_type' &&
-		issue.message.endsWith('received undefined') &&
+		'input' in issue &&
+		issue.input === undefined &&
+		issue.path.length === (covered ?? 0) + 1 &&
 		typeof field === 'string'
 			? MISSING_FIELD_WORDS[field]
 			: undefined
-	if (subject && missing) return `${subject} has no ${missing}.${where}`
-	if (subject)
-		return `${subject} isn’t in the format Quartermaster exports.${where}`
-	return `${general}${where}`
+	if (subject && missing) return `${subject} has no ${missing}${where}.`
+	return `${subject ?? 'Part of this file'} ${notOurFormat}${where}.`
 }
 
 function parseImportData(
@@ -487,18 +588,20 @@ function parseImportData(
 	const obj = parsed as Record<string, unknown>
 
 	if (obj.format === 'quartermaster-full-export-v1') {
-		const result = FullExportSchema.safeParse(parsed)
-		if (!result.success) return { error: invalidDataError(result.error) }
-		const overLimit = overLimitError(result.data.recipes, result.data)
+		const overLimit = overLimitError(parsed, true)
 		if (overLimit) return { error: overLimit }
+		const result = FullExportSchema.safeParse(parsed, { reportInput: true })
+		if (!result.success) return { error: invalidDataError(result.error) }
 		return { type: 'full', data: result.data }
 	}
 
 	if ('recipeCount' in obj) {
-		const result = RecipeOnlyExportSchema.safeParse(parsed)
-		if (!result.success) return { error: invalidDataError(result.error) }
-		const overLimit = overLimitError(result.data.recipes, null)
+		const overLimit = overLimitError(parsed, false)
 		if (overLimit) return { error: overLimit }
+		const result = RecipeOnlyExportSchema.safeParse(parsed, {
+			reportInput: true,
+		})
+		if (!result.success) return { error: invalidDataError(result.error) }
 		return { type: 'recipe-only', data: result.data }
 	}
 
@@ -1649,6 +1752,9 @@ async function importShopping(
 		} catch (error) {
 			const code = refusedWriteCode(error)
 			if (!code) throw error
+			// createMany is all or nothing: Prisma splits a large one into several
+			// INSERTs inside one transaction (10,000 rows with a bad last one keep
+			// none), so the retry can't write a link twice.
 			// A Meal restored above was deleted before its links were written, or
 			// someone saved the same link meanwhile. Drop the links to Meals that
 			// are gone and the ones already there, and write the rest once more.
@@ -1815,7 +1921,10 @@ function jsonShapeError(text: string) {
 }
 
 // One restore at a time in this process: each holds a parsed file in memory
-// and makes thousands of writes.
+// and makes thousands of writes. A request that arrives while one runs is
+// turned away before its body is read, so parallel uploads don't each hold
+// copies of a file. The lock itself is taken once the body is in, so a slow
+// upload can't hold it.
 let restoreRunning = false
 const RESTORE_BUSY = 'Another restore is running. Try again in a minute.'
 const RESTORE_STOPPED =
@@ -1823,6 +1932,9 @@ const RESTORE_STOPPED =
 
 export async function action({ request }: Route.ActionArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
+	if (restoreRunning) {
+		return data({ error: RESTORE_BUSY, results: null }, { status: 409 })
+	}
 	const file = await readRestoreFile(request)
 	if ('error' in file) {
 		return data({ error: file.error, results: null }, { status: file.status })
@@ -1858,17 +1970,34 @@ export async function action({ request }: Route.ActionArgs) {
 			// The route's error boundary would replace the page, so the error is
 			// reported here and the page stays with a reply the user can act on.
 			if (!request.signal.aborted) {
-				console.error('Restore stopped by an unexpected error', error)
-				captureServerEvent(userId, 'server_error', {
-					error: serializeError(error),
-					stack: error instanceof Error ? error.stack : undefined,
-					operation: 'restore',
-				})
+				const report = { operation: 'restore', ...describeError(error) }
+				console.error('Restore stopped by an unexpected error', report)
+				captureServerEvent(userId, 'server_error', report)
 			}
 			return data({ error: RESTORE_STOPPED, results: null }, { status: 500 })
 		}
 	} finally {
 		restoreRunning = false
+	}
+}
+
+/**
+ * An unexpected error without its message: a Prisma message can quote the
+ * values it was given, which are the user's own text. The name, the Prisma
+ * code and the stack frames are enough to find where it came from.
+ */
+function describeError(error: unknown) {
+	const code = (error as { code?: unknown } | null)?.code
+	return {
+		errorName: error instanceof Error ? error.name : typeof error,
+		code: typeof code === 'string' ? code : undefined,
+		stack:
+			error instanceof Error
+				? error.stack
+						?.split('\n')
+						.filter((line) => line.trimStart().startsWith('at '))
+						.join('\n')
+				: undefined,
 	}
 }
 

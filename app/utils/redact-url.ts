@@ -1,6 +1,7 @@
 // Query parameters whose values are secrets or personal data: emailed and 2FA
 // codes, invite tokens, verification targets (an email address or user id),
-// OAuth's code and state, and Stripe's checkout session id.
+// `code` and `state` as an OAuth callback carries them (kept for old Google
+// sign-in links that still get requested), and Stripe's checkout session id.
 const SENSITIVE_PARAMS = new Set([
 	'code',
 	'token',

@@ -45,7 +45,6 @@ file tree under `app/routes/`. The rules that matter here:
   same route, since only `_layout.tsx` can be a parent here. The underscore is a
   Remix flat-routes habit (where it kept a page out of its namesake's
   `<Outlet>`); the plugin's `createRoutePath` just drops it.
-  `settings/profile/password_.create.tsx` is the same case.
 - `[.]` escapes a dot: `_seo/robots[.]txt.ts` is `/robots.txt`.
 - `*.server.ts`, `*.client.ts`, `*.test.ts` and anything whose name starts with
   `+` sit next to routes without becoming routes.
@@ -62,8 +61,8 @@ reaches the app at once. The two sides meet in three places:
   `isNativeShell` in `app/utils/native-shell.server.ts` reads it, the root
   loader passes it down, and components ask `useIsNativeShell()` from
   `app/utils/request-info.ts`. Anyone can send the token, so it may only hide
-  things or pick safer defaults (Pro and Google sign-in hidden, sessions always
-  remembered); it never grants access.
+  things or pick safer defaults (Pro hidden, sessions always remembered); it
+  never grants access.
 - **Messages.** The page talks to the shell through `WKScriptMessageHandler`s
   named `haptic`, `theme`, `refresh` and `launch`; the shell talks back by
   dispatching a `qm:refresh` event on pull to refresh and by injecting launch
@@ -449,8 +448,7 @@ changing the email, turning 2FA off and the Passkeys page ask for a code again
 when the session last verified more than two hours ago
 (`requireRecentVerification` in `app/routes/_auth/verify.server.ts`). Changing
 the email also asks for the current password before any code is sent, as adding
-a passkey does. An account with no password is asked to create one first, which
-leaves the same gap as for passkeys below until Google sign-in goes.
+a passkey does. An account with no password is sent to reset it, as below.
 
 A 2FA sign-in waits in the verify cookie for its code. The cookie names a
 pending `Session` row, and once that row's `createdAt` is more than 10 minutes
@@ -469,19 +467,20 @@ The 2FA guessing bound: a code is 6 digits, and the check accepts the code for
 the current 30 seconds and for one step either side, so a guess matches with a
 chance of 3 in 10^6. A pending sign-in takes at most 5 codes; after the fifth
 wrong one its row is deleted and the person logs in again. Only someone with the
-password can start one, so the cap can't lock the owner out. That is at most 5 ×
-3 ÷ 10^6 = 1.5 × 10^-5 per sign-in, and each new one needs the password, with
-sign-in and `/verify` sharing the auth tier's 10 POSTs a minute per address. The
-count is kept in memory, as production is one process, so a restart forgets it
-and a pending sign-in could get 5 more codes within its 10 minutes. A code for
-any account other than the browser's pending sign-in or its signed-in user isn't
-checked at all. Over a day, from one address: each cycle is one login POST and 5
-codes, so the auth tier's 10 POSTs a minute allow about 8.3 codes a minute,
-12,000 a day, a chance of 1 − (1 − 3 ÷ 10^6)^12,000 ≈ 3.5% a day. A reverify of
-a session someone already holds has no count of its own, only the auth tier's
-limit: 10 codes a minute, 14,400 a day, about 4.2% a day. The first needs the
-password and the second a live session, and both grow with the number of
-addresses an attacker has, since the limit is per address.
+password can start one, so the cap can't lock the owner out. That is at most
+5 × 3 ÷ 10^6 = 1.5 × 10^-5 per sign-in, and each new one needs the password,
+with sign-in and `/verify` sharing the auth tier's 10 POSTs a minute per
+address. The count is the pending `Session` row's `signInTries`, so a restart
+doesn't reset it. One `UPDATE … RETURNING` adds each try and reads the total,
+and a row that has gone counts as over the cap. A code for any account other
+than the browser's pending sign-in or its signed-in user isn't checked at all.
+Over a day, from one address: each cycle is one login POST and 5 codes, so the
+auth tier's 10 POSTs a minute allow about 8.3 codes a minute, 12,000 a day, a
+chance of 1 − (1 − 3 ÷ 10^6)^12,000 ≈ 3.5% a day. A reverify of a session
+someone already holds has no count of its own, only the auth tier's limit: 10
+codes a minute, 14,400 a day, about 4.2% a day. The first needs the password and
+the second a live session, and both grow with the number of addresses an
+attacker has, since the limit is per address.
 
 Adding a passkey asks for the current password
 (`app/routes/_auth/webauthn/registration.ts`). The request for the passkey
@@ -491,16 +490,16 @@ passkey needs it. Each challenge saves one passkey at most: the server remembers
 the ones it has spent, in memory, so a restart forgets them and a cookie from
 before it could be used once more within its five minutes. With 2FA on, opening
 the Passkeys page follows the two-hour rule, and so does the options request. A
-notice goes to the account's email once the passkey is saved. An account with no
-password (one that signed up with Google) is asked to create one first. Until
-Google sign-in goes (#439), that is a gap: Create Password asks for no proof, so
-a session on such an account can set a password and then add a passkey.
+notice goes to the account's email once the passkey is saved.
 
-Google sign-in is going away (#439). Until then a signed-in account can't add a
-Google connection, and a Google login joins an existing account with the same
-email, or starts a signup with it, only when Google says it has verified that
-email (`app/routes/_auth/auth.$provider/callback.ts`). Existing connections
-still log in.
+Every way to make an account sets a password: signup asks for one, and a passkey
+can only be added to an account that has one. The exception is an account from
+the days of Google sign-in (#439) that never set one. It can't log in, and gets
+a password from Forgot password, which emails a code first and upserts the
+`Password` row (`resetUserPassword` in `app/utils/auth.server.ts`). Settings
+sends such an account there too if it somehow holds a session, so nothing sets a
+first password without proof. The `Connection` and `Permission` tables are no
+longer read or written, and a later migration drops them.
 
 The browser's passkey list follows the server through the WebAuthn Signal API
 (`app/utils/passkeys.ts`), where the browser has it. The Passkeys page sends the
@@ -817,7 +816,6 @@ high-value AI path.
   - the HTTP→HTTPS redirect, and the 301 from `www.` plus its host to it
     (`server/https-redirect.ts`). The 301 is for GET and HEAD on the www host
     alone, so fly.dev and Fly's healthcheck are never redirected;
-  - the referrer check that picks the page to return to after Google login.
 
   Redirects within the site stay relative, so the browser keeps the host it used
   (a LAN IP in dev, or the fly.dev host) and its cookies.
@@ -840,13 +838,12 @@ tested together:
 - elect exactly one writable primary and give replicas a safe way to discover it
   and fail over without stale data winning;
 - replay every write on the primary. The LiteFS proxy currently handles normal
-  non-GET actions, including admin writes, while the mutating OAuth callback
-  explicitly calls `ensurePrimary()`; audit every route rather than assuming
-  HTTP method conventions are enough;
+  non-GET actions, including admin writes; audit every route rather than
+  assuming HTTP method conventions are enough;
 - provide read-your-writes consistency after replication-aware writes, either
   with the LiteFS proxy transaction cookie or an equivalent transaction-position
   wait/replay mechanism; and
-- exercise failover, OAuth, admin mutations, and an immediate post-write read on
+- exercise failover, admin mutations, and an immediate post-write read on
   real replicas before increasing the Machine count.
 
 ## Testing

@@ -1,15 +1,13 @@
 import { prisma } from '#app/utils/db.server.ts'
-import { MOCK_CODE_GOOGLE } from '#app/utils/providers/constants.ts'
 import { DEFAULT_RECIPE_METADATA_VALUE_CREATE } from '#app/utils/recipe-metadata.ts'
 import { createPassword } from '#tests/db-utils.ts'
-import { insertGoogleUser } from '#tests/mocks/google.ts'
 import { seedInfrastructure } from './seed-infrastructure.ts'
 
 async function seed() {
 	console.log('🌱 Seeding...')
 	console.time(`🌱 Database has been seeded`)
 
-	// Infrastructure: permissions, roles, tags (shared with production)
+	// Infrastructure: the admin and user roles (shared with production)
 	await seedInfrastructure()
 
 	// Test data below — only runs via `prisma db seed` in development
@@ -23,8 +21,6 @@ async function seed() {
 	})
 
 	if (!kody) {
-		const googleUser = await insertGoogleUser(MOCK_CODE_GOOGLE)
-
 		kody = await prisma.user.create({
 			select: { id: true },
 			data: {
@@ -32,16 +28,9 @@ async function seed() {
 				username: 'kody',
 				name: 'Kody',
 				password: { create: createPassword('kodylovesyou') },
-				connections: {
-					create: {
-						providerName: 'google',
-						providerId: googleUser.profile.id,
-					},
-				},
 				roles: { connect: [{ name: 'admin' }, { name: 'user' }] },
 			},
 		})
-
 	}
 
 	console.timeEnd(`🐨 Find or create admin user "kody"`)

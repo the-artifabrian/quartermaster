@@ -138,7 +138,7 @@ plan into Shopping.
 
 ### Sign-in and security
 
-- Password, passkey, and Google sign-in, with a "Remember me" choice.
+- Password and passkey sign-in, with a "Remember me" choice.
 - Where the browser supports it, the username field offers saved passkeys.
   Adding a passkey in Settings asks for the current password and emails a
   notice. Where the browser has the WebAuthn Signal API, a deleted passkey
@@ -181,15 +181,14 @@ plan into Shopping.
 - Home Screen quick actions for Shopping and Import recipe, pull to refresh,
   haptics, reopening the last page on a cold start, and a native offline view
   with Retry.
-- Pro and Google sign-in are hidden in the app, and sessions are always
-  remembered.
+- Pro is hidden in the app, and sessions are always remembered.
 
 ## UI and infrastructure
 
 - Mobile-first PWA with safe areas, 44px touch targets, dark mode, offline read
   caching, and optimistic interaction.
 - Warm paper-and-ink design using Young Serif, DM Sans, sage, and copper.
-- Sessions, OAuth, passkeys, CSP, SSRF protection, input validation, and secure
+- Sessions, passkeys, CSP, SSRF protection, input validation, and secure
   uploads.
 - SQLite/Prisma on Fly.io with LiteFS, object storage, pre-migration backups,
   Vitest coverage, and focused Playwright flows.

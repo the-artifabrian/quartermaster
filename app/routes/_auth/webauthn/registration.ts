@@ -119,7 +119,8 @@ async function startAddingPasskey(
 		return Response.json(
 			{
 				status: 'error',
-				error: 'Create a password first. Adding a passkey asks for it.',
+				error:
+					'Adding a passkey asks for your password. Set one with Forgot password.',
 			} as const,
 			{ status: 400 },
 		)

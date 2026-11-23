@@ -4,10 +4,6 @@ import { type Page } from '@playwright/test'
 import { createOwnHousehold } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
-	normalizeEmail,
-	normalizeUsername,
-} from '#app/utils/providers/provider.ts'
-import {
 	USERNAME_MAX_LENGTH,
 	USERNAME_MIN_LENGTH,
 } from '#app/utils/user-validation.ts'
@@ -227,200 +223,89 @@ test('onboarding with a short code', async ({
 	).toBe(0)
 })
 
-test('completes onboarding after Google OAuth given valid user details', async ({
+test('the signup form explains a bad username, then signs up', async ({
 	page,
 	navigate,
-	prepareGoogleUser,
+	getOnboardingData,
 }) => {
-	const googleUser = await prepareGoogleUser()
-
-	// let's verify we do not have user with that email in our system:
-	expect(
-		await prisma.user.findUnique({
-			where: { email: normalizeEmail(googleUser.primaryEmail) },
-		}),
-	).toBeNull()
-
+	const onboardingData = getOnboardingData()
 	await navigate('/signup')
-	await page.getByRole('button', { name: /sign up with google/i }).click()
-
-	await expect(page).toHaveURL(/\/onboarding\/google/)
+	await page.getByRole('textbox', { name: /email/i }).fill(onboardingData.email)
+	await page.getByRole('button', { name: /submit/i }).click()
+	await expect(page.getByText(/check your email/i)).toBeVisible()
+	const email = await readEmail(onboardingData.email)
+	invariant(email, 'Email not found')
+	const code = email.text.match(CODE_REGEX)?.groups?.code
+	invariant(code, 'Onboarding code not found')
+	await page.getByRole('textbox', { name: /code/i }).fill(code)
+	await page.getByRole('button', { name: /submit/i }).click()
+	await expect(page).toHaveURL('/onboarding')
 	await expect(
-		page.getByText(
-			new RegExp(`welcome aboard ${googleUser.primaryEmail}`, 'i'),
-		),
+		page.getByText(new RegExp(`welcome aboard ${onboardingData.email}`, 'i')),
 	).toBeVisible()
 
-	// fields are pre-populated for the user, so we only need to accept
-	// terms of service and hit the 'create an account' button
+	await page.getByRole('textbox', { name: /^name/i }).fill(onboardingData.name)
+	await page.getByLabel(/^password/i).fill(onboardingData.password)
+	await page.getByLabel(/^confirm password/i).fill(onboardingData.password)
 	const usernameInput = page.getByRole('textbox', { name: /username/i })
-	await expect(usernameInput).toHaveValue(
-		normalizeUsername(googleUser.primaryEmail.split('@')[0]!),
-	)
-	await expect(page.getByRole('textbox', { name: /^name/i })).toHaveValue(
-		googleUser.profile.name,
-	)
 	const createAccountButton = page.getByRole('button', {
 		name: /create an account/i,
 	})
-
-	await page.waitForLoadState('networkidle') // ensure js is fully loaded.
-	await page
-		.getByLabel(/do you agree to our terms of service and privacy policy/i)
-		.check()
-	await createAccountButton.click()
-
-	await expect(page).toHaveURL('/recipes')
-	await expect(page.getByText(/14 days of full Pro access/i)).toBeVisible()
-
-	// internally, a user has been created:
-	await prisma.user.findUniqueOrThrow({
-		where: { email: normalizeEmail(googleUser.primaryEmail) },
-	})
-})
-
-test('logs user in after Google OAuth if they are already registered', async ({
-	page,
-	navigate,
-	prepareGoogleUser,
-}) => {
-	const googleUser = await prepareGoogleUser()
-
-	// let's verify we do not have user with that email in our system ...
-	expect(
-		await prisma.user.findUnique({
-			where: { email: normalizeEmail(googleUser.primaryEmail) },
-		}),
-	).toBeNull()
-	// ... and create one:
-	const name = faker.person.fullName()
-	const user = await prisma.user.create({
-		select: { id: true, name: true, username: true },
-		data: {
-			email: normalizeEmail(googleUser.primaryEmail),
-			username: normalizeUsername(googleUser.primaryEmail.split('@')[0]!),
-			name,
-		},
-	})
-	// A registered user signed up, so they already have a Household.
-	await createOwnHousehold(prisma, user)
-
-	// let's verify there is no connection between the Google user
-	// and our app's user:
-	const connection = await prisma.connection.findFirst({
-		where: { providerName: 'google', userId: user.id },
-	})
-	expect(connection).toBeNull()
-
-	await navigate('/signup')
-	await page.getByRole('button', { name: /sign up with google/i }).click()
-
-	await expect(page).toHaveURL(`/recipes`)
-	await expect(
-		page.getByText(
-			new RegExp(
-				`your "${googleUser.primaryEmail.split('@')[0]}" google account has been connected`,
-				'i',
-			),
-		),
-	).toBeVisible()
-
-	// internally, a connection (rather than a new user) has been created:
-	await prisma.connection.findFirstOrThrow({
-		where: { providerName: 'google', userId: user.id },
-	})
-})
-
-test('shows help texts on entering invalid details on onboarding page after Google OAuth', async ({
-	page,
-	navigate,
-	prepareGoogleUser,
-}) => {
-	const googleUser = await prepareGoogleUser()
-
-	await navigate('/signup')
-	await page.getByRole('button', { name: /sign up with google/i }).click()
-
-	await expect(page).toHaveURL(/\/onboarding\/google/)
-	await expect(
-		page.getByText(
-			new RegExp(`welcome aboard ${googleUser.primaryEmail}`, 'i'),
-		),
-	).toBeVisible()
-
-	const usernameInput = page.getByRole('textbox', { name: /username/i })
-
-	// notice, how button is currently in 'idle' (neutral) state and so has got no companion
-	const createAccountButton = page.getByRole('button', {
-		name: /create an account/i,
-	})
+	// The button shows no status until a submit fails.
 	await expect(createAccountButton.getByRole('status')).not.toBeVisible()
-	await expect(createAccountButton.getByText('error')).not.toBeAttached()
 
-	// invalid chars in username
-	await usernameInput.fill('U$er_name') // $ is invalid char, see app/utils/user-validation.ts.
+	// $ isn't allowed (app/utils/user-validation.ts), and the terms box is
+	// still unchecked.
+	await usernameInput.fill('U$er_name')
 	await createAccountButton.click()
-
 	await expect(createAccountButton.getByRole('status')).toBeVisible()
-	await expect(createAccountButton.getByText('error')).toBeAttached()
 	await expect(
 		page.getByText(
 			/username can only include letters, numbers, and underscores/i,
 		),
 	).toBeVisible()
-	// but we also never checked that privacy consent box
 	await expect(
 		page.getByText(
 			/you must agree to the terms of service and privacy policy/i,
 		),
 	).toBeVisible()
-	await expect(page).toHaveURL(/\/onboarding\/google/)
+	await expect(page).toHaveURL('/onboarding')
 
-	// empty username
 	await usernameInput.fill('')
 	await createAccountButton.click()
 	await expect(page.getByText(/username is required/i)).toBeVisible()
-	await expect(page).toHaveURL(/\/onboarding\/google/)
 
-	// too short username
 	await usernameInput.fill(
 		faker.string.alphanumeric({ length: USERNAME_MIN_LENGTH - 1 }),
 	)
 	await createAccountButton.click()
 	await expect(page.getByText(/username is too short/i)).toBeVisible()
 
-	// too long username
+	// The field stops at the longest allowed username.
 	await usernameInput.fill(
-		faker.string.alphanumeric({
-			length: USERNAME_MAX_LENGTH + 1,
-		}),
+		faker.string.alphanumeric({ length: USERNAME_MAX_LENGTH + 1 }),
 	)
-	// we are truncating the user's input
 	expect(await usernameInput.inputValue()).toHaveLength(USERNAME_MAX_LENGTH)
 	await createAccountButton.click()
 	await expect(page.getByText(/username is too long/i)).not.toBeVisible()
 
-	// still unchecked 'terms of service' checkbox
-	await usernameInput.fill(
-		normalizeUsername(`U5er_name_0k_${faker.person.lastName()}`),
-	)
+	await usernameInput.fill(onboardingData.username)
 	await createAccountButton.click()
 	await expect(
 		page.getByText(/must agree to the terms of service and privacy policy/i),
 	).toBeVisible()
-	await expect(page).toHaveURL(/\/onboarding\/google/)
+	await expect(page).toHaveURL('/onboarding')
 
-	// we are all set up and ...
-
-	await page.waitForLoadState('networkidle') // ensure js is fully loaded.
 	await page
 		.getByLabel(/do you agree to our terms of service and privacy policy/i)
 		.check()
 	await createAccountButton.click()
-	await expect(createAccountButton.getByText('error')).not.toBeAttached()
-
-	// ... sign up is successful!
-	await expect(page.getByText(/14 days of full Pro access/i)).toBeVisible()
+	await expect(page).toHaveURL('/recipes')
+	expect(
+		await prisma.user.count({
+			where: { username: onboardingData.username },
+		}),
+	).toBe(1)
 })
 
 test('login as existing user', async ({
@@ -528,6 +413,104 @@ test('reset password with a link', async ({
 	await expect(page).toHaveURL(`/recipes`)
 
 	await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible()
+})
+
+// Google sign-in is gone. An account that only ever used it has no password,
+// and gets one through Forgot password, which proves the email first.
+test('an account with no password sets one with Forgot password', async ({
+	page,
+	navigate,
+	insertRegisteredUser,
+}) => {
+	const user = await insertRegisteredUser({
+		password: faker.internet.password(),
+	})
+	await prisma.password.delete({ where: { userId: user.id } })
+
+	await navigate('/login')
+	await page.getByRole('link', { name: /forgot password/i }).click()
+	await expect(page).toHaveURL('/forgot-password')
+	await expect(
+		page.getByRole('heading', { name: /forgot password/i }),
+	).toBeVisible()
+	await page.getByRole('textbox', { name: /username/i }).fill(user.email)
+	await page.getByRole('button', { name: /recover password/i }).click()
+	await expect(page.getByText(/check your email/i)).toBeVisible()
+	const email = await waitFor(() => readEmail(user.email), {
+		errorMessage: 'Reset email was not sent',
+	})
+	const resetPasswordUrl = extractUrl(email.text) as AppPages
+	invariant(resetPasswordUrl, 'Reset password URL not found')
+	await expect
+		.poll(() =>
+			prisma.emailCode.count({
+				where: { target: user.id, sentAt: { not: null } },
+			}),
+		)
+		.toBe(1)
+	await navigate(resetPasswordUrl)
+	await page
+		.getByRole('main')
+		.getByRole('button', { name: /submit/i })
+		.click()
+
+	await expect(page).toHaveURL('/reset-password')
+	// Login asks for the username, which someone who used Google may not know.
+	await expect(page.getByText(`Hi, ${user.username}.`)).toBeVisible()
+	const newPassword = faker.internet.password()
+	await page.getByLabel(/^new password$/i).fill(newPassword)
+	await page.getByLabel(/^confirm password$/i).fill(newPassword)
+	await page.getByRole('button', { name: /reset password/i }).click()
+	await expect(page).toHaveURL('/login')
+	expect(await prisma.password.count({ where: { userId: user.id } })).toBe(1)
+
+	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
+	await page.getByLabel(/^password$/i).fill(newPassword)
+	await page.getByRole('button', { name: 'Log in', exact: true }).click()
+	await expect(page).toHaveURL('/recipes')
+})
+
+test('login and signup offer no Google, and its old pages are gone', async ({
+	page,
+	navigate,
+	login,
+}) => {
+	await navigate('/login')
+	await expect(
+		page.getByRole('button', { name: 'Log in', exact: true }),
+	).toBeVisible()
+	await expect(page.getByRole('button', { name: /google/i })).toHaveCount(0)
+	await expect(page.getByText(/google/i)).toHaveCount(0)
+
+	await navigate('/signup')
+	await expect(page.getByRole('button', { name: /submit/i })).toBeVisible()
+	await expect(page.getByRole('button', { name: /google/i })).toHaveCount(0)
+
+	const gone = [
+		'/auth/google',
+		'/auth/google/callback',
+		'/onboarding/google',
+		'/settings/profile/connections',
+		'/settings/profile/password/create',
+	]
+	const statuses = async () =>
+		Promise.all(
+			gone.map(async (path) => {
+				const response = await page.request.get(path, { maxRedirects: 0 })
+				return [path, response.status()]
+			}),
+		)
+	expect(Object.fromEntries(await statuses())).toEqual(
+		Object.fromEntries(gone.map((path) => [path, 404])),
+	)
+
+	await login()
+	expect(Object.fromEntries(await statuses())).toEqual(
+		Object.fromEntries(gone.map((path) => [path, 404])),
+	)
+	await navigate('/settings/profile')
+	await expect(page.getByRole('link', { name: /passkeys/i })).toBeVisible()
+	await expect(page.getByRole('link', { name: /connections/i })).toHaveCount(0)
 })
 
 // Links from emails open in the iOS app, which is always logged in.

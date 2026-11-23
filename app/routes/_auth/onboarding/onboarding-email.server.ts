@@ -1,8 +1,8 @@
 import { type Session } from 'react-router'
 
 /**
- * The address a signup has verified, by an emailed code or through Google,
- * waiting in the verify cookie for the signup form. It works for 10 minutes,
+ * The address a signup has verified by an emailed code, waiting in the
+ * verify cookie for the signup form. It works for 10 minutes,
  * like the cookie itself; the server checks the time so a kept copy of the
  * cookie can't outlast it.
  */

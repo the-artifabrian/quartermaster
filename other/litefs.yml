@@ -57,7 +57,7 @@ exec:
   - cmd: bunx prisma migrate deploy
     if-candidate: true
 
-  # Seed infrastructure data (permissions, roles, tags). Idempotent.
+  # Seed infrastructure data (the admin and user roles). Idempotent.
   - cmd: bun prisma/run-seed-infrastructure.ts
     if-candidate: true
 

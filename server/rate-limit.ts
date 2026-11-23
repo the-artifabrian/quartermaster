@@ -7,7 +7,6 @@ export type RateLimitTier = 'none' | 'auth' | 'ai' | 'strong' | 'general'
 export const authPaths = [
 	'/login',
 	'/logout',
-	'/auth',
 	'/signup',
 	'/verify',
 	'/onboarding',

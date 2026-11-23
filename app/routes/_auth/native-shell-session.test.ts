@@ -14,10 +14,6 @@ import { createUser, ensureUserRole } from '#tests/db-utils.ts'
 import { BASE_URL, convertSetCookieToCookie } from '#tests/utils.ts'
 import { action as loginAction } from './login.tsx'
 import { handleNewSession, handleVerification } from './login.server.ts'
-import {
-	action as providerOnboardingAction,
-	providerIdKey,
-} from './onboarding/$provider.tsx'
 import { action as onboardingAction } from './onboarding/index.tsx'
 import { VerifySchema } from './verify.tsx'
 import '#tests/setup/db-setup.ts'
@@ -204,48 +200,6 @@ test('email onboarding in a browser with Remember me unchecked keeps a browser-s
 				}),
 			}),
 			'/onboarding',
-		),
-	)
-	expect(sessionCookie(response).expires).toBeUndefined()
-})
-
-test('provider onboarding in the shell sets an expiring cookie with Remember me unchecked', async () => {
-	const { username, name, agreeToTermsOfServiceAndPrivacyPolicy } =
-		await prepareSignup()
-	const response = await providerOnboardingAction(
-		routeArgs(
-			post('/onboarding/google', {
-				userAgent: SHELL_UA,
-				body: { username, name, agreeToTermsOfServiceAndPrivacyPolicy },
-				cookie: await verifyCookie({
-					onboardingEmail: `${username}@example.com`,
-					onboardingEmailExpiresAt: Date.now() + 60_000,
-					[providerIdKey]: `google-${username}`,
-				}),
-			}),
-			'/onboarding/:provider',
-			{ provider: 'google' },
-		),
-	)
-	expect(sessionCookie(response).expires).toBeInstanceOf(Date)
-})
-
-test('provider onboarding in a browser with Remember me unchecked keeps a browser-session cookie', async () => {
-	const { username, name, agreeToTermsOfServiceAndPrivacyPolicy } =
-		await prepareSignup()
-	const response = await providerOnboardingAction(
-		routeArgs(
-			post('/onboarding/google', {
-				userAgent: SAFARI_UA,
-				body: { username, name, agreeToTermsOfServiceAndPrivacyPolicy },
-				cookie: await verifyCookie({
-					onboardingEmail: `${username}@example.com`,
-					onboardingEmailExpiresAt: Date.now() + 60_000,
-					[providerIdKey]: `google-${username}`,
-				}),
-			}),
-			'/onboarding/:provider',
-			{ provider: 'google' },
 		),
 	)
 	expect(sessionCookie(response).expires).toBeUndefined()

@@ -45,7 +45,7 @@ without API keys.
 | App      | React Router v8, React, Express                      |
 | Data     | Prisma, SQLite, LiteFS                               |
 | UI       | Tailwind CSS v4, Radix UI                            |
-| Auth     | Sessions, email verification, Google OAuth, passkeys |
+| Auth     | Sessions, email verification, passkeys               |
 | AI       | Anthropic Claude, Groq Whisper                       |
 | Services | Stripe, Tigris-compatible object storage, SSE        |
 | Hosting  | Fly.io, Docker                                       |
@@ -82,7 +82,7 @@ bun run setup
 bun run dev
 ```
 
-The development environment mocks Stripe, storage, Google OAuth, and email. See
+The development environment mocks Stripe, storage, and email. See
 [`.env.example`](.env.example) for optional service configuration.
 
 ## Docs

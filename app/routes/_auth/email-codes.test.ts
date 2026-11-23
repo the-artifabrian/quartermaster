@@ -4,10 +4,10 @@ import { RouterContextProvider } from 'react-router'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { action as changeEmailAction } from '#app/routes/settings/profile/change-email.tsx'
 import { twoFAVerificationType } from '#app/routes/settings/profile/two-factor/_layout.tsx'
-import { action as createPasswordAction } from '#app/routes/settings/profile/password_.create.tsx'
 import { action as changePasswordAction } from '#app/routes/settings/profile/password.tsx'
 import {
 	getSessionExpirationDate,
+	login,
 	resetUserPassword,
 } from '#app/utils/auth.server.ts'
 import { backgroundWorkSettled } from '#app/utils/background.server.ts'
@@ -25,6 +25,7 @@ import { server } from '#tests/setup/mocks-setup.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action as forgotPasswordAction } from './forgot-password.tsx'
+import { action as resetPasswordAction } from './reset-password.tsx'
 import { getOnboardingEmail } from './onboarding/onboarding-email.server.ts'
 import { action as signupAction } from './signup.tsx'
 import {
@@ -94,39 +95,43 @@ import '#tests/setup/db-setup.ts'
 // 24. A reset code sent to the old address stops working once the email
 //     changes.
 // 25. Changing the password in Settings ends reset codes.
-// 26. Creating a first password ends reset codes.
-// 27. The reset itself ends codes asked for after the verify step.
+// 26. The reset itself ends codes asked for after the verify step.
 //
 // More:
-// 28. A code sent from one device can't be used on another device that
+// 27. A code sent from one device can't be used on another device that
 //     asked for a different address.
-// 29. In a burst of requests each one ends as sent or as past the cap; none
+// 28. In a burst of requests each one ends as sent or as past the cap; none
 //     fails on the database.
-// 30. A stored hash can't be checked without the server's secret: it isn't a
+// 29. A stored hash can't be checked without the server's secret: it isn't a
 //     plain SHA-256 of the code or token, and a code stops checking under
 //     another secret.
-// 31. If the code can't be marked as sent after its email went out, the
+// 30. If the code can't be marked as sent after its email went out, the
 //     person is told the send failed, and no half-made code holds a place
 //     under the cap.
 //
 // Forgot-password answers before it sends:
-// 32. A known account gets its answer while the email is still going out, so
+// 31. A known account gets its answer while the email is still going out, so
 //     it doesn't answer slower than an unknown one. The code then arrives and
 //     works.
-// 33. A send that fails after the answer leaves no working code, and the
+// 32. A send that fails after the answer leaves no working code, and the
 //     failure is logged rather than lost or thrown at the request.
-// 34. The work after the answer throws (the database read fails): the error
+// 33. The work after the answer throws (the database read fails): the error
 //     is caught and logged, and never becomes an unhandled rejection, which
 //     would take the process down.
 //
 // Links opened on a device that is logged in (the iOS app always is):
-// 35. A signup link or typed code used while logged in uses nothing up. The
+// 34. A signup link or typed code used while logged in uses nothing up. The
 //     answer names who is logged in, and the same code works once they log
 //     out.
-// 36. A signup code used with a session cookie whose session has gone works
+// 35. A signup code used with a session cookie whose session has gone works
 //     as if logged out.
-// 37. A reset code used while logged in, as that account or another, goes on
+// 36. A reset code used while logged in, as that account or another, goes on
 //     to the new-password form.
+//
+// An account with no password (it only ever logged in with Google, which is
+// gone):
+// 37. Forgot password by its email sends a code, the code leads to the
+//     new-password form, and the new password logs in.
 //
 // GET /verify consuming nothing is checked in tests/e2e/onboarding.test.ts,
 // through the real page.
@@ -1123,23 +1128,6 @@ describe('a new password or email ends reset codes', () => {
 		expect((await useCode(readCode(sent[0]))).status).toBe(400)
 	})
 
-	test('creating a first password ends reset codes', async () => {
-		const sent = captureEmails()
-		const { user, cookie } = await signedInWithPassword()
-		await forgotPassword(user.username)
-		const password = `first-${Date.now()}-password`
-		const result = visible(
-			await callAction(
-				createPasswordAction,
-				'/settings/profile/password/create',
-				{ password, confirmPassword: password },
-				cookie,
-			),
-		)
-		expect(result.status).toBe(302)
-		expect((await useCode(readCode(sent[0]))).status).toBe(400)
-	})
-
 	test('the reset itself ends codes asked for after the verify step', async () => {
 		const sent = captureEmails()
 		const user = await createAccount()
@@ -1152,5 +1140,31 @@ describe('a new password or email ends reset codes', () => {
 			password: `reset-${Date.now()}-password`,
 		})
 		expect((await useCode(readCode(sent[1]))).status).toBe(400)
+	})
+})
+
+describe('an account with no password', () => {
+	test('sets one with Forgot password and then logs in with it', async () => {
+		const sent = captureEmails()
+		const user = await createAccount()
+		expect(await prisma.password.count({ where: { userId: user.id } })).toBe(0)
+
+		await forgotPassword(user.email)
+		const verified = await useCode(readCode(sent[0]))
+		expect(verified.location).toBe(RESET_DONE)
+
+		const password = `first-${Date.now()}-password`
+		const reset = visible(
+			await callAction(
+				resetPasswordAction,
+				'/reset-password',
+				{ password, confirmPassword: password },
+				applySetCookies('', verified.setCookies),
+			).catch((thrown: unknown) => thrown),
+		)
+		expect(reset.location).toBe('/login')
+
+		const session = await login({ username: user.username, password })
+		expect(session?.userId).toBe(user.id)
 	})
 })

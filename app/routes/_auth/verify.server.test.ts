@@ -1,5 +1,6 @@
 import { RouterContextProvider } from 'react-router'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
+import { type PrismaClient } from '#app/generated/prisma/client.ts'
 import { twoFAVerificationType } from '#app/routes/settings/profile/two-factor/_layout.tsx'
 import { action as profileAction } from '#app/routes/settings/profile/index.tsx'
 import {
@@ -13,6 +14,7 @@ import { authSessionStorage } from '#app/utils/session.server.ts'
 import { generateTOTP } from '#app/utils/totp.server.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
 import { createUser } from '#tests/db-utils.ts'
+import { createWalDatabase } from '#tests/sqlite-concurrency.ts'
 import { BASE_URL } from '#tests/utils.ts'
 import {
 	endPendingSignIn,
@@ -78,6 +80,18 @@ import '#tests/setup/mocks-setup.ts'
 //     cookie can't end or reuse the signed-in session.
 // 22. A request that read the pending row just before another request ended
 //     it doesn't start counting again from 1.
+// The try count is on the pending Session row, so it holds across:
+// 23. A restart (a deploy) between two wrong codes. The count carries on, and
+//     the fifth code still ends the sign-in.
+// 24. Two wrong codes at once in WAL mode, as production runs. Each counts,
+//     one as the first try and one as the second.
+// 25. Two pending sign-ins of the same user, on two devices. Tries on one
+//     don't count against the other.
+// 26. A sign-in ended by five wrong codes. Logging in again starts a new
+//     count, so the owner isn't held to the old one.
+// 27. Codes sent at once are all counted before any is checked. Five wrong
+//     ones counted with their checks still running, then the right one: it
+//     is the sixth try and signs nobody in, though it is right.
 
 const twoHoursAgo = (extraMinutes: number) =>
 	Date.now() - 1000 * 60 * (120 + extraMinutes)
@@ -344,6 +358,25 @@ describe('pending 2FA sign-in limits', () => {
 		expect(await authSessionFrom(right)).toBeNull()
 	})
 
+	test('the right code counted as a sixth try signs nobody in', async () => {
+		const { user, pending, cookie } = await pendingSignIn()
+		// Five wrong codes sent at once have been counted, and their checks
+		// haven't finished, so the row is still there.
+		await prisma.session.update({
+			where: { id: pending.id },
+			data: { signInTries: MAX_PENDING_SIGN_IN_TRIES },
+		})
+
+		const outcome = await submitVerify(
+			{ code: await totpFor(user), type: '2fa', target: user.id },
+			cookie,
+		)
+
+		expect(outcome.location).toBe('/login')
+		expect(await authSessionFrom(outcome)).toBeNull()
+		expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0)
+	})
+
 	test('a code for an account not pending or signed in here answers the same, right or wrong', async () => {
 		const user = await createUserWithTwoFA()
 		const someoneElse = await createUserWithTwoFA()
@@ -377,15 +410,93 @@ describe('pending 2FA sign-in limits', () => {
 		const { pending } = await pendingSignIn()
 		const row = await prisma.session.findUniqueOrThrow({
 			where: { id: pending.id },
-			select: { id: true, createdAt: true },
+			select: { id: true },
 		})
-		takePendingSignInTry(row)
+		await takePendingSignInTry(row)
 
 		// Another request ends it while this one is between reading the row
 		// and counting its try.
 		await endPendingSignIn(row.id)
 
-		expect(takePendingSignInTry(row)).toBeGreaterThan(MAX_PENDING_SIGN_IN_TRIES)
+		expect(await takePendingSignInTry(row)).toBeGreaterThan(
+			MAX_PENDING_SIGN_IN_TRIES,
+		)
+	})
+
+	async function pendingRow(id: string, db: PrismaClient = prisma) {
+		return db.session.findUniqueOrThrow({
+			where: { id },
+			select: { id: true },
+		})
+	}
+
+	test('tries counted before a restart still count after it', async () => {
+		const { user, pending, cookie } = await pendingSignIn()
+		const wrong = await wrongCodeFor(user)
+		for (let i = 0; i < 4; i++) {
+			await submitVerify({ code: wrong, type: '2fa', target: user.id }, cookie)
+		}
+
+		// A deploy starts the server with fresh modules.
+		vi.resetModules()
+		const restarted = await import('./login.server.ts')
+
+		expect(
+			await restarted.takePendingSignInTry(await pendingRow(pending.id)),
+		).toBe(MAX_PENDING_SIGN_IN_TRIES)
+	})
+
+	test('two wrong codes at once in WAL mode are both counted', async () => {
+		await using database = await createWalDatabase()
+		const { db } = database
+		const user = await db.user.create({ data: createUser() })
+		const pending = await db.session.create({
+			data: { expirationDate: getSessionExpirationDate(), userId: user.id },
+			select: { id: true },
+		})
+		const row = await pendingRow(pending.id, db)
+
+		const tries = await Promise.all([
+			takePendingSignInTry(row, db),
+			takePendingSignInTry(row, db),
+		])
+
+		expect(tries.sort()).toEqual([1, 2])
+	})
+
+	test('tries on one pending sign-in don’t count against another of the same user', async () => {
+		const { user, pending } = await pendingSignIn()
+		const other = await createSession(user.id)
+		const first = await pendingRow(pending.id)
+		for (let i = 0; i < 4; i++) await takePendingSignInTry(first)
+
+		expect(await takePendingSignInTry(await pendingRow(other.id))).toBe(1)
+	})
+
+	test('a sign-in ended by wrong codes doesn’t hold the next one to its count', async () => {
+		const { user, pending, cookie } = await pendingSignIn()
+		const wrong = await wrongCodeFor(user)
+		for (let i = 0; i < MAX_PENDING_SIGN_IN_TRIES; i++) {
+			await submitVerify({ code: wrong, type: '2fa', target: user.id }, cookie)
+		}
+		expect(await sessionExists(pending.id)).toBe(false)
+
+		const again = await createSession(user.id)
+		const againCookie = await cookieHeader({
+			verify: { [pendingKey]: again.id },
+		})
+		for (let i = 0; i < MAX_PENDING_SIGN_IN_TRIES - 1; i++) {
+			await submitVerify(
+				{ code: wrong, type: '2fa', target: user.id },
+				againCookie,
+			)
+		}
+		const outcome = await submitVerify(
+			{ code: await totpFor(user), type: '2fa', target: user.id },
+			againCookie,
+		)
+
+		expect(outcome.location).toBe('/recipes')
 	})
 
 	test('a kept copy of the verify cookie can’t touch the session it became', async () => {

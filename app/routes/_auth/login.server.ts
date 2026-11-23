@@ -2,6 +2,7 @@ import { invariant } from '@epic-web/invariant'
 import { data, redirect } from 'react-router'
 import { safeRedirect } from '#app/utils/safe-redirect.ts'
 import { twoFAVerificationType } from '#app/routes/settings/profile/two-factor/_layout.tsx'
+import { type PrismaClient } from '#app/generated/prisma/client.ts'
 import { getUserId, sessionKey } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { combineResponseInits } from '#app/utils/misc.tsx'
@@ -19,13 +20,6 @@ const rememberKey = 'remember'
 export const PENDING_SIGN_IN_LIFETIME_MS = 10 * 60 * 1000
 /** Codes a pending 2FA sign-in takes before it ends. */
 export const MAX_PENDING_SIGN_IN_TRIES = 5
-
-// Codes tried against each pending sign-in, with when it runs out. Kept in
-// memory, as production is one process: a restart forgets them, so a pending
-// sign-in could get another 5 tries within its 10 minutes. An ended one stays
-// as over the cap until it would have run out, so a request that read the row
-// before it was deleted can't start counting again from 1.
-const pendingSignInTries = new Map<string, { count: number; until: number }>()
 
 type PendingSignIn =
 	| { status: 'none' }
@@ -66,32 +60,26 @@ export async function findPendingSignIn(
 /**
  * Counts one code tried against a pending sign-in and returns how many it
  * has had, this one included. Counted before the code is checked, so codes
- * sent at once can't share a count.
+ * sent at once can't share a count. The count is on the pending Session row,
+ * so a restart doesn't reset it, and one statement both adds the try and
+ * reads the total. A sign-in whose row has gone counts as over the cap, so a
+ * request that read the row just before another one ended it can't start
+ * again from 1.
  */
-export function takePendingSignInTry(pending: { id: string; createdAt: Date }) {
-	const now = Date.now()
-	for (const [id, entry] of pendingSignInTries) {
-		if (entry.until < now) pendingSignInTries.delete(id)
-	}
-	const entry = pendingSignInTries.get(pending.id) ?? {
-		count: 0,
-		until: pending.createdAt.getTime() + PENDING_SIGN_IN_LIFETIME_MS,
-	}
-	entry.count += 1
-	pendingSignInTries.set(pending.id, entry)
-	return entry.count
-}
-
-function markPendingSignInEnded(id: string) {
-	const until =
-		pendingSignInTries.get(id)?.until ??
-		Date.now() + PENDING_SIGN_IN_LIFETIME_MS
-	pendingSignInTries.set(id, { count: Infinity, until })
+export async function takePendingSignInTry(
+	pending: { id: string },
+	db: PrismaClient = prisma,
+) {
+	const [row] = await db.session.updateManyAndReturn({
+		where: { id: pending.id },
+		data: { signInTries: { increment: 1 } },
+		select: { signInTries: true },
+	})
+	return row ? row.signInTries : Infinity
 }
 
 /** Deletes a pending sign-in's Session row, so its code can't finish it. */
 export async function endPendingSignIn(id: string) {
-	markPendingSignInEnded(id)
 	await prisma.session.deleteMany({ where: { id } })
 }
 
@@ -222,7 +210,6 @@ export async function handleVerification({
 				},
 			})
 		})
-		markPendingSignInEnded(pending.id)
 		if (!signedIn) throw await noSessionToVerify()
 		authSession.set(verifiedTimeKey, Date.now())
 		authSession.set(sessionKey, signedIn.id)

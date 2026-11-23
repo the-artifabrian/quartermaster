@@ -67,18 +67,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 		where: { target_type: { type: twoFAVerificationType, target: userId } },
 	})
 
-	const [password, tierInfo, deletionOutcome] = await Promise.all([
-		prisma.password.findUnique({
-			select: { userId: true },
-			where: { userId },
-		}),
+	const [tierInfo, deletionOutcome] = await Promise.all([
 		getUserTier(userId),
 		getAccountDeletionOutcome(userId),
 	])
 
 	return {
 		user,
-		hasPassword: Boolean(password),
 		isTwoFactorEnabled: Boolean(twoFactorVerification),
 		tierInfo,
 		deletionOutcome,
@@ -175,22 +170,13 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 					label="Email"
 					value={user.email}
 				/>
-				<SettingsRow
-					to={loaderData.hasPassword ? 'password' : 'password/create'}
-					icon="dots-horizontal"
-					label={loaderData.hasPassword ? 'Password' : 'Create Password'}
-				/>
+				<SettingsRow to="password" icon="dots-horizontal" label="Password" />
 				<SettingsRow
 					to="two-factor"
 					icon={loaderData.isTwoFactorEnabled ? 'lock-closed' : 'lock-open-1'}
 					label="Two-Factor Auth"
 					value={loaderData.isTwoFactorEnabled ? 'On' : 'Off'}
 				/>
-			</SettingsSection>
-
-			{/* Connections */}
-			<SettingsSection label="Connections">
-				<SettingsRow to="connections" icon="link-2" label="Connections" />
 				<SettingsRow to="passkeys" icon="passkey" label="Passkeys" />
 			</SettingsSection>
 

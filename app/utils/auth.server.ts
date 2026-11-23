@@ -1,20 +1,16 @@
 import crypto from 'node:crypto'
 import bcrypt from 'bcryptjs'
 import { redirect } from 'react-router'
-import { Authenticator } from 'remix-auth'
 import { safeRedirect } from '#app/utils/safe-redirect.ts'
 import {
-	type Connection,
 	type Password,
 	type Prisma,
 	type User,
 } from '#app/generated/prisma/client.ts'
-import { providers } from './connections.server.ts'
 import { prisma } from './db.server.ts'
 import { endResetCodes } from './email-code.server.ts'
 import { pagePathOf } from './page-path.ts'
 import { combineHeaders } from './misc.tsx'
-import { type ProviderUser } from './providers/provider.ts'
 import { DEFAULT_RECIPE_METADATA_VALUE_CREATE } from './recipe-metadata.ts'
 import { authSessionStorage } from './session.server.ts'
 import { verifySessionStorage } from './verification.server.ts'
@@ -28,15 +24,6 @@ export const getSessionExpirationDate = () =>
 export const SESSION_REFRESH_THRESHOLD = 1000 * 60 * 60 * 24 * 7
 
 export const sessionKey = 'sessionId'
-
-export const authenticator = new Authenticator<ProviderUser>()
-
-for (const [providerName, provider] of Object.entries(providers)) {
-	const strategy = provider.getAuthStrategy()
-	if (strategy) {
-		authenticator.use(strategy, providerName)
-	}
-}
 
 export async function getUserId(request: Request) {
 	const authSession = await authSessionStorage.getSession(
@@ -214,7 +201,8 @@ export async function resetUserPassword({
 	password: string
 }) {
 	const hash = await getPasswordHash(password)
-	// A user who signed up through a provider has no Password row yet. A reset
+	// An account that only ever logged in with Google has no Password row, so
+	// this upserts: a reset is how such an account gets a password. A reset
 	// signs out every session of the user.
 	const user = await prisma.user.findUniqueOrThrow({
 		where: { id: userId },
@@ -304,58 +292,6 @@ export async function signup({
 		})
 
 		return newSession
-	})
-
-	return session
-}
-
-export async function signupWithConnection({
-	email,
-	username,
-	name,
-	providerId,
-	providerName,
-}: {
-	email: User['email']
-	username: User['username']
-	name: User['name']
-	providerId: Connection['providerId']
-	providerName: Connection['providerName']
-}) {
-	const { session } = await prisma.$transaction(async (tx) => {
-		const newUser = await tx.user.create({
-			data: {
-				email: email.toLowerCase(),
-				username: username.toLowerCase(),
-				name,
-				roles: { connect: { name: 'user' } },
-				connections: { create: { providerId, providerName } },
-			},
-			select: { id: true },
-		})
-
-		await createOwnHousehold(tx, { id: newUser.id, name, username })
-
-		// Create a free subscription with auto-trial
-		await tx.subscription.create({
-			data: {
-				userId: newUser.id,
-				tier: 'free',
-				trialEndsAt: new Date(
-					Date.now() + AUTO_TRIAL_DAYS * 24 * 60 * 60 * 1000,
-				),
-			},
-		})
-
-		const newSession = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				userId: newUser.id,
-			},
-			select: { id: true, expirationDate: true },
-		})
-
-		return { user: newUser, session: newSession }
 	})
 
 	return session

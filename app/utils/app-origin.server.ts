@@ -29,19 +29,3 @@ export function hostName(header: string | null | undefined): string {
 		.replace(/:\d*$/, '')
 		.replace(/\.$/, '')
 }
-
-/** The app page the request was referred from, as a path, or '/'. */
-export function getReferrerRoute(request: Request) {
-	// spelling errors and whatever makes this annoyingly inconsistent
-	// in my own testing, `referer` returned the right value, but 🤷‍♂️
-	const referrer =
-		request.headers.get('referer') ??
-		request.headers.get('referrer') ??
-		request.referrer
-	if (!referrer || !URL.canParse(referrer)) return '/'
-	const url = new URL(referrer)
-	// Compare whole origins: a prefix check would accept a host that merely
-	// starts with the app's.
-	if (url.origin !== getAppOrigin()) return '/'
-	return `${url.pathname}${url.search}${url.hash}`
-}

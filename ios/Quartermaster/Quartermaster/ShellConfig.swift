@@ -9,7 +9,7 @@ import Foundation
 /// argument, so a screenshot run can open any page.
 struct ShellConfig {
     /// Appended to WebKit's own user agent suffix. The server looks for it to
-    /// hide Pro and Google sign-in.
+    /// hide Pro.
     static let userAgentToken = "QuartermasterShell/1"
 
     /// The manifest's `start_url`.

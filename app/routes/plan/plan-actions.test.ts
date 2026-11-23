@@ -1459,3 +1459,168 @@ describe('meal plan actions', () => {
 		)
 	})
 })
+
+/*
+ * Add to Shopping and Update Shopping decide what to write from the Meal's
+ * demand, cooked state included.
+ *
+ * Failure list:
+ * - The Meal is deleted after its demand is read and before the Shopping
+ *   write: the write points at a Meal that is gone and fails (a foreign key
+ *   error, so a 500).
+ * - An item is marked cooked after the demand is read: its amounts still
+ *   land, though a cooked item adds nothing.
+ * - Update Shopping has the same gap as Add to Shopping.
+ */
+describe('Add to Shopping reads the Meal under the write lock', () => {
+	async function seedMeal(db: typeof prisma) {
+		const user = await db.user.create({ data: createUser() })
+		const household = await db.household.create({
+			data: {
+				name: 'Test Household',
+				members: { create: { userId: user.id, role: 'owner' } },
+			},
+		})
+		const recipe = await db.recipe.create({
+			data: {
+				title: 'Soup',
+				userId: user.id,
+				householdId: household.id,
+				ingredients: {
+					create: { name: 'onion', amount: '2', unit: null, order: 0 },
+				},
+			},
+		})
+		const meal = await db.meal.create({
+			data: {
+				mealPlan: {
+					create: {
+						householdId: household.id,
+						weekStart: new Date('2026-11-16'),
+					},
+				},
+				date: new Date('2026-11-18'),
+				order: 0,
+				recipeItems: {
+					create: { recipeId: recipe.id, recipeTitle: 'Soup', order: 0 },
+				},
+			},
+			include: { recipeItems: true },
+		})
+		return {
+			planUser: { userId: user.id, householdId: household.id },
+			meal,
+		}
+	}
+
+	/**
+	 * `db`, with `write` sent from another connection just after the first
+	 * read of a Meal's items, on `db` itself or inside a transaction. Reports
+	 * whether that write landed at once or had to wait.
+	 */
+	function writeAfterDemandRead(
+		wal: typeof prisma,
+		url: string,
+		sql: string,
+		args: Array<string | number>,
+	) {
+		const state: {
+			other?: ReturnType<typeof writeFromAnotherConnection>
+			landedAtOnce?: boolean
+		} = {}
+		async function afterRead() {
+			if (state.other) return
+			state.other = writeFromAnotherConnection(url, sql, args)
+			await state.other.executing
+			state.landedAtOnce = await settlesWithin(state.other.committed, 300)
+		}
+		function hooked<Client extends object>(client: Client): Client {
+			const items = new Proxy(
+				(client as unknown as typeof prisma).mealRecipeItem,
+				{
+					get(target, key) {
+						const value = Reflect.get(target, key)
+						if (key !== 'findMany') return value
+						return async (...args: Parameters<typeof target.findMany>) => {
+							const found = await target.findMany(...args)
+							await afterRead()
+							return found
+						}
+					},
+				},
+			)
+			return new Proxy(client, {
+				get(target, key) {
+					if (key === 'mealRecipeItem') return items
+					if (key === '$transaction') {
+						return (work: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
+							(target as unknown as typeof prisma).$transaction((tx) =>
+								work(hooked(tx)),
+							)
+					}
+					const value = Reflect.get(target, key)
+					return typeof value === 'function' ? value.bind(target) : value
+				},
+			})
+		}
+		return { db: hooked(wal), state }
+	}
+
+	function shoppingRequest(intent: string, mealId: string) {
+		return new Request(`${BASE_URL}/plan`, {
+			method: 'POST',
+			body: new URLSearchParams({ intent, mealId }),
+		})
+	}
+
+	test.each(['addMealToShopping', 'refreshMealShopping'])(
+		'%s answers quietly when the Meal is deleted as it runs',
+		async (intent) => {
+			await using database = await createWalDatabase()
+			const { db: wal, url } = database
+			const { planUser, meal } = await seedMeal(wal)
+			const { db, state } = writeAfterDemandRead(
+				wal,
+				url,
+				'DELETE FROM "Meal" WHERE "id" = ?',
+				[meal.id],
+			)
+
+			const response = await createPlanAction(
+				db,
+				async () => planUser,
+			)({ request: shoppingRequest(intent, meal.id) })
+
+			await state.other!.committed
+			expect(response).not.toBeInstanceOf(Response)
+			expect(await wal.meal.count({ where: { id: meal.id } })).toBe(0)
+		},
+	)
+
+	test.each(['addMealToShopping', 'refreshMealShopping'])(
+		'%s holds off an item being marked cooked until it has written',
+		async (intent) => {
+			await using database = await createWalDatabase()
+			const { db: wal, url } = database
+			const { planUser, meal } = await seedMeal(wal)
+			const { db, state } = writeAfterDemandRead(
+				wal,
+				url,
+				'UPDATE "MealRecipeItem" SET "cooked" = 1 WHERE "id" = ?',
+				[meal.recipeItems[0]!.id],
+			)
+
+			await createPlanAction(
+				db,
+				async () => planUser,
+			)({ request: shoppingRequest(intent, meal.id) })
+
+			await state.other!.committed
+			// The cook waited, so the add saw the item as it was when it wrote.
+			expect(state.landedAtOnce).toBe(false)
+			expect(
+				await wal.shoppingListItem.findMany({ select: { name: true } }),
+			).toEqual([{ name: 'onion' }])
+		},
+	)
+})

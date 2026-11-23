@@ -44,7 +44,7 @@ export type MealShoppingDemand = {
  * Every Meal id must already be resolved through the caller's household.
  */
 export async function loadMealShoppingDemand(
-	db: PrismaClient,
+	db: Pick<PrismaClient, 'mealRecipeItem' | 'mealShoppingLine'>,
 	{ mealIds }: { mealIds: string[] },
 ): Promise<Map<string, MealShoppingDemand>> {
 	const ids = [...new Set(mealIds)]

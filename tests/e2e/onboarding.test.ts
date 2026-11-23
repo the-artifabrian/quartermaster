@@ -3,6 +3,10 @@ import { faker } from '@faker-js/faker'
 import { type Page } from '@playwright/test'
 import { createOwnHousehold } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import {
+	USERNAME_MAX_LENGTH,
+	USERNAME_MIN_LENGTH,
+} from '#app/utils/user-validation.ts'
 import { readEmail } from '#tests/mocks/utils.ts'
 import {
 	createUser,
@@ -217,6 +221,91 @@ test('onboarding with a short code', async ({
 			where: { target: onboardingData.email.toLowerCase() },
 		}),
 	).toBe(0)
+})
+
+test('the signup form explains a bad username, then signs up', async ({
+	page,
+	navigate,
+	getOnboardingData,
+}) => {
+	const onboardingData = getOnboardingData()
+	await navigate('/signup')
+	await page.getByRole('textbox', { name: /email/i }).fill(onboardingData.email)
+	await page.getByRole('button', { name: /submit/i }).click()
+	await expect(page.getByText(/check your email/i)).toBeVisible()
+	const email = await readEmail(onboardingData.email)
+	invariant(email, 'Email not found')
+	const code = email.text.match(CODE_REGEX)?.groups?.code
+	invariant(code, 'Onboarding code not found')
+	await page.getByRole('textbox', { name: /code/i }).fill(code)
+	await page.getByRole('button', { name: /submit/i }).click()
+	await expect(page).toHaveURL('/onboarding')
+	await expect(
+		page.getByText(new RegExp(`welcome aboard ${onboardingData.email}`, 'i')),
+	).toBeVisible()
+
+	await page.getByRole('textbox', { name: /^name/i }).fill(onboardingData.name)
+	await page.getByLabel(/^password/i).fill(onboardingData.password)
+	await page.getByLabel(/^confirm password/i).fill(onboardingData.password)
+	const usernameInput = page.getByRole('textbox', { name: /username/i })
+	const createAccountButton = page.getByRole('button', {
+		name: /create an account/i,
+	})
+	// The button shows no status until a submit fails.
+	await expect(createAccountButton.getByRole('status')).not.toBeVisible()
+
+	// $ isn't allowed (app/utils/user-validation.ts), and the terms box is
+	// still unchecked.
+	await usernameInput.fill('U$er_name')
+	await createAccountButton.click()
+	await expect(createAccountButton.getByRole('status')).toBeVisible()
+	await expect(
+		page.getByText(
+			/username can only include letters, numbers, and underscores/i,
+		),
+	).toBeVisible()
+	await expect(
+		page.getByText(
+			/you must agree to the terms of service and privacy policy/i,
+		),
+	).toBeVisible()
+	await expect(page).toHaveURL('/onboarding')
+
+	await usernameInput.fill('')
+	await createAccountButton.click()
+	await expect(page.getByText(/username is required/i)).toBeVisible()
+
+	await usernameInput.fill(
+		faker.string.alphanumeric({ length: USERNAME_MIN_LENGTH - 1 }),
+	)
+	await createAccountButton.click()
+	await expect(page.getByText(/username is too short/i)).toBeVisible()
+
+	// The field stops at the longest allowed username.
+	await usernameInput.fill(
+		faker.string.alphanumeric({ length: USERNAME_MAX_LENGTH + 1 }),
+	)
+	expect(await usernameInput.inputValue()).toHaveLength(USERNAME_MAX_LENGTH)
+	await createAccountButton.click()
+	await expect(page.getByText(/username is too long/i)).not.toBeVisible()
+
+	await usernameInput.fill(onboardingData.username)
+	await createAccountButton.click()
+	await expect(
+		page.getByText(/must agree to the terms of service and privacy policy/i),
+	).toBeVisible()
+	await expect(page).toHaveURL('/onboarding')
+
+	await page
+		.getByLabel(/do you agree to our terms of service and privacy policy/i)
+		.check()
+	await createAccountButton.click()
+	await expect(page).toHaveURL('/recipes')
+	expect(
+		await prisma.user.count({
+			where: { username: onboardingData.username },
+		}),
+	).toBe(1)
 })
 
 test('login as existing user', async ({

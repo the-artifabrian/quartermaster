@@ -1,117 +1,26 @@
+import { todayInTimeZone } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { DEFAULT_RECIPE_METADATA_VALUE_CREATE } from '#app/utils/recipe-metadata.ts'
-import { createPassword } from '#tests/db-utils.ts'
+import { seedDevelopment } from './seed-development.ts'
 import { seedInfrastructure } from './seed-infrastructure.ts'
 
+/**
+ * `prisma db seed`: the roles every environment needs, then the local logins
+ * and the sample Household (seed-development.ts). Development only.
+ */
 async function seed() {
-	console.log('🌱 Seeding...')
-	console.time(`🌱 Database has been seeded`)
-
-	// Infrastructure: the admin and user roles (shared with production)
+	console.time('Seeded the database')
 	await seedInfrastructure()
 
-	// Test data below — only runs via `prisma db seed` in development
+	// The browser's today, which on this machine is the machine's own day, so
+	// the Plan opens on the week that was seeded.
+	const today = todayInTimeZone(
+		Intl.DateTimeFormat().resolvedOptions().timeZone,
+	)
+	console.time(`Seeded the sample Household for the week of ${today}`)
+	await seedDevelopment(prisma, { today })
+	console.timeEnd(`Seeded the sample Household for the week of ${today}`)
 
-	console.time(`🐨 Find or create admin user "kody"`)
-
-	// Find or create kody user
-	let kody = await prisma.user.findUnique({
-		where: { username: 'kody' },
-		select: { id: true },
-	})
-
-	if (!kody) {
-		kody = await prisma.user.create({
-			select: { id: true },
-			data: {
-				email: 'kody@kcd.dev',
-				username: 'kody',
-				name: 'Kody',
-				password: { create: createPassword('kodylovesyou') },
-				roles: { connect: [{ name: 'admin' }, { name: 'user' }] },
-			},
-		})
-	}
-
-	console.timeEnd(`🐨 Find or create admin user "kody"`)
-
-	// Ensure kody has a household
-	console.time(`🏠 Ensure household for kody`)
-	const existingMember = await prisma.householdMember.findFirst({
-		where: { userId: kody.id },
-	})
-	if (!existingMember) {
-		await prisma.household.create({
-			data: {
-				name: "Kody's Household",
-				recipeMetadataValues: {
-					create: DEFAULT_RECIPE_METADATA_VALUE_CREATE,
-				},
-				members: {
-					create: { userId: kody.id, role: 'owner' },
-				},
-			},
-		})
-	}
-	console.timeEnd(`🏠 Ensure household for kody`)
-
-	// Create kody2 test user for household sharing testing
-	console.time(`🐨 Find or create test user "kody2"`)
-
-	let kody2 = await prisma.user.findUnique({
-		where: { username: 'kody2' },
-		select: { id: true },
-	})
-
-	if (!kody2) {
-		kody2 = await prisma.user.create({
-			select: { id: true },
-			data: {
-				email: 'kody2@kcd.dev',
-				username: 'kody2',
-				name: 'Kody Jr',
-				password: { create: createPassword('kodylovesyou') },
-				roles: { connect: [{ name: 'user' }] },
-			},
-		})
-	}
-
-	// Ensure kody2 has a household
-	const kody2Member = await prisma.householdMember.findFirst({
-		where: { userId: kody2.id },
-	})
-	if (!kody2Member) {
-		await prisma.household.create({
-			data: {
-				name: "Kody Jr's Household",
-				recipeMetadataValues: {
-					create: DEFAULT_RECIPE_METADATA_VALUE_CREATE,
-				},
-				members: {
-					create: { userId: kody2.id, role: 'owner' },
-				},
-			},
-		})
-	}
-
-	console.timeEnd(`🐨 Find or create test user "kody2"`)
-
-	// Ensure all users have Subscription records (Pro for test users)
-	console.time(`💎 Ensure subscriptions`)
-	for (const user of [kody, kody2]) {
-		await prisma.subscription.upsert({
-			where: { userId: user.id },
-			update: { subscriptionExpiresAt: new Date('2099-12-31') },
-			create: {
-				userId: user.id,
-				tier: 'pro',
-				subscriptionExpiresAt: new Date('2099-12-31'),
-			},
-		})
-	}
-	console.timeEnd(`💎 Ensure subscriptions`)
-
-	console.timeEnd(`🌱 Database has been seeded`)
+	console.timeEnd('Seeded the database')
 }
 
 seed()
@@ -122,9 +31,3 @@ seed()
 	.finally(async () => {
 		await prisma.$disconnect()
 	})
-
-// we're ok to import from the test directory in this file
-/*
-eslint
-	no-restricted-imports: "off",
-*/

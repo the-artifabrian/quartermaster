@@ -54,12 +54,12 @@ test('the README’s logins work, and the owner is an admin on Pro', async () =>
 	const readme = await fs.readFile('README.md', 'utf8')
 
 	for (const person of [SAMPLE_OWNER, SECOND_USER]) {
-		expect(readme).toContain(person.username)
+		expect(readme).toContain(`\`${person.username}\``)
 		expect(
 			await verifyUserPassword({ username: person.username }, SAMPLE_PASSWORD),
 		).not.toBeNull()
 	}
-	expect(readme).toContain(SAMPLE_PASSWORD)
+	expect(readme).toContain(`\`${SAMPLE_PASSWORD}\``)
 
 	const owner = await membership(SAMPLE_OWNER.username)
 	expect(owner.roles.map((role) => role.name)).toEqual(['admin', 'user'])

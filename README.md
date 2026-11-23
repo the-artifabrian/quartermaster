@@ -86,8 +86,8 @@ Open [localhost:3000](http://localhost:3000) and log in as `sam` with the
 password `local-only`. Sam's Household has sample Recipes and a Plan for the
 current week, with its Shopping. `robin`, with the same password, has an empty
 Household for trying invites. The seed is sample data for a local database only.
-Running `bunx prisma db seed` again adds what is missing and changes nothing
-else.
+Running `bunx prisma db seed` again fills in what is missing without making
+copies.
 
 The development environment mocks Stripe, storage, and email. See
 [`.env.example`](.env.example) for optional service configuration.

@@ -8,6 +8,8 @@
  *   Meals, Staples or Shopping rows, or doubles the Meals' amounts.
  * - Running it again a week later plans a second week and stacks its
  *   amounts on Shopping.
+ * - Running it on Monday and again on Thursday ends somewhere a clean
+ *   Thursday run doesn't (Meals not cooked, amounts added twice).
  * - A run that stopped partway (some Recipes or Meals saved, Shopping not
  *   built) can't be finished by running it again.
  * - A Shopping row doesn't match its Meal's demand, so Update Shopping on a
@@ -136,6 +138,19 @@ test('a run a week later leaves the Plan and Shopping as they were', async () =>
 	expect(await snapshot(householdId)).toEqual(first)
 })
 
+test('a run on Monday and another on Thursday end where a Thursday run does', async () => {
+	const clean = await newHousehold()
+	await fillSampleHousehold(prisma, { ...clean, today: THURSDAY })
+
+	const twice = await newHousehold()
+	await fillSampleHousehold(prisma, { ...twice, today: '2026-11-23' })
+	await fillSampleHousehold(prisma, { ...twice, today: THURSDAY })
+
+	expect(await snapshot(twice.householdId)).toEqual(
+		await snapshot(clean.householdId),
+	)
+})
+
 test('running it again finishes a run that stopped partway', async () => {
 	const clean = await newHousehold()
 	await fillSampleHousehold(prisma, { ...clean, today: THURSDAY })
@@ -170,10 +185,12 @@ test('running it again finishes a run that stopped partway', async () => {
 })
 
 /**
- * Shopping as the page shows it. A row Add to Shopping made keeps a copy of
- * the first Meal line that fed it, and Update Shopping rewrites that copy
- * with the line of the Meal it updates ("red onion" or "red onions"). The
- * page shows the amounts from the Meals, so only those are compared.
+ * Shopping's amounts as the page shows them. A row Add to Shopping made
+ * keeps a copy of the first Meal line that fed it, and Update Shopping
+ * rewrites that copy with the line of the Meal it updates. The amount shown
+ * comes from the Meals and doesn't change, but a row two Meals share can
+ * change its name ("red onion" to "red onions"). Real use does the same, so
+ * rows are compared by ingredient and amount, not by that name.
  */
 async function shoppingAsShown(householdId: string) {
 	const { rows } = await snapshot(householdId)

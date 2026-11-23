@@ -95,7 +95,7 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 				'3 garlic cloves, grated',
 				'1 tbsp grated ginger',
 				'2 tbsp curry paste',
-				'400 g chopped tomatoes',
+				'400 g passata',
 				'2 cans chickpeas, drained',
 				'200 ml coconut milk',
 				'150 g baby spinach',
@@ -105,7 +105,7 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 			steps: [
 				'Fry the onion in the oil over a medium heat for 8 minutes, until soft.',
 				'Add the garlic, ginger and curry paste and cook for a minute more.',
-				'Tip in the tomatoes, chickpeas and coconut milk. Simmer for 10 minutes.',
+				'Tip in the passata, chickpeas and coconut milk. Simmer for 10 minutes.',
 				'Stir in the spinach a handful at a time until it wilts. Season with the salt and serve with rice.',
 			],
 			notes: 'Keeps for three days in the fridge and is better on the second.',

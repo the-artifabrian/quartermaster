@@ -21,8 +21,9 @@ Express → React Router loaders and actions
     └── SSE for household refresh events (Pro)
 ```
 
-The app runs on Bun in Fly.io. Express owns middleware and hands application
-routing to React Router.
+The app runs on Bun in Fly.io. Express owns the HTTP middleware and hands
+application routing to React Router, whose one root middleware is the form-body
+guard described under Logs and analytics.
 
 ### Route files
 
@@ -644,6 +645,14 @@ query parameters, including inside `redirectTo`. These go through it:
   autocapture records, URLs in error messages, the network requests and page
   addresses recorded for replays.
 
+`handleError` in `app/entry.server.tsx` sends `server_error` for 5xx responses
+and thrown errors only. A 4xx, such as a bot's POST to a page with no action,
+is in the request log and nowhere else. React Router's origin check is the one
+exception: it answers 400 but stays reported, since a mismatch can mean a broken
+proxy setup. A form body the server can't read gets a 400 from the root
+middleware in `app/utils/form-body.server.ts`, and upload routes map the
+multipart parser's errors to the same 400 with `rethrowUnreadableUpload`.
+
 Replays record the page's text, since `mask_all_text` is off. Input values are
 masked by type, with the list in `app/utils/posthog.client.ts`: every type the
 SDK's own "mask all inputs" covers, plus hidden inputs. Masking settings turned
@@ -814,7 +823,7 @@ high-value AI path.
   - Stripe checkout and portal return URLs;
   - the HTTP→HTTPS redirect, and the 301 from `www.` plus its host to it
     (`server/https-redirect.ts`). The 301 is for GET and HEAD on the www host
-    alone, so fly.dev and Fly's healthcheck are never redirected;
+    alone, so fly.dev and Fly's healthcheck are never redirected.
 
   Redirects within the site stay relative, so the browser keeps the host it used
   (a LAN IP in dev, or the fly.dev host) and its cookies.

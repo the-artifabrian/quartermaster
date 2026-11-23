@@ -24,6 +24,7 @@ import { Button } from '#app/components/ui/button.tsx'
 import { ConfirmSheet } from '#app/components/ui/confirm-sheet.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { prisma } from '#app/utils/db.server.ts'
+import { rethrowUnreadableUpload } from '#app/utils/form-body.server.ts'
 import { checkRecipePhoto } from '#app/utils/recipe-photo.server.ts'
 import {
 	clientLeaves,
@@ -199,7 +200,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 		if (error instanceof MaxFileSizeExceededError) {
 			return data({ result: photoTooLargeResult }, { status: 400 })
 		}
-		throw error
+		rethrowUnreadableUpload(error)
 	}
 
 	const intent = formData.get('intent')

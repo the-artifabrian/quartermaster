@@ -1,9 +1,15 @@
-# This file is moved to the root directory before building the image
+# fly.toml names this file as the ignore file ([build] ignorefile), and it is
+# read from here; nothing moves it. Its patterns match from the build
+# context, which is the repository root.
 
 /node_modules
-*.log
-.DS_Store
-.env
+**/*.log
+**/.DS_Store
+# Patterns here match from the build context's root only, so a bare .env would
+# leave the ones in nested checkouts (.worktrees/*/.env) in the image.
+**/.env
+/.worktrees
+/ios
 /.cache
 /public/build
 /build

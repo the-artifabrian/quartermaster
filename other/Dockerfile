@@ -1,5 +1,3 @@
-# This file is moved to the root directory before building the image
-
 # base bun image (Alpine / musl)
 FROM oven/bun:1.3.13-alpine as base
 

@@ -3,6 +3,10 @@ import express from 'express'
 
 export const app = express()
 
+// server/index.ts mounts this app, and a mounted Express app sets its own
+// X-Powered-By, so turning it off on the outer app alone leaves it on.
+app.disable('x-powered-by')
+
 // Given a function, React Router re-derives the route tree (one regex per
 // route, over a hundred routes) on every request, which the development
 // server needs for a fresh build on each change. Production resolves the build

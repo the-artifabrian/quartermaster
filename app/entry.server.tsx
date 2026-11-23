@@ -4,6 +4,7 @@ import { contentSecurity } from '@nichtsam/helmet/content'
 import { isbot } from 'isbot'
 import { renderToReadableStream } from 'react-dom/server'
 import {
+	isRouteErrorResponse,
 	ServerRouter,
 	type LoaderFunctionArgs,
 	type ActionFunctionArgs,
@@ -31,6 +32,26 @@ const posthogHost = process.env.POSTHOG_API_KEY
 const posthogAssetHost = posthogHost
 	? getPostHogAssetHost(posthogHost)
 	: undefined
+
+export function connectSources({
+	mode,
+	posthogHost,
+	posthogAssetHost,
+}: {
+	mode: string
+	posthogHost?: string
+	posthogAssetHost?: string
+}) {
+	// A PostHog proxy serves the API and the assets from one host. The asset
+	// host is already an origin, so the API host becomes one to compare.
+	const sources = [
+		mode === 'development' ? 'ws:' : undefined,
+		posthogHost ? new URL(posthogHost).origin : undefined,
+		posthogAssetHost,
+		"'self'",
+	].filter((source) => source !== undefined)
+	return [...new Set(sources)]
+}
 
 type DocRequestArgs = Parameters<HandleDocumentRequestFunction>
 
@@ -94,12 +115,11 @@ export default async function handleRequest(...args: DocRequestArgs) {
 			directives: {
 				fetch: {
 					'default-src': ["'self'"],
-					'connect-src': [
-						MODE === 'development' ? 'ws:' : undefined,
+					'connect-src': connectSources({
+						mode: MODE,
 						posthogHost,
 						posthogAssetHost,
-						"'self'",
-					],
+					}),
 					'font-src': ["'self'"],
 					'frame-src': ["'self'"],
 					'img-src': ["'self'", 'data:'],
@@ -146,6 +166,16 @@ export function handleError(
 	// Skip capturing if the request is aborted as Remix docs suggest
 	// Ref: https://remix.run/docs/en/main/file-conventions/entry.server#handleerror
 	if (request.signal.aborted) {
+		return
+	}
+
+	// A 4xx is a request the app turned away, mostly bots posting to pages
+	// with no action. It isn't a server error, and the request log already
+	// has its status, so it gets no stack and no report.
+	if (
+		(isRouteErrorResponse(error) || error instanceof Response) &&
+		error.status < 500
+	) {
 		return
 	}
 

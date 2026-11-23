@@ -86,7 +86,9 @@ const drawsInsetLine = (row: Locator) =>
 
 /**
  * Slows CSS transitions tenfold, so a sheet's exit lasts until BottomSheet's
- * 500ms fallback: room to act while it leaves.
+ * 500ms fallback: room to act while it leaves. The fallback runs on the
+ * clock, not the slowed animations, and a first visit to a page can take
+ * longer than that.
  */
 async function slowTransitions(page: Page) {
 	const cdp = await page.context().newCDPSession(page)
@@ -1366,16 +1368,27 @@ test('a sheet still leaving when its page goes plays its exit to the end', async
 }) => {
 	await seedShopping(await login(), ['foil'])
 	await openShopping(page)
+	// The sheet leaves for 500ms at most (BottomSheet's fallback), and a first
+	// visit to Plan, which loads its code and its week, takes longer than that
+	// on a slow runner. Visiting it first means the visit below comes from
+	// memory.
+	const plan = page
+		.locator('[data-bottom-nav]')
+		.getByRole('link', { name: 'Plan' })
+	await plan.click()
+	await expect(page).toHaveURL(/\/plan/, ROUND_TRIP)
+	await page
+		.locator('[data-bottom-nav]')
+		.getByRole('link', { name: 'Shopping' })
+		.click()
+	await expect(page).toHaveURL(/\/shopping/, ROUND_TRIP)
 	const sheet = await openEditItem(page, 'foil')
 	await expectBottomSheet(page, sheet)
 	await recordSheetExits(page)
 	await slowTransitions(page)
 	await sheet.getByRole('button', { name: 'Close', exact: true }).tap()
 	// Leave Shopping while the sheet is still on its way out.
-	await page
-		.locator('[data-bottom-nav]')
-		.getByRole('link', { name: 'Plan' })
-		.dispatchEvent('click')
+	await plan.dispatchEvent('click')
 	await expect(page).toHaveURL(/\/plan/, ROUND_TRIP)
 	// Its own exit, cut short, then the copy that finishes it.
 	await expect.poll(() => sheetExits(page), ROUND_TRIP).toBe(2)

@@ -1064,6 +1064,9 @@ test.describe('in the iOS app', () => {
 				),
 			).toEqual(['success'])
 			await expect.poll(() => cooked(stewItem.id)).toBe(true)
+			// The menu that just closed gives focus back to its button once it
+			// has gone. A menu opened before then loses that focus and closes.
+			await expect(actions).toBeFocused()
 			await actions.tap()
 			expect(
 				await ui.hapticsOf(() =>

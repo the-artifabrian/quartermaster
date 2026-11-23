@@ -335,11 +335,11 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 			) : (
 				<p className="text-muted-foreground">
 					Adding a passkey asks for your password, and your account doesn’t have
-					one yet.{' '}
+					one yet. Set one with{' '}
 					<Link to="/forgot-password" className="text-foreground underline">
-						Reset your password
-					</Link>{' '}
-					to set one.
+						Forgot password
+					</Link>
+					.
 				</p>
 			)}
 

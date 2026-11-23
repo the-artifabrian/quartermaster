@@ -199,11 +199,11 @@ export default function ChangeEmailIndex({
 				) : (
 					<p className="text-muted-foreground">
 						Changing your email asks for your password, and your account doesn’t
-						have one yet.{' '}
+						have one yet. Set one with{' '}
 						<Link to="/forgot-password" className="text-foreground underline">
-							Reset your password
-						</Link>{' '}
-						to set one.
+							Forgot password
+						</Link>
+						.
 					</p>
 				)}
 			</div>

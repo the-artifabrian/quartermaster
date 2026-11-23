@@ -120,7 +120,7 @@ async function startAddingPasskey(
 			{
 				status: 'error',
 				error:
-					'Adding a passkey asks for your password. Reset your password to set one.',
+					'Adding a passkey asks for your password. Set one with Forgot password.',
 			} as const,
 			{ status: 400 },
 		)

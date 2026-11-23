@@ -2,6 +2,7 @@ import { RouterContextProvider } from 'react-router'
 import { expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { toastKey, toastSessionStorage } from '#app/utils/toast.server.ts'
 import { createPassword, createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action, loader } from './password.tsx'
@@ -15,7 +16,7 @@ import '#tests/setup/mocks-setup.ts'
 // 3. A change refused for a wrong current password ends no session.
 // 4. An account with no password (one that only ever logged in with Google)
 //    can't set one here without proof. Settings sends it to Forgot password,
-//    which emails a code first.
+//    which emails a code first, and says why.
 
 const oldPassword = 'old-password-1234'
 const newPassword = 'new-password-5678'
@@ -67,6 +68,15 @@ async function changePassword(
 		pattern: '/settings/profile/password',
 		context: new RouterContextProvider(),
 	})
+}
+
+async function toastFrom(response: Response) {
+	const cookie = response.headers
+		.getSetCookie()
+		.find((c) => c.startsWith('en_toast='))
+	if (!cookie) return null
+	const session = await toastSessionStorage.getSession(cookie.split(';')[0])
+	return session.get(toastKey) as { description: string } | undefined
 }
 
 async function remainingSessionIds(where: { userId?: string } = {}) {
@@ -141,6 +151,9 @@ test('an account with no password is sent to Forgot password', async () => {
 		expect((response as Response).headers.get('location')).toBe(
 			'/forgot-password',
 		)
+		expect(await toastFrom(response as Response)).toMatchObject({
+			description: expect.stringMatching(/doesn’t have a password/),
+		})
 	}
 	expect(await prisma.password.count({ where: { userId: user.id } })).toBe(0)
 })

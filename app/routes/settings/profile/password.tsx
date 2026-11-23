@@ -2,7 +2,7 @@ import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { data, redirect, Form } from 'react-router'
+import { data, Form } from 'react-router'
 import { z } from 'zod'
 import { ErrorList, Field } from '#app/components/forms.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
@@ -51,7 +51,11 @@ async function requirePassword(userId: string) {
 	// An account that only ever logged in with Google has no password. It sets
 	// one through Forgot password, which emails a code first.
 	if (!password) {
-		throw redirect('/forgot-password')
+		throw await redirectWithToast('/forgot-password', {
+			title: 'No password yet',
+			description:
+				'Your account doesn’t have a password. Enter your email and we’ll send a code to set one.',
+		})
 	}
 }
 

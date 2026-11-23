@@ -30,9 +30,17 @@
 		"unicorn/prefer-string-starts-ends-with": "off", // This is a style-only rewrite outside the migration.
 		"vitest/expect-expect": [
 			"error",
-			// Helpers named expect* (expectSelected and the like) assert too.
+			// These test helpers assert too.
 			{
-				"assertFunctionNames": ["expect", "expect*", "assert", "assertType"]
+				"assertFunctionNames": [
+					"expect",
+					"assert",
+					"assertType",
+					"expectSelected",
+					"expectLinkOnAppOrigin",
+					"expectRelativeVerifyRedirect",
+					"startWithPassword"
+				]
 			}
 		],
 		"vitest/no-conditional-expect": "error",

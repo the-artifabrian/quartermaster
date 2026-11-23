@@ -267,7 +267,8 @@ export function replaceMealShoppingContributions(
 		let updatedContributionCount = 0
 		let removedContributionCount = 0
 		const possiblyEmptyMealRows = new Set<string>()
-		const skippedCheckedNames: string[] = []
+		// One name per row, however many of this Meal's shares sit on it.
+		const skippedChecked = new Map<string, string>()
 
 		// New demand reuses only an outstanding row (Next shop first, a Later
 		// row moves up) or gets its own row, the #226 rule for every Meal add.
@@ -300,7 +301,7 @@ export function replaceMealShoppingContributions(
 				// A checked row is a purchase. Update leaves it and this Meal's
 				// share on it alone, and adds nothing elsewhere for it, until
 				// someone unchecks the row.
-				if (changed) skippedCheckedNames.push(row.name)
+				if (changed) skippedChecked.set(row.id, row.name)
 				continue
 			}
 
@@ -361,7 +362,7 @@ export function replaceMealShoppingContributions(
 			updatedContributionCount,
 			removedContributionCount,
 			promotedRowCount: promote.count(),
-			skippedCheckedNames,
+			skippedCheckedNames: [...skippedChecked.values()],
 		}
 	})
 }

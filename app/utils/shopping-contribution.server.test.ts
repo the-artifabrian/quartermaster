@@ -24,6 +24,7 @@
  *   row is not changed, nothing is added elsewhere for it, and Update
  *   reports the row as skipped.
  * - Unchanged demand on a checked row is left alone and not reported.
+ * - Two of this Meal's shares on one checked row name that row once.
  * - A checked Meal row two Meals fed keeps its stored amount when one of
  *   them updates with unchanged demand.
  * - Update twice in a row changes nothing the second time.
@@ -463,6 +464,40 @@ describe('Update Shopping leaves checked rows alone', () => {
 			expect(await snapshot()).toEqual(before)
 		},
 	)
+
+	test('two shares on one checked row name it once', async () => {
+		const { list, mealA, update, setChecked } = await setup()
+		const row = await prisma.shoppingListItem.create({
+			data: {
+				listId: list.id,
+				name: 'onions',
+				quantity: '1',
+				source: 'manual',
+			},
+		})
+		for (const [canonicalName, quantity] of [
+			['onion', '2'],
+			['red onion', '1'],
+		] as const) {
+			await prisma.mealShoppingContribution.create({
+				data: {
+					mealId: mealA.id,
+					itemId: row.id,
+					canonicalName,
+					name: canonicalName,
+					quantity,
+				},
+			})
+		}
+		await setChecked(row.id, true)
+
+		const result = await update(mealA.id, [
+			{ ...line('onion', '4', null), canonicalName: 'onion' },
+			{ ...line('red onion', '3', null), canonicalName: 'red onion' },
+		])
+
+		expect(result.skippedCheckedNames).toEqual(['onions'])
+	})
 
 	test('unchanged demand on a checked row is left alone and not reported', async () => {
 		const { list, mealA, add, update, setChecked, snapshot } = await setup()

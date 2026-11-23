@@ -1,9 +1,9 @@
 /**
  * Failure list for the Meal → Shopping toasts:
- * - One skipped checked row is named, with a verb that fits a plural name
- *   ("Onions are") and a singular one ("Rice is", "Hummus is", "Swiss
- *   chard is").
+ * - One skipped checked row is named as stored, with wording that reads
+ *   right for any name ("Lentils (red)", "Tomatoes, chopped", "molasses").
  * - Several skipped rows are counted, not listed.
+ * - After other changes the toast leads with "Shopping updated".
  * - No skipped rows gives no message.
  * - The attach-only toast carries a count with the right plural.
  * - A refused Edit on a row with its own amount says what Meals add on top
@@ -17,24 +17,25 @@ import {
 	skippedCheckedMessage,
 } from './meal-shopping-messages.ts'
 
-test('one skipped checked row is named with a verb that fits it', () => {
-	expect(skippedCheckedMessage(['onions'])).toBe(
-		'Onions are already checked off, so they weren’t changed.',
-	)
-	expect(skippedCheckedMessage(['rice'])).toBe(
-		'Rice is already checked off, so it wasn’t changed.',
-	)
-	expect(skippedCheckedMessage(['hummus'])).toBe(
-		'Hummus is already checked off, so it wasn’t changed.',
-	)
-	expect(skippedCheckedMessage(['Swiss chard'])).toBe(
-		'Swiss chard is already checked off, so it wasn’t changed.',
-	)
+test('one skipped checked row is named as stored, whatever its shape', () => {
+	for (const name of [
+		'onions',
+		'Lentils (red)',
+		'Tomatoes, chopped',
+		'molasses',
+	]) {
+		expect(skippedCheckedMessage([name])).toBe(
+			`Didn’t change checked-off ${name}. Uncheck to update.`,
+		)
+	}
 })
 
-test('several skipped rows are counted, and none gives no message', () => {
-	expect(skippedCheckedMessage(['onions', 'rice'])).toBe(
-		'2 items are already checked off, so they weren’t changed.',
+test('several skipped rows are counted, none gives no message, and other changes lead', () => {
+	expect(skippedCheckedMessage(['onions', 'rice', 'leeks'])).toBe(
+		'Didn’t change 3 checked-off items. Uncheck to update.',
+	)
+	expect(skippedCheckedMessage(['onions'], { afterChanges: true })).toBe(
+		'Shopping updated. Didn’t change checked-off onions.',
 	)
 	expect(skippedCheckedMessage([])).toBeNull()
 })

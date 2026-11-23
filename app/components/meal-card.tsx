@@ -649,15 +649,15 @@ export function MealCard({
 						(data.shopping.updatedContributionCount ?? 0) +
 						(data.shopping.removedContributionCount ?? 0) +
 						(data.shopping.promotedRowCount ?? 0)
-					const skipped = skippedCheckedMessage(
-						data.shopping.skippedCheckedNames ?? [],
-					)
+					const skippedNames = data.shopping.skippedCheckedNames ?? []
 					if (changed > 0) {
 						toast.success(
-							skipped ? `Shopping updated. ${skipped}` : 'Shopping updated',
+							skippedCheckedMessage(skippedNames, { afterChanges: true }) ??
+								'Shopping updated',
 						)
-					} else if (skipped) toast.info(skipped)
-					else toast.info('Shopping is up to date')
+					} else if (skippedNames.length > 0) {
+						toast.info(skippedCheckedMessage(skippedNames))
+					} else toast.info('Shopping is up to date')
 					prevShoppingState.current = addToShoppingFetcher.state
 					return
 				}

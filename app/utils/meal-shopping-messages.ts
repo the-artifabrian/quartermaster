@@ -11,20 +11,22 @@ export function addedToExistingMessage(count: number) {
 }
 
 /**
- * Update Shopping left these checked rows alone. One row is named; a row
- * name ending in s (but not ss or us) reads as plural.
+ * Update Shopping left these checked rows alone. The verb needs no
+ * agreement, so a row name of any shape reads right, and it stays as stored.
+ * After other changes the toast leads with "Shopping updated".
  */
-export function skippedCheckedMessage(names: string[]) {
+export function skippedCheckedMessage(
+	names: string[],
+	{ afterChanges = false }: { afterChanges?: boolean } = {},
+) {
 	if (names.length === 0) return null
-	if (names.length > 1) {
-		return `${names.length} items are already checked off, so they weren’t changed.`
-	}
-	const name = names[0]!.trim()
-	const plural = /[^su]s$/i.test(name)
-	const shown = name.charAt(0).toUpperCase() + name.slice(1)
-	return plural
-		? `${shown} are already checked off, so they weren’t changed.`
-		: `${shown} is already checked off, so it wasn’t changed.`
+	const what =
+		names.length === 1
+			? `checked-off ${names[0]}`
+			: `${names.length} checked-off items`
+	return afterChanges
+		? `Shopping updated. Didn’t change ${what}.`
+		: `Didn’t change ${what}. Uncheck to update.`
 }
 
 /**

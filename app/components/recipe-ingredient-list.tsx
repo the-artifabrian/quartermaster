@@ -1,4 +1,5 @@
 import { useFetcher } from 'react-router'
+import { getHouseholdClientId } from '#app/utils/household-client.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import {
 	Tooltip,
@@ -209,6 +210,7 @@ function AddIngredientToShopping({
 							const formData = new FormData()
 							formData.set('intent', 'add-single-to-shopping-list')
 							formData.set('ingredientId', ingredientId)
+							formData.set('originClientId', getHouseholdClientId())
 							formData.set('servingRatio', ratio.toString())
 							if (useMetric) {
 								formData.set('useMetric', '1')

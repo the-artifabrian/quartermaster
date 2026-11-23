@@ -51,7 +51,6 @@ test.describe('Move a Meal', () => {
 						recipeTitle: recipe.title,
 						order: 0,
 						scaleMultiplier: 1.5,
-						cooked: true,
 						note: 'Extra lemon at the table',
 					},
 				},
@@ -104,6 +103,15 @@ test.describe('Move a Meal', () => {
 		await expect(page.getByText('Added 1 item to Shopping')).toBeVisible()
 		const shopping = await readShopping()
 		expect(shopping).toHaveLength(1)
+		// Cooked after its Shopping was added, since a cooked item adds
+		// nothing. The move must keep the cooked state too.
+		await prisma.mealRecipeItem.updateMany({
+			where: { mealId: meal.id },
+			data: { cooked: true },
+		})
+		const recipeItems = await prisma.mealRecipeItem.findMany({
+			where: { mealId: meal.id },
+		})
 
 		// The closed menu hands focus back to its trigger; reopening before then
 		// lets that late focus close the new menu as a click outside.
@@ -146,7 +154,7 @@ test.describe('Move a Meal', () => {
 			guestCount: 4,
 			servingAt: new Date('2026-10-30T17:30:00Z'),
 			servingTimeZone: 'Europe/Berlin',
-			recipeItems: meal.recipeItems,
+			recipeItems,
 		})
 		expect(await readShopping()).toEqual(shopping)
 		await page.reload()

@@ -11,6 +11,7 @@ import {
 	isOptionalIngredient,
 } from './recipe-matching.server.ts'
 import { guessCategory } from './shopping-list-validation.ts'
+import { keepsOwnAmount } from './shopping-row-source.ts'
 import {
 	normalizeUnit,
 	getUnitFamily,
@@ -397,7 +398,8 @@ function sumGroup(group: SummableGroup): {
  * neither the row nor any contribution is rewritten.
  * - A manual row's own quantity is the manual component; compatible
  *   generated demand combines with it, incompatible demand stays visible as
- *   separate parts.
+ *   separate parts. A row added from Recipe detail ('recipe') works the same
+ *   way, since its amount is one someone asked for.
  * - A row the contribution seam created (source 'meal') duplicates its first
  *   contribution's quantity, so its display is the contributions alone —
  *   counting the row too would double it.
@@ -431,7 +433,7 @@ export function combineRowDisplay({
 		return { ...display, combined: contributions.length > 1 }
 	}
 
-	if (source === 'manual') {
+	if (keepsOwnAmount(source)) {
 		const display = combineDemandParts([
 			{ amount: quantity, unit },
 			...contributionParts,

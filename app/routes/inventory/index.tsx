@@ -149,6 +149,7 @@ export async function action({ request }: Route.ActionArgs) {
 			// already waiting in Next shop is not an addition.
 			if (shoppingEffect !== 'already-in-next-shop') {
 				await emitHouseholdEvent({
+					originClientId: formData.get('originClientId'),
 					type: 'shopping_list_item_added',
 					payload: { name: staple.displayName },
 					userId,

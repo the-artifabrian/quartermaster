@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
+import { getHouseholdClientId } from '#app/utils/household-client.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
@@ -335,7 +336,11 @@ function StapleRow({
 						aria-busy={isAdding || undefined}
 						onClick={() =>
 							void shopFetcher.submit(
-								{ intent: 'add-staple-to-shop', itemId: staple.id },
+								{
+									intent: 'add-staple-to-shop',
+									itemId: staple.id,
+									originClientId: getHouseholdClientId(),
+								},
 								{ method: 'POST' },
 							)
 						}

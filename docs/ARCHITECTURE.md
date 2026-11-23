@@ -308,8 +308,25 @@ Staples logic.
 
 A Meal contribution stores current generated provenance, not event history.
 Updating one Meal replaces only that Meal’s contribution with its current
-demand, so a deleted Recipe’s lines leave the list. Manual rows, other Meals,
-and compatible checked state are preserved.
+demand, so a deleted Recipe’s lines leave the list. Manual rows and other Meals
+are preserved. A checked row is a purchase. New demand never joins it, and
+Update Shopping leaves it alone. If the Meal’s demand on a checked row grew,
+shrank or went away, the row and the share stay as they are, nothing is added
+elsewhere for it, and the toast says which rows were left. After the row is
+unchecked, the next update applies the new amount. Undo of a Meal deleted
+with its Shopping amounts puts a share whose row was checked since onto an
+unchecked row instead. The Meal writers read the list and write in one
+`writeTransaction`.
+
+A row typed in Shopping or added from Recipe detail keeps its own amount. Meal
+demand that joins it adds to that amount on display. Edit changes only the
+row’s own amount, and Remove generated amount takes the Meal share off again.
+
+A cooked Recipe item adds no demand on any path. On Update Shopping, amounts it
+already put on Shopping stay as they are, checked or not, including an
+ingredient it shares with an uncooked item. If its Recipe was deleted, no
+amount the Meal has on Shopping is withdrawn or lowered, though larger amounts
+and new lines still apply. The rule lives in `loadMealShoppingDemand`.
 
 Shopping checks submit an explicit state and the observed purchase version.
 SQLite triggers advance that version for row and Meal-contribution changes, so
@@ -318,7 +335,9 @@ request ID permits safe checkbox retries without an operation history. The open
 page reconciles uncertain writes before replay and excludes pending checks from
 Clear checked; it does not retain an offline queue. JSON recovery creates fresh
 write identities while preserving purchase data. Table-rebuild migrations must
-retain the version triggers.
+retain the version triggers. Row Edit and Remove generated amount also send the
+version the person saw; the server checks it inside the write transaction and
+answers 409 with the row’s current state when it moved.
 
 ## Staples
 

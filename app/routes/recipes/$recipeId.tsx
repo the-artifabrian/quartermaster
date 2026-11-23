@@ -369,6 +369,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 		if (isNew || promotedIds.length > 0) {
 			void emitHouseholdEvent({
+				originClientId: formData.get('originClientId'),
 				type: 'shopping_list_item_added',
 				payload: { name: ingredient.name, source: 'recipe' },
 				userId,

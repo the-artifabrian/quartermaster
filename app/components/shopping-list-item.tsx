@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { useFetcher } from 'react-router'
+import { useFetcher, useRevalidator } from 'react-router'
+import { toast } from 'sonner'
 import { useSpinDelay } from 'spin-delay'
 import { BottomSheet, opensAsSheet } from '#app/components/ui/bottom-sheet.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -20,6 +21,8 @@ import {
 	isWeightUnit,
 } from '#app/utils/produce-weights.ts'
 import { LATER, NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
+import { keepsOwnAmount } from '#app/utils/shopping-row-source.ts'
+import { rowChangedMessage } from '#app/utils/meal-shopping-messages.ts'
 import { type ShoppingItemDisplay } from '#app/utils/shopping-optimistic.ts'
 import { useSwipeRow } from '#app/hooks/use-swipe-row.ts'
 import { type useShoppingChecks } from '#app/hooks/use-shopping-checks.tsx'
@@ -46,6 +49,21 @@ function bottomClearance() {
 	return tops.length ? window.innerHeight - Math.min(...tops) + 8 : 8
 }
 
+/** What the Shopping action answers to a row Edit or Remove generated amount. */
+type RowWriteData =
+	| { status: 'success' }
+	| { status: 'error'; submission?: { error?: unknown } }
+	| { status: 'invalid'; message: string }
+	| {
+			status: 'conflict'
+			item: {
+				checkVersion: number
+				checked: boolean
+				display: ShoppingItemDisplay
+				mealShare: { quantity: string | null; unit: string | null } | null
+			}
+	  }
+
 type ShoppingListItemCardProps = {
 	checks: ReturnType<typeof useShoppingChecks>
 	item: ShoppingListItem & { display?: ShoppingItemDisplay }
@@ -69,7 +87,13 @@ export function ShoppingListItemCard({
 	// Edit replaces the row, trigger included, so the closing menu has no
 	// trigger to hand focus back to; the edit field takes it instead.
 	const openingEdit = useRef(false)
-	const editFetcher = useFetcher()
+	const editFetcher = useFetcher<RowWriteData>()
+	// The row version Edit opened at, so a save made after someone else
+	// changed the row is refused instead of overwriting what they did. After
+	// a refusal it is the version the server sent back with the new amount.
+	const [editVersion, setEditVersion] = useState(item.checkVersion)
+	const [editNotice, setEditNotice] = useState<string | null>(null)
+	const revalidator = useRevalidator()
 	const checkState = checks.state(item.id)
 	const isChecking = checkState === 'saving' || checkState === 'reconciling'
 	const showCheckSpinner = useSpinDelay(isChecking, {
@@ -78,22 +102,61 @@ export function ShoppingListItemCard({
 	})
 	const deleteWithUndo = useDeleteWithUndo()
 	const moveFetcher = useFetcher()
-	const removeGeneratedFetcher = useFetcher()
+	const removeGeneratedFetcher = useFetcher<RowWriteData>()
 	const prevEditFetcherState = useRef(editFetcher.state)
 	const menuPointer = useRef<string | null>(null)
 
-	// Close edit mode when fetcher transitions from submitting/loading → idle
+	// Close edit mode when a save settles. One the server refused stays open
+	// with what was typed and says why.
 	useEffect(() => {
 		if (
 			prevEditFetcherState.current !== 'idle' &&
 			editFetcher.state === 'idle'
 		) {
-			if (isEditing && editFetcher.data?.status !== 'error') {
+			const data = editFetcher.data
+			if (data?.status === 'conflict') {
+				// A refused save does not reload the list by itself.
+				void revalidator.revalidate()
+				if (data.item.checked) {
+					// Checked rows have no Edit, so what was bought stays.
+					setIsEditing(false)
+					toast.warning(
+						`${item.name} was checked off, so your edit wasn’t saved.`,
+					)
+				} else {
+					setEditVersion(data.item.checkVersion)
+					setEditNotice(rowChangedMessage(data.item))
+				}
+			} else if (isEditing && data?.status !== 'error') {
 				setIsEditing(false)
 			}
 		}
 		prevEditFetcherState.current = editFetcher.state
-	}, [editFetcher.state, editFetcher.data?.status, isEditing])
+	}, [editFetcher.state, editFetcher.data, isEditing, item.name, revalidator])
+
+	// When Remove generated amount is refused because the row changed, show
+	// the row as it is now and say so.
+	const prevRemoveGeneratedState = useRef(removeGeneratedFetcher.state)
+	useEffect(() => {
+		if (
+			prevRemoveGeneratedState.current !== 'idle' &&
+			removeGeneratedFetcher.state === 'idle'
+		) {
+			const data = removeGeneratedFetcher.data
+			if (data?.status === 'conflict') {
+				void revalidator.revalidate()
+				toast.warning(`${item.name} changed. Check its amount, then try again.`)
+			} else if (data?.status === 'invalid') {
+				toast.warning(data.message)
+			}
+		}
+		prevRemoveGeneratedState.current = removeGeneratedFetcher.state
+	}, [
+		removeGeneratedFetcher.state,
+		removeGeneratedFetcher.data,
+		item.name,
+		revalidator,
+	])
 
 	// Optimistic checked state
 	const optimisticChecked = item.checked
@@ -124,7 +187,10 @@ export function ShoppingListItemCard({
 		editFetcher.data?.status === 'error' &&
 		editFetcher.data?.submission?.error
 			? 'Please check your input and try again.'
-			: null
+			: isEditing
+				? editNotice
+				: null
+	const serverErrorId = `edit-${item.id}-notice`
 	const moveTarget = item.horizon === LATER ? NEXT_SHOP : LATER
 	const moveLabel = moveTarget === LATER ? 'Move to Later' : 'Move to Next shop'
 	// Goes at once with an Undo toast; the delete is sent when the toast goes.
@@ -156,6 +222,7 @@ export function ShoppingListItemCard({
 			<HouseholdClientInput />
 			<input type="hidden" name="intent" value="edit" />
 			<input type="hidden" name="itemId" value={item.id} />
+			<input type="hidden" name="observedVersion" value={editVersion} />
 			<div className={editInSheet ? 'space-y-3' : 'space-y-2'}>
 				<EditField label="Name" id={`edit-${item.id}-name`} show={editInSheet}>
 					<Input
@@ -167,7 +234,7 @@ export function ShoppingListItemCard({
 						autoCapitalize="none"
 						autoFocus
 						required
-						maxLength={100}
+						maxLength={200}
 					/>
 				</EditField>
 				<div className="flex gap-2">
@@ -180,8 +247,9 @@ export function ShoppingListItemCard({
 						<Input
 							id={`edit-${item.id}-quantity`}
 							name="quantity"
+							aria-describedby={serverError ? serverErrorId : undefined}
 							defaultValue={
-								item.source === 'manual'
+								keepsOwnAmount(item.source)
 									? (item.quantity ?? '')
 									: (display.quantity ?? '')
 							}
@@ -201,7 +269,7 @@ export function ShoppingListItemCard({
 							id={`edit-${item.id}-unit`}
 							name="unit"
 							defaultValue={
-								item.source === 'manual'
+								keepsOwnAmount(item.source)
 									? (item.unit ?? '')
 									: (display.unit ?? '')
 							}
@@ -213,9 +281,13 @@ export function ShoppingListItemCard({
 						/>
 					</EditField>
 				</div>
-				{serverError && (
-					<p className="text-destructive text-sm">{serverError}</p>
-				)}
+				<p
+					id={serverErrorId}
+					role="alert"
+					className="text-destructive text-sm empty:hidden"
+				>
+					{serverError}
+				</p>
 				{editInSheet ? (
 					// A sheet closes by its own Close; Save is full width.
 					<Button type="submit" className="mt-1 w-full">
@@ -449,6 +521,8 @@ export function ShoppingListItemCard({
 									onSelect={() => {
 										openingEdit.current = true
 										setEditInSheet(opensAsSheet())
+										setEditVersion(item.checkVersion)
+										setEditNotice(null)
 										setEditCount((count) => count + 1)
 										setIsEditing(true)
 									}}
@@ -456,11 +530,12 @@ export function ShoppingListItemCard({
 									<Icon name="pencil-1" size="sm" />
 									Edit
 								</DropdownMenuItem>
-								{item.source === 'manual' && display.combined && (
+								{keepsOwnAmount(item.source) && display.combined && (
 									<DropdownMenuItem
 										onSelect={() =>
 											submitRowIntent(removeGeneratedFetcher, {
 												intent: 'removeGeneratedAmount',
+												observedVersion: String(item.checkVersion),
 											})
 										}
 									>

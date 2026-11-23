@@ -1,3 +1,29 @@
+/**
+ * Failure list for this change (the route side of Meal → Shopping):
+ *
+ * Cooked Recipe items, one rule on every path:
+ * - Add to Shopping from the Meal card with a cooked item. Its lines are not
+ *   added; an uncooked item's lines in the same Meal still are.
+ * - Update Shopping after an item is cooked and its Recipe was scaled. What
+ *   it already put on Shopping stays as it is, on an unchecked row and on a
+ *   checked one.
+ * - Update Shopping for a cooked item whose lines were never added. Nothing
+ *   is added for it.
+ * - An ingredient a cooked and an uncooked item share. An existing amount
+ *   stays as it is; with none, only the uncooked item's share is added.
+ * - A cooked item whose Recipe was deleted since. Update doesn't withdraw
+ *   or lower what the Meal already put on Shopping, but larger amounts and
+ *   new lines still apply.
+ *
+ * Household events from Meal → Shopping writes:
+ * - Add to Shopping and Update Shopping from the Meal card carry the
+ *   device's client id, so that device doesn't light its own Shopping dot.
+ *
+ * Row Edit and Remove generated amount (status codes the page acts on):
+ * - A stale version answers 409 with the row as it is now, and saves nothing.
+ * - A page that sends no version answers 400.
+ * - Another Household's row answers 404.
+ */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
 
@@ -9,6 +35,7 @@ import { getCurrentWeekStart } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
+import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { action as shoppingCheckAction } from '../resources/shopping-check.tsx'
 import { loader as planPickerLoader } from '../resources/shopping-plan.tsx'
 import {
@@ -504,6 +531,7 @@ describe('Shopping generated-group conversion (#110)', () => {
 		await runShoppingAction(session, {
 			intent: 'edit',
 			itemId: lamb.id,
+			observedVersion: String(lamb.checkVersion),
 			name: 'ground lamb',
 			quantity: '1600',
 			unit: 'g',
@@ -559,6 +587,7 @@ describe('Shopping generated-group conversion (#110)', () => {
 		await runShoppingAction(session, {
 			intent: 'edit',
 			itemId: lamb.id,
+			observedVersion: String(lamb.checkVersion),
 			name: 'ground lamb',
 			quantity: '300',
 			unit: 'g',
@@ -574,9 +603,13 @@ describe('Shopping generated-group conversion (#110)', () => {
 			)!.display,
 		).toMatchObject({ quantity: '800', unit: 'g', combined: true })
 
+		const edited = await prisma.shoppingListItem.findUniqueOrThrow({
+			where: { id: lamb.id },
+		})
 		await runShoppingAction(session, {
 			intent: 'removeGeneratedAmount',
 			itemId: lamb.id,
+			observedVersion: String(edited.checkVersion),
 		})
 		expect(
 			await prisma.shoppingListItem.findUniqueOrThrow({
@@ -588,6 +621,132 @@ describe('Shopping generated-group conversion (#110)', () => {
 				where: { itemId: lamb.id },
 			}),
 		).toBe(0)
+	})
+})
+
+describe('Shopping row Edit and Remove generated amount answer a changed row', () => {
+	// The route's side of the version check, meaning the status codes the
+	// Shopping page acts on. The write rules themselves are covered next to
+	// shopping-contribution.server.ts.
+	async function setupMixedRow() {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const meal = await setupMeal(session.householdId, recipe)
+		await runShoppingAction(session, {
+			intent: 'add',
+			name: 'ground lamb',
+			quantity: '250',
+			unit: 'g',
+		})
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+		const lamb = (await getShoppingRows(session.householdId)).find((row) =>
+			row.name.includes('lamb'),
+		)!
+		return { session, recipe, lamb }
+	}
+	const status = (result: unknown) =>
+		(result as { init?: { status?: number } }).init?.status
+
+	test('a stale version answers 409 with the row as it is now and saves nothing', async () => {
+		const { session, recipe, lamb } = await setupMixedRow()
+		const otherMeal = await setupMeal(session.householdId, recipe, {
+			scaleMultiplier: 2,
+		})
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: otherMeal.id,
+		})
+		const now = await prisma.shoppingListItem.findUniqueOrThrow({
+			where: { id: lamb.id },
+		})
+
+		const edit = await runShoppingAction(session, {
+			intent: 'edit',
+			itemId: lamb.id,
+			observedVersion: String(lamb.checkVersion),
+			name: 'ground lamb',
+			quantity: '300',
+			unit: 'g',
+		})
+		expect(status(edit)).toBe(409)
+		expect((edit as { data: unknown }).data).toEqual({
+			status: 'conflict',
+			item: {
+				checkVersion: now.checkVersion,
+				checked: false,
+				display: { quantity: '1.75', unit: 'kg', combined: true },
+				mealShare: { quantity: '1.5', unit: 'kg' },
+			},
+		})
+
+		const remove = await runShoppingAction(session, {
+			intent: 'removeGeneratedAmount',
+			itemId: lamb.id,
+			observedVersion: String(lamb.checkVersion),
+		})
+		expect(status(remove)).toBe(409)
+		expect(
+			await prisma.shoppingListItem.findUniqueOrThrow({
+				where: { id: lamb.id },
+			}),
+		).toEqual(now)
+		expect(
+			await prisma.mealShoppingContribution.count({
+				where: { itemId: lamb.id },
+			}),
+		).toBe(2)
+	})
+
+	test('a page that sends no version is asked to reload', async () => {
+		const { session, lamb } = await setupMixedRow()
+		const edit = await runShoppingAction(session, {
+			intent: 'edit',
+			itemId: lamb.id,
+			name: 'ground lamb',
+			quantity: '300',
+			unit: 'g',
+		})
+		expect(status(edit)).toBe(400)
+		const remove = await runShoppingAction(session, {
+			intent: 'removeGeneratedAmount',
+			itemId: lamb.id,
+		})
+		expect(status(remove)).toBe(400)
+		expect(
+			await prisma.mealShoppingContribution.count({
+				where: { itemId: lamb.id },
+			}),
+		).toBe(1)
+	})
+
+	test("another Household's row is not found", async () => {
+		const { lamb } = await setupMixedRow()
+		const stranger = await setupUser()
+		await expect(
+			runShoppingAction(stranger, {
+				intent: 'edit',
+				itemId: lamb.id,
+				observedVersion: String(lamb.checkVersion),
+				name: 'ground lamb',
+				quantity: '300',
+				unit: 'g',
+			}),
+		).rejects.toMatchObject({ status: 404 })
+		await expect(
+			runShoppingAction(stranger, {
+				intent: 'removeGeneratedAmount',
+				itemId: lamb.id,
+				observedVersion: String(lamb.checkVersion),
+			}),
+		).rejects.toMatchObject({ status: 404 })
+		expect(
+			await prisma.shoppingListItem.findUniqueOrThrow({
+				where: { id: lamb.id },
+			}),
+		).toEqual(lamb)
 	})
 })
 
@@ -1450,5 +1609,251 @@ describe('Meal Shopping contributions across horizons (#175)', () => {
 				where: { itemId: lamb.id },
 			}),
 		).toBe(0)
+	})
+})
+
+describe('cooked Recipe items never add Shopping amounts', () => {
+	async function setupTwoRecipeMeal(session: {
+		userId: string
+		householdId: string
+	}) {
+		const create = (title: string, ingredients: Array<[string, string]>) =>
+			prisma.recipe.create({
+				data: {
+					title,
+					userId: session.userId,
+					householdId: session.householdId,
+					ingredients: {
+						create: ingredients.map(([name, amount], order) => ({
+							name,
+							amount,
+							order,
+						})),
+					},
+				},
+			})
+		const curry = await create('Curry', [
+			['onion', '2'],
+			['coconut milk', '1'],
+		])
+		const salad = await create('Salad', [
+			['onion', '1'],
+			['cucumber', '1'],
+		])
+		const weekStart = getCurrentWeekStart()
+		const mealPlan = await prisma.mealPlan.create({
+			data: { householdId: session.householdId, weekStart },
+		})
+		const meal = await prisma.meal.create({
+			data: {
+				mealPlanId: mealPlan.id,
+				date: weekStart,
+				order: 0,
+				recipeItems: {
+					create: [
+						{ order: 0, recipeId: curry.id, recipeTitle: curry.title },
+						{ order: 1, recipeId: salad.id, recipeTitle: salad.title },
+					],
+				},
+			},
+			include: { recipeItems: { orderBy: { order: 'asc' } } },
+		})
+		const [curryItem, saladItem] = meal.recipeItems
+		return { meal, curryItem: curryItem!, saladItem: saladItem! }
+	}
+	const amounts = async (householdId: string) =>
+		Object.fromEntries(
+			(await getContributions(householdId)).map((c) => [
+				c.canonicalName,
+				c.quantity,
+			]),
+		)
+
+	test('Add to Shopping leaves out a cooked item', async () => {
+		const session = await setupUser()
+		const { meal, curryItem } = await setupTwoRecipeMeal(session)
+		await prisma.mealRecipeItem.update({
+			where: { id: curryItem.id },
+			data: { cooked: true },
+		})
+
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+
+		// Only the salad's onion, since the curry has been made.
+		expect(await amounts(session.householdId)).toEqual({
+			cucumber: '1',
+			onion: '1',
+		})
+	})
+
+	test('Update Shopping keeps what a cooked item already put on Shopping, checked or not', async () => {
+		const session = await setupUser()
+		const { meal, curryItem } = await setupTwoRecipeMeal(session)
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+		const coconut = (await getShoppingRows(session.householdId)).find(
+			(row) => row.name === 'coconut milk',
+		)!
+		await prisma.shoppingListItem.update({
+			where: { id: coconut.id },
+			data: { checked: true },
+		})
+		const rowsBefore = await getShoppingRows(session.householdId)
+		const before = await getContributions(session.householdId)
+
+		await prisma.mealRecipeItem.update({
+			where: { id: curryItem.id },
+			data: { cooked: true, scaleMultiplier: 2 },
+		})
+		await runPlanAction(session, {
+			intent: 'refreshMealShopping',
+			mealId: meal.id,
+		})
+
+		expect(await getContributions(session.householdId)).toEqual(before)
+		expect(await getShoppingRows(session.householdId)).toEqual(rowsBefore)
+	})
+
+	test('Update Shopping adds nothing for a cooked item that was never added', async () => {
+		const session = await setupUser()
+		const { meal, curryItem } = await setupTwoRecipeMeal(session)
+		await prisma.mealRecipeItem.update({
+			where: { id: curryItem.id },
+			data: { cooked: true },
+		})
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+
+		await runPlanAction(session, {
+			intent: 'refreshMealShopping',
+			mealId: meal.id,
+		})
+
+		expect(await amounts(session.householdId)).toEqual({
+			cucumber: '1',
+			onion: '1',
+		})
+	})
+
+	test('an ingredient shared with a cooked item keeps its amount, and only the uncooked share is new', async () => {
+		const session = await setupUser()
+		const { meal, curryItem, saladItem } = await setupTwoRecipeMeal(session)
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+		expect(await amounts(session.householdId)).toMatchObject({ onion: '3' })
+
+		// The curry is made; the salad doubles. Onion stays at what is there,
+		// and the salad's own cucumber follows the new scale.
+		await prisma.mealRecipeItem.update({
+			where: { id: curryItem.id },
+			data: { cooked: true },
+		})
+		await prisma.mealRecipeItem.update({
+			where: { id: saladItem.id },
+			data: { scaleMultiplier: 2 },
+		})
+		await runPlanAction(session, {
+			intent: 'refreshMealShopping',
+			mealId: meal.id,
+		})
+		expect(await amounts(session.householdId)).toEqual({
+			'coconut milk': '1',
+			cucumber: '2',
+			onion: '3',
+		})
+
+		// With the onion taken off Shopping, Update adds back only the
+		// salad's share.
+		const onion = (await getShoppingRows(session.householdId)).find(
+			(row) => row.name === 'onion',
+		)!
+		await prisma.shoppingListItem.delete({ where: { id: onion.id } })
+		await runPlanAction(session, {
+			intent: 'refreshMealShopping',
+			mealId: meal.id,
+		})
+		expect(await amounts(session.householdId)).toMatchObject({ onion: '2' })
+	})
+
+	test('a cooked item whose Recipe was deleted never lowers what the Meal put on Shopping', async () => {
+		const session = await setupUser()
+		const { meal, curryItem, saladItem } = await setupTwoRecipeMeal(session)
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+		await prisma.mealRecipeItem.update({
+			where: { id: curryItem.id },
+			data: { cooked: true },
+		})
+		await prisma.recipe.delete({ where: { id: curryItem.recipeId! } })
+		// The salad doubles and the Meal gains a note line.
+		await prisma.mealRecipeItem.update({
+			where: { id: saladItem.id },
+			data: { scaleMultiplier: 2 },
+		})
+		await addNoteLines(meal.id, [{ name: 'lemons', quantity: '2' }])
+
+		await runPlanAction(session, {
+			intent: 'refreshMealShopping',
+			mealId: meal.id,
+		})
+
+		// Coconut milk isn't withdrawn and onion (now 2 from the salad) isn't
+		// lowered from 3. The cucumber's increase and the new lemons apply.
+		expect(await amounts(session.householdId)).toEqual({
+			'coconut milk': '1',
+			cucumber: '2',
+			lemon: '2',
+			onion: '3',
+		})
+	})
+
+	describe('Meal → Shopping events name the device that made them', () => {
+		test('Add to Shopping and Update Shopping carry the client id', async () => {
+			const session = await setupUser()
+			const recipe = await setupRecipe(session.userId, session.householdId)
+			const meal = await setupMeal(session.householdId, recipe)
+			const item = await prisma.mealRecipeItem.findFirstOrThrow({
+				where: { mealId: meal.id },
+			})
+			vi.mocked(emitHouseholdEvent).mockClear()
+
+			await runPlanAction(session, {
+				intent: 'addMealToShopping',
+				mealId: meal.id,
+				originClientId: 'this-phone',
+			})
+			await runPlanAction(session, {
+				intent: 'setItemMultiplier',
+				itemId: item.id,
+				multiplier: '2',
+			})
+			await runPlanAction(session, {
+				intent: 'refreshMealShopping',
+				mealId: meal.id,
+				originClientId: 'this-phone',
+			})
+
+			const calls = vi
+				.mocked(emitHouseholdEvent)
+				.mock.calls.map(([event]) => event)
+			expect(calls).toHaveLength(2)
+			for (const event of calls) {
+				expect(event).toMatchObject({
+					type: 'shopping_list_generated',
+					originClientId: 'this-phone',
+				})
+			}
+		})
 	})
 })

@@ -2,8 +2,15 @@ import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useFetcher, useFetchers, useRevalidator } from 'react-router'
+import {
+	data,
+	Link,
+	useFetcher,
+	useFetchers,
+	useRevalidator,
+} from 'react-router'
 import { toast } from 'sonner'
+import { z } from 'zod'
 import { OfflineErrorBoundary } from '#app/components/offline-error-boundary.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import {
@@ -44,9 +51,11 @@ import {
 } from '#app/utils/shopping-contribution.server.ts'
 import {
 	buildShoppingDemand,
+	combineDemandParts,
 	combineRowDisplay,
 	demandIdentity,
 } from '#app/utils/shopping-demand.server.ts'
+import { keepsOwnAmount } from '#app/utils/shopping-row-source.ts'
 import {
 	LATER,
 	NEXT_SHOP,
@@ -55,6 +64,8 @@ import {
 } from '#app/utils/shopping-horizon.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import {
+	BulkAddItemsSchema,
+	EditShoppingItemSchema,
 	ShoppingListItemSchema,
 	guessCategory,
 } from '#app/utils/shopping-list-validation.ts'
@@ -231,11 +242,9 @@ export async function action({ request }: Route.ActionArgs) {
 			select: { id: true },
 		})
 		const allowedMealIds = meals.map((meal) => meal.id)
+		// Cooked Recipe items add nothing (the picker never offered them).
 		const demandByMeal = await loadMealShoppingDemand(prisma, {
 			mealIds: allowedMealIds,
-			// Cooked Recipe items are not something to shop for — the picker
-			// never offered them.
-			includeCooked: false,
 		})
 
 		let createdRowCount = 0
@@ -466,27 +475,38 @@ export async function action({ request }: Route.ActionArgs) {
 		const itemId = formData.get('itemId')
 		invariantResponse(typeof itemId === 'string', 'Item ID is required')
 
-		const item = await prisma.shoppingListItem.findFirst({
-			where: {
-				id: itemId,
-				list: { householdId },
-			},
-		})
-		invariantResponse(item, 'Item not found', { status: 404 })
-
 		const submission = parseWithZod(formData, {
-			schema: ShoppingListItemSchema,
+			schema: EditShoppingItemSchema,
 		})
 		if (submission.status !== 'success') {
 			return { status: 'error' as const, submission: submission.reply() }
 		}
+		const observedVersion = parseObservedVersion(formData)
+		if (observedVersion == null) {
+			// The answer an older page already shows in its editor.
+			return data(
+				{
+					status: 'error' as const,
+					submission: submission.reply({ formErrors: [RELOAD_TO_CHANGE] }),
+				},
+				{ status: 400 },
+			)
+		}
 
-		await editShoppingDisplayGroup(prisma, {
+		const result = await editShoppingDisplayGroup(prisma, {
+			householdId,
 			itemId,
+			observedVersion,
 			name: submission.value.name,
 			quantity: submission.value.quantity ?? null,
 			unit: submission.value.unit ?? null,
 		})
+		if (result.status === 'missing') {
+			throw new Response('Item not found', { status: 404 })
+		}
+		if (result.status === 'conflict') {
+			return rowChanged(householdId, itemId)
+		}
 
 		void emitHouseholdEvent({
 			originClientId: formData.get('originClientId'),
@@ -502,21 +522,22 @@ export async function action({ request }: Route.ActionArgs) {
 	if (intent === 'removeGeneratedAmount') {
 		const itemId = formData.get('itemId')
 		invariantResponse(typeof itemId === 'string', 'Item ID is required')
-		const item = await prisma.shoppingListItem.findFirst({
-			where: {
-				id: itemId,
-				list: { householdId },
-				source: 'manual',
-				mealContributions: { some: {} },
-			},
-		})
-		invariantResponse(item, 'Mixed Shopping group not found', { status: 404 })
+		const observedVersion = parseObservedVersion(formData)
+		if (observedVersion == null) return reloadToChange()
 
-		await removeGeneratedShoppingAmount(prisma, { itemId })
+		const result = await removeGeneratedShoppingAmount(prisma, {
+			householdId,
+			itemId,
+			observedVersion,
+		})
+		if (result.status !== 'success') {
+			if (result.status === 'conflict') return rowChanged(householdId, itemId)
+			throw new Response('Mixed Shopping group not found', { status: 404 })
+		}
 		void emitHouseholdEvent({
 			originClientId: formData.get('originClientId'),
 			type: 'shopping_list_item_edited',
-			payload: { name: item.name },
+			payload: { name: result.name },
 			userId,
 			householdId,
 		})
@@ -554,15 +575,25 @@ export async function action({ request }: Route.ActionArgs) {
 
 	if (intent === 'bulk-add') {
 		const rawItems = formData.get('items')
-		invariantResponse(typeof rawItems === 'string', 'Items are required')
-
-		let items: Array<{ name: string; quantity?: string; unit?: string }>
+		let json: unknown = null
 		try {
-			items = JSON.parse(rawItems) as typeof items
+			json = typeof rawItems === 'string' ? JSON.parse(rawItems) : null
 		} catch {
-			throw new Response('Invalid items data', { status: 400 })
+			// Read as invalid below.
 		}
-		invariantResponse(Array.isArray(items) && items.length > 0, 'No items')
+		const parsedItems = BulkAddItemsSchema.safeParse(json)
+		// An answer the page shows as a toast. A thrown 400 would replace
+		// Shopping with the error page.
+		if (!parsedItems.success) {
+			return data(
+				{
+					status: 'error' as const,
+					message: 'Couldn’t add these items. Try fewer, or shorter names.',
+				},
+				{ status: 400 },
+			)
+		}
+		const items = parsedItems.data
 
 		// Ordinary note Shopping lines through the demand module (#108): trims
 		// and normalizes each line's identity while preserving the free text.
@@ -625,6 +656,66 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	return { status: 'error' as const }
+}
+
+const ObservedVersionSchema = z
+	.string()
+	.regex(/^\d{1,15}$/)
+	.transform(Number)
+
+/** The row version the person saw when they opened Edit or the row menu. */
+function parseObservedVersion(formData: FormData) {
+	const parsed = ObservedVersionSchema.safeParse(
+		formData.get('observedVersion'),
+	)
+	return parsed.success ? parsed.data : null
+}
+
+const RELOAD_TO_CHANGE = 'Reload Shopping, then try again.'
+
+/** A page loaded before row versions has to reload to change a row. */
+function reloadToChange() {
+	return data(
+		{ status: 'invalid' as const, message: RELOAD_TO_CHANGE },
+		{ status: 400 },
+	)
+}
+
+/**
+ * The row changed since the person saw it, so nothing was saved. The answer
+ * carries the row as it is now, so the page can show it and a second save
+ * applies to what they have seen.
+ */
+async function rowChanged(householdId: string, itemId: string) {
+	const item = await prisma.shoppingListItem.findFirst({
+		where: { id: itemId, list: { householdId } },
+		include: { mealContributions: { select: { quantity: true, unit: true } } },
+	})
+	if (!item) throw new Response('Item not found', { status: 404 })
+	const parts = item.mealContributions.map((c) => ({
+		amount: c.quantity,
+		unit: c.unit,
+	}))
+	return data(
+		{
+			status: 'conflict' as const,
+			item: {
+				checkVersion: item.checkVersion,
+				checked: item.checked,
+				display: combineRowDisplay({
+					...item,
+					contributions: item.mealContributions,
+				}),
+				// On a row with its own amount the editor holds only that amount,
+				// so the page also says how much of the total is from Meals.
+				mealShare:
+					keepsOwnAmount(item.source) && parts.length > 0
+						? combineDemandParts(parts)
+						: null,
+			},
+		},
+		{ status: 409 },
+	)
 }
 
 /**
@@ -893,7 +984,9 @@ export default function ShoppingListRoute({
 		if (prevBulkState.current !== 'idle' && bulkAddFetcher.state === 'idle') {
 			void revalidator.revalidate()
 			const result = bulkAddFetcher.data as
-				{ addedCount?: number; moveItemIds?: string[] } | undefined
+				| { addedCount?: number; moveItemIds?: string[]; message?: string }
+				| undefined
+			if (result?.message) toast.error(result.message)
 			const moveItemIds = result?.moveItemIds ?? []
 			if (typeof result?.addedCount === 'number' && result.addedCount > 0) {
 				toast.success(

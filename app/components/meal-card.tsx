@@ -1,6 +1,11 @@
 import { type SubmissionResult } from '@conform-to/react'
 import { useEffect, useRef, useState } from 'react'
 import { useFetcher, useSearchParams } from 'react-router'
+import {
+	addedToExistingMessage,
+	skippedCheckedMessage,
+} from '#app/utils/meal-shopping-messages.ts'
+import { getHouseholdClientId } from '#app/utils/household-client.tsx'
 import { toast } from 'sonner'
 import { ErrorList } from '#app/components/forms.tsx'
 import {
@@ -531,6 +536,7 @@ export function MealCard({
 			updatedContributionCount?: number
 			removedContributionCount?: number
 			promotedRowCount?: number
+			skippedCheckedNames?: string[]
 		}
 	}>()
 	const [addingRecipe, setAddingRecipe] = useState(false)
@@ -643,8 +649,15 @@ export function MealCard({
 						(data.shopping.updatedContributionCount ?? 0) +
 						(data.shopping.removedContributionCount ?? 0) +
 						(data.shopping.promotedRowCount ?? 0)
-					if (changed > 0) toast.success('Shopping updated')
-					else toast.info('Shopping is up to date')
+					const skippedNames = data.shopping.skippedCheckedNames ?? []
+					if (changed > 0) {
+						toast.success(
+							skippedCheckedMessage(skippedNames, { afterChanges: true }) ??
+								'Shopping updated',
+						)
+					} else if (skippedNames.length > 0) {
+						toast.info(skippedCheckedMessage(skippedNames))
+					} else toast.info('Shopping is up to date')
 					prevShoppingState.current = addToShoppingFetcher.state
 					return
 				}
@@ -655,7 +668,8 @@ export function MealCard({
 						`Added ${createdRowCount} item${createdRowCount === 1 ? '' : 's'} to Shopping`,
 					)
 				} else if ((attachedCount ?? 0) > 0) {
-					toast.success('Everything is already on Shopping')
+					// The amounts joined rows already there, which now show more.
+					toast.success(addedToExistingMessage(attachedCount ?? 0))
 				} else if ((alreadyContributedCount ?? 0) > 0) {
 					toast.info('This Meal is already on Shopping')
 				} else {
@@ -808,6 +822,7 @@ export function MealCard({
 										? 'refreshMealShopping'
 										: 'addMealToShopping',
 									mealId: meal.id,
+									originClientId: getHouseholdClientId(),
 								},
 								{ method: 'POST' },
 							)

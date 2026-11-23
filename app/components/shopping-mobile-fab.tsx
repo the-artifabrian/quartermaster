@@ -76,8 +76,10 @@ export function MobileFabAdd({
 				| {
 						addedCount?: number
 						moveItemIds?: string[]
+						message?: string
 				  }
 				| undefined
+			if (result?.message) toast.error(result.message)
 			const moveItemIds = result?.moveItemIds ?? []
 			if (typeof result?.addedCount === 'number' && result.addedCount > 0) {
 				toast.success(

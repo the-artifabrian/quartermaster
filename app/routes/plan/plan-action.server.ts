@@ -247,9 +247,12 @@ export function createPlanAction(
 			// contributor.
 			const mealDemand = await loadMealShoppingDemand(db, {
 				mealIds: [meal.id],
-				includeCooked: true,
 			})
-			const { lines: demand } = mealDemand.get(meal.id)!
+			const {
+				lines: demand,
+				cookedIdentities,
+				cookedRecipeGone,
+			} = mealDemand.get(meal.id)!
 
 			const availability = await loadShoppingAvailability(db, householdId)
 			const { lines } = annotateShoppingDemand(demand, availability)
@@ -264,6 +267,8 @@ export function createPlanAction(
 							mealId: meal.id,
 							listId: shoppingList.id,
 							lines,
+							keepIdentities: cookedIdentities,
+							neverLower: cookedRecipeGone,
 						})
 					: await reconcileMealShoppingContributions(db, {
 							mealId: meal.id,
@@ -283,6 +288,7 @@ export function createPlanAction(
 					: 0)
 			if (changedCount > 0) {
 				void emitHouseholdEvent({
+					originClientId: formData.get('originClientId'),
 					type: 'shopping_list_generated',
 					payload: { count: changedCount },
 					userId,
@@ -310,6 +316,7 @@ export function createPlanAction(
 			if (removesShopping) {
 				await removeMealWithShoppingContributions(db, { mealId: meal.id })
 				void emitHouseholdEvent({
+					originClientId: formData.get('originClientId'),
 					type: 'shopping_list_generated',
 					payload: { count: 0 },
 					userId,

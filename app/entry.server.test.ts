@@ -112,7 +112,8 @@ test('a 5xx response and a thrown value that is not an Error still send server_e
 
 // Failure list for connect-src:
 // - a PostHog proxy host (production's t.useqm.app) is both the API host and
-//   the asset host, so it must be listed once
+//   the asset host, so it must be listed once, also when POSTHOG_HOST is set
+//   with a trailing slash and the asset host comes back as a bare origin
 // - PostHog Cloud keeps both its API host and its assets host
 // - with no PostHog key only the app itself is listed, and development adds
 //   the websocket Vite reloads over
@@ -123,6 +124,13 @@ test('connect-src lists a PostHog proxy host once', () => {
 		posthogAssetHost: 'https://t.useqm.app',
 	})
 	expect(sources).toEqual(['https://t.useqm.app', "'self'"])
+
+	const withSlash = connectSources({
+		mode: 'production',
+		posthogHost: 'https://t.useqm.app/',
+		posthogAssetHost: 'https://t.useqm.app',
+	})
+	expect(withSlash).toEqual(['https://t.useqm.app', "'self'"])
 })
 
 test('connect-src keeps both PostHog Cloud hosts', () => {

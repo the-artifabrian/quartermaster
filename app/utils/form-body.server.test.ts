@@ -13,8 +13,9 @@ import {
 //   the error's class can't decide it
 // - a request the client gave up on keeps its own error; nobody is there to
 //   read a 400, and the error report already skips aborted requests
-// - a form read from a copy (Plan, Recipe import and the OAuth route read the
-//   intent or redirectTo from request.clone() first): the copy answers 400 too
+// - a form read from a copy (the OAuth route reads redirectTo from
+//   request.clone() before the strategy reads the body): the copy answers 400
+//   too
 // - an empty urlencoded body still reads as an empty form, so the action's own
 //   validation answers it
 // - real forms, urlencoded and multipart with a file, still read in full

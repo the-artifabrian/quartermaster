@@ -42,10 +42,11 @@ export function connectSources({
 	posthogHost?: string
 	posthogAssetHost?: string
 }) {
-	// A PostHog proxy serves the API and the assets from one host.
+	// A PostHog proxy serves the API and the assets from one host. The asset
+	// host is already an origin, so the API host becomes one to compare.
 	const sources = [
 		mode === 'development' ? 'ws:' : undefined,
-		posthogHost,
+		posthogHost ? new URL(posthogHost).origin : undefined,
 		posthogAssetHost,
 		"'self'",
 	].filter((source) => source !== undefined)

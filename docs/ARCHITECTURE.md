@@ -47,8 +47,8 @@ file tree under `app/routes/`. The rules that matter here:
   `<Outlet>`); the plugin's `createRoutePath` just drops it.
   `settings/profile/password_.create.tsx` is the same case.
 - `[.]` escapes a dot: `_seo/robots[.]txt.ts` is `/robots.txt`.
-- `*.server.ts`, `*.client.ts`, `*.test.ts` and anything under a `+` prefix
-  (`_marketing/+logos/`) sit next to routes without becoming routes.
+- `*.server.ts`, `*.client.ts`, `*.test.ts` and anything in a folder whose name
+  starts with `+` sit next to routes without becoming routes.
 
 When a case is unclear, `bunx react-router routes` prints the compiled tree.
 

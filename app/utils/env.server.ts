@@ -39,7 +39,6 @@ const schema = z.object({
 	// without it rate limits key on fly-client-ip (docs/ARCHITECTURE.md,
 	// "Deployment and recovery").
 	CF_EDGE_SECRET: z.preprocess(emptyAsUndefined, z.string().optional()),
-	INTERNAL_COMMAND_TOKEN: z.string(),
 	// Everything that reads this compares === 'true' (index.ts,
 	// resources/images.tsx, the production guard below). Validating it here
 	// keeps a typo like MOCKS=fasle from silently meaning anything at all.

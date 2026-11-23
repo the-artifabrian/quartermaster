@@ -43,6 +43,8 @@
  * - A row id from another Household, or one deleted meanwhile, answers
  *   missing and writes nothing.
  * - At the current version both still save.
+ * - A check lands after Remove generated amount reads the row and before it
+ *   deletes the share. The checked row never loses a share its shopper saw.
  * - Renaming a typed row that holds a Meal share moves the share to an
  *   unchecked row of the old name, never onto a checked one; with none, to a
  *   new unchecked row.
@@ -131,7 +133,7 @@ function pauseAfterFirstRowRead(
 					return new Proxy(value as object, {
 						get(rows, method) {
 							const fn = Reflect.get(rows, method)
-							if (method !== 'findMany') {
+							if (method !== 'findMany' && method !== 'findFirst') {
 								return typeof fn === 'function' ? fn.bind(rows) : fn
 							}
 							return async (...args: unknown[]) => {
@@ -795,6 +797,54 @@ describe('row Edit and Remove generated amount check the version', () => {
 			}),
 		).toBe(0)
 	})
+})
+
+test('a check landing inside Remove generated amount never strips a checked row', async () => {
+	await using database = await createWalDatabase()
+	const { db: wal, url } = database
+	const { household, list, meal } = await seedHousehold(wal)
+	const mealA = await meal(0)
+	const onion = await wal.shoppingListItem.create({
+		data: { listId: list.id, name: 'onion', quantity: '1', source: 'manual' },
+	})
+	await reconcileMealShoppingContributions(wal, {
+		mealId: mealA.id,
+		listId: list.id,
+		lines: [line('onion', '2', null)],
+	})
+	const seen = await wal.shoppingListItem.findUniqueOrThrow({
+		where: { id: onion.id },
+	})
+
+	// The shopper checks the row at the version both of them saw.
+	const check = startAfterRead(
+		url,
+		'UPDATE "ShoppingListItem" SET "checked" = 1 WHERE "id" = ? AND "checkVersion" = ? AND "checked" = 0',
+		[onion.id, seen.checkVersion],
+	)
+	const result = await removeGeneratedShoppingAmount(
+		pauseAfterFirstRowRead(wal, check.afterRead),
+		{
+			householdId: household.id,
+			itemId: onion.id,
+			observedVersion: seen.checkVersion,
+		},
+	)
+	await check.committed()
+
+	const row = await wal.shoppingListItem.findUniqueOrThrow({
+		where: { id: onion.id },
+		include: { mealContributions: true },
+	})
+	// Either the remove went first and the check, against the older version,
+	// changed nothing; or the check went first and the remove was refused.
+	if (row.checked) {
+		expect(result.status).toBe('conflict')
+		expect(row.mealContributions).toHaveLength(1)
+	} else {
+		expect(result.status).toBe('success')
+		expect(row.mealContributions).toHaveLength(0)
+	}
 })
 
 describe('Edit renaming a row with a Meal share', () => {

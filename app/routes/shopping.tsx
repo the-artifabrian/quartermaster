@@ -573,7 +573,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 	// An intent this page no longer sends, such as an old tab's delete or Clear
 	// checked from before Undo (they go to resources/undo-delete now). It saves
-	// nothing and says so; a 200 would read as done.
+	// nothing, and the status says so; a 200 would read as done.
 	return data({ status: 'error' as const }, { status: 400 })
 }
 

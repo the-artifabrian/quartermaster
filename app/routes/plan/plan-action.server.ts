@@ -352,7 +352,7 @@ export function createPlanAction(
 
 		// An intent this page no longer sends, such as an old tab's removeItem or
 		// removeMeal from before Undo (they go to resources/undo-delete now). It
-		// saves nothing and says so; a 200 would read as done.
+		// saves nothing, and the status says so; a 200 would read as done.
 		return data({ status: 'error' as const }, { status: 400 })
 	}
 }

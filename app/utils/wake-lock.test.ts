@@ -129,11 +129,14 @@ test('extra releases never go negative', async () => {
 test('missing wakeLock API is a no-op', async () => {
 	// @ts-expect-error remove the test-only property
 	delete navigator.wakeLock
-	acquireWakeLock()
-	await flush()
-	releaseWakeLock()
-	await flush()
-	// reaching here without throwing is the assertion
+	await expect(
+		(async () => {
+			acquireWakeLock()
+			await flush()
+			releaseWakeLock()
+			await flush()
+		})(),
+	).resolves.toBeUndefined()
 })
 
 test('keep-awake preference defaults on and round-trips', () => {

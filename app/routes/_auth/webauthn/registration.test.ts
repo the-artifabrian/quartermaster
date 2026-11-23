@@ -263,7 +263,8 @@ test('a 2FA user who reverified recently gets options', async () => {
 	const freshCookie = convertSetCookieToCookie(
 		await authSessionStorage.commitSession(authSession),
 	)
-	await startWithPassword(freshCookie)
+	const { response } = await startWithPassword(freshCookie)
+	expect(response.status).toBe(200)
 })
 
 test('saving without the password step saves nothing and sends nothing', async () => {

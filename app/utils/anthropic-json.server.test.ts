@@ -64,9 +64,10 @@ describe('parseAnthropicJson', () => {
 			failure: { kind: 'parse' },
 		})
 
-		const result = parseAnthropicJson('{"value":42}', FeatureSchema)
-		expect(result.ok).toBe(false)
-		if (!result.ok) expect(result.failure.kind).toBe('schema')
+		expect(parseAnthropicJson('{"value":42}', FeatureSchema)).toMatchObject({
+			ok: false,
+			failure: { kind: 'schema' },
+		})
 	})
 })
 
@@ -258,8 +259,10 @@ describe('requestAnthropicJson', () => {
 			request,
 			makeAdapter(async () => anthropicResponse('{"value":42}')),
 		)
-		expect(wrongShape.ok).toBe(false)
-		if (!wrongShape.ok) expect(wrongShape.failure.kind).toBe('schema')
+		expect(wrongShape).toMatchObject({
+			ok: false,
+			failure: { kind: 'schema' },
+		})
 	})
 
 	test('reports a max_tokens stop as its own failure, not as bad JSON', async () => {

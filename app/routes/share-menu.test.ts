@@ -250,13 +250,12 @@ test('anonymous live reading exposes only Menu content and included Recipes, at 
 	await expect(
 		action(await args(menu.id, undefined, true)),
 	).rejects.toMatchObject({ status: 302 })
-	try {
-		await action(await args(menu.id, undefined, true))
-	} catch (error) {
-		expect((error as Response).headers.get('location')).toBe(
-			`/login?redirectTo=%2Fshare%2Fmenus%2F${menu.id}`,
-		)
-	}
+	const redirect = (await action(await args(menu.id, undefined, true)).catch(
+		(error: unknown) => error,
+	)) as Response
+	expect(redirect.headers.get('location')).toBe(
+		`/login?redirectTo=%2Fshare%2Fmenus%2F${menu.id}`,
+	)
 	await prisma.recipe.update({
 		where: { id: recipe.id },
 		data: { title: 'Updated chickpeas' },

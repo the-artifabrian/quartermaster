@@ -53,11 +53,13 @@ function isChoiceResponse(
 const STAPLES_TITLE = 'What do you need this trip?'
 const STAPLES_DESCRIPTION = 'Pick Staples to add to Next shop.'
 
-type BulkAddResponse = {
-	status: 'success'
-	addedCount: number
-	moveItemIds: string[]
-}
+type BulkAddResponse =
+	| {
+			status: 'success'
+			addedCount: number
+			moveItemIds: string[]
+	  }
+	| { status: 'error'; message: string }
 
 export function ShoppingStaplesPicker({
 	shoppingIdentities,
@@ -138,6 +140,13 @@ export function ShoppingStaplesPicker({
 
 	useEffect(() => {
 		if (
+			previousFetcherState.current !== 'idle' &&
+			fetcher.state === 'idle' &&
+			fetcher.data?.status === 'error'
+		) {
+			// The picks stay, so the person can pick fewer and try again.
+			toast.error(fetcher.data.message)
+		} else if (
 			previousFetcherState.current !== 'idle' &&
 			fetcher.state === 'idle' &&
 			fetcher.data?.status === 'success'

@@ -234,7 +234,7 @@ export function ShoppingListItemCard({
 						autoCapitalize="none"
 						autoFocus
 						required
-						maxLength={100}
+						maxLength={200}
 					/>
 				</EditField>
 				<div className="flex gap-2">

@@ -31,6 +31,14 @@ export const ShoppingListItemSchema = z.object({
 export type ShoppingListItemFormData = z.infer<typeof ShoppingListItemSchema>
 
 /**
+ * Editing a row. A row's name may be as long as a Staple's, since the
+ * Staples picker and bulk add put those on Shopping as they are.
+ */
+export const EditShoppingItemSchema = ShoppingListItemSchema.extend({
+	name: z.string().min(1, { message: 'Item name is required' }).max(200),
+})
+
+/**
  * The most items one bulk add takes, far more than a household picks from
  * its Staples or says in one voice add.
  */

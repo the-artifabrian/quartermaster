@@ -65,6 +65,7 @@ import {
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import {
 	BulkAddItemsSchema,
+	EditShoppingItemSchema,
 	ShoppingListItemSchema,
 	guessCategory,
 } from '#app/utils/shopping-list-validation.ts'
@@ -475,7 +476,7 @@ export async function action({ request }: Route.ActionArgs) {
 		invariantResponse(typeof itemId === 'string', 'Item ID is required')
 
 		const submission = parseWithZod(formData, {
-			schema: ShoppingListItemSchema,
+			schema: EditShoppingItemSchema,
 		})
 		if (submission.status !== 'success') {
 			return { status: 'error' as const, submission: submission.reply() }
@@ -574,17 +575,23 @@ export async function action({ request }: Route.ActionArgs) {
 
 	if (intent === 'bulk-add') {
 		const rawItems = formData.get('items')
-		invariantResponse(typeof rawItems === 'string', 'Items are required')
-
-		let json: unknown
+		let json: unknown = null
 		try {
-			json = JSON.parse(rawItems)
+			json = typeof rawItems === 'string' ? JSON.parse(rawItems) : null
 		} catch {
-			throw new Response('Invalid items data', { status: 400 })
+			// Read as invalid below.
 		}
 		const parsedItems = BulkAddItemsSchema.safeParse(json)
+		// An answer the page shows as a toast. A thrown 400 would replace
+		// Shopping with the error page.
 		if (!parsedItems.success) {
-			throw new Response('Invalid items data', { status: 400 })
+			return data(
+				{
+					status: 'error' as const,
+					message: 'Couldn’t add these items. Try fewer, or shorter names.',
+				},
+				{ status: 400 },
+			)
 		}
 		const items = parsedItems.data
 
@@ -977,7 +984,9 @@ export default function ShoppingListRoute({
 		if (prevBulkState.current !== 'idle' && bulkAddFetcher.state === 'idle') {
 			void revalidator.revalidate()
 			const result = bulkAddFetcher.data as
-				{ addedCount?: number; moveItemIds?: string[] } | undefined
+				| { addedCount?: number; moveItemIds?: string[]; message?: string }
+				| undefined
+			if (result?.message) toast.error(result.message)
 			const moveItemIds = result?.moveItemIds ?? []
 			if (typeof result?.addedCount === 'number' && result.addedCount > 0) {
 				toast.success(

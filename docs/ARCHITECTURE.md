@@ -313,8 +313,10 @@ are preserved. A checked row is a purchase. New demand never joins it, and
 Update Shopping leaves it alone. If the Meal’s demand on a checked row grew,
 shrank or went away, the row and the share stay as they are, nothing is added
 elsewhere for it, and the toast says which rows were left. After the row is
-unchecked, the next update applies the new amount. The Meal writers read the
-list and write in one `writeTransaction`.
+unchecked, the next update applies the new amount. Undo of a Meal deleted
+with its Shopping amounts puts a share whose row was checked since onto an
+unchecked row instead. The Meal writers read the list and write in one
+`writeTransaction`.
 
 A row typed in Shopping or added from Recipe detail keeps its own amount. Meal
 demand that joins it adds to that amount on display. Edit changes only the

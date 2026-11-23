@@ -3,6 +3,9 @@ import { remember } from '@epic-web/remember'
 import { z } from 'zod'
 import { type Prisma, type PrismaClient } from '#app/generated/prisma/client.ts'
 import { demandIdentity } from './shopping-demand.server.ts'
+import { selectNextShopDemandTargets } from './shopping-horizon.server.ts'
+import { LATER, NEXT_SHOP } from './shopping-horizon.ts'
+import { guessCategory } from './shopping-list-validation.ts'
 import { writeTransaction } from './write-transaction.server.ts'
 
 /**
@@ -734,28 +737,73 @@ export function restoreMeal(
 		// the Meal's demand is already there.
 		let amounts = 0
 		if (snapshot.removedContributions.length > 0) {
-			const [liveRows, taken] = await Promise.all([
+			const [listRows, taken] = await Promise.all([
 				tx.shoppingListItem.findMany({
-					where: {
-						id: { in: snapshot.removedContributions.map((c) => c.itemId) },
-						list: { householdId },
+					where: { list: { householdId } },
+					orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+					select: {
+						id: true,
+						listId: true,
+						name: true,
+						checked: true,
+						horizon: true,
 					},
-					select: { id: true },
 				}),
 				tx.mealShoppingContribution.findMany({
 					where: { mealId: meal.id },
 					select: { canonicalName: true },
 				}),
 			])
-			const live = new Set(liveRows.map((r) => r.id))
+			const rowById = new Map(listRows.map((row) => [row.id, row]))
 			const takenDemand = new Set(taken.map((c) => c.canonicalName))
 			const back = snapshot.removedContributions.filter(
-				(c) => live.has(c.itemId) && !takenDemand.has(c.canonicalName),
+				(c) => rowById.has(c.itemId) && !takenDemand.has(c.canonicalName),
 			)
-			if (back.length > 0) {
-				await tx.mealShoppingContribution.createMany({
-					data: back.map((c) => ({ ...c, mealId: meal.id })),
-				})
+			// A row checked since the delete is a purchase and doesn't grow: its
+			// share goes back as new demand would, onto an unchecked row of the
+			// same ingredient or a new one (#226).
+			const targets = selectNextShopDemandTargets(
+				listRows,
+				back.map((c) => c.canonicalName),
+			)
+			const data: Prisma.MealShoppingContributionCreateManyInput[] = []
+			for (const contribution of back) {
+				const row = rowById.get(contribution.itemId)!
+				let itemId = row.id
+				if (row.checked) {
+					const target = targets.get(contribution.canonicalName)
+					if (target) {
+						itemId = target.id
+						if (target.horizon === LATER) {
+							await tx.shoppingListItem.update({
+								where: { id: target.id },
+								data: { horizon: NEXT_SHOP },
+							})
+						}
+					} else {
+						const created = await tx.shoppingListItem.create({
+							data: {
+								listId: row.listId,
+								name: contribution.name,
+								quantity: contribution.quantity,
+								unit: contribution.unit,
+								category: guessCategory(contribution.name),
+								source: 'meal',
+								horizon: NEXT_SHOP,
+							},
+							select: { id: true, listId: true, name: true, horizon: true },
+						})
+						itemId = created.id
+						targets.set(contribution.canonicalName, {
+							...created,
+							checked: false,
+						})
+					}
+				}
+				data.push({ ...contribution, itemId, mealId: meal.id })
+			}
+			if (data.length > 0) {
+				await tx.mealShoppingContribution.createMany({ data })
 			}
 			amounts = back.length
 		}

@@ -33,6 +33,13 @@
  * - After a skipped Update, deleting the Meal with its Shopping amounts and
  *   undoing it behave as before: the share still belongs to the Meal, so the
  *   checked Meal row goes with it and comes back with it.
+ * - Uncheck, then Update with a dropped line, withdraws the share and
+ *   deletes the Meal row it leaves empty.
+ *
+ * Undo of a Meal deleted with its Shopping amounts:
+ * - The typed row its share sat on was checked meanwhile. Undo puts the
+ *   share on an unchecked row of that ingredient, or a new one, and the
+ *   checked row stays as it was.
 
  * Row Edit and Remove generated amount carry the version the person saw:
  * - Another Meal's demand joined the row after Edit opened. Saving must not
@@ -605,6 +612,32 @@ describe('Update Shopping leaves checked rows alone', () => {
 		expect(await shares()).toEqual(sharesBefore)
 	})
 
+	test('uncheck, then Update with a dropped line, withdraws the share and the empty row', async () => {
+		const { list, mealA, add, update, setChecked } = await setup()
+		await add(mealA.id, [line('onion', '2', null), line('carrot', '1', null)])
+		const onion = await prisma.shoppingListItem.findFirstOrThrow({
+			where: { listId: list.id, name: 'onion' },
+		})
+		await setChecked(onion.id, true)
+		await update(mealA.id, [line('carrot', '1', null)])
+		await setChecked(onion.id, false)
+
+		const result = await update(mealA.id, [line('carrot', '1', null)])
+
+		expect(result).toMatchObject({
+			removedContributionCount: 1,
+			skippedCheckedNames: [],
+		})
+		expect((await displayed(prisma, list.id)).map((row) => row.name)).toEqual([
+			'carrot',
+		])
+		expect(
+			await prisma.mealShoppingContribution.findMany({
+				select: { canonicalName: true },
+			}),
+		).toEqual([{ canonicalName: 'carrot' }])
+	})
+
 	test('a first add of a new Meal still goes beside a checked match', async () => {
 		const { list, meal, mealA, add, setChecked } = await setup()
 		await add(mealA.id, [line('onion', '2', null)])
@@ -959,5 +992,90 @@ describe('Edit renaming a row with a Meal share', () => {
 		expect(
 			(await prisma.mealShoppingContribution.findFirstOrThrow()).itemId,
 		).toBe(target.id)
+	})
+})
+
+describe('Undo of a Meal deleted with its Shopping amounts', () => {
+	async function deleteWithShare() {
+		const { household, list, meal } = await seedHousehold(prisma)
+		const mealA = await meal(0)
+		const typed = await prisma.shoppingListItem.create({
+			data: { listId: list.id, name: 'onion', quantity: '1', source: 'manual' },
+		})
+		await reconcileMealShoppingContributions(prisma, {
+			mealId: mealA.id,
+			listId: list.id,
+			lines: [line('onion', '2', null)],
+		})
+		const deleted = await deleteMeal(prisma, {
+			householdId: household.id,
+			mealId: mealA.id,
+			removeShoppingContributions: true,
+		})
+		if (deleted.status !== 'deleted' || deleted.snapshot.kind !== 'meal') {
+			throw new Error('expected a Meal snapshot')
+		}
+		const snapshot = deleted.snapshot.meal
+		// Someone checks the typed row before Undo is tapped.
+		await prisma.shoppingListItem.update({
+			where: { id: typed.id },
+			data: { checked: true },
+		})
+		const bought = await prisma.shoppingListItem.findUniqueOrThrow({
+			where: { id: typed.id },
+		})
+		const undo = () =>
+			restoreMeal(prisma, {
+				householdId: household.id,
+				snapshot,
+			})
+		return { list, mealA, typed, bought, undo }
+	}
+
+	test('a share whose row was checked comes back on a new unchecked row', async () => {
+		const { list, mealA, typed, bought, undo } = await deleteWithShare()
+
+		await undo()
+
+		expect(
+			await prisma.shoppingListItem.findUniqueOrThrow({
+				where: { id: typed.id },
+			}),
+		).toEqual(bought)
+		const rows = await displayed(prisma, list.id)
+		expect(rows.map((row) => [row.checked, row.display.quantity])).toEqual([
+			[true, '1'],
+			[false, '2'],
+		])
+		expect(
+			await prisma.mealShoppingContribution.findFirstOrThrow({
+				select: { mealId: true, itemId: true },
+			}),
+		).toEqual({ mealId: mealA.id, itemId: rows[1]!.id })
+	})
+
+	test('a share whose row was checked joins an unchecked row of the same ingredient', async () => {
+		const { list, typed, bought, undo } = await deleteWithShare()
+		const outstanding = await prisma.shoppingListItem.create({
+			data: {
+				listId: list.id,
+				name: 'onions',
+				quantity: '3',
+				source: 'manual',
+			},
+		})
+
+		await undo()
+
+		expect(
+			await prisma.shoppingListItem.findUniqueOrThrow({
+				where: { id: typed.id },
+			}),
+		).toEqual(bought)
+		expect(
+			(await displayed(prisma, list.id)).find(
+				(row) => row.id === outstanding.id,
+			),
+		).toMatchObject({ checked: false, display: { quantity: '5' } })
 	})
 })

@@ -250,7 +250,7 @@ test('edited cooking content cannot inherit checks after reload', async ({
 	await expect(page.getByRole('checkbox', { checked: true })).toHaveCount(0)
 })
 
-test('editing a step mid-cook keeps the other checks and every row id', async ({
+test('editing a step mid-cook keeps the other checks, every row id, and a row added meanwhile', async ({
 	page,
 	login,
 }) => {
@@ -297,6 +297,10 @@ test('editing a step mid-cook keeps the other checks and every row id', async ({
 	await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
 	const save = page.locator('[data-nav-save]')
 	await hydrated(save)
+	// Another member adds a row while this form is open.
+	const parsley = await prisma.ingredient.create({
+		data: { recipeId: recipe.id, name: 'parsley', order: 3 },
+	})
 	await page
 		.getByRole('textbox', { name: 'Step 3' })
 		.fill('Toss together and serve.')
@@ -304,6 +308,7 @@ test('editing a step mid-cook keeps the other checks and every row id', async ({
 
 	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 	await expect(step('Toss together and serve.')).toBeVisible()
+	await expect(ingredient('parsley')).toBeVisible()
 	await expect(ingredient('spaghetti')).toBeChecked()
 	await expect(ingredient('garlic')).toBeChecked()
 	await expect(ingredient('olive oil')).not.toBeChecked()
@@ -320,9 +325,10 @@ test('editing a step mid-cook keeps the other checks and every row id', async ({
 			},
 		},
 	})
-	expect(saved.ingredients.map((row) => row.id)).toEqual(
-		recipe.ingredients.map((row) => row.id),
-	)
+	expect(saved.ingredients.map((row) => row.id)).toEqual([
+		...recipe.ingredients.map((row) => row.id),
+		parsley.id,
+	])
 	expect(saved.instructions).toEqual([
 		{ id: recipe.instructions[0]!.id, content: 'Boil the spaghetti.' },
 		{ id: recipe.instructions[1]!.id, content: 'Fry the garlic in the oil.' },

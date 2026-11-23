@@ -272,3 +272,76 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 		})
 		.toEqual({ quantity: '600', unit: 'g' })
 })
+
+test('a Menu card another member adds while the edit form is open survives Save', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const [soup, bread] = await Promise.all(
+		['Leek soup', 'Soda bread'].map((title) =>
+			prisma.recipe.create({
+				data: { title, userId: user.id, householdId: user.householdId },
+			}),
+		),
+	)
+	const menu = await prisma.menu.create({
+		data: {
+			title: 'Winter supper',
+			titleKey: 'winter supper',
+			householdId: user.householdId,
+			sections: {
+				create: {
+					name: null,
+					order: 0,
+					items: {
+						create: {
+							kind: 'recipe',
+							order: 0,
+							recipeId: soup!.id,
+							recipeTitle: soup!.title,
+							scaleMultiplier: 1,
+						},
+					},
+				},
+			},
+		},
+		include: { sections: { include: { items: true } } },
+	})
+
+	await page.goto(`/recipes/menus/${menu.id}/edit`)
+	const save = page.locator('[data-nav-save]')
+	await expect
+		.poll(() =>
+			save.evaluate((element) =>
+				Object.keys(element).some((key) => key.startsWith('__reactProps')),
+			),
+		)
+		.toBe(true)
+	const added = await prisma.menuItem.create({
+		data: {
+			kind: 'recipe',
+			order: 1,
+			sectionId: menu.sections[0]!.id,
+			recipeId: bread!.id,
+			recipeTitle: bread!.title,
+			scaleMultiplier: 1,
+		},
+	})
+	await page
+		.getByRole('textbox', { name: 'Title' })
+		.fill('Winter supper for two')
+	await save.click()
+
+	await expect(page).toHaveURL(`/recipes/menus/${menu.id}`)
+	await expect(page.getByText('Soda bread')).toBeVisible()
+	const items = await prisma.menuItem.findMany({
+		where: { section: { menuId: menu.id } },
+		orderBy: { order: 'asc' },
+		select: { id: true },
+	})
+	expect(items.map((item) => item.id)).toEqual([
+		menu.sections[0]!.items[0]!.id,
+		added.id,
+	])
+})

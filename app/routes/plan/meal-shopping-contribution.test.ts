@@ -31,7 +31,7 @@ vi.mock('#app/utils/household-events.server.ts', () => ({
 	emitHouseholdEvent: vi.fn(),
 }))
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
-import { getCurrentWeekStart } from '#app/utils/date.ts'
+import { getWeekStart } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
@@ -201,7 +201,7 @@ async function setupMeal(
 	recipe: { id: string; title: string },
 	{ scaleMultiplier = 1 }: { scaleMultiplier?: number } = {},
 ) {
-	const weekStart = getCurrentWeekStart()
+	const weekStart = getWeekStart(new Date())
 	const mealPlan = await prisma.mealPlan.upsert({
 		where: { householdId_weekStart: { householdId, weekStart } },
 		create: { householdId, weekStart },
@@ -792,7 +792,7 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
 
-		const weekStart = getCurrentWeekStart()
+		const weekStart = getWeekStart(new Date())
 		const result = (await runPlanAction(session, {
 			intent: 'addMeal',
 			date: weekStart.toISOString().slice(0, 10),
@@ -868,7 +868,7 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 
 	test('a text-only Meal has no Shopping behavior', async () => {
 		const session = await setupUser()
-		const weekStart = getCurrentWeekStart()
+		const weekStart = getWeekStart(new Date())
 		const mealPlan = await prisma.mealPlan.create({
 			data: { householdId: session.householdId, weekStart },
 		})
@@ -890,7 +890,7 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 
 	test('a missing planned Recipe fabricates no fresh demand', async () => {
 		const session = await setupUser()
-		const weekStart = getCurrentWeekStart()
+		const weekStart = getWeekStart(new Date())
 		const mealPlan = await prisma.mealPlan.create({
 			data: { householdId: session.householdId, weekStart },
 		})
@@ -1211,7 +1211,7 @@ describe('addMealToShopping — multi-Recipe and note-line aggregation (#109)', 
 
 	test('a note-only snapshot Meal is a valid contributor', async () => {
 		const session = await setupUser()
-		const weekStart = getCurrentWeekStart()
+		const weekStart = getWeekStart(new Date())
 		const mealPlan = await prisma.mealPlan.create({
 			data: { householdId: session.householdId, weekStart },
 		})
@@ -1640,7 +1640,7 @@ describe('cooked Recipe items never add Shopping amounts', () => {
 			['onion', '1'],
 			['cucumber', '1'],
 		])
-		const weekStart = getCurrentWeekStart()
+		const weekStart = getWeekStart(new Date())
 		const mealPlan = await prisma.mealPlan.create({
 			data: { householdId: session.householdId, weekStart },
 		})

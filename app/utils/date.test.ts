@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import {
 	addDaysUTC,
 	getWeekStart,
@@ -9,6 +9,7 @@ import {
 	parseDate,
 	isToday,
 	isPast,
+	loadedToday,
 	formatDayLabel,
 	formatMonthDay,
 	formatShortDay,
@@ -195,90 +196,89 @@ describe('formatMonthDay', () => {
 })
 
 describe('formatWeekRange', () => {
-	test('omits year when week is in current year', () => {
-		const currentYear = new Date().getFullYear()
-		const weekStart = new Date(`${currentYear}-02-02T00:00:00.000Z`)
-		expect(formatWeekRange(weekStart)).toBe('Feb 2 – 8')
+	// The year shown follows the user's today.
+	test('omits year when the week is in the year of today', () => {
+		const weekStart = new Date('2026-02-02T00:00:00.000Z')
+		expect(formatWeekRange(weekStart, '2026-11-23')).toBe('Feb 2 – 8')
 	})
 
-	test('shows end month when week spans months in current year', () => {
-		const currentYear = new Date().getFullYear()
-		const weekStart = new Date(`${currentYear}-02-23T00:00:00.000Z`)
-		expect(formatWeekRange(weekStart)).toBe('Feb 23 – Mar 1')
+	test('shows end month when week spans months in the year of today', () => {
+		const weekStart = new Date('2026-02-23T00:00:00.000Z')
+		expect(formatWeekRange(weekStart, '2026-11-23')).toBe('Feb 23 – Mar 1')
 	})
 
 	test('shows year when week spans year boundary', () => {
-		const year = new Date().getFullYear()
-		const weekStart = new Date(`${year}-12-28T00:00:00.000Z`)
-		expect(formatWeekRange(weekStart)).toBe(`Dec 28 – Jan 3, ${year + 1}`)
+		const weekStart = new Date('2026-12-28T00:00:00.000Z')
+		expect(formatWeekRange(weekStart, '2026-12-31')).toBe(
+			'Dec 28 – Jan 3, 2027',
+		)
 	})
 
 	test('shows year when week is in a different year', () => {
-		const pastYear = new Date().getFullYear() - 1
-		const weekStart = new Date(`${pastYear}-03-03T00:00:00.000Z`)
-		expect(formatWeekRange(weekStart)).toBe(`Mar 3 – 9, ${pastYear}`)
+		const weekStart = new Date('2025-03-03T00:00:00.000Z')
+		expect(formatWeekRange(weekStart, '2026-11-23')).toBe('Mar 3 – 9, 2025')
+	})
+
+	test("takes the year from today, whatever the server's clock says", () => {
+		// New Year's Day for the user while the server is still in the old year.
+		const weekStart = new Date('2027-01-04T00:00:00.000Z')
+		expect(formatWeekRange(weekStart, '2027-01-01')).toBe('Jan 4 – 10')
+		expect(formatWeekRange(weekStart, '2026-12-31')).toBe('Jan 4 – 10, 2027')
 	})
 })
 
 describe('isToday', () => {
-	test('returns true for today (UTC midnight of local today)', () => {
-		const now = new Date()
-		const todayUTC = new Date(
-			Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
-		)
-		expect(isToday(todayUTC)).toBe(true)
+	test('is true for the stored day that is today', () => {
+		expect(isToday(parseDate('2026-11-23'), '2026-11-23')).toBe(true)
 	})
 
-	test('returns false for yesterday', () => {
-		const now = new Date()
-		const yesterdayUTC = new Date(
-			Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1),
-		)
-		expect(isToday(yesterdayUTC)).toBe(false)
+	test('is false for the days either side', () => {
+		expect(isToday(parseDate('2026-11-22'), '2026-11-23')).toBe(false)
+		expect(isToday(parseDate('2026-11-24'), '2026-11-23')).toBe(false)
+	})
+
+	test('is false for the same day in another month or year', () => {
+		expect(isToday(parseDate('2026-10-23'), '2026-11-23')).toBe(false)
+		expect(isToday(parseDate('2025-11-23'), '2026-11-23')).toBe(false)
 	})
 })
 
 describe('isPast', () => {
-	test('returns true for yesterday', () => {
-		const now = new Date()
-		const yesterdayUTC = new Date(
-			Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1),
-		)
-		expect(isPast(yesterdayUTC)).toBe(true)
+	test('is true for yesterday, across a month and a year boundary', () => {
+		expect(isPast(parseDate('2026-11-22'), '2026-11-23')).toBe(true)
+		expect(isPast(parseDate('2026-10-31'), '2026-11-01')).toBe(true)
+		expect(isPast(parseDate('2026-12-31'), '2027-01-01')).toBe(true)
 	})
 
-	test('returns false for today', () => {
-		const now = new Date()
-		const todayUTC = new Date(
-			Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
-		)
-		expect(isPast(todayUTC)).toBe(false)
+	test('is false for today and later', () => {
+		expect(isPast(parseDate('2026-11-23'), '2026-11-23')).toBe(false)
+		expect(isPast(parseDate('2026-11-24'), '2026-11-23')).toBe(false)
+		expect(isPast(parseDate('2027-01-01'), '2026-12-31')).toBe(false)
 	})
 
-	test('returns false for tomorrow', () => {
-		const now = new Date()
-		const tomorrowUTC = new Date(
-			Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + 1),
-		)
-		expect(isPast(tomorrowUTC)).toBe(false)
+	test('is true for an earlier month with a later day number', () => {
+		expect(isPast(parseDate('2026-10-30'), '2026-11-02')).toBe(true)
+	})
+})
+
+describe('loadedToday', () => {
+	test("is the loader's today when the data has one", () => {
+		expect(loadedToday('2026-11-23')).toBe('2026-11-23')
 	})
 
-	test('returns true for last year', () => {
-		const now = new Date()
-		const lastYear = new Date(
-			Date.UTC(now.getFullYear() - 1, now.getMonth(), now.getDate()),
-		)
-		expect(isPast(lastYear)).toBe(true)
-	})
-
-	test('returns true for earlier month same year', () => {
-		const now = new Date()
-		// Only test if we're past January
-		if (now.getMonth() > 0) {
-			const earlierMonth = new Date(
-				Date.UTC(now.getFullYear(), now.getMonth() - 1, 15),
-			)
-			expect(isPast(earlierMonth)).toBe(true)
+	test('is the local date when cached data from before the change has none', () => {
+		vi.useFakeTimers({ toFake: ['Date'] })
+		try {
+			vi.setSystemTime(new Date('2026-11-22T22:30:00Z'))
+			const now = new Date()
+			const local = [
+				now.getFullYear(),
+				String(now.getMonth() + 1).padStart(2, '0'),
+				String(now.getDate()).padStart(2, '0'),
+			].join('-')
+			expect(loadedToday(undefined)).toBe(local)
+		} finally {
+			vi.useRealTimers()
 		}
 	})
 })

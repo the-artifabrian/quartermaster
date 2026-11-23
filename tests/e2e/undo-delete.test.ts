@@ -1,7 +1,12 @@
 import { type Locator, type Page } from '@playwright/test'
-import { getCurrentWeekStart, serializeDate } from '#app/utils/date.ts'
+import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { expect, openShopping, test } from '#tests/playwright-utils.ts'
+import {
+	browserToday,
+	expect,
+	openShopping,
+	test,
+} from '#tests/playwright-utils.ts'
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 test.describe.configure({ timeout: 45_000 })
@@ -452,12 +457,12 @@ async function seedRecipe(
 }
 
 async function openPlanDay(page: Page) {
-	const day = serializeDate(getCurrentWeekStart())
+	const day = serializeDate(getWeekStart(browserToday()))
 	await page.goto(`/plan?weekStart=${day}&day=${day}`)
 }
 
 async function seedTextMeals(user: { householdId: string }, texts: string[]) {
-	const weekStart = getCurrentWeekStart()
+	const weekStart = getWeekStart(browserToday())
 	const plan = await prisma.mealPlan.create({
 		data: {
 			householdId: user.householdId,
@@ -562,7 +567,7 @@ test('a Recipe removed from a Meal is removed at once and collapses; Undo puts i
 	const user = await login()
 	const dal = await seedRecipe(user, 'Dal')
 	const rice = await seedRecipe(user, 'Rice')
-	const weekStart = getCurrentWeekStart()
+	const weekStart = getWeekStart(browserToday())
 	const meal = await prisma.meal.create({
 		data: {
 			mealPlan: { create: { householdId: user.householdId, weekStart } },
@@ -610,7 +615,7 @@ test('the first card showing loses the hairline above it', async ({
 	const user = await login()
 	const dal = await seedRecipe(user, 'Dal')
 	const rice = await seedRecipe(user, 'Rice')
-	const weekStart = getCurrentWeekStart()
+	const weekStart = getWeekStart(browserToday())
 	await prisma.meal.create({
 		data: {
 			mealPlan: { create: { householdId: user.householdId, weekStart } },
@@ -642,7 +647,7 @@ test('Delete · remove generated amount takes its Shopping amounts; Undo brings 
 	const user = await login()
 	await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
 	const recipe = await seedRecipe(user, 'Dal')
-	const weekStart = getCurrentWeekStart()
+	const weekStart = getWeekStart(browserToday())
 	await prisma.meal.create({
 		data: {
 			mealPlan: { create: { householdId: user.householdId, weekStart } },

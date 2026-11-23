@@ -1,11 +1,7 @@
 import { type Locator, type Page } from '@playwright/test'
-import {
-	getCurrentWeekStart,
-	getWeekStart,
-	serializeDate,
-} from '#app/utils/date.ts'
+import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { browserToday, expect, test } from '#tests/playwright-utils.ts'
 
 async function expectLocalPendingFeedback({
 	page,
@@ -144,7 +140,7 @@ test('a Meal joining a row added from Recipe detail shows the summed amount', as
 			instructions: { create: { content: 'Simmer.', order: 0 } },
 		},
 	})
-	const weekStart = getCurrentWeekStart()
+	const weekStart = getWeekStart(browserToday())
 	await prisma.meal.create({
 		data: {
 			mealPlan: { create: { householdId: user.householdId, weekStart } },

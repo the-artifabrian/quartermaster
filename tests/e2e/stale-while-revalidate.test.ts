@@ -1,7 +1,12 @@
 import { type Page } from '@playwright/test'
-import { getCurrentWeekStart, getWeekDays, isToday } from '#app/utils/date.ts'
+import {
+	getWeekDays,
+	getWeekStart,
+	isToday,
+	serializeDate,
+} from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { browserToday, expect, test } from '#tests/playwright-utils.ts'
 
 // page.route cannot see requests a service worker answers.
 test.use({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } })
@@ -41,8 +46,11 @@ test("a revisited Plan shows at once from memory, then shows the other member's 
 	await prisma.householdMember.create({
 		data: { householdId: alex.householdId, userId: sam.id, role: 'member' },
 	})
-	const weekStart = getCurrentWeekStart()
-	const today = getWeekDays(weekStart).find(isToday) ?? weekStart
+	const weekStart = getWeekStart(browserToday())
+	const today =
+		getWeekDays(weekStart).find((date) =>
+			isToday(date, serializeDate(browserToday())),
+		) ?? weekStart
 	const mealPlan = await prisma.mealPlan.create({
 		data: { householdId: alex.householdId, weekStart },
 	})

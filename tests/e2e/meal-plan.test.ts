@@ -3,14 +3,14 @@ import {
 	addDaysUTC,
 	formatMonthDay,
 	formatWeekdayName,
-	getCurrentWeekStart,
 	getWeekDays,
+	getWeekStart,
 	isToday,
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { browserToday, expect, test } from '#tests/playwright-utils.ts'
 
 test.describe('Move a Meal', () => {
 	test.use({ timezoneId: 'Asia/Tokyo' })
@@ -323,9 +323,11 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 	})
 
 	// Seed one planned Meal via DB — the planner reads Meal parents (#105)
-	const weekStart = getCurrentWeekStart()
+	const weekStart = getWeekStart(browserToday())
 	const weekDays = getWeekDays(weekStart)
-	const plannedDay = weekDays.find(isToday) ?? weekDays[0]!
+	const plannedDay =
+		weekDays.find((date) => isToday(date, serializeDate(browserToday()))) ??
+		weekDays[0]!
 	await prisma.mealPlan.create({
 		data: {
 			householdId: user.householdId,
@@ -359,9 +361,14 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 	const dayRailRightEdges = await Promise.all(
 		weekDays.map((date) =>
 			desktopPlan
-				.getByText(isToday(date) ? 'Today' : formatWeekdayName(date), {
-					exact: true,
-				})
+				.getByText(
+					isToday(date, serializeDate(browserToday()))
+						? 'Today'
+						: formatWeekdayName(date),
+					{
+						exact: true,
+					},
+				)
 				.evaluate(
 					(element) => element.parentElement?.getBoundingClientRect().right,
 				),
@@ -779,7 +786,7 @@ test.describe('Picked day', () => {
 
 	// A past week, so today is never in it and Plan opens on its first day
 	// with Meals.
-	const weekStart = addDaysUTC(getCurrentWeekStart(), -14)
+	const weekStart = addDaysUTC(getWeekStart(browserToday()), -14)
 	const [, tuesday, wednesday, thursday] = getWeekDays(weekStart) as [
 		Date,
 		Date,

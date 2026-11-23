@@ -1,6 +1,11 @@
-import { getCurrentWeekStart, getWeekDays, isToday } from '#app/utils/date.ts'
+import {
+	getWeekDays,
+	getWeekStart,
+	isToday,
+	serializeDate,
+} from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { browserToday, expect, test } from '#tests/playwright-utils.ts'
 
 test('Plan loads shared Recipe and Menu choices only when a phone user asks', async ({
 	page,
@@ -18,8 +23,11 @@ test('Plan loads shared Recipe and Menu choices only when a phone user asks', as
 	const anchorRecipe = recipes[0]!
 	const addMealRecipe = recipes[1]!
 	const addAnotherRecipe = recipes[2]!
-	const weekStart = getCurrentWeekStart()
-	const plannedDay = getWeekDays(weekStart).find(isToday) ?? weekStart
+	const weekStart = getWeekStart(browserToday())
+	const plannedDay =
+		getWeekDays(weekStart).find((date) =>
+			isToday(date, serializeDate(browserToday())),
+		) ?? weekStart
 	const anchorMeal = await prisma.meal.create({
 		data: {
 			mealPlan: { create: { householdId: user.householdId, weekStart } },

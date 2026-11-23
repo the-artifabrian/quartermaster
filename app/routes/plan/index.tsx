@@ -12,9 +12,9 @@ import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import {
-	getCurrentWeekStart,
 	getWeekDays,
 	getWeekStart,
+	loadedToday,
 	formatWeekRange,
 	getNextWeek,
 	getPreviousWeek,
@@ -24,6 +24,7 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { ensureMealPlan } from '#app/utils/meal-plan.server.ts'
+import { getRequestToday } from '#app/utils/today.server.ts'
 import { staleWhileRevalidate } from '#app/utils/loader-cache.ts'
 import {
 	PLAN_VIEW_ONLY_PARAMS,
@@ -45,10 +46,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const { householdId } = await requireUserWithHousehold(request)
 	const url = new URL(request.url)
 	const weekStartParam = url.searchParams.get('weekStart')
+	// Plan uses the browser's day to pick the week and mark Today.
+	const today = getRequestToday(request)
 
 	const weekStart = weekStartParam
 		? getWeekStart(parseDate(weekStartParam))
-		: getCurrentWeekStart()
+		: getWeekStart(parseDate(today))
 
 	// Read back by the ensured plan's id — a raw householdId/weekStart lookup
 	// cannot see plans whose weekStart is stored in the INTEGER-ms era.
@@ -152,6 +155,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		meals,
 		weekDays,
 		weekStart: serializeDate(weekStart),
+		today,
 		planScope: `${householdId}:${serializeDate(weekStart)}`,
 		shoppingListItemCount,
 	}
@@ -197,10 +201,11 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	useStaleRevalidate(loaderData, { viewOnlyParams: PLAN_VIEW_ONLY_PARAMS })
 	const { meals, weekDays, weekStart, planScope, shoppingListItemCount } =
 		loaderData
+	const today = loadedToday(loaderData.today)
 
 	const prevWeek = serializeDate(getPreviousWeek(parseDate(weekStart)))
 	const nextWeek = serializeDate(getNextWeek(parseDate(weekStart)))
-	const currentWeek = serializeDate(getCurrentWeekStart())
+	const currentWeek = serializeDate(getWeekStart(parseDate(today)))
 	const navigate = useNavigate()
 	// The week links render in the calendar's header, which is keyed by its
 	// week, so turning the week remounts them. The link that had focus gets
@@ -229,6 +234,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					key={planScope}
 					weekDays={weekDays}
 					meals={meals}
+					today={today}
 					onSwipeWeek={(direction) =>
 						void navigate(
 							`/plan?weekStart=${direction === 'previous' ? prevWeek : nextWeek}`,
@@ -262,7 +268,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 
 								<div className="text-center">
 									<p className="font-serif text-lg">
-										{formatWeekRange(parseDate(weekStart))}
+										{formatWeekRange(parseDate(weekStart), today)}
 									</p>
 									{weekStart !== currentWeek && (
 										<Button asChild variant="link" size="sm">

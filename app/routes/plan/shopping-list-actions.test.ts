@@ -21,7 +21,7 @@ vi.mock('#app/utils/household-events.server.ts', () => ({
 	emitHouseholdEvent: vi.fn(),
 }))
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
-import { getCurrentWeekStart } from '#app/utils/date.ts'
+import { getWeekStart } from '#app/utils/date.ts'
 import { createPrismaClient, prisma } from '#app/utils/db.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { createUser } from '#tests/db-utils.ts'
@@ -84,7 +84,7 @@ async function setupMealPlanWithRecipe(userId: string, householdId: string) {
 		},
 	})
 
-	const weekStart = getCurrentWeekStart()
+	const weekStart = getWeekStart(new Date())
 	const mealPlan = await prisma.mealPlan.create({
 		data: {
 			householdId,
@@ -236,7 +236,7 @@ describe('shopping list actions', () => {
 
 	test('loader offers only weeks whose Meals can contribute Shopping demand', async () => {
 		const session = await setupUser()
-		const weekStart = getCurrentWeekStart()
+		const weekStart = getWeekStart(new Date())
 		const mealPlan = await prisma.mealPlan.create({
 			data: {
 				householdId: session.householdId,
@@ -385,7 +385,7 @@ describe('shopping list actions', () => {
 				},
 			},
 		})
-		const weekStart = getCurrentWeekStart()
+		const weekStart = getWeekStart(new Date())
 		const mealPlan = await prisma.mealPlan.create({
 			data: {
 				householdId: session.householdId,
@@ -449,7 +449,7 @@ describe('shopping list actions', () => {
 				ingredients: { create: [{ name: 'cucumber', amount: '2', order: 0 }] },
 			},
 		})
-		const weekStart = getCurrentWeekStart()
+		const weekStart = getWeekStart(new Date())
 		const mealPlan = await prisma.mealPlan.create({
 			data: {
 				householdId: session.householdId,

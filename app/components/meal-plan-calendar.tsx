@@ -7,6 +7,7 @@ import {
 } from 'react'
 import {
 	useFetcher,
+	useFetchers,
 	useNavigate,
 	useNavigation,
 	useSearchParams,
@@ -52,6 +53,8 @@ import { TitleAddButton } from './ui/title-add-button.tsx'
 type MealPlanCalendarProps = {
 	weekDays: Date[]
 	meals: PlanMeal[]
+	/** The user's today, `yyyy-MM-dd`, from the loader (see `getRequestToday`). */
+	today: string
 	/** Swiping the phone's day strip sideways turns the week. */
 	onSwipeWeek?: (direction: 'previous' | 'next') => void
 	/**
@@ -449,6 +452,7 @@ function MealCards({
 export function MealPlanCalendar({
 	weekDays,
 	meals,
+	today: todayDate,
 	onSwipeWeek,
 	renderHeader,
 }: MealPlanCalendarProps) {
@@ -526,13 +530,14 @@ export function MealPlanCalendar({
 		meals,
 		mealId: targetMealId,
 		day: searchParams.get('day'),
+		today: todayDate,
 	}
 	const urlDate = selectedDayFromUrl(urlParams)
 	const [selectedDate, setSelectedDate] = useState(() =>
 		resolveSelectedDay(urlParams),
 	)
 	const search = searchParams.toString()
-	const defaultDate = defaultSelectedDay(weekDays, meals)
+	const defaultDate = defaultSelectedDay(weekDays, meals, todayDate)
 	// The URL picks the day: a Meal link's day, else a valid `day`. A URL with
 	// neither, such as the Plan tab tapped again, goes back to the default day;
 	// a link to a Meal that is gone keeps the day on screen. Only a URL change
@@ -546,11 +551,32 @@ export function MealPlanCalendar({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [search, targetMealId, urlDate])
 
+	// A later today with the same week (data cached yesterday, then
+	// revalidated) moves the default day with it, unless the URL picked a day
+	// or a Meal. An earlier today (an older cached entry) never moves it. Nor
+	// does a later one that arrives while the person is busy: a sheet or
+	// dialog open, a navigation or a fetcher under way. Moving the day then
+	// would swap out what they are working on, so the day stays and Today is
+	// still marked in the strip.
+	const fetchers = useFetchers()
+	const busy =
+		navigation.state !== 'idle' ||
+		fetchers.some((fetcher) => fetcher.state !== 'idle')
+	const followedToday = useRef(todayDate)
+	useLayoutEffect(() => {
+		if (todayDate <= followedToday.current) return
+		followedToday.current = todayDate
+		if (busy || document.querySelector('[role="dialog"]')) return
+		if (!urlDate && !targetMealId) setSelectedDate(defaultDate)
+		// Only on a new today: a Meal added or removed must not move the day.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [todayDate])
+
 	useEffect(() => {
 		if (!weekDays.some((date) => serializeDate(date) === selectedDate)) {
-			setSelectedDate(defaultSelectedDay(weekDays, meals))
+			setSelectedDate(defaultSelectedDay(weekDays, meals, todayDate))
 		}
-	}, [weekDays, meals, selectedDate])
+	}, [weekDays, meals, selectedDate, todayDate])
 
 	function selectDay(dateStr: string) {
 		setSelectedDate(dateStr)
@@ -605,7 +631,7 @@ export function MealPlanCalendar({
 					{weekDays.map((date) => {
 						const dateStr = serializeDate(date)
 						const selected = dateStr === selectedDate
-						const today = isToday(date)
+						const today = isToday(date, todayDate)
 						const mealCount = shownCount(mealsByDay.get(dateStr))
 						return (
 							<button
@@ -626,7 +652,7 @@ export function MealPlanCalendar({
 												'hover:bg-secondary/50 border-transparent',
 									!selected &&
 										!today &&
-										isPast(date) &&
+										isPast(date, todayDate) &&
 										'text-muted-foreground/65',
 								)}
 							>
@@ -652,7 +678,9 @@ export function MealPlanCalendar({
 
 				<div className="mt-7">
 					<p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-						{isToday(selectedDay) ? 'Today' : formatWeekdayName(selectedDay)}
+						{isToday(selectedDay, todayDate)
+							? 'Today'
+							: formatWeekdayName(selectedDay)}
 					</p>
 					<h2 className="mt-0.5 font-serif text-2xl">
 						{formatMonthDay(selectedDay)}
@@ -687,7 +715,7 @@ export function MealPlanCalendar({
 							key={dateStr}
 							className={cn(
 								'border-border/80 grid grid-cols-[7.5rem_1fr] border-b last:border-b-0',
-								isToday(date) &&
+								isToday(date, todayDate) &&
 									"bg-accent/8 before:bg-accent relative before:absolute before:inset-y-0 before:left-0 before:w-1 before:content-['']",
 							)}
 						>
@@ -695,16 +723,16 @@ export function MealPlanCalendar({
 								className={cn(
 									'border-border/80 bg-background/35 border-r px-5',
 									shownCount(dayMeals) > 0 ? 'py-4' : 'py-3',
-									isToday(date) && 'border-accent/40 bg-accent/12',
+									isToday(date, todayDate) && 'border-accent/40 bg-accent/12',
 								)}
 							>
 								<p
 									className={cn(
 										'text-muted-foreground text-[10px] font-semibold tracking-wider uppercase',
-										isToday(date) && 'text-copper-text',
+										isToday(date, todayDate) && 'text-copper-text',
 									)}
 								>
-									{isToday(date) ? 'Today' : formatWeekdayName(date)}
+									{isToday(date, todayDate) ? 'Today' : formatWeekdayName(date)}
 								</p>
 								<p className="mt-0.5 font-serif text-lg">{date.getUTCDate()}</p>
 							</div>

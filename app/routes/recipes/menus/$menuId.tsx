@@ -25,12 +25,14 @@ import {
 } from '#app/components/ui/tooltip.tsx'
 import {
 	getWeekStart,
+	loadedToday,
 	MEAL_TYPES,
 	MEAL_TYPE_LABELS,
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
+import { getRequestToday } from '#app/utils/today.server.ts'
 import { PlanMenuSchema } from '#app/utils/meal-plan-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { planMenu } from '#app/utils/plan-menu.server.ts'
@@ -142,6 +144,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 				}),
 			})),
 		},
+		// Add to Plan's default date, the browser's day (see getRequestToday).
+		today: getRequestToday(request),
 	}
 }
 
@@ -198,23 +202,20 @@ export async function action({ request, params }: Route.ActionArgs) {
 	return redirect(`/plan?weekStart=${serializeDate(getWeekStart(date))}`)
 }
 
-/** Local calendar date — the same "today" convention the planner uses. */
-function todayLocalDateString() {
-	const now = new Date()
-	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-}
-
 /**
  * The Add to Plan panel (#107): date plus optional label, serving time, and
  * guest count. Guest count is prefilled from the Menu's default as context —
  * it never scales quantities; multipliers copy unchanged.
  */
 function AddToPlanPanel({
+	defaultDate,
 	defaultGuestCount,
 	errors,
 	onCancel,
 	inSheet = false,
 }: {
+	/** The user's today, `yyyy-MM-dd`. */
+	defaultDate: string
 	defaultGuestCount: number | null
 	errors: string[]
 	onCancel: () => void
@@ -226,7 +227,6 @@ function AddToPlanPanel({
 	const [timeZone] = useState(
 		() => Intl.DateTimeFormat().resolvedOptions().timeZone,
 	)
-	const [defaultDate] = useState(todayLocalDateString)
 	// Full-page POST with no server-side dedupe — a double-click would plan
 	// the Menu twice, so the submit locks while the navigation is in flight.
 	const navigation = useNavigation()
@@ -342,6 +342,7 @@ export default function MenuDetail({
 	actionData,
 }: Route.ComponentProps) {
 	const { menu } = loaderData
+	const today = loadedToday(loaderData.today)
 	const [planning, setPlanning] = useState(false)
 	const [planFormDismissed, setPlanFormDismissed] = useState(false)
 	// On a phone the form is a bottom sheet; wider, it opens in place.
@@ -455,6 +456,7 @@ export default function MenuDetail({
 
 			{showPlanPanel && !planInSheet && (
 				<AddToPlanPanel
+					defaultDate={today}
 					defaultGuestCount={menu.defaultGuestCount}
 					errors={planErrors}
 					onCancel={closePlanForm}
@@ -469,6 +471,7 @@ export default function MenuDetail({
 					description={menu.title}
 				>
 					<AddToPlanPanel
+						defaultDate={today}
 						defaultGuestCount={menu.defaultGuestCount}
 						errors={planErrors}
 						onCancel={closePlanForm}

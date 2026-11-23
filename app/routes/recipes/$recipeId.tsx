@@ -36,9 +36,11 @@ import {
 	addDaysUTC,
 	formatDayLabel,
 	isToday,
+	loadedToday,
 	MEAL_TYPES,
 	MEAL_TYPE_LABELS,
 	type MealType,
+	parseDate,
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
@@ -48,6 +50,7 @@ import {
 	scaleAmount,
 } from '#app/utils/fractions.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
+import { getRequestToday } from '#app/utils/today.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	IMPORTED_FROM,
@@ -204,6 +207,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		householdId,
 		isProActive: tierInfo.isProActive,
 		sameTitle,
+		// Add to Plan's Today chip, the browser's day (see getRequestToday).
+		today: getRequestToday(request),
 	}
 }
 
@@ -532,11 +537,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		date: '',
 		label: null,
 	})
-	const today = new Date()
-	const todayUTC = new Date(
-		Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
-	)
-	const [planDate, setPlanDate] = useState(() => serializeDate(todayUTC))
+	const today = loadedToday(loaderData.today)
+	const todayUTC = parseDate(today)
+	// Until a day is picked, Add to Plan follows today, which can move on
+	// when cached data from yesterday revalidates.
+	const [pickedPlanDate, setPlanDate] = useState<string | null>(null)
+	const planDate = pickedPlanDate ?? today
 	const [planMealType, setPlanMealType] = useState<MealType | null>('dinner')
 
 	const allStepsChecked =
@@ -608,8 +614,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		) {
 			setPlanPickerOpen(false)
 			const { date, label } = submittedPlanRef.current
-			const d = new Date(date + 'T00:00:00.000Z')
-			const dayLabel = isToday(d) ? 'Today' : formatDayLabel(d)
+			const d = parseDate(date)
+			const dayLabel = isToday(d, today) ? 'Today' : formatDayLabel(d)
 			const where = label ? `${dayLabel} ${MEAL_TYPE_LABELS[label]}` : dayLabel
 			const meal = planFetcher.data.meal
 			if (meal && !meal.created) {
@@ -631,7 +637,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			toast.error(`Could not add ${recipe.title} to Plan`)
 		}
 		prevPlanFetcherState.current = planFetcher.state
-	}, [planFetcher.state, planFetcher.data, navigate, recipe.title])
+	}, [planFetcher.state, planFetcher.data, navigate, recipe.title, today])
 
 	function handleAddToPlanSubmit() {
 		submittedPlanRef.current = { date: planDate, label: planMealType }
@@ -858,6 +864,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								// A sheet on a phone, upright or on its side; a popover
 								// elsewhere.
 								setPlanPickerAsSheet(opensAsSheet())
+								// Each opening starts on today, so a day picked before
+								// midnight can't send yesterday.
+								setPlanDate(null)
 								setPlanPickerOpen(true)
 							}}
 							onCopy={handleCopyRecipe}

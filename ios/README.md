@@ -181,7 +181,7 @@ message body is a string, and anything outside the values below is ignored.
   later at once while the page has no theme override). The canvas behind the
   page and the offline view use the page's theme.
 - **User agent.** WebKit's user agent ends with `QuartermasterShell/1`, which
-  the server checks to hide Pro and Google sign-in.
+  the server checks to hide Pro.
 
 ## Back swipe
 

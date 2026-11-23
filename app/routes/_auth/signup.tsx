@@ -8,10 +8,6 @@ import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { ErrorList, Field } from '#app/components/forms.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireAnonymous } from '#app/utils/auth.server.ts'
-import {
-	GOOGLE_PROVIDER_NAME,
-	ProviderConnectionForm,
-} from '#app/utils/connections.tsx'
 import { prisma } from '#app/utils/db.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
 import { useIsPending } from '#app/utils/misc.tsx'
@@ -128,8 +124,6 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 	const isPending = useIsPending()
 	const [searchParams] = useSearchParams()
 	const redirectTo = searchParams.get('redirectTo')
-	// Google refuses OAuth in embedded web views, so the iOS app offers no
-	// Google signup.
 	const isNativeShell = useIsNativeShell()
 	const [form, fields] = useForm({
 		id: 'signup-form',
@@ -187,20 +181,6 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 						Submit
 					</StatusButton>
 				</Form>
-				{isNativeShell ? null : (
-					<>
-						<div className="my-4 flex items-center gap-4">
-							<hr className="flex-1" />
-							<span className="text-muted-foreground text-sm">or</span>
-							<hr className="flex-1" />
-						</div>
-						<ProviderConnectionForm
-							type="Signup"
-							redirectTo={redirectTo}
-							providerName={GOOGLE_PROVIDER_NAME}
-						/>
-					</>
-				)}
 				<div className="text-muted-foreground mt-6 text-center text-sm">
 					Already have an account?{' '}
 					<Link

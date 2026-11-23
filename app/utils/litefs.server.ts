@@ -2,5 +2,3 @@
 // including a big polyfill. So we put the import in a `.server.ts` file to avoid that
 // polyfill from being included. https://github.com/epicweb-dev/epic-stack/pull/331
 export { getInstanceInfo } from 'litefs-js'
-
-export { ensurePrimary } from 'litefs-js/remix'

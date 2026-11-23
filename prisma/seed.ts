@@ -1,8 +1,6 @@
 import { prisma } from '#app/utils/db.server.ts'
-import { MOCK_CODE_GOOGLE } from '#app/utils/providers/constants.ts'
 import { DEFAULT_RECIPE_METADATA_VALUE_CREATE } from '#app/utils/recipe-metadata.ts'
 import { createPassword } from '#tests/db-utils.ts'
-import { insertGoogleUser } from '#tests/mocks/google.ts'
 import { seedInfrastructure } from './seed-infrastructure.ts'
 
 async function seed() {
@@ -23,8 +21,6 @@ async function seed() {
 	})
 
 	if (!kody) {
-		const googleUser = await insertGoogleUser(MOCK_CODE_GOOGLE)
-
 		kody = await prisma.user.create({
 			select: { id: true },
 			data: {
@@ -32,12 +28,6 @@ async function seed() {
 				username: 'kody',
 				name: 'Kody',
 				password: { create: createPassword('kodylovesyou') },
-				connections: {
-					create: {
-						providerName: 'google',
-						providerId: googleUser.profile.id,
-					},
-				},
 				roles: { connect: [{ name: 'admin' }, { name: 'user' }] },
 			},
 		})

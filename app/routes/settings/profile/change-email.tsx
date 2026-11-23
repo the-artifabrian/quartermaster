@@ -198,14 +198,12 @@ export default function ChangeEmailIndex({
 					</Form>
 				) : (
 					<p className="text-muted-foreground">
-						Changing your email asks for your password.{' '}
-						<Link
-							to="/settings/profile/password/create"
-							className="text-foreground underline"
-						>
-							Create a password
+						Changing your email asks for your password, and your account doesn’t
+						have one yet.{' '}
+						<Link to="/forgot-password" className="text-foreground underline">
+							Reset your password
 						</Link>{' '}
-						first.
+						to set one.
 					</p>
 				)}
 			</div>

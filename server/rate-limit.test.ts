@@ -47,7 +47,6 @@ describe('rate limit tier', () => {
 		'/signup',
 		'/verify',
 		'/onboarding',
-		'/onboarding/google',
 		'/reset-password',
 		'/forgot-password',
 		'/webauthn/authentication',

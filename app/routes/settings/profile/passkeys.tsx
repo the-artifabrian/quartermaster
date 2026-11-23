@@ -334,14 +334,12 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 				</form>
 			) : (
 				<p className="text-muted-foreground">
-					Adding a passkey asks for your password.{' '}
-					<Link
-						to="/settings/profile/password/create"
-						className="text-foreground underline"
-					>
-						Create a password
+					Adding a passkey asks for your password, and your account doesn’t have
+					one yet.{' '}
+					<Link to="/forgot-password" className="text-foreground underline">
+						Reset your password
 					</Link>{' '}
-					first.
+					to set one.
 				</p>
 			)}
 

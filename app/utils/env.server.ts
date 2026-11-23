@@ -63,11 +63,6 @@ const schema = z.object({
 			.regex(/^[1-9]\d*$/, 'must be a positive whole number of milliseconds')
 			.optional(),
 	),
-	// If you plan to use Google auth, remove the .optional()
-	GOOGLE_CLIENT_ID: z.string().optional(),
-	GOOGLE_CLIENT_SECRET: z.string().optional(),
-	GOOGLE_REDIRECT_URI: z.string().optional(),
-
 	ALLOW_INDEXING: z.enum(['true', 'false']).optional(),
 
 	// iOS shell (optional). Without a Team ID the apple-app-site-association

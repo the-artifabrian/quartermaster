@@ -4,10 +4,10 @@ import { RouterContextProvider } from 'react-router'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { action as changeEmailAction } from '#app/routes/settings/profile/change-email.tsx'
 import { twoFAVerificationType } from '#app/routes/settings/profile/two-factor/_layout.tsx'
-import { action as createPasswordAction } from '#app/routes/settings/profile/password_.create.tsx'
 import { action as changePasswordAction } from '#app/routes/settings/profile/password.tsx'
 import {
 	getSessionExpirationDate,
+	login,
 	resetUserPassword,
 } from '#app/utils/auth.server.ts'
 import { backgroundWorkSettled } from '#app/utils/background.server.ts'
@@ -25,6 +25,7 @@ import { server } from '#tests/setup/mocks-setup.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action as forgotPasswordAction } from './forgot-password.tsx'
+import { action as resetPasswordAction } from './reset-password.tsx'
 import { getOnboardingEmail } from './onboarding/onboarding-email.server.ts'
 import { action as signupAction } from './signup.tsx'
 import {
@@ -78,6 +79,11 @@ import '#tests/setup/db-setup.ts'
 // Email change:
 // 18. A request for address A and then for B: A's code can't set the email
 //     to B.
+//
+// An account with no password (it only ever logged in with Google, which is
+// gone):
+// 19. Forgot password by its email sends a code, the code leads to the
+//     new-password form, and the new password logs in.
 // 19. A code submitted without the requesting device's cookie fails.
 //
 // Past the cap, what the person is told:
@@ -1123,23 +1129,6 @@ describe('a new password or email ends reset codes', () => {
 		expect((await useCode(readCode(sent[0]))).status).toBe(400)
 	})
 
-	test('creating a first password ends reset codes', async () => {
-		const sent = captureEmails()
-		const { user, cookie } = await signedInWithPassword()
-		await forgotPassword(user.username)
-		const password = `first-${Date.now()}-password`
-		const result = visible(
-			await callAction(
-				createPasswordAction,
-				'/settings/profile/password/create',
-				{ password, confirmPassword: password },
-				cookie,
-			),
-		)
-		expect(result.status).toBe(302)
-		expect((await useCode(readCode(sent[0]))).status).toBe(400)
-	})
-
 	test('the reset itself ends codes asked for after the verify step', async () => {
 		const sent = captureEmails()
 		const user = await createAccount()
@@ -1152,5 +1141,31 @@ describe('a new password or email ends reset codes', () => {
 			password: `reset-${Date.now()}-password`,
 		})
 		expect((await useCode(readCode(sent[1]))).status).toBe(400)
+	})
+})
+
+describe('an account with no password', () => {
+	test('sets one with Forgot password and then logs in with it', async () => {
+		const sent = captureEmails()
+		const user = await createAccount()
+		expect(await prisma.password.count({ where: { userId: user.id } })).toBe(0)
+
+		await forgotPassword(user.email)
+		const verified = await useCode(readCode(sent[0]))
+		expect(verified.location).toBe(RESET_DONE)
+
+		const password = `first-${Date.now()}-password`
+		const reset = visible(
+			await callAction(
+				resetPasswordAction,
+				'/reset-password',
+				{ password, confirmPassword: password },
+				applySetCookies('', verified.setCookies),
+			).catch((thrown: unknown) => thrown),
+		)
+		expect(reset.location).toBe('/login')
+
+		const session = await login({ username: user.username, password })
+		expect(session?.userId).toBe(user.id)
 	})
 })

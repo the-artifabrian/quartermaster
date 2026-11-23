@@ -15,8 +15,8 @@ import '#tests/setup/mocks-setup.ts'
 // 1. A wrong password sends nothing and stores no code, and the answer
 //    points at the password field without sending the password back.
 // 2. No password in the form: refused, nothing sent.
-// 3. An account with no password (it signed up with Google) is refused on
-//    the server, whatever the form holds.
+// 3. An account with no password (it only ever logged in with Google) is
+//    refused on the server, whatever the form holds.
 // 4. A wrong password with an address another account already uses: the
 //    answer is about the password only, so it doesn't say the address is
 //    taken.

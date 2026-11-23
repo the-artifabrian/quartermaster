@@ -4,7 +4,7 @@ import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createPassword, createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
-import { action } from './password.tsx'
+import { action, loader } from './password.tsx'
 import '#tests/setup/db-setup.ts'
 import '#tests/setup/mocks-setup.ts'
 
@@ -13,6 +13,9 @@ import '#tests/setup/mocks-setup.ts'
 //    the session that made the change stays.
 // 2. Another user's sessions are untouched.
 // 3. A change refused for a wrong current password ends no session.
+// 4. An account with no password (one that only ever logged in with Google)
+//    can't set one here without proof. Settings sends it to Forgot password,
+//    which emails a code first.
 
 const oldPassword = 'old-password-1234'
 const newPassword = 'new-password-5678'
@@ -105,4 +108,39 @@ test('a refused password change ends no session', async () => {
 	expect(await remainingSessionIds()).toEqual(
 		[current.id, otherDevice.id, thirdDevice.id, otherUsersSession.id].sort(),
 	)
+})
+
+test('an account with no password is sent to Forgot password', async () => {
+	const user = await prisma.user.create({
+		data: createUser(),
+		select: { id: true },
+	})
+	const session = await prisma.session.create({
+		data: { expirationDate: getSessionExpirationDate(), userId: user.id },
+		select: { id: true },
+	})
+	const url = `${BASE_URL}/settings/profile/password`
+	const args = (request: Request) => ({
+		request,
+		url: new URL(url),
+		params: {},
+		pattern: '/settings/profile/password',
+		context: new RouterContextProvider(),
+	})
+	const cookie = await getSessionCookieHeader(session)
+
+	const opened: unknown = await loader(
+		args(new Request(url, { headers: { cookie } })),
+	).catch((thrown: unknown) => thrown)
+	const submitted: unknown = await changePassword(session, 'anything').catch(
+		(thrown: unknown) => thrown,
+	)
+
+	for (const response of [opened, submitted]) {
+		expect(response).toBeInstanceOf(Response)
+		expect((response as Response).headers.get('location')).toBe(
+			'/forgot-password',
+		)
+	}
+	expect(await prisma.password.count({ where: { userId: user.id } })).toBe(0)
 })

@@ -2,7 +2,6 @@ import closeWithGrace from 'close-with-grace'
 import { setupServer } from 'msw/node'
 import { isLocalHostname } from '../setup/network-guard.ts'
 import { handlers as anthropicHandlers } from './anthropic.ts'
-import { handlers as googleHandlers } from './google.ts'
 import { handlers as pwnedPasswordApiHandlers } from './pwned-passwords.ts'
 import { handlers as recipePageHandlers } from './recipe-pages.ts'
 import { handlers as resendHandlers } from './resend.ts'
@@ -11,7 +10,6 @@ import { handlers as tigrisHandlers } from './tigris.ts'
 
 export const server = setupServer(
 	...resendHandlers,
-	...googleHandlers,
 	...tigrisHandlers,
 	...pwnedPasswordApiHandlers,
 	...stripeHandlers,

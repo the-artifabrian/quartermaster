@@ -46,9 +46,9 @@ test('everything else is kept as it was', () => {
 })
 
 test('absolute URLs keep their origin', () => {
-	expect(
-		redactUrl('https://useqm.app/auth/google/callback?code=4/0Ab&state=xyz'),
-	).toBe('https://useqm.app/auth/google/callback?code=redacted&state=redacted')
+	expect(redactUrl('https://useqm.app/verify?code=4/0Ab&state=xyz')).toBe(
+		'https://useqm.app/verify?code=redacted&state=redacted',
+	)
 })
 
 test('names match in any case and percent-encoded', () => {

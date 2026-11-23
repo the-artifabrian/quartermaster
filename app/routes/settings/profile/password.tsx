@@ -48,8 +48,10 @@ async function requirePassword(userId: string) {
 		select: { userId: true },
 		where: { userId },
 	})
+	// An account that only ever logged in with Google has no password. It sets
+	// one through Forgot password, which emails a code first.
 	if (!password) {
-		throw redirect('/settings/profile/password/create')
+		throw redirect('/forgot-password')
 	}
 }
 

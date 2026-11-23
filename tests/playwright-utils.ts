@@ -15,15 +15,8 @@ import {
 } from '#app/utils/auth.server.ts'
 import { parseDate, todayInTimeZone } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { MOCK_CODE_GOOGLE_HEADER } from '#app/utils/providers/constants.ts'
-import { normalizeEmail } from '#app/utils/providers/provider.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { createUser } from './db-utils.ts'
-import {
-	type GoogleUser,
-	deleteGoogleUser,
-	insertGoogleUser,
-} from './mocks/google.ts'
 
 export * from './db-utils.ts'
 
@@ -96,7 +89,6 @@ export const test = base.extend<{
 	) => Promise<null | Response>
 	insertNewUser(options?: GetOrInsertUserOptions): Promise<User>
 	login(options?: GetOrInsertUserOptions): Promise<LoggedInUser>
-	prepareGoogleUser(): Promise<GoogleUser>
 }>({
 	page: async ({ page }, use) => {
 		if (cpuThrottle > 1) {
@@ -184,41 +176,6 @@ export const test = base.extend<{
 		await prisma.household.deleteMany({
 			where: { id: { in: createdHouseholdIds } },
 		})
-	},
-	prepareGoogleUser: async ({ page }, use, testInfo) => {
-		await page.route(/\/auth\/google(?!\/callback)/, async (route, request) => {
-			const headers = {
-				...request.headers(),
-				[MOCK_CODE_GOOGLE_HEADER]: testInfo.testId,
-			}
-			await route.continue({ headers })
-		})
-
-		let googleUser: GoogleUser | null = null
-		await use(async () => {
-			const newGoogleUser = await insertGoogleUser(testInfo.testId)!
-			googleUser = newGoogleUser
-			return newGoogleUser
-		})
-
-		const user = await prisma.user.findUnique({
-			select: { id: true, name: true },
-			where: { email: normalizeEmail(googleUser!.primaryEmail) },
-		})
-		if (user) {
-			// Deleting the user leaves their Household behind. Delete it after the
-			// user, so a request still arriving can't create another for them.
-			const households = await prisma.household.findMany({
-				where: { members: { some: { userId: user.id } } },
-				select: { id: true },
-			})
-			await prisma.user.delete({ where: { id: user.id } })
-			await prisma.session.deleteMany({ where: { userId: user.id } })
-			await prisma.household.deleteMany({
-				where: { id: { in: households.map((household) => household.id) } },
-			})
-		}
-		await deleteGoogleUser(googleUser!.code)
 	},
 })
 export const { expect } = test

@@ -27,8 +27,8 @@ import '#tests/setup/db-setup.ts'
 // 2. A wrong password. Refused with an error on the password, no challenge.
 // 3. The right password. Options come back with a challenge cookie. They ask
 //    for a discoverable passkey and exclude the passkeys already saved.
-// 4. An account with no password (signed up with Google). Refused with a
-//    pointer to create a password, no challenge.
+// 4. An account with no password (it only ever logged in with Google).
+//    Refused with a pointer to a password reset, no challenge.
 // 5. A 2FA user past the reverify window, with the right password. Sent to
 //    reverify and back to the Passkeys page, no challenge.
 // 6. A 2FA user inside the window gets options.
@@ -230,13 +230,13 @@ test('the right password returns options for a discoverable passkey, without the
 	expect(json.options.user.id).toBe(webauthnUserHandle(user.id))
 })
 
-test('an account with no password is asked to create one and gets no challenge', async () => {
+test('an account with no password is pointed at a reset and gets no challenge', async () => {
 	const { cookie } = await signedInUser({ withPassword: false })
 	const response = await post({ intent: 'options', password }, cookie)
 	expect(response.status).toBe(400)
 	expect(await response.json()).toMatchObject({
 		status: 'error',
-		error: expect.stringMatching(/create a password/i),
+		error: expect.stringMatching(/reset your password/i),
 	})
 	expect(challengeCookieOf(response)).toBeNull()
 })

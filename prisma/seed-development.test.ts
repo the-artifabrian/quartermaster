@@ -10,9 +10,14 @@
  * - A second seed adds another user, another Household or another
  *   membership, or a second copy of the sample Recipes.
  * - The second user lands in the sample Household, or theirs isn't empty.
+ * - The seed runs against production (on Fly, or with NODE_ENV=production)
+ *   and creates an admin whose password the public README gives.
+ * - Once the owner has also joined another Household, a second seed fills
+ *   that one, because it picked the owner's oldest membership instead of
+ *   the Household they own.
  */
 import fs from 'node:fs/promises'
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import { verifyUserPassword } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { SAMPLE_HOUSEHOLD } from '#app/utils/sample-household-data.ts'
@@ -98,4 +103,54 @@ test('seeding twice keeps one of each user, Household and Recipe', async () => {
 	expect(await prisma.subscription.count()).toBe(2)
 	expect(await prisma.recipe.count()).toBe(SAMPLE_HOUSEHOLD.recipes.length)
 	expect(await prisma.meal.count()).toBe(SAMPLE_HOUSEHOLD.plan.length)
+})
+
+test('it refuses to run in production or on Fly, and writes nothing', async () => {
+	await seedInfrastructure()
+	for (const [name, value] of [
+		['NODE_ENV', 'production'],
+		['FLY', 'true'],
+	] as const) {
+		vi.stubEnv(name, value)
+		try {
+			await expect(seedDevelopment(prisma, { today: TODAY })).rejects.toThrow(
+				/local database/,
+			)
+		} finally {
+			vi.unstubAllEnvs()
+		}
+	}
+	expect(await prisma.user.count()).toBe(0)
+	expect(await prisma.household.count()).toBe(0)
+})
+
+test('a second seed fills the Household the owner owns, not one they joined', async () => {
+	await seed()
+	const robin = await membership(SECOND_USER.username)
+	const robinsHousehold = robin.householdMembers[0]!.household.id
+	const sam = await prisma.user.findUniqueOrThrow({
+		where: { username: SAMPLE_OWNER.username },
+	})
+	// Joined before Sam's own membership, so it is Sam's oldest.
+	await prisma.householdMember.create({
+		data: {
+			userId: sam.id,
+			householdId: robinsHousehold,
+			role: 'member',
+			createdAt: new Date('2020-01-01'),
+		},
+	})
+
+	await seed()
+
+	const counts = await prisma.household.findUniqueOrThrow({
+		where: { id: robinsHousehold },
+		select: { _count: true },
+	})
+	expect(counts._count).toMatchObject({
+		recipes: 0,
+		mealPlans: 0,
+		householdIngredients: 0,
+	})
+	expect(await prisma.recipe.count()).toBe(SAMPLE_HOUSEHOLD.recipes.length)
 })

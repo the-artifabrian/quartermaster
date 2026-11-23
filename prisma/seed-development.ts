@@ -35,6 +35,13 @@ export async function seedDevelopment(
 	db: PrismaClient,
 	{ today }: { today: string },
 ) {
+	// Without this, `prisma db seed` in a production shell would make an
+	// admin whose password the README gives.
+	if (process.env.FLY || process.env.NODE_ENV === 'production') {
+		throw new Error(
+			'The development seed is for a local database only. Production runs prisma/run-seed-infrastructure.ts.',
+		)
+	}
 	const owner = await ensureUser(db, SAMPLE_OWNER)
 	const second = await ensureUser(db, SECOND_USER)
 	for (const user of [owner, second]) {
@@ -77,8 +84,10 @@ async function ensureUser(
 				roles: { connect: person.roles.map((name) => ({ name })) },
 			},
 		}))
+	// The Household they own, never one they joined: a sample owner who
+	// joined Robin's Household must not have it filled on the next seed.
 	const membership = await db.householdMember.findFirst({
-		where: { userId: user.id },
+		where: { userId: user.id, role: 'owner' },
 		orderBy: { createdAt: 'asc' },
 		select: { householdId: true },
 	})

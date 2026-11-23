@@ -448,6 +448,12 @@ test('From Plan turns the week with thumb-sized chevrons', async ({
 		expect(next).toBeVisible({ timeout: 2000 }),
 	)
 	const previous = page.getByRole('button', { name: 'Previous week' })
+	// Measure once the sheet has finished sliding in: mid-slide its transform
+	// leaves the chevrons a fraction of a pixel short of 44.
+	const sheet = page.getByRole('dialog', { name: 'What are we buying for?' })
+	await sheet.evaluate((element) =>
+		Promise.all(element.getAnimations().map((a) => a.finished)),
+	)
 	for (const [control, icon] of [
 		[previous, /#chevron-left$/],
 		[next, /#chevron-right$/],
@@ -457,10 +463,6 @@ test('From Plan turns the week with thumb-sized chevrons', async ({
 	}
 	await expect(previous).toBeDisabled()
 	// The sheet's primary action spans it, inside its 20px side padding.
-	const sheet = page.getByRole('dialog', { name: 'What are we buying for?' })
-	await sheet.evaluate((element) =>
-		Promise.all(element.getAnimations().map((a) => a.finished)),
-	)
 	const add = sheet.getByRole('button', { name: /^Add / })
 	await expect(add).toBeVisible()
 	const sheetBox = (await sheet.boundingBox())!

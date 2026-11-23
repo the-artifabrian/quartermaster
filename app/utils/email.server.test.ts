@@ -8,7 +8,7 @@ import { init } from './env.server.ts'
 const RESEND_URL = 'https://api.resend.com/emails'
 
 const message = {
-	to: 'kody@example.com',
+	to: 'sam@example.com',
 	subject: 'Verify your email',
 	html: '<p>otp</p>',
 	text: 'otp',
@@ -199,6 +199,6 @@ test('a failed send logs the recipient domain, not the address', async () => {
 	await sendEmail(message)
 
 	const logged = JSON.stringify(consoleError.mock.calls)
-	expect(logged).not.toContain('kody@')
+	expect(logged).not.toContain('sam@')
 	expect(logged).toContain('example.com')
 })

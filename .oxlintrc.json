@@ -55,7 +55,7 @@
 			}
 		},
 		{
-			"files": ["./index.ts", "prisma/seed.ts"],
+			"files": ["./index.ts"],
 			"rules": {
 				"eslint/no-restricted-imports": "off"
 			}

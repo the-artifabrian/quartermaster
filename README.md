@@ -82,6 +82,22 @@ bun run setup
 bun run dev
 ```
 
+Open [localhost:3000](http://localhost:3000) and log in as `sam` with the
+password `local-only`. Sam's Household has sample Recipes, plus a Plan and
+Shopping for the week you first seed. `robin`, with the same password, has an
+empty Household for trying invites. The seed is sample data for a local
+database only, and it refuses to run in production.
+
+Seeding again puts back any sample Recipe or Staple you deleted without making
+copies, and leaves the Plan and Shopping alone once that week is over. To start
+over on the current week, reset the local database and seed it again. Prisma's
+reset doesn't run the seed by itself.
+
+```bash
+bunx prisma migrate reset --force
+bunx prisma db seed
+```
+
 The development environment mocks Stripe, storage, and email. See
 [`.env.example`](.env.example) for optional service configuration.
 

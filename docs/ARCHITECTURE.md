@@ -321,7 +321,9 @@ demand that joins it adds to that amount on display. Edit changes only the
 row’s own amount, and Remove generated amount takes the Meal share off again.
 
 A cooked Recipe item adds no demand on any path. On Update Shopping, amounts it
-already put on Shopping stay as they are, checked or not. The rule lives in
+already put on Shopping stay as they are, checked or not, including an
+ingredient it shares with an uncooked item. If its Recipe was deleted, every
+amount the Meal has on Shopping stays. The rule lives in
 `loadMealShoppingDemand`.
 
 Shopping checks submit an explicit state and the observed purchase version.

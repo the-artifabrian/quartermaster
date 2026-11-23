@@ -513,10 +513,12 @@ describe('refreshMealShopping — one-Meal replacement (#110)', () => {
 		const item = await prisma.mealRecipeItem.findFirstOrThrow({
 			where: { mealId: meal.id },
 		})
-		await runUndoDelete(session, {
-			intent: 'delete-meal-item',
-			itemId: item.id,
-		})
+		expect(
+			await runUndoDelete(session, {
+				intent: 'delete-meal-item',
+				itemId: item.id,
+			}),
+		).toMatchObject({ status: 'deleted' })
 		// Still on Shopping, so the card keeps offering an update.
 		expect((await runPlanLoader(session)).meals[0]!.addedToShopping).toBe(true)
 
@@ -1053,11 +1055,13 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 			intent: 'addMealToShopping',
 			mealId: meal.id,
 		})
-		await runUndoDelete(session, {
-			intent: 'delete-meal',
-			mealId: meal.id,
-			removeShoppingContributions: false,
-		})
+		expect(
+			await runUndoDelete(session, {
+				intent: 'delete-meal',
+				mealId: meal.id,
+				removeShoppingContributions: false,
+			}),
+		).toMatchObject({ status: 'deleted' })
 
 		// Default is keeping Shopping (#98 story 70); the ask-dialog is #110.
 		expect(await getShoppingRows(session.householdId)).toHaveLength(2)
@@ -1081,11 +1085,13 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 			mealId: meal.id,
 		})
 
-		await runUndoDelete(session, {
-			intent: 'delete-meal',
-			mealId: meal.id,
-			removeShoppingContributions: true,
-		})
+		expect(
+			await runUndoDelete(session, {
+				intent: 'delete-meal',
+				mealId: meal.id,
+				removeShoppingContributions: true,
+			}),
+		).toMatchObject({ status: 'deleted' })
 
 		expect(await prisma.meal.findUnique({ where: { id: meal.id } })).toBeNull()
 		expect(await getContributions(session.householdId)).toHaveLength(0)
@@ -1109,10 +1115,12 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 		})
 		const row = (await getShoppingRows(session.householdId))[0]!
 
-		await runUndoDelete(session, {
-			intent: 'delete-shopping',
-			itemIds: [row.id],
-		})
+		expect(
+			await runUndoDelete(session, {
+				intent: 'delete-shopping',
+				itemIds: [row.id],
+			}),
+		).toMatchObject({ status: 'deleted' })
 
 		expect(
 			await prisma.mealShoppingContribution.count({
@@ -1480,13 +1488,15 @@ describe('Shopping display grouping — combined totals without rewriting identi
 			status: 'success',
 		})
 		// Clear checked sends the rows it shows as checked.
-		await runUndoDelete(session, {
-			intent: 'delete-shopping',
-			itemIds: (await getDisplayedItems(session))
-				.filter((item) => item.checked)
-				.map((item) => item.id),
-			checkedOnly: true,
-		})
+		expect(
+			await runUndoDelete(session, {
+				intent: 'delete-shopping',
+				itemIds: (await getDisplayedItems(session))
+					.filter((item) => item.checked)
+					.map((item) => item.id),
+				checkedOnly: true,
+			}),
+		).toMatchObject({ status: 'deleted' })
 		const remaining = await getDisplayedItems(session)
 		expect(remaining).toHaveLength(1)
 		expect(remaining[0]).toMatchObject({
@@ -1636,11 +1646,13 @@ describe('Meal Shopping contributions across horizons (#175)', () => {
 			}),
 		).toEqual({ horizon: 'later', checked: true })
 
-		await runUndoDelete(session, {
-			intent: 'delete-meal',
-			mealId: meal.id,
-			removeShoppingContributions: true,
-		})
+		expect(
+			await runUndoDelete(session, {
+				intent: 'delete-meal',
+				mealId: meal.id,
+				removeShoppingContributions: true,
+			}),
+		).toMatchObject({ status: 'deleted' })
 		expect(
 			await prisma.shoppingListItem.findUnique({ where: { id: lamb.id } }),
 		).toBeNull()

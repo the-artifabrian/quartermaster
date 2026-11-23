@@ -44,7 +44,6 @@ import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { loadMealShoppingDemand } from '#app/utils/meal-shopping.server.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { parseTypedItem } from '#app/utils/parse-speech-item.ts'
-import { readShoppingCheck } from '#app/utils/shopping-check.server.ts'
 import {
 	editShoppingDisplayGroup,
 	reconcileMealShoppingContributions,
@@ -52,9 +51,11 @@ import {
 } from '#app/utils/shopping-contribution.server.ts'
 import {
 	buildShoppingDemand,
+	combineDemandParts,
 	combineRowDisplay,
 	demandIdentity,
 } from '#app/utils/shopping-demand.server.ts'
+import { keepsOwnAmount } from '#app/utils/shopping-row-source.ts'
 import {
 	LATER,
 	NEXT_SHOP,
@@ -679,15 +680,31 @@ function reloadToChange() {
  * applies to what they have seen.
  */
 async function rowChanged(householdId: string, itemId: string) {
-	const item = await readShoppingCheck(prisma, householdId, itemId)
+	const item = await prisma.shoppingListItem.findFirst({
+		where: { id: itemId, list: { householdId } },
+		include: { mealContributions: { select: { quantity: true, unit: true } } },
+	})
 	if (!item) throw new Response('Item not found', { status: 404 })
+	const parts = item.mealContributions.map((c) => ({
+		amount: c.quantity,
+		unit: c.unit,
+	}))
 	return data(
 		{
 			status: 'conflict' as const,
 			item: {
 				checkVersion: item.checkVersion,
 				checked: item.checked,
-				display: item.display,
+				display: combineRowDisplay({
+					...item,
+					contributions: item.mealContributions,
+				}),
+				// A row with its own amount: the editor holds only that amount,
+				// so the page says what Meals add on top of it.
+				mealShare:
+					keepsOwnAmount(item.source) && parts.length > 0
+						? combineDemandParts(parts)
+						: null,
 			},
 		},
 		{ status: 409 },

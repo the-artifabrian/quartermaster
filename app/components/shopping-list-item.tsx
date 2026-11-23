@@ -22,6 +22,7 @@ import {
 } from '#app/utils/produce-weights.ts'
 import { LATER, NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 import { keepsOwnAmount } from '#app/utils/shopping-row-source.ts'
+import { rowChangedMessage } from '#app/utils/meal-shopping-messages.ts'
 import { type ShoppingItemDisplay } from '#app/utils/shopping-optimistic.ts'
 import { useSwipeRow } from '#app/hooks/use-swipe-row.ts'
 import { type useShoppingChecks } from '#app/hooks/use-shopping-checks.tsx'
@@ -59,16 +60,9 @@ type RowWriteData =
 				checkVersion: number
 				checked: boolean
 				display: ShoppingItemDisplay
+				mealShare: { quantity: string | null; unit: string | null } | null
 			}
 	  }
-
-/** The row changed while it was open in Edit; it shows the new amount. */
-function rowChangedMessage(display: ShoppingItemDisplay) {
-	const amount = [display.quantity, display.unit].filter(Boolean).join(' ')
-	return amount
-		? `This item changed and now says ${amount}. Check your amount, then save again.`
-		: 'This item changed. Check your amount, then save again.'
-}
 
 type ShoppingListItemCardProps = {
 	checks: ReturnType<typeof useShoppingChecks>
@@ -131,7 +125,7 @@ export function ShoppingListItemCard({
 					)
 				} else {
 					setEditVersion(data.item.checkVersion)
-					setEditNotice(rowChangedMessage(data.item.display))
+					setEditNotice(rowChangedMessage(data.item))
 				}
 			} else if (isEditing && data?.status !== 'error') {
 				setIsEditing(false)

@@ -675,6 +675,7 @@ describe('Shopping row Edit and Remove generated amount answer a changed row', (
 				checkVersion: now.checkVersion,
 				checked: false,
 				display: { quantity: '1.75', unit: 'kg', combined: true },
+				mealShare: { quantity: '1.5', unit: 'kg' },
 			},
 		})
 

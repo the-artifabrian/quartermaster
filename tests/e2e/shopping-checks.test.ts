@@ -667,7 +667,7 @@ test('an edit saved after the row changed is refused, then saves once the new am
 	await sheet.getByRole('button', { name: 'Save' }).click()
 
 	await expect(sheet.getByRole('alert')).toHaveText(
-		'This item changed and now says 500 g. Check your amount, then save again.',
+		'This item changed. Meals now add 300 g on top of your amount.',
 	)
 	await expect(quantity).toHaveValue('250')
 	await expect(riceRow(page)).toContainText('500 g')

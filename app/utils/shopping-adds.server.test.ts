@@ -132,7 +132,7 @@ function rowNames(db: PrismaClient, listId: string) {
 		.then((rows) => rows.map((row) => row.name))
 }
 
-test('From Plan skips a picked Meal deleted as it runs, and adds the others', async () => {
+test('From Plan finishes when a picked Meal is deleted as it runs, and the delete waits for it', async () => {
 	await using database = await createWalDatabase()
 	const { db: wal, url } = database
 	const { householdId, listId, meal } = await seedHousehold(wal)
@@ -156,9 +156,10 @@ test('From Plan skips a picked Meal deleted as it runs, and adds the others', as
 	})
 
 	await state.other!.committed
+	expect(state.landedAtOnce).toBe(false)
 	expect(await wal.meal.count({ where: { id: leek.id } })).toBe(0)
-	expect(await rowNames(wal, listId)).toContain('carrot')
-	expect(result.createdRowCount).toBeGreaterThanOrEqual(1)
+	expect(await rowNames(wal, listId)).toEqual(['carrot', 'leek'])
+	expect(result.createdRowCount).toBe(2)
 })
 
 test('From Plan holds off an item being marked cooked until it has written', async () => {

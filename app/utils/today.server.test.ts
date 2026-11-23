@@ -17,6 +17,16 @@
  * - An unknown zone, an empty value or a broken encoding in the cookie: UTC's
  *   day, and no error.
  * - The hint cookie among other cookies is still found.
+ *
+ * The week a request asks for with `?weekStart=`:
+ * - No param, or an empty one: the week holding the user's today.
+ * - A malformed value (`abc`, `2026-1-5`), or one that names no real day
+ *   (`2026-02-30`): today's week, and no error from an invalid Date.
+ * - A full datetime (`2026-10-21T00:00:00Z`) is not a day: today's week.
+ * - A Wednesday or a Sunday: the Monday that starts its week.
+ * - A Monday stays that Monday.
+ * - Today's week follows the hint's zone, as today does: Bucharest just after
+ *   midnight on a Monday is in the new week while UTC is still Sunday.
  */
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { consoleWarn } from '#tests/setup/setup-test-env.ts'
@@ -134,19 +144,6 @@ test('the hint is read from among other cookies', () => {
 	expect(getRequestToday(requestWithCookie(cookie))).toBe('2026-11-23')
 })
 
-/*
- * The week a request asks for with `?weekStart=`.
- *
- * Failure list:
- * - No param, or an empty one: the week holding the user's today.
- * - A malformed value (`abc`, `2026-1-5`), or one that names no real day
- *   (`2026-02-30`): today's week, and no error from an invalid Date.
- * - A full datetime (`2026-10-21T00:00:00Z`) is not a day: today's week.
- * - A Wednesday or a Sunday: the Monday that starts its week.
- * - A Monday stays that Monday.
- * - Today's week follows the hint's zone, as today does: Bucharest just after
- *   midnight on a Monday is in the new week while UTC is still Sunday.
- */
 describe('getRequestWeekStart', () => {
 	function weekOf(url: string, timeZone = 'UTC') {
 		const request = new Request(url, {

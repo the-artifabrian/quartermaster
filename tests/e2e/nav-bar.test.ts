@@ -207,7 +207,7 @@ test('a page opened from a scrolled page does not start with its title in the ba
 			title,
 			`small title hidden at ${JSON.stringify(where)}`,
 		).toHaveAttribute('data-shown', '', { timeout: 1000 })
-	}).toPass()
+	}).toPass({ timeout: 5000 })
 	await expect(title).toHaveAttribute('data-nav-title', 'Settings')
 
 	// Record, in every frame from here on, which page is on screen (its h1;

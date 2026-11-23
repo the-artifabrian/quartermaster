@@ -1,3 +1,20 @@
+/**
+ * The Plan's actions. Add to Shopping and Update Shopping decide what to
+ * write from the Meal's demand, cooked state included, so another write
+ * landing in between can break them ("Add to Shopping reads the Meal under
+ * the write lock" below).
+ *
+ * Failure list for those:
+ * - The Meal is deleted after its demand is read and before the Shopping
+ *   write: the write points at a Meal that is gone and fails (a foreign key
+ *   error, so a 500).
+ * - The Meal is deleted after the Household check finds it and before the
+ *   transaction starts: the add fails, or writes rows for a Meal that is
+ *   gone.
+ * - An item is marked cooked after the demand is read: its amounts still
+ *   land, though a cooked item adds nothing.
+ * - Update Shopping has the same gap as Add to Shopping.
+ */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
 
@@ -1460,18 +1477,6 @@ describe('meal plan actions', () => {
 	})
 })
 
-/*
- * Add to Shopping and Update Shopping decide what to write from the Meal's
- * demand, cooked state included.
- *
- * Failure list:
- * - The Meal is deleted after its demand is read and before the Shopping
- *   write: the write points at a Meal that is gone and fails (a foreign key
- *   error, so a 500).
- * - An item is marked cooked after the demand is read: its amounts still
- *   land, though a cooked item adds nothing.
- * - Update Shopping has the same gap as Add to Shopping.
- */
 describe('Add to Shopping reads the Meal under the write lock', () => {
 	async function seedMeal(db: typeof prisma) {
 		const user = await db.user.create({ data: createUser() })
@@ -1514,13 +1519,14 @@ describe('Add to Shopping reads the Meal under the write lock', () => {
 	}
 
 	/**
-	 * `db`, with `write` sent from another connection just after the first
-	 * read of a Meal's items, on `db` itself or inside a transaction. Reports
-	 * whether that write landed at once or had to wait.
+	 * `wal`, with `sql` sent from another connection just after the first
+	 * `model.findX` call returns, on the client itself or inside a
+	 * transaction. `state` says whether that write landed at once or waited.
 	 */
-	function writeAfterDemandRead(
+	function writeAfterFirstRead(
 		wal: typeof prisma,
 		url: string,
+		[model, method]: ['mealRecipeItem', 'findMany'] | ['meal', 'findFirst'],
 		sql: string,
 		args: Array<string | number>,
 	) {
@@ -1535,23 +1541,23 @@ describe('Add to Shopping reads the Meal under the write lock', () => {
 			state.landedAtOnce = await settlesWithin(state.other.committed, 300)
 		}
 		function hooked<Client extends object>(client: Client): Client {
-			const items = new Proxy(
-				(client as unknown as typeof prisma).mealRecipeItem,
-				{
-					get(target, key) {
-						const value = Reflect.get(target, key)
-						if (key !== 'findMany') return value
-						return async (...args: Parameters<typeof target.findMany>) => {
-							const found = await target.findMany(...args)
-							await afterRead()
-							return found
-						}
-					},
+			const delegate = Reflect.get(client, model) as object
+			const wrapped = new Proxy(delegate, {
+				get(target, key) {
+					const value = Reflect.get(target, key) as unknown
+					if (key !== method || typeof value !== 'function') return value
+					return async (...args: unknown[]) => {
+						const found = await (
+							value as (...args: unknown[]) => Promise<unknown>
+						).apply(target, args)
+						await afterRead()
+						return found
+					}
 				},
-			)
+			})
 			return new Proxy(client, {
 				get(target, key) {
-					if (key === 'mealRecipeItem') return items
+					if (key === model) return wrapped
 					if (key === '$transaction') {
 						return (work: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
 							(target as unknown as typeof prisma).$transaction((tx) =>
@@ -1574,14 +1580,15 @@ describe('Add to Shopping reads the Meal under the write lock', () => {
 	}
 
 	test.each(['addMealToShopping', 'refreshMealShopping'])(
-		'%s answers quietly when the Meal is deleted as it runs',
+		'%s finishes when the Meal is deleted after its demand is read, and the delete waits for it',
 		async (intent) => {
 			await using database = await createWalDatabase()
 			const { db: wal, url } = database
 			const { planUser, meal } = await seedMeal(wal)
-			const { db, state } = writeAfterDemandRead(
+			const { db, state } = writeAfterFirstRead(
 				wal,
 				url,
+				['mealRecipeItem', 'findMany'],
 				'DELETE FROM "Meal" WHERE "id" = ?',
 				[meal.id],
 			)
@@ -1592,8 +1599,36 @@ describe('Add to Shopping reads the Meal under the write lock', () => {
 			)({ request: shoppingRequest(intent, meal.id) })
 
 			await state.other!.committed
-			expect(response).not.toBeInstanceOf(Response)
+			expect(state.landedAtOnce).toBe(false)
+			expect(response).toMatchObject({ status: 'success' })
 			expect(await wal.meal.count({ where: { id: meal.id } })).toBe(0)
+		},
+	)
+
+	test.each(['addMealToShopping', 'refreshMealShopping'])(
+		'%s answers quietly, and writes nothing, when the Meal is deleted after it was found',
+		async (intent) => {
+			await using database = await createWalDatabase()
+			const { db: wal, url } = database
+			const { planUser, meal } = await seedMeal(wal)
+			// The first Meal read is the check that it is the Household's, before
+			// the transaction. The delete lands right after it.
+			const { db, state } = writeAfterFirstRead(
+				wal,
+				url,
+				['meal', 'findFirst'],
+				'DELETE FROM "Meal" WHERE "id" = ?',
+				[meal.id],
+			)
+
+			const response = await createPlanAction(
+				db,
+				async () => planUser,
+			)({ request: shoppingRequest(intent, meal.id) })
+
+			expect(state.landedAtOnce).toBe(true)
+			expect(response).toEqual({ status: 'gone' })
+			expect(await wal.shoppingListItem.count()).toBe(0)
 		},
 	)
 
@@ -1603,9 +1638,10 @@ describe('Add to Shopping reads the Meal under the write lock', () => {
 			await using database = await createWalDatabase()
 			const { db: wal, url } = database
 			const { planUser, meal } = await seedMeal(wal)
-			const { db, state } = writeAfterDemandRead(
+			const { db, state } = writeAfterFirstRead(
 				wal,
 				url,
+				['mealRecipeItem', 'findMany'],
 				'UPDATE "MealRecipeItem" SET "cooked" = 1 WHERE "id" = ?',
 				[meal.recipeItems[0]!.id],
 			)

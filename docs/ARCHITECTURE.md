@@ -246,6 +246,23 @@ connections and their page caches would stay in memory. `createPrismaClient` in
 `app/utils/db.server.ts` wraps the adapter so that a transaction lets go of its
 connection when it ends, and the next garbage collection frees it.
 
+Recipe and Menu edits save over rows other members may have changed since the
+form loaded. Each form posts every row with its id, plus the ids of the rows it
+loaded (`app/utils/loaded-rows.ts`), and the Save runs in one write transaction:
+
+- A row the form posts back keeps its id. Ingredient and step ids are what
+  cooking checks are keyed on, and nothing in the schema points at them.
+- A Save removes only rows the form loaded and left out. A row added meanwhile
+  stays and goes after the saved rows. A Menu card added meanwhile to a section
+  the editor removed moves to the end of the first section.
+- A row deleted meanwhile that the form still shows is saved again, as a new
+  row. A missing Menu card (its Recipe gone) can't be, so it stays removed.
+- A new row carries the id the form gave it when it was added. The Save creates
+  it with that id if no row has it yet, so a Save that reaches the server twice
+  finds its rows the second time instead of adding them again.
+- A posted id that belongs to another Recipe's or Menu's row never changes that
+  row; the new row gets a fresh id.
+
 ## Planning
 
 A Recipe is canonical cooking content. A Menu is a reusable arrangement of

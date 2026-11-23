@@ -1,3 +1,11 @@
+/**
+ * Favourite failure list:
+ * - Two members both add a Recipe to favourites and it ends up unstarred.
+ * - Two taps asking for the same state at once cancel out.
+ * - A double tap (add, then remove) ends in the first tap's state.
+ * - A state that is neither true nor false is saved as one of them.
+ * - A page loaded before the change, which posts no state, stops working.
+ */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
 
@@ -273,32 +281,99 @@ describe('recipe detail actions', () => {
 		).resolves.toEqual({ activeTime: 10, totalTime: 40 })
 	})
 
-	test('toggle favorite', async () => {
+	test('a favourite tap saves the state it asked for, however often it arrives', async () => {
+		const session = await setupUser()
+		const partner = await prisma.$transaction(async (tx) => {
+			const member = await tx.session.create({
+				data: {
+					expirationDate: getSessionExpirationDate(),
+					user: { create: createUser() },
+				},
+				select: { id: true, userId: true },
+			})
+			await tx.householdMember.create({
+				data: {
+					householdId: session.householdId,
+					userId: member.userId,
+					role: 'member',
+				},
+			})
+			return member
+		})
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const setFavorite = async (who: { id: string }, value: string) =>
+			action({
+				request: await makeRequest(who, recipe.id, {
+					intent: 'toggleFavorite',
+					isFavorite: value,
+				}),
+				...makeActionArgs(recipe.id),
+			})
+		const stored = async () =>
+			(
+				await prisma.recipe.findUniqueOrThrow({
+					where: { id: recipe.id },
+					select: { isFavorite: true },
+				})
+			).isFavorite
+
+		// Both members add it from a page that showed it unstarred.
+		expect(await setFavorite(session, 'true')).toEqual({ success: true })
+		expect(await setFavorite(partner, 'true')).toEqual({ success: true })
+		expect(await stored()).toBe(true)
+
+		// Two at once, both asking for the same state.
+		await Promise.all([
+			setFavorite(session, 'false'),
+			setFavorite(partner, 'false'),
+		])
+		expect(await stored()).toBe(false)
+
+		// A double tap: add, then remove. The last one wins.
+		await setFavorite(session, 'true')
+		await setFavorite(session, 'false')
+		expect(await stored()).toBe(false)
+	})
+
+	test('a favourite tap with a state that is neither true nor false changes nothing', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId, {
+			isFavorite: true,
+		})
+
+		await expect(
+			action({
+				request: await makeRequest(session, recipe.id, {
+					intent: 'toggleFavorite',
+					isFavorite: 'yes',
+				}),
+				...makeActionArgs(recipe.id),
+			}),
+		).rejects.toEqual(expect.objectContaining({ status: 400 }))
+		const after = await prisma.recipe.findUniqueOrThrow({
+			where: { id: recipe.id },
+			select: { isFavorite: true },
+		})
+		expect(after.isFavorite).toBe(true)
+	})
+
+	test('a favourite tap from a page loaded before the state was sent still flips it', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId, {
 			isFavorite: false,
 		})
 
-		const request = await makeRequest(session, recipe.id, {
-			intent: 'toggleFavorite',
+		await action({
+			request: await makeRequest(session, recipe.id, {
+				intent: 'toggleFavorite',
+			}),
+			...makeActionArgs(recipe.id),
 		})
-		const result = await action({ request, ...makeActionArgs(recipe.id) })
-		expect(result).toEqual({ success: true })
-
-		const updated = await prisma.recipe.findUnique({
+		const after = await prisma.recipe.findUniqueOrThrow({
 			where: { id: recipe.id },
+			select: { isFavorite: true },
 		})
-		expect(updated!.isFavorite).toBe(true)
-
-		// Toggle back
-		const request2 = await makeRequest(session, recipe.id, {
-			intent: 'toggleFavorite',
-		})
-		await action({ request: request2, ...makeActionArgs(recipe.id) })
-		const reToggled = await prisma.recipe.findUnique({
-			where: { id: recipe.id },
-		})
-		expect(reToggled!.isFavorite).toBe(false)
+		expect(after.isFavorite).toBe(true)
 	})
 
 	test('action on nonexistent recipe returns 404', async () => {

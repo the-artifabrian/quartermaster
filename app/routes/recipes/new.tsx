@@ -1,4 +1,3 @@
-import { parseWithZod } from '@conform-to/zod/v4'
 import {
 	MaxFileSizeExceededError,
 	parseFormData,
@@ -30,6 +29,7 @@ import {
 import {
 	RecipeSchema,
 	MAX_RECIPE_IMAGE_SIZE,
+	parseRecipeForm,
 	photoTooLargeResult,
 	PHOTO_REFUSALS,
 } from '#app/utils/recipe-validation.ts'
@@ -98,47 +98,7 @@ export async function action({ request }: Route.ActionArgs) {
 		throw error
 	}
 
-	// Parse ingredients array from form data
-	const ingredients: Array<{
-		name: string
-		amount?: string
-		unit?: string
-		notes?: string
-		isHeading?: boolean
-		linkedRecipeId?: string
-	}> = []
-	let i = 0
-	while (formData.has(`ingredients[${i}].name`)) {
-		ingredients.push({
-			name: formData.get(`ingredients[${i}].name`) as string,
-			amount: (formData.get(`ingredients[${i}].amount`) as string) || undefined,
-			unit: (formData.get(`ingredients[${i}].unit`) as string) || undefined,
-			notes: (formData.get(`ingredients[${i}].notes`) as string) || undefined,
-			isHeading: formData.get(`ingredients[${i}].isHeading`) === 'true',
-			linkedRecipeId:
-				(formData.get(`ingredients[${i}].linkedRecipeId`) as string) ||
-				undefined,
-		})
-		i++
-	}
-
-	// Parse instructions array from form data
-	const instructions: Array<{ content: string }> = []
-	i = 0
-	while (formData.has(`instructions[${i}].content`)) {
-		instructions.push({
-			content: formData.get(`instructions[${i}].content`) as string,
-		})
-		i++
-	}
-
-	const submission = parseWithZod(formData, {
-		schema: RecipeSchema.transform((data) => ({
-			...data,
-			ingredients,
-			instructions,
-		})),
-	})
+	const { submission, ingredients, instructions } = parseRecipeForm(formData)
 
 	// Checked before anything is saved, so a refused file leaves no Recipe
 	// behind.
@@ -174,28 +134,14 @@ export async function action({ request }: Route.ActionArgs) {
 		notes,
 	} = submission.value
 
-	// A sub-Recipe another member deleted while the form was open: the form
-	// stays with its edits and says so at the row.
-	const unlinkable = await unlinkableRows(ingredients, householdId)
-	if (unlinkable.length > 0) {
-		return data(
-			{
-				result: submission.reply({
-					fieldErrors: Object.fromEntries(
-						unlinkable.map((index) => [
-							`ingredients[${index}].linkedRecipeId`,
-							[LINKED_RECIPE_GONE_MESSAGE],
-						]),
-					),
-				}),
-			},
-			{ status: 400 },
-		)
-	}
-
-	let recipe: { id: string }
+	let saved: { unlinkable: number[] } | { id: string }
 	try {
-		recipe = await writeTransaction(prisma, async (tx) => {
+		saved = await writeTransaction(prisma, async (tx) => {
+			// A sub-Recipe another member deleted while the form was open:
+			// nothing is saved, and the form keeps its edits and says so at the
+			// row. Checked here, so a delete just before the Save can't slip in.
+			const unlinkable = await unlinkableRows(ingredients, householdId, tx)
+			if (unlinkable.length > 0) return { unlinkable }
 			const metadataValueIds = await resolveRecipeMetadataValueIds(
 				tx,
 				householdId,
@@ -216,6 +162,7 @@ export async function action({ request }: Route.ActionArgs) {
 					metadataAssignments: {
 						create: metadataValueIds.map((valueId) => ({ valueId })),
 					},
+					// Every row is new here: the ids a form posts are ignored.
 					ingredients: {
 						create: ingredients
 							.filter((ing) => ing.name.trim() !== '')
@@ -250,6 +197,23 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 		throw error
 	}
+
+	if ('unlinkable' in saved) {
+		return data(
+			{
+				result: submission.reply({
+					fieldErrors: Object.fromEntries(
+						saved.unlinkable.map((index) => [
+							`ingredients[${index}].linkedRecipeId`,
+							[LINKED_RECIPE_GONE_MESSAGE],
+						]),
+					),
+				}),
+			},
+			{ status: 400 },
+		)
+	}
+	const recipe = saved
 
 	// Upload image if provided
 	if (photo) {

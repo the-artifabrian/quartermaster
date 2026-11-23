@@ -7,7 +7,8 @@ import {
 	type FormMetadata,
 } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
-import { useEffect } from 'react'
+import { createId } from '@paralleldrive/cuid2'
+import { useEffect, useState } from 'react'
 import { Form, useActionData } from 'react-router'
 import {
 	RecipePicker,
@@ -24,6 +25,7 @@ import {
 	type MenuShoppingLineInput,
 } from '#app/utils/menu-validation.ts'
 import { isEditScreenDone } from '#app/utils/edit-screen.ts'
+import { CREATED_IDS_FIELD, loadedIdsValue } from '#app/utils/loaded-rows.ts'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
 import { getHistoryLog, resolveAfterSave } from '#app/utils/nav-back.ts'
 import { historyIndex } from '#app/utils/nav-direction.ts'
@@ -187,6 +189,28 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [actionData])
 	useNavBarForm(MENU_FORM_ID, { blocked: leaving })
+	// The sections and cards this form loaded. Save removes only these when
+	// they are left out, so one another member added meanwhile stays
+	// (loaded-rows.ts).
+	// Every id this form gives a new card or section, kept after it is
+	// removed: an earlier Save whose answer was lost may have stored it, and
+	// a replay then removes it too (loaded-rows.ts).
+	const [createdIds, setCreatedIds] = useState<string[]>([])
+	const newRowId = () => {
+		const id = createId()
+		setCreatedIds((ids) => [...ids, id])
+		return id
+	}
+	const [loadedIds] = useState(() =>
+		builder
+			? {
+					sections: loadedIdsValue(builder.sections),
+					items: loadedIdsValue(
+						builder.sections.flatMap((section) => section.items),
+					),
+				}
+			: null,
+	)
 
 	return (
 		<Form
@@ -198,6 +222,21 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 			className="space-y-4"
 		>
 			<ClientLeavesField />
+			{loadedIds && (
+				<>
+					<input
+						type="hidden"
+						name="loadedSectionIds"
+						value={loadedIds.sections}
+					/>
+					<input type="hidden" name="loadedItemIds" value={loadedIds.items} />
+					<input
+						type="hidden"
+						name={CREATED_IDS_FIELD}
+						value={JSON.stringify(createdIds)}
+					/>
+				</>
+			)}
 			<DiscardChangesGuard
 				formId={MENU_FORM_ID}
 				description={
@@ -248,7 +287,12 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 			/>
 
 			{builder ? (
-				<MenuSectionsBuilder form={form} fields={fields} builder={builder} />
+				<MenuSectionsBuilder
+					form={form}
+					fields={fields}
+					builder={builder}
+					newRowId={newRowId}
+				/>
 			) : null}
 		</Form>
 	)
@@ -355,10 +399,12 @@ function MenuSectionsBuilder({
 	form,
 	fields,
 	builder,
+	newRowId,
 }: {
 	form: MenuFormMetadata
 	fields: MenuFormFields
 	builder: NonNullable<MenuFormProps['builder']>
+	newRowId: () => string
 }) {
 	const sectionList = fields.sections.getFieldList()
 	// Stored Recipe cards by id — the frozen-title lookup for missing cards.
@@ -400,14 +446,16 @@ function MenuSectionsBuilder({
 			if (unnamed) unnamed.items.push(...removed.items)
 			else {
 				sections.splice(sectionIndex, 0, {
-					id: '',
+					id: newRowId(),
 					name: '',
 					items: removed.items,
 				})
 			}
 		}
 		// Cards need somewhere to live — an emptied menu keeps one blank section.
-		if (sections.length === 0) sections.push({ id: '', name: '', items: [] })
+		if (sections.length === 0) {
+			sections.push({ id: newRowId(), name: '', items: [] })
+		}
 		form.update({ name: fields.sections.name, value: sections })
 	}
 
@@ -440,6 +488,7 @@ function MenuSectionsBuilder({
 						recipes={builder.recipes}
 						onMoveItem={moveItemToSection}
 						onRemoveSection={removeSection}
+						newRowId={newRowId}
 					/>
 				))}
 			</ul>
@@ -450,7 +499,9 @@ function MenuSectionsBuilder({
 					onClick={() =>
 						form.insert({
 							name: fields.sections.name,
-							defaultValue: { id: '', name: '', items: [] },
+							// A new card or section gets its id now, and Save posts it,
+							// so a Save that reaches the server twice adds it once.
+							defaultValue: { id: newRowId(), name: '', items: [] },
 						})
 					}
 				>
@@ -474,6 +525,7 @@ function MenuSectionCard({
 	recipes,
 	onMoveItem,
 	onRemoveSection,
+	newRowId,
 }: {
 	form: MenuFormMetadata
 	fields: MenuFormFields
@@ -490,6 +542,7 @@ function MenuSectionCard({
 		toSection: number,
 	) => void
 	onRemoveSection: (sectionIndex: number) => void
+	newRowId: () => string
 }) {
 	const section = sectionMeta.getFieldset()
 	const itemList = section.items.getFieldList()
@@ -595,7 +648,7 @@ function MenuSectionCard({
 						form.insert({
 							name: section.items.name,
 							defaultValue: {
-								id: '',
+								id: newRowId(),
 								kind: 'recipe',
 								recipeId: recipe.id,
 								scaleMultiplier: '1',
@@ -613,7 +666,7 @@ function MenuSectionCard({
 						form.insert({
 							name: section.items.name,
 							defaultValue: {
-								id: '',
+								id: newRowId(),
 								kind: 'note',
 								text: '',
 								shoppingLines: [],

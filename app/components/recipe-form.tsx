@@ -1,5 +1,6 @@
 import { getFormProps, getInputProps, useForm } from '@conform-to/react'
 import { getZodConstraint, parseWithZod } from '@conform-to/zod/v4'
+import { createId } from '@paralleldrive/cuid2'
 import { Img } from 'openimg/react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Form, useActionData } from 'react-router'
@@ -7,6 +8,7 @@ import { useFitFileInput } from '#app/utils/downscale-image.ts'
 import { isEditScreenDone } from '#app/utils/edit-screen.ts'
 import { IMG_SIZES } from '#app/utils/image-route.ts'
 import { listErrors } from '#app/utils/list-errors.ts'
+import { CREATED_IDS_FIELD, loadedIdsValue } from '#app/utils/loaded-rows.ts'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
 import { getHistoryLog, resolveAfterSave } from '#app/utils/nav-back.ts'
 import { historyIndex } from '#app/utils/nav-direction.ts'
@@ -158,6 +160,38 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 			: [{ content: '' }],
 	)
 
+	// The rows this form loaded, from the same first render as the rows
+	// above. Save removes only these when they are left out, so a row another
+	// member added meanwhile stays (loaded-rows.ts).
+	// Each row gets its id once it is added or first changed, and Save posts
+	// it. A Save that reaches the server twice then finds the rows the first
+	// one added instead of adding them again (loaded-rows.ts). Rows get it on
+	// a change, not on the first render, so the server's render and the
+	// browser's agree. The ids stay listed after their row is removed: an
+	// earlier Save whose answer was lost may have stored it, and a replay
+	// then removes it too.
+	const [createdIds, setCreatedIds] = useState<string[]>([])
+	function withRowIds<Row extends { id?: string }>(rows: Row[]) {
+		const created: string[] = []
+		const withIds = rows.map((row) => {
+			if (row.id) return row
+			const id = createId()
+			created.push(id)
+			return { ...row, id }
+		})
+		if (created.length > 0) setCreatedIds((ids) => [...ids, ...created])
+		return withIds
+	}
+
+	const [loadedIds] = useState(() =>
+		recipe
+			? {
+					ingredients: loadedIdsValue(recipe.ingredients),
+					instructions: loadedIdsValue(recipe.instructions),
+				}
+			: null,
+	)
+
 	const savedPhoto = recipe?.image?.objectKey
 		? `/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`
 		: null
@@ -283,6 +317,25 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 			className="space-y-4"
 		>
 			<ClientLeavesField />
+			{loadedIds && (
+				<>
+					<input
+						type="hidden"
+						name="loadedIngredientIds"
+						value={loadedIds.ingredients}
+					/>
+					<input
+						type="hidden"
+						name="loadedInstructionIds"
+						value={loadedIds.instructions}
+					/>
+					<input
+						type="hidden"
+						name={CREATED_IDS_FIELD}
+						value={JSON.stringify(createdIds)}
+					/>
+				</>
+			)}
 			<DiscardChangesGuard
 				formId={RECIPE_FORM_ID}
 				description={
@@ -320,7 +373,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 			>
 				<IngredientFields
 					ingredients={ingredients}
-					onChange={setIngredients}
+					onChange={(rows) => setIngredients(withRowIds(rows))}
 					excludeRecipeId={recipe?.id}
 					rowErrors={ingredientErrors.rows}
 				/>
@@ -431,7 +484,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 			>
 				<InstructionFields
 					instructions={instructions}
-					onChange={setInstructions}
+					onChange={(rows) => setInstructions(withRowIds(rows))}
 					rowErrors={instructionErrors.rows}
 				/>
 			</FormSection>

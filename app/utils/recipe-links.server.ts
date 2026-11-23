@@ -1,3 +1,4 @@
+import { type PrismaClient } from '#app/generated/prisma/client.ts'
 import { prisma } from './db.server.ts'
 
 /** The message a row gets when its sub-Recipe link cannot be kept. */
@@ -13,6 +14,7 @@ export const LINKED_RECIPE_GONE_MESSAGE =
 export async function unlinkableRows(
 	ingredients: ReadonlyArray<{ linkedRecipeId?: string | null }>,
 	householdId: string,
+	db: Pick<PrismaClient, 'recipe'> = prisma,
 ) {
 	const linkedIds = [
 		...new Set(
@@ -24,7 +26,7 @@ export async function unlinkableRows(
 	if (linkedIds.length === 0) return []
 	const owned = new Set(
 		(
-			await prisma.recipe.findMany({
+			await db.recipe.findMany({
 				where: { id: { in: linkedIds }, householdId },
 				select: { id: true },
 			})

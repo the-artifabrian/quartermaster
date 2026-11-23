@@ -1,5 +1,17 @@
+import { type Locator } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
+
+/** React has hydrated an element once it has attached its props to it. */
+async function hydrated(target: Locator) {
+	await expect
+		.poll(() =>
+			target.evaluate((element) =>
+				Object.keys(element).some((key) => key.startsWith('__reactProps')),
+			),
+		)
+		.toBe(true)
+}
 
 for (const width of [390, 1280]) {
 	test(`cooking checks resume, stay with their Recipe, and reset at ${width}px`, async ({
@@ -236,4 +248,129 @@ test('edited cooking content cannot inherit checks after reload', async ({
 	})
 	await page.reload()
 	await expect(page.getByRole('checkbox', { checked: true })).toHaveCount(0)
+})
+
+test('editing a step mid-cook keeps the other checks, every row id, and a row added meanwhile', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Garlic spaghetti',
+			userId: user.id,
+			householdId: user.householdId,
+			ingredients: {
+				create: [
+					{ name: 'spaghetti', amount: '200', unit: 'g', order: 0 },
+					{ name: 'garlic', amount: '3', unit: 'cloves', order: 1 },
+					{ name: 'olive oil', amount: '3', unit: 'tbsp', order: 2 },
+				],
+			},
+			instructions: {
+				create: [
+					{ content: 'Boil the spaghetti.', order: 0 },
+					{ content: 'Fry the garlic in the oil.', order: 1 },
+					{ content: 'Toss together.', order: 2 },
+				],
+			},
+		},
+		include: {
+			ingredients: { orderBy: { order: 'asc' } },
+			instructions: { orderBy: { order: 'asc' } },
+		},
+	})
+	const ingredient = (name: string) =>
+		page.getByRole('checkbox', { name, exact: true })
+	const step = (text: string) =>
+		page.getByRole('checkbox').filter({ hasText: text })
+
+	await page.goto(`/recipes/${recipe.id}`)
+	await hydrated(ingredient('spaghetti'))
+	await ingredient('spaghetti').click()
+	await ingredient('garlic').click()
+	await step('Boil the spaghetti.').click()
+
+	const edit = page.getByRole('link', { name: 'Edit Recipe' })
+	await hydrated(edit)
+	await edit.click()
+	await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
+	const save = page.locator('[data-nav-save]')
+	await hydrated(save)
+	// Another member adds a row while this form is open.
+	const parsley = await prisma.ingredient.create({
+		data: { recipeId: recipe.id, name: 'parsley', order: 3 },
+	})
+	await page
+		.getByRole('textbox', { name: 'Step 3' })
+		.fill('Toss together and serve.')
+	// A row added here gets its id in the form, and the Save keeps it.
+	await page.getByRole('button', { name: 'Ingredient', exact: true }).click()
+	await page.locator('[aria-label="Ingredient 4 name"]').fill('lemon')
+	const lemonId = await page
+		.locator('input[type="hidden"][name="ingredients[3].id"]')
+		.inputValue()
+	expect(lemonId).toMatch(/^[a-z][0-9a-z]{23}$/)
+	await save.click()
+
+	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+	await expect(step('Toss together and serve.')).toBeVisible()
+	await expect(ingredient('parsley')).toBeVisible()
+	await expect(ingredient('lemon')).toBeVisible()
+	await expect(ingredient('spaghetti')).toBeChecked()
+	await expect(ingredient('garlic')).toBeChecked()
+	await expect(ingredient('olive oil')).not.toBeChecked()
+	await expect(step('Boil the spaghetti.')).toBeChecked()
+	await expect(step('Toss together and serve.')).not.toBeChecked()
+
+	const saved = await prisma.recipe.findUniqueOrThrow({
+		where: { id: recipe.id },
+		select: {
+			ingredients: { orderBy: { order: 'asc' }, select: { id: true } },
+			instructions: {
+				orderBy: { order: 'asc' },
+				select: { id: true, content: true },
+			},
+		},
+	})
+	expect(saved.ingredients.map((row) => row.id)).toEqual([
+		...recipe.ingredients.map((row) => row.id),
+		lemonId,
+		parsley.id,
+	])
+	expect(saved.instructions).toEqual([
+		{ id: recipe.instructions[0]!.id, content: 'Boil the spaghetti.' },
+		{ id: recipe.instructions[1]!.id, content: 'Fry the garlic in the oil.' },
+		{ id: recipe.instructions[2]!.id, content: 'Toss together and serve.' },
+	])
+
+	// A double tap on the heart ends where the second tap left it.
+	const heart = page.locator(
+		'form:has(input[name="intent"][value="toggleFavorite"]) button',
+	)
+	await hydrated(heart)
+	await expect(heart).toHaveAccessibleName('Add to favorites')
+	// The second tap can cancel the first in the browser after the server has
+	// it, so count both ways a tap's request ends.
+	let taps = 0
+	const countTap = (request: { method(): string }) => {
+		if (request.method() === 'POST') taps++
+	}
+	page.on('requestfinished', countTap)
+	page.on('requestfailed', countTap)
+	await heart.click()
+	await heart.click()
+	await expect(heart).toHaveAccessibleName('Add to favorites')
+	await expect.poll(() => taps).toBe(2)
+	await expect
+		.poll(async () => {
+			const { isFavorite } = await prisma.recipe.findUniqueOrThrow({
+				where: { id: recipe.id },
+				select: { isFavorite: true },
+			})
+			return isFavorite
+		})
+		.toBe(false)
+	await page.reload()
+	await expect(heart).toHaveAccessibleName('Add to favorites')
 })

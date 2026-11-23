@@ -416,31 +416,6 @@ export async function action({ request }: Route.ActionArgs) {
 		return { status: 'success' as const, moved: result.count, horizon }
 	}
 
-	if (intent === 'delete') {
-		const itemId = formData.get('itemId')
-		invariantResponse(typeof itemId === 'string', 'Item ID is required')
-
-		const item = await prisma.shoppingListItem.findFirst({
-			where: {
-				id: itemId,
-				list: { householdId },
-			},
-		})
-		invariantResponse(item, 'Item not found', { status: 404 })
-
-		await prisma.shoppingListItem.delete({ where: { id: itemId } })
-
-		void emitHouseholdEvent({
-			originClientId: formData.get('originClientId'),
-			type: 'shopping_list_item_deleted',
-			payload: { name: item.name },
-			userId,
-			householdId,
-		})
-
-		return { status: 'success' as const }
-	}
-
 	if (intent === 'edit') {
 		const itemId = formData.get('itemId')
 		invariantResponse(typeof itemId === 'string', 'Item ID is required')
@@ -511,35 +486,6 @@ export async function action({ request }: Route.ActionArgs) {
 			userId,
 			householdId,
 		})
-		return { status: 'success' as const }
-	}
-
-	// Today's page clears through Undo (resources/undo-delete); a page loaded
-	// before that still posts here.
-	if (intent === 'clear-checked') {
-		const horizon = parseShoppingHorizon(formData.get('horizon'))
-		const excludedIds = formData
-			.getAll('pendingItemId')
-			.filter((id): id is string => typeof id === 'string')
-		const { count } = await prisma.shoppingListItem.deleteMany({
-			where: {
-				listId: shoppingList.id,
-				checked: true,
-				horizon,
-				id: { notIn: excludedIds },
-			},
-		})
-
-		if (count > 0) {
-			void emitHouseholdEvent({
-				originClientId: formData.get('originClientId'),
-				type: 'shopping_list_cleared',
-				payload: {},
-				userId,
-				householdId,
-			})
-		}
-
 		return { status: 'success' as const }
 	}
 
@@ -625,7 +571,10 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 	}
 
-	return { status: 'error' as const }
+	// An intent this page no longer sends, such as an old tab's delete or Clear
+	// checked from before Undo (they go to resources/undo-delete now). It saves
+	// nothing and says so; a 200 would read as done.
+	return data({ status: 'error' as const }, { status: 400 })
 }
 
 const ObservedVersionSchema = z

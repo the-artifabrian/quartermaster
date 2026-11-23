@@ -979,8 +979,6 @@ describe('meal plan actions', () => {
 			{ intent: 'setMealCooked', mealId: meal!.id, cooked: 'true' },
 			{ intent: 'setItemCooked', itemId: item.id, cooked: 'true' },
 			{ intent: 'setItemMultiplier', itemId: item.id, multiplier: '2' },
-			{ intent: 'removeItem', itemId: item.id },
-			{ intent: 'removeMeal', mealId: meal!.id },
 			{ intent: 'moveMeal', mealId: meal!.id, direction: 'up' },
 			{ intent: 'addRecipeToMeal', mealId: meal!.id, recipeId: recipe.id },
 			{ intent: 'updateMealDetails', mealId: meal!.id, date: '2026-02-02' },
@@ -1197,68 +1195,6 @@ describe('meal plan actions', () => {
 				})
 			).scaleMultiplier,
 		).toBe(2.5)
-	})
-
-	test('removeItem deletes the item; removing the last item removes the Meal', async () => {
-		const session = await setupUser()
-		const first = await setupRecipe(
-			session.userId,
-			session.householdId,
-			'First',
-		)
-		const second = await setupRecipe(
-			session.userId,
-			session.householdId,
-			'Second',
-		)
-		await act(session, {
-			intent: 'addMeal',
-			date: '2026-02-02',
-			recipeId: first.id,
-		})
-		const [meal] = await findHouseholdMeals(session.householdId)
-		await act(session, {
-			intent: 'addRecipeToMeal',
-			mealId: meal!.id,
-			recipeId: second.id,
-		})
-
-		let [current] = await findHouseholdMeals(session.householdId)
-		await act(session, {
-			intent: 'removeItem',
-			itemId: current!.recipeItems[1]!.id,
-		})
-		;[current] = await findHouseholdMeals(session.householdId)
-		expect(current!.recipeItems).toHaveLength(1)
-
-		await act(session, {
-			intent: 'removeItem',
-			itemId: current!.recipeItems[0]!.id,
-		})
-		expect(await findHouseholdMeals(session.householdId)).toHaveLength(0)
-	})
-
-	test('removeMeal deletes the Meal and its items', async () => {
-		const session = await setupUser()
-		const recipe = await setupRecipe(session.userId, session.householdId)
-		await act(session, {
-			intent: 'addMeal',
-			date: '2026-02-02',
-			recipeId: recipe.id,
-		})
-		const [meal] = await findHouseholdMeals(session.householdId)
-
-		const result = await act(session, {
-			intent: 'removeMeal',
-			mealId: meal!.id,
-		})
-		expect(result).toEqual({ status: 'success' })
-		expect(await findHouseholdMeals(session.householdId)).toHaveLength(0)
-		expect(
-			await prisma.mealRecipeItem.count({
-				where: { meal: { mealPlan: { householdId: session.householdId } } },
-			}),
-		).toBe(0)
 	})
 
 	test('moveMeal swaps explicit day order and no-ops at the edges', async () => {

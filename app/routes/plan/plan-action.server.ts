@@ -1,6 +1,6 @@
 import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
-import { redirect } from 'react-router'
+import { data, redirect } from 'react-router'
 import { type PrismaClient } from '#app/generated/prisma/client.ts'
 import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
@@ -17,8 +17,6 @@ import {
 	createMealWithItems,
 	createRecipeMeal,
 	moveMealInDay,
-	removeMeal,
-	removeRecipeItem,
 	setItemCooked,
 	setItemMultiplier,
 	setMealCooked,
@@ -30,7 +28,6 @@ import {
 	servingWallTime,
 } from '#app/utils/serving-time.ts'
 import { addMealToShopping } from '#app/utils/shopping-adds.server.ts'
-import { removeMealWithShoppingContributions } from '#app/utils/shopping-contribution.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { writeTransaction } from '#app/utils/write-transaction.server.ts'
 
@@ -274,31 +271,6 @@ export function createPlanAction(
 			}
 		}
 
-		if (intent === 'removeItem') {
-			const item = await requireItem(formData.get('itemId'))
-			await removeRecipeItem(db, { item })
-			return { status: 'success' as const }
-		}
-
-		if (intent === 'removeMeal') {
-			const meal = await requireMeal(formData.get('mealId'))
-			const removesShopping =
-				formData.get('removeShoppingContributions') === 'true'
-			if (removesShopping) {
-				await removeMealWithShoppingContributions(db, { mealId: meal.id })
-				void emitHouseholdEvent({
-					originClientId: formData.get('originClientId'),
-					type: 'shopping_list_generated',
-					payload: { count: 0 },
-					userId,
-					householdId,
-				})
-			} else {
-				await removeMeal(db, { mealId: meal.id })
-			}
-			return { status: 'success' as const }
-		}
-
 		if (intent === 'moveMeal') {
 			const meal = await requireMeal(formData.get('mealId'))
 			const direction = formData.get('direction')
@@ -378,6 +350,9 @@ export function createPlanAction(
 			return { status: 'success' as const }
 		}
 
-		return { status: 'error' as const }
+		// An intent this page no longer sends, such as an old tab's removeItem or
+		// removeMeal from before Undo (they go to resources/undo-delete now). It
+		// saves nothing and says so; a 200 would read as done.
+		return data({ status: 'error' as const }, { status: 400 })
 	}
 }

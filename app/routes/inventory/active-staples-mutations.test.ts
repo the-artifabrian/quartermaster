@@ -72,24 +72,3 @@ test('add returns a useful failure for the inline form', async () => {
 		init: { status: 500 },
 	})
 })
-
-test('remove returns a useful failure without hiding the row', async () => {
-	const session = await setupActiveStaples()
-	vi.spyOn(prisma.householdIngredient, 'update').mockRejectedValueOnce(
-		new Error('database unavailable'),
-	)
-
-	await expect(
-		post(session, {
-			intent: 'remove-staple',
-			itemId: session.stapleId,
-		}),
-	).resolves.toMatchObject({
-		data: {
-			status: 'error',
-			action: 'remove-staple',
-			message: 'Could not delete Salt. Try again.',
-		},
-		init: { status: 500 },
-	})
-})

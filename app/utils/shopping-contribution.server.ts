@@ -4,6 +4,7 @@ import {
 	demandIdentity,
 	type ShoppingDemandLine,
 } from './shopping-demand.server.ts'
+import { parseAmount } from './fractions.ts'
 import { selectNextShopDemandTargets } from './shopping-horizon.server.ts'
 import { LATER, NEXT_SHOP } from './shopping-horizon.ts'
 import { guessCategory } from './shopping-list-validation.ts'
@@ -115,6 +116,22 @@ export function reconcileMealShoppingContributions(
 	})
 }
 
+/**
+ * Whether `next` is plainly more than `previous`: the same unit and two
+ * amounts that read as numbers. Anything that can't be compared counts as
+ * not larger.
+ */
+function isLarger(
+	next: { quantity: string | null; unit: string | null },
+	previous: { quantity: string | null; unit: string | null },
+) {
+	const unit = (value: string | null) => value?.trim().toLowerCase() ?? ''
+	if (unit(next.unit) !== unit(previous.unit)) return false
+	const after = next.quantity ? parseAmount(next.quantity) : null
+	const before = previous.quantity ? parseAmount(previous.quantity) : null
+	return after != null && before != null && after > before
+}
+
 /** Move an unchecked Later row to Next shop once, for new generated demand. */
 function promoter(tx: Tx) {
 	const promotedIds = new Set<string>()
@@ -197,7 +214,7 @@ export function replaceMealShoppingContributions(
 		listId,
 		lines,
 		keepIdentities = new Set(),
-		keepAllExisting = false,
+		neverLower = false,
 	}: {
 		mealId: string
 		listId: string
@@ -207,8 +224,11 @@ export function replaceMealShoppingContributions(
 		 * updated nor withdrawn. These are the ones a cooked item needs.
 		 */
 		keepIdentities?: ReadonlySet<string>
-		/** Leave every existing contribution as it is (see `cookedRecipeGone`). */
-		keepAllExisting?: boolean
+		/**
+		 * Never withdraw or lower an existing contribution, though a larger
+		 * amount still applies (see `cookedRecipeGone`).
+		 */
+		neverLower?: boolean
 	},
 ): Promise<{
 	createdRowCount: number
@@ -286,9 +306,7 @@ export function replaceMealShoppingContributions(
 		}
 
 		for (const contribution of existingContributions) {
-			if (keepAllExisting || keepIdentities.has(contribution.canonicalName)) {
-				continue
-			}
+			if (keepIdentities.has(contribution.canonicalName)) continue
 			const line = freshByCanonical.get(contribution.canonicalName)
 			const row = rowById.get(contribution.itemId)
 			const changed =
@@ -296,6 +314,9 @@ export function replaceMealShoppingContributions(
 				contribution.name !== line.name ||
 				contribution.quantity !== line.quantity ||
 				contribution.unit !== line.unit
+			if (neverLower && changed && !(line && isLarger(line, contribution))) {
+				continue
+			}
 
 			if (row?.checked) {
 				// A checked row is a purchase. Update leaves it and this Meal's

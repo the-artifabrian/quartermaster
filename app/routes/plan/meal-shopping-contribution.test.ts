@@ -12,7 +12,8 @@
  * - An ingredient a cooked and an uncooked item share. An existing amount
  *   stays as it is; with none, only the uncooked item's share is added.
  * - A cooked item whose Recipe was deleted since. Update doesn't withdraw
- *   or lower what the Meal already put on Shopping.
+ *   or lower what the Meal already put on Shopping, but larger amounts and
+ *   new lines still apply.
  *
  * Household events from Meal → Shopping writes:
  * - Add to Shopping and Update Shopping from the Meal card carry the
@@ -1783,30 +1784,36 @@ describe('cooked Recipe items never add Shopping amounts', () => {
 		expect(await amounts(session.householdId)).toMatchObject({ onion: '2' })
 	})
 
-	test('a cooked item whose Recipe was deleted keeps what the Meal put on Shopping', async () => {
+	test('a cooked item whose Recipe was deleted never lowers what the Meal put on Shopping', async () => {
 		const session = await setupUser()
-		const { meal, curryItem } = await setupTwoRecipeMeal(session)
+		const { meal, curryItem, saladItem } = await setupTwoRecipeMeal(session)
 		await runPlanAction(session, {
 			intent: 'addMealToShopping',
 			mealId: meal.id,
 		})
-		const before = await getContributions(session.householdId)
 		await prisma.mealRecipeItem.update({
 			where: { id: curryItem.id },
 			data: { cooked: true },
 		})
 		await prisma.recipe.delete({ where: { id: curryItem.recipeId! } })
+		// The salad doubles and the Meal gains a note line.
+		await prisma.mealRecipeItem.update({
+			where: { id: saladItem.id },
+			data: { scaleMultiplier: 2 },
+		})
+		await addNoteLines(meal.id, [{ name: 'lemons', quantity: '2' }])
 
 		await runPlanAction(session, {
 			intent: 'refreshMealShopping',
 			mealId: meal.id,
 		})
 
-		// The curry's coconut milk and its share of the onion stay.
-		expect(await getContributions(session.householdId)).toEqual(before)
+		// Coconut milk isn't withdrawn and onion (now 2 from the salad) isn't
+		// lowered from 3. The cucumber's increase and the new lemons apply.
 		expect(await amounts(session.householdId)).toEqual({
 			'coconut milk': '1',
-			cucumber: '1',
+			cucumber: '2',
+			lemon: '2',
 			onion: '3',
 		})
 	})

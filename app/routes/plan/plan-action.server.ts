@@ -268,7 +268,7 @@ export function createPlanAction(
 							listId: shoppingList.id,
 							lines,
 							keepIdentities: cookedIdentities,
-							keepAllExisting: cookedRecipeGone,
+							neverLower: cookedRecipeGone,
 						})
 					: await reconcileMealShoppingContributions(db, {
 							mealId: meal.id,

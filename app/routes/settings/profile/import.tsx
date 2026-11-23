@@ -10,6 +10,7 @@ import {
 	BodyTooLargeError,
 	readBoundedText,
 } from '#app/utils/bounded-body.server.ts'
+import { getWeekStart, parseDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
 	householdIngredientDisplayName,
@@ -1036,6 +1037,23 @@ type LegacyEntryFailure = {
 	reason: 'invalid-date' | 'recipe-not-in-file'
 }
 
+const FileDaySchema = z.union([
+	z.iso.date(),
+	z.iso.datetime({ offset: true, local: true }),
+])
+
+/**
+ * A day from the file as UTC midnight, the way Meal days are stored, or null
+ * when it isn't one. Exports write days as full ISO strings at UTC midnight,
+ * and a hand-edited file may carry an offset; either way the day is the date
+ * as written. Read as an instant, an offset would move it to another day.
+ */
+function fileDay(value: string): Date | null {
+	return FileDaySchema.safeParse(value).success
+		? parseDate(value.slice(0, 10))
+		: null
+}
+
 function legacyEntriesToMeals(
 	entries: ImportMealPlanEntry[],
 	titleToIdMap: Map<string, string>,
@@ -1047,8 +1065,8 @@ function legacyEntriesToMeals(
 		{ day: string; mealType: string; items: NonNullable<ImportMeal['items']> }
 	>()
 	for (const [index, entry] of entries.entries()) {
-		const parsed = new Date(entry.date)
-		if (Number.isNaN(parsed.getTime())) {
+		const day = fileDay(entry.date)?.toISOString()
+		if (!day) {
 			failedEntries.push({ index, reason: 'invalid-date' })
 			continue
 		}
@@ -1057,13 +1075,6 @@ function legacyEntriesToMeals(
 			failedEntries.push({ index, reason: 'recipe-not-in-file' })
 			continue
 		}
-		const day = new Date(
-			Date.UTC(
-				parsed.getUTCFullYear(),
-				parsed.getUTCMonth(),
-				parsed.getUTCDate(),
-			),
-		).toISOString()
 		const recipeServings = servingsByRecipeId.get(recipeId)
 		const scaleMultiplier =
 			entry.servings != null && recipeServings != null && recipeServings > 0
@@ -1196,9 +1207,15 @@ async function importMeals(
 	menuIdByTitleKey: Map<string, string | null>,
 	mealIdByRef: Map<string, string>,
 	{
+		weekStart,
 		locate,
 		recordFailure,
-	}: { locate: (index: number) => string; recordFailure: RecordFailure },
+	}: {
+		/** The plan's Monday. A Meal dated outside its week would never show. */
+		weekStart: Date
+		locate: (index: number) => string
+		recordFailure: RecordFailure
+	},
 ) {
 	const stats = { created: 0, skipped: 0, errored: 0 }
 	const fail = (index: number, failure: Omit<RestoreFailure, 'at'>) => {
@@ -1351,8 +1368,8 @@ async function importMeals(
 	}
 
 	for (const [index, meal] of meals.entries()) {
-		const date = new Date(meal.date)
-		if (Number.isNaN(date.getTime())) {
+		const date = fileDay(meal.date)
+		if (!date || getWeekStart(date).getTime() !== weekStart.getTime()) {
 			fail(index, { reason: 'invalid-date' })
 			continue
 		}
@@ -1524,8 +1541,9 @@ async function importMealPlans(
 
 	for (const [planIndex, plan] of mealPlans.entries()) {
 		const at = `mealPlans[${planIndex}]`
-		const weekStart = new Date(plan.weekStart)
-		if (Number.isNaN(weekStart.getTime())) {
+		// Any day of the week names it; the plan is kept under its Monday.
+		const weekDay = fileDay(plan.weekStart)
+		if (!weekDay) {
 			// Without its week there is no plan to put the Meals in, so every
 			// Meal (or older entry) in it fails.
 			const meals = plan.meals?.length ?? 0
@@ -1538,6 +1556,7 @@ async function importMealPlans(
 			continue
 		}
 
+		const weekStart = getWeekStart(weekDay)
 		const mealPlan = await ensureMealPlan(prisma, { householdId, weekStart })
 
 		if (plan.meals?.length) {
@@ -1551,7 +1570,11 @@ async function importMealPlans(
 					recipeIndex,
 					menuIdByTitleKey,
 					mealIdByRef,
-					{ locate: (index) => `${at}.meals[${index}]`, recordFailure },
+					{
+						weekStart,
+						locate: (index) => `${at}.meals[${index}]`,
+						recordFailure,
+					},
 				),
 			)
 		} else if (plan.entries?.length) {
@@ -1572,6 +1595,7 @@ async function importMealPlans(
 					menuIdByTitleKey,
 					mealIdByRef,
 					{
+						weekStart,
 						// Entries are grouped into Meals, so a Meal has no single
 						// place in the file.
 						locate: (index) => `${at}.entries (Meal ${index + 1})`,

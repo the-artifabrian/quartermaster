@@ -23,23 +23,75 @@ import { guessCategory } from './shopping-list-validation.ts'
 import { writeTransaction } from './write-transaction.server.ts'
 
 /**
- * Fills one Household with sample Recipes, Staples, a Plan for the week of
- * `today` (a `yyyy-MM-dd` day) and the Shopping that Plan leads to. Every
- * write goes through the function the app itself uses for it, so the rows
- * look like real use made them: parsed ingredient lines, classification
- * values, Meal Shopping contributions.
+ * Fills one Household with the sample data, in two parts:
  *
- * It takes the client rather than a transaction because the Meal and
- * Shopping writers open their own.
+ * - addSampleLibrary saves the Recipes and Staples. They don't depend on the
+ *   date.
+ * - planSampleWeek plans the week of `today` (a `yyyy-MM-dd` day), puts its
+ *   Meals on Shopping, marks the Meals before today cooked and checks a few
+ *   rows. A per-visitor copy of a template Household is the part to re-run or
+ *   re-date, so the copy opens on its own week.
  *
- * Running it again finishes what is missing and adds nothing twice. Recipes
- * are matched by title and Staples by name. The Plan and Shopping are built
- * only while the Household has no Meals outside this week, so a run a week
- * later leaves last week's Plan and its Shopping alone. Within the week, Meals
- * are matched by day, label and Recipe, and Add to Shopping skips amounts a
- * Meal already has on the list.
+ * How many Meals end up cooked depends on the weekday: none on a Monday,
+ * every Meal before today on the other days.
+ *
+ * Every write goes through the function the app itself uses for it, so the
+ * rows look like real use made them: parsed ingredient lines, classification
+ * values, Meal Shopping contributions. Both parts take the client rather
+ * than a transaction because the Meal and Shopping writers open their own.
+ *
+ * Running it again adds nothing twice. An existing Recipe is matched by title
+ * and skipped whole, so a change to the content (a photo included) reaches
+ * only a fresh database. Staples are matched by name.
  */
 export async function fillSampleHousehold(
+	db: PrismaClient,
+	options: {
+		userId: string
+		householdId: string
+		today: string
+		content?: SampleHouseholdContent
+	},
+) {
+	// The Staples go in first: they keep their ingredients off Shopping.
+	await addSampleLibrary(db, options)
+	await planSampleWeek(db, options)
+}
+
+/** The sample Recipes and Staples the Household doesn't have yet. */
+export async function addSampleLibrary(
+	db: PrismaClient,
+	{
+		userId,
+		householdId,
+		content = SAMPLE_HOUSEHOLD,
+	}: {
+		userId: string
+		householdId: string
+		content?: SampleHouseholdContent
+	},
+) {
+	await addRecipes(db, { userId, householdId }, content.recipes)
+	for (const name of content.staples) {
+		const canonicalKey = householdIngredientKey(name)
+		await db.householdIngredient.upsert({
+			where: { householdId_canonicalKey: { householdId, canonicalKey } },
+			create: { householdId, displayName: name, canonicalKey, isStaple: true },
+			update: { isStaple: true },
+		})
+	}
+}
+
+/**
+ * The sample Plan for the week of `today` and the Shopping it leads to. The
+ * Recipes it names and the Staples must be saved first (addSampleLibrary).
+ *
+ * It does nothing while the Household has Meals in another week, so a run a
+ * week later leaves last week's Plan and its Shopping alone. Within the week,
+ * Meals are matched by day, label and Recipe, Add to Shopping skips amounts a
+ * Meal already has on the list, and a typed row already on the list is left.
+ */
+export async function planSampleWeek(
 	db: PrismaClient,
 	{
 		userId,
@@ -53,18 +105,7 @@ export async function fillSampleHousehold(
 		content?: SampleHouseholdContent
 	},
 ) {
-	const recipes = await addRecipes(db, { userId, householdId }, content.recipes)
-
-	// Before any Meal goes on Shopping: a Staple keeps its ingredient off.
-	for (const name of content.staples) {
-		const canonicalKey = householdIngredientKey(name)
-		await db.householdIngredient.upsert({
-			where: { householdId_canonicalKey: { householdId, canonicalKey } },
-			create: { householdId, displayName: name, canonicalKey, isStaple: true },
-			update: { isStaple: true },
-		})
-	}
-
+	const recipes = await recipesByTitle(db, householdId, content)
 	const weekStart = getWeekStart(parseDate(today))
 	if (await hasMealsOutsideWeek(db, householdId, weekStart)) return
 
@@ -173,10 +214,7 @@ export async function fillSampleHousehold(
 	}
 }
 
-/**
- * Saves the Recipes the Household doesn't have yet, the way New Recipe does,
- * and returns every sample Recipe by title.
- */
+/** Saves the Recipes the Household doesn't have yet, the way New Recipe does. */
 async function addRecipes(
 	db: PrismaClient,
 	{ userId, householdId }: { userId: string; householdId: string },
@@ -228,11 +266,21 @@ async function addRecipes(
 			})
 		})
 	}
+}
 
+/** The Household's Recipes the sample Plan names, by title; the oldest wins. */
+async function recipesByTitle(
+	db: PrismaClient,
+	householdId: string,
+	content: SampleHouseholdContent,
+) {
+	const titles = content.plan.flatMap((meal) =>
+		'recipes' in meal ? meal.recipes : [],
+	)
 	const saved = await db.recipe.findMany({
 		where: {
 			householdId,
-			title: { in: recipes.map((recipe) => recipe.title) },
+			title: { in: titles },
 		},
 		orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
 		select: { id: true, title: true },

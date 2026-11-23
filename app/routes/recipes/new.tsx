@@ -10,6 +10,7 @@ import { recipeNewNav } from '#app/utils/nav-back.ts'
 import { data, replace, type ShouldRevalidateFunctionArgs } from 'react-router'
 import { RECIPE_FORM_ID, RecipeForm } from '#app/components/recipe-form.tsx'
 import { prisma } from '#app/utils/db.server.ts'
+import { rethrowUnreadableUpload } from '#app/utils/form-body.server.ts'
 import { checkRecipePhoto } from '#app/utils/recipe-photo.server.ts'
 import {
 	clientLeaves,
@@ -95,7 +96,7 @@ export async function action({ request }: Route.ActionArgs) {
 		if (error instanceof MaxFileSizeExceededError) {
 			return data({ result: photoTooLargeResult }, { status: 400 })
 		}
-		throw error
+		rethrowUnreadableUpload(error)
 	}
 
 	const { submission, ingredients, instructions } = parseRecipeForm(formData)

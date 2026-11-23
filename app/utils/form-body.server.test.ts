@@ -1,7 +1,13 @@
+import {
+	MaxFileSizeExceededError,
+	parseFormData,
+} from '@mjackson/form-data-parser'
 import { expect, test } from 'vitest'
+import { consoleWarn } from '#tests/setup/setup-test-env.ts'
 import {
 	answerUnreadableFormWith400,
 	formBodyMiddleware,
+	rethrowUnreadableUpload,
 } from './form-body.server.ts'
 
 // Failure list for a request body that can't be read as a form:
@@ -13,9 +19,8 @@ import {
 //   the error's class can't decide it
 // - a request the client gave up on keeps its own error; nobody is there to
 //   read a 400, and the error report already skips aborted requests
-// - a form read from a copy (the OAuth route reads redirectTo from
-//   request.clone() before the strategy reads the body): the copy answers 400
-//   too
+// - a form read from a copy made with request.clone(), or a copy of a copy:
+//   the copy answers 400 too
 // - an empty urlencoded body still reads as an empty form, so the action's own
 //   validation answers it
 // - real forms, urlencoded and multipart with a file, still read in full
@@ -24,6 +29,21 @@ import {
 // - JSON and text routes (passkeys, undo, the Stripe webhook) read the body
 //   with json() or text(), which must work as before
 // - the middleware hands the request on and returns the route's response
+// - a body sent as a form (urlencoded or multipart) that still fails to read
+//   may be a parser bug, so it leaves one warning with the error and the
+//   content type, and nothing from the body or the query string. A missing
+//   or other content type is a client sending the wrong thing and stays quiet
+//
+// Failure list for uploads (new and edited Recipes, Recipe import, voice
+// input), which stream multipart through @mjackson/form-data-parser and never
+// call request.formData() for it:
+// - multipart with no boundary, or a stream cut short: the parser's own
+//   MultipartParseError must answer the same 400, with the same warning
+// - a file over the size limit keeps its MaxFileSizeExceededError, which each
+//   route already turns into its own answer
+// - any other error, a database failure say, is rethrown as it was
+// - a non-multipart body sent to an upload route reaches request.formData()
+//   and gets the 400 from the read above
 
 const url = 'https://useqm.app/login'
 
@@ -56,6 +76,7 @@ test('a body that is not a form answers 400', async () => {
 })
 
 test('a broken multipart body answers 400', async () => {
+	consoleWarn.mockImplementation(() => {})
 	const noBoundary = post({
 		headers: { 'content-type': 'multipart/form-data' },
 		body: 'email=ada@example.com',
@@ -69,7 +90,11 @@ test('a broken multipart body answers 400', async () => {
 })
 
 test('a plain Error from the parser answers 400 too, as Bun throws one', async () => {
-	const request = new Request(url, { method: 'POST' })
+	consoleWarn.mockImplementation(() => {})
+	const request = new Request(url, {
+		method: 'POST',
+		headers: { 'content-type': 'multipart/form-data; boundary=x' },
+	})
 	request.formData = () =>
 		Promise.reject(new Error('FormData missing final boundary'))
 	answerUnreadableFormWith400(request)
@@ -152,4 +177,79 @@ test('the middleware passes the request on and returns the route response', asyn
 	)
 	expect(response).toBe(routeResponse)
 	expect(await formError(request.formData())).toBe(400)
+})
+
+test('a form body that fails to read leaves one warning without the body or the query', async () => {
+	consoleWarn.mockImplementation(() => {})
+	const request = answerUnreadableFormWith400(
+		new Request('https://useqm.app/login?code=Q2W3E4', {
+			method: 'POST',
+			headers: { 'content-type': 'multipart/form-data; boundary=x' },
+			body: '--x\r\nContent-Disposition: form-data; name="email"\r\n\r\nada@example.com',
+		}),
+	)
+	expect(await formError(request.formData())).toBe(400)
+	expect(consoleWarn).toHaveBeenCalledTimes(1)
+	const warning = consoleWarn.mock.calls[0]!.map(String).join(' ')
+	expect(warning).toContain('multipart/form-data')
+	expect(warning).not.toMatch(/ada@example\.com|Q2W3E4|boundary=x/)
+})
+
+test('a missing or wrong content type answers 400 without a warning', async () => {
+	const none = post()
+	const json = post({
+		headers: { 'content-type': 'application/json' },
+		body: '{}',
+	})
+	expect(await formError(none.formData())).toBe(400)
+	expect(await formError(json.formData())).toBe(400)
+	expect(consoleWarn).not.toHaveBeenCalled()
+})
+
+async function upload(init: RequestInit) {
+	const request = answerUnreadableFormWith400(
+		new Request('https://useqm.app/recipes/new', { method: 'POST', ...init }),
+	)
+	try {
+		return await parseFormData(request, { maxFileSize: 10 }, () => undefined)
+	} catch (error) {
+		rethrowUnreadableUpload(error)
+	}
+}
+
+async function uploadError(init: RequestInit) {
+	const error: unknown = await upload(init).catch((error: unknown) => error)
+	return error instanceof Response ? error.status : error
+}
+
+test('an upload with no boundary or cut short answers 400 and warns', async () => {
+	consoleWarn.mockImplementation(() => {})
+	const noBoundary = await uploadError({
+		headers: { 'content-type': 'multipart/form-data' },
+		body: 'image=soup',
+	})
+	const cutShort = await uploadError({
+		headers: { 'content-type': 'multipart/form-data; boundary=x' },
+		body: '--x\r\nContent-Disposition: form-data; name="title"\r\n\r\nSoup',
+	})
+	expect(noBoundary).toBe(400)
+	expect(cutShort).toBe(400)
+	expect(consoleWarn).toHaveBeenCalledTimes(2)
+})
+
+test('an upload over the size limit keeps its own error', async () => {
+	const form = new FormData()
+	form.set('image', new File(['a picture too big'], 'soup.png'))
+	expect(await uploadError({ body: form })).toBeInstanceOf(
+		MaxFileSizeExceededError,
+	)
+})
+
+test('an upload that is not multipart gets the 400 from the form read', async () => {
+	expect(await uploadError({ body: 'title=Soup' })).toBe(400)
+})
+
+test('any other error from an upload is rethrown as it was', () => {
+	const failure = new Error('Database is locked')
+	expect(() => rethrowUnreadableUpload(failure)).toThrow(failure)
 })

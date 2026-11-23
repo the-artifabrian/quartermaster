@@ -3,6 +3,7 @@ import {
 	parseFormData,
 	type FileUpload,
 } from '@mjackson/form-data-parser'
+import { rethrowUnreadableUpload } from '#app/utils/form-body.server.ts'
 import { importFailure } from '#app/utils/import-recipe-save.server.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
 import {
@@ -43,7 +44,9 @@ export async function importAction(request: Request) {
 				},
 			)
 		} catch (error) {
-			if (!(error instanceof MaxFileSizeExceededError)) throw error
+			if (!(error instanceof MaxFileSizeExceededError)) {
+				rethrowUnreadableUpload(error)
+			}
 			return importFailure(
 				'extract-image',
 				'One or more images are too large. Maximum size is 5MB each.',

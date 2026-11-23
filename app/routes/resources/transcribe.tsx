@@ -4,6 +4,7 @@ import {
 	aiUsageRefusal,
 	claimAiUsage,
 } from '#app/utils/ai-rate-limit.server.ts'
+import { rethrowUnreadableUpload } from '#app/utils/form-body.server.ts'
 import { type ParsedItem } from '#app/utils/parse-speech-item.ts'
 import { requireProTierOrNativeShellNull } from '#app/utils/subscription.server.ts'
 import { transcribeAudio } from '#app/utils/whisper.server.ts'
@@ -55,7 +56,7 @@ export async function action({ request }: Route.ActionArgs) {
 			}
 			return undefined
 		},
-	)
+	).catch(rethrowUnreadableUpload)
 
 	void formData // consumed for side-effect of parsing the audio file
 

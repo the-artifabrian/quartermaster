@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '#tests/playwright-utils.ts'
 
 // Checks on the built server's answers that no page flow shows.
 
@@ -24,4 +24,26 @@ test('a POST with no form body answers 400', async ({ request }) => {
 	expect(page.status()).toBe(400)
 	expect(data.status()).toBe(400)
 	expect(text.status()).toBe(400)
+})
+
+test('a broken upload answers 400 for a signed-in user', async ({
+	page,
+	login,
+}) => {
+	await login()
+	// Multipart with no boundary, which the upload parser can't split.
+	const headers = { 'content-type': 'multipart/form-data' }
+	const newRecipe = await page.request.post('/recipes/new', {
+		headers,
+		data: 'title=Soup',
+		maxRedirects: 0,
+	})
+	const recipeImport = await page.request.post('/recipes/import', {
+		headers,
+		data: 'intent=extract-image',
+		maxRedirects: 0,
+	})
+
+	expect(newRecipe.status()).toBe(400)
+	expect(recipeImport.status()).toBe(400)
 })

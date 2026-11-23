@@ -25,7 +25,7 @@ import {
 	type MenuShoppingLineInput,
 } from '#app/utils/menu-validation.ts'
 import { isEditScreenDone } from '#app/utils/edit-screen.ts'
-import { loadedIdsValue } from '#app/utils/loaded-rows.ts'
+import { CREATED_IDS_FIELD, loadedIdsValue } from '#app/utils/loaded-rows.ts'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
 import { getHistoryLog, resolveAfterSave } from '#app/utils/nav-back.ts'
 import { historyIndex } from '#app/utils/nav-direction.ts'
@@ -192,6 +192,15 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 	// The sections and cards this form loaded. Save removes only these when
 	// they are left out, so one another member added meanwhile stays
 	// (loaded-rows.ts).
+	// Every id this form gives a new card or section, kept after it is
+	// removed: an earlier Save whose answer was lost may have stored it, and
+	// a replay then removes it too (loaded-rows.ts).
+	const [createdIds, setCreatedIds] = useState<string[]>([])
+	const newRowId = () => {
+		const id = createId()
+		setCreatedIds((ids) => [...ids, id])
+		return id
+	}
 	const [loadedIds] = useState(() =>
 		builder
 			? {
@@ -221,6 +230,11 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 						value={loadedIds.sections}
 					/>
 					<input type="hidden" name="loadedItemIds" value={loadedIds.items} />
+					<input
+						type="hidden"
+						name={CREATED_IDS_FIELD}
+						value={JSON.stringify(createdIds)}
+					/>
 				</>
 			)}
 			<DiscardChangesGuard
@@ -273,7 +287,12 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 			/>
 
 			{builder ? (
-				<MenuSectionsBuilder form={form} fields={fields} builder={builder} />
+				<MenuSectionsBuilder
+					form={form}
+					fields={fields}
+					builder={builder}
+					newRowId={newRowId}
+				/>
 			) : null}
 		</Form>
 	)
@@ -380,10 +399,12 @@ function MenuSectionsBuilder({
 	form,
 	fields,
 	builder,
+	newRowId,
 }: {
 	form: MenuFormMetadata
 	fields: MenuFormFields
 	builder: NonNullable<MenuFormProps['builder']>
+	newRowId: () => string
 }) {
 	const sectionList = fields.sections.getFieldList()
 	// Stored Recipe cards by id — the frozen-title lookup for missing cards.
@@ -425,7 +446,7 @@ function MenuSectionsBuilder({
 			if (unnamed) unnamed.items.push(...removed.items)
 			else {
 				sections.splice(sectionIndex, 0, {
-					id: createId(),
+					id: newRowId(),
 					name: '',
 					items: removed.items,
 				})
@@ -433,7 +454,7 @@ function MenuSectionsBuilder({
 		}
 		// Cards need somewhere to live — an emptied menu keeps one blank section.
 		if (sections.length === 0) {
-			sections.push({ id: createId(), name: '', items: [] })
+			sections.push({ id: newRowId(), name: '', items: [] })
 		}
 		form.update({ name: fields.sections.name, value: sections })
 	}
@@ -467,6 +488,7 @@ function MenuSectionsBuilder({
 						recipes={builder.recipes}
 						onMoveItem={moveItemToSection}
 						onRemoveSection={removeSection}
+						newRowId={newRowId}
 					/>
 				))}
 			</ul>
@@ -479,7 +501,7 @@ function MenuSectionsBuilder({
 							name: fields.sections.name,
 							// A new card or section gets its id now, and Save posts it,
 							// so a Save that reaches the server twice adds it once.
-							defaultValue: { id: createId(), name: '', items: [] },
+							defaultValue: { id: newRowId(), name: '', items: [] },
 						})
 					}
 				>
@@ -503,6 +525,7 @@ function MenuSectionCard({
 	recipes,
 	onMoveItem,
 	onRemoveSection,
+	newRowId,
 }: {
 	form: MenuFormMetadata
 	fields: MenuFormFields
@@ -519,6 +542,7 @@ function MenuSectionCard({
 		toSection: number,
 	) => void
 	onRemoveSection: (sectionIndex: number) => void
+	newRowId: () => string
 }) {
 	const section = sectionMeta.getFieldset()
 	const itemList = section.items.getFieldList()
@@ -624,7 +648,7 @@ function MenuSectionCard({
 						form.insert({
 							name: section.items.name,
 							defaultValue: {
-								id: createId(),
+								id: newRowId(),
 								kind: 'recipe',
 								recipeId: recipe.id,
 								scaleMultiplier: '1',
@@ -642,7 +666,7 @@ function MenuSectionCard({
 						form.insert({
 							name: section.items.name,
 							defaultValue: {
-								id: createId(),
+								id: newRowId(),
 								kind: 'note',
 								text: '',
 								shoppingLines: [],

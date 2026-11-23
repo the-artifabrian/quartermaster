@@ -331,6 +331,13 @@ test('a Menu card another member adds while the edit form is open survives Save'
 	await page
 		.getByRole('textbox', { name: 'Title' })
 		.fill('Winter supper for two')
+	// A card added here gets its id in the form, and the Save keeps it.
+	await page.getByRole('button', { name: 'Add note' }).click()
+	await page.getByRole('textbox', { name: 'Note text' }).fill('Salted butter')
+	const noteId = await page
+		.locator('input[type="hidden"][name="sections[0].items[1].id"]')
+		.inputValue()
+	expect(noteId).toMatch(/^[a-z][0-9a-z]{23}$/)
 	await save.click()
 
 	await expect(page).toHaveURL(`/recipes/menus/${menu.id}`)
@@ -342,6 +349,7 @@ test('a Menu card another member adds while the edit form is open survives Save'
 	})
 	expect(items.map((item) => item.id)).toEqual([
 		menu.sections[0]!.items[0]!.id,
+		noteId,
 		added.id,
 	])
 })

@@ -1,8 +1,27 @@
 /**
  * Edit forms for Recipes and Menus post the rows they show by id, plus the
- * ids of the rows they loaded. A Save then removes only rows the editor saw
- * and took out, so a row another member added while the form was open stays.
+ * ids of the rows they loaded and of the rows they added. A Save then
+ * removes only rows the editor saw and took out, so a row another member
+ * added while the form was open stays.
  */
+
+/** The field every edit form posts the ids of the rows it added in. */
+export const CREATED_IDS_FIELD = 'createdRowIds'
+
+/**
+ * The rows an edit form saw: the ones it loaded, and the ones it added.
+ * A row it added may already be stored by an earlier Save whose answer was
+ * lost; if the editor removed it since, the replay removes it too.
+ */
+export type SeenIds = { loaded: Set<string> | null; created: Set<string> }
+
+/** The ids posted in `loadedField` and in the created-ids field. */
+export function readSeenIds(formData: FormData, loadedField: string): SeenIds {
+	return {
+		loaded: readLoadedIds(formData, loadedField),
+		created: readLoadedIds(formData, CREATED_IDS_FIELD) ?? new Set(),
+	}
+}
 
 /**
  * The row ids an edit form loaded, posted as a JSON list in `field`. Null
@@ -37,7 +56,7 @@ export function readLoadedIds(formData: FormData, field: string) {
 export function matchRows<Stored extends { id: string }>(
 	stored: Stored[],
 	postedIds: Array<string | null | undefined>,
-	loadedIds: Set<string> | null,
+	seenIds: SeenIds,
 ) {
 	const storedById = new Map(stored.map((row) => [row.id, row]))
 	const paired = new Set<string>()
@@ -48,7 +67,9 @@ export function matchRows<Stored extends { id: string }>(
 		return row
 	})
 	const left = stored.filter((row) => !paired.has(row.id))
-	const seen = loadedIds ?? new Set(storedById.keys())
+	const seen = seenIds.loaded
+		? new Set([...seenIds.loaded, ...seenIds.created])
+		: new Set(storedById.keys())
 	return {
 		matches,
 		removed: left.filter((row) => seen.has(row.id)),
@@ -66,7 +87,8 @@ const NEW_ROW_ID = /^[a-z][0-9a-z]{23}$/
 
 /**
  * The posted ids a Save may use for the rows it adds: well formed, not
- * paired with a stored row, and once each. The caller keeps only those no
+ * paired with a stored row, not one the form loaded, and once each. A
+ * loaded row that was deleted meanwhile is saved again under a new id. The caller keeps only those no
  * row anywhere has yet (`existing`), and gives the other rows a fresh id.
  * A Save that reaches the server twice then pairs its new rows with the
  * rows the first one added, instead of adding them again.
@@ -74,9 +96,15 @@ const NEW_ROW_ID = /^[a-z][0-9a-z]{23}$/
 export function newRowIdCandidates(
 	postedIds: Array<string | null | undefined>,
 	matches: Array<unknown>,
+	seenIds: SeenIds,
 ) {
 	return postedIds.flatMap((id, index) =>
-		id != null && matches[index] == null && NEW_ROW_ID.test(id) ? [id] : [],
+		id != null &&
+		matches[index] == null &&
+		NEW_ROW_ID.test(id) &&
+		!seenIds.loaded?.has(id)
+			? [id]
+			: [],
 	)
 }
 
@@ -84,10 +112,11 @@ export function newRowIdCandidates(
 export function newRowIds(
 	postedIds: Array<string | null | undefined>,
 	matches: Array<unknown>,
+	seenIds: SeenIds,
 	existing: Iterable<string>,
 ) {
 	const taken = new Set(existing)
-	const usable = new Set(newRowIdCandidates(postedIds, matches))
+	const usable = new Set(newRowIdCandidates(postedIds, matches, seenIds))
 	return postedIds.map((id, index) => {
 		if (id == null || matches[index] != null || !usable.has(id))
 			return undefined

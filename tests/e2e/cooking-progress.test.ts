@@ -304,11 +304,19 @@ test('editing a step mid-cook keeps the other checks, every row id, and a row ad
 	await page
 		.getByRole('textbox', { name: 'Step 3' })
 		.fill('Toss together and serve.')
+	// A row added here gets its id in the form, and the Save keeps it.
+	await page.getByRole('button', { name: 'Ingredient', exact: true }).click()
+	await page.locator('[aria-label="Ingredient 4 name"]').fill('lemon')
+	const lemonId = await page
+		.locator('input[type="hidden"][name="ingredients[3].id"]')
+		.inputValue()
+	expect(lemonId).toMatch(/^[a-z][0-9a-z]{23}$/)
 	await save.click()
 
 	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 	await expect(step('Toss together and serve.')).toBeVisible()
 	await expect(ingredient('parsley')).toBeVisible()
+	await expect(ingredient('lemon')).toBeVisible()
 	await expect(ingredient('spaghetti')).toBeChecked()
 	await expect(ingredient('garlic')).toBeChecked()
 	await expect(ingredient('olive oil')).not.toBeChecked()
@@ -327,6 +335,7 @@ test('editing a step mid-cook keeps the other checks, every row id, and a row ad
 	})
 	expect(saved.ingredients.map((row) => row.id)).toEqual([
 		...recipe.ingredients.map((row) => row.id),
+		lemonId,
 		parsley.id,
 	])
 	expect(saved.instructions).toEqual([

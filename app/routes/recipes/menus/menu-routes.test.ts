@@ -15,6 +15,8 @@
  *   meanwhile fails the save.
  * - A Save that reaches the server twice adds its new cards and sections
  *   twice.
+ * - A card added and saved, whose answer was lost, then removed before Save
+ *   is pressed again, stays as if another member had added it.
  */
 import { createId } from '@paralleldrive/cuid2'
 import { RouterContextProvider } from 'react-router'
@@ -1383,6 +1385,45 @@ describe('menu edit keeps changes made while the form was open', () => {
 
 		const after = await menuItems(menu.id)
 		expect(after.map((item) => item.id)).toEqual([cards[0]!.id])
+	})
+
+	test('a card and section added, then removed before the Save is replayed, go', async () => {
+		const { session, menu, recipes, unnamed, cards } = await menuWithCards([
+			'Roast chicken',
+		])
+		const loaded = await loadedIds(menu.id)
+		const sectionId = createId()
+		const noteId = createId()
+		const createdRowIds = JSON.stringify([sectionId, noteId])
+		const kept = sectionFields(0, { id: unnamed.id }, [
+			{ id: cards[0]!.id, recipeId: recipes[0]!.id, scaleMultiplier: '1' },
+		])
+
+		// The first Save lands but its answer is lost.
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Sunday lunch',
+				...loaded,
+				createdRowIds,
+				...kept,
+				...sectionFields(1, { id: sectionId, name: 'Dessert' }, [
+					{ id: noteId, kind: 'note', text: 'Ice cream' },
+				]),
+			}),
+		)
+		// The editor takes the section out again and saves.
+		redirectLocation(
+			await saveMenu(session, menu.id, {
+				title: 'Sunday lunch',
+				...loaded,
+				createdRowIds,
+				...kept,
+			}),
+		)
+
+		const sections = await menuSections(menu.id)
+		expect(sections.map((section) => section.id)).toEqual([unnamed.id])
+		expect(sections[0]!.items.map((item) => item.id)).toEqual([cards[0]!.id])
 	})
 
 	test('the same Save posted twice adds each new card and section once', async () => {

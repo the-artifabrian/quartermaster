@@ -43,7 +43,7 @@ import {
 	RecipeMetadataSelectionError,
 	resolveRecipeMetadataValueIds,
 } from '#app/utils/recipe-metadata.server.ts'
-import { readLoadedIds } from '#app/utils/loaded-rows.ts'
+import { readSeenIds } from '#app/utils/loaded-rows.ts'
 import {
 	RecipeSchema,
 	MAX_RECIPE_IMAGE_SIZE,
@@ -316,8 +316,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 					),
 				},
 				{
-					ingredients: readLoadedIds(formData, 'loadedIngredientIds'),
-					instructions: readLoadedIds(formData, 'loadedInstructionIds'),
+					ingredients: readSeenIds(formData, 'loadedIngredientIds'),
+					instructions: readSeenIds(formData, 'loadedInstructionIds'),
 				},
 			)
 			return []

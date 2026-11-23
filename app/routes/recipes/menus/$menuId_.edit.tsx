@@ -42,7 +42,7 @@ import {
 	matchRows,
 	newRowIdCandidates,
 	newRowIds,
-	readLoadedIds,
+	readSeenIds,
 } from '#app/utils/loaded-rows.ts'
 import {
 	DUPLICATE_MENU_TITLE_MESSAGE,
@@ -197,8 +197,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 	}
 
 	const { title, description, defaultGuestCount } = submission.value
-	const loadedSectionIds = readLoadedIds(formData, 'loadedSectionIds')
-	const loadedItemIds = readLoadedIds(formData, 'loadedItemIds')
+	const seenSectionIds = readSeenIds(formData, 'loadedSectionIds')
+	const seenItemIds = readSeenIds(formData, 'loadedItemIds')
 
 	try {
 		// One atomic Save. It reads the stored sections and cards in the same
@@ -255,7 +255,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 			const sectionMatch = matchRows(
 				storedSections,
 				sections.map((section) => section.id),
-				loadedSectionIds,
+				seenSectionIds,
 			)
 
 			// Items flattened with their submitted position: a stored item
@@ -281,7 +281,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 			const itemMatch = matchRows(
 				storedItems,
 				items.map((item) => item.id),
-				loadedItemIds,
+				seenItemIds,
 			)
 			// A card's kind is immutable: a Recipe card never mutates into a note.
 			invariantResponse(
@@ -342,18 +342,24 @@ export async function action({ request, params }: Route.ActionArgs) {
 			const newSectionIds = newRowIds(
 				postedSections,
 				sectionMatch.matches,
+				seenSectionIds,
 				await existingIds(
 					tx.menuSection,
-					newRowIdCandidates(postedSections, sectionMatch.matches),
+					newRowIdCandidates(
+						postedSections,
+						sectionMatch.matches,
+						seenSectionIds,
+					),
 				),
 			)
 			const postedItems = items.map((item) => item.id)
 			const newItemIds = newRowIds(
 				postedItems,
 				itemMatch.matches,
+				seenItemIds,
 				await existingIds(
 					tx.menuItem,
-					newRowIdCandidates(postedItems, itemMatch.matches),
+					newRowIdCandidates(postedItems, itemMatch.matches, seenItemIds),
 				),
 			)
 

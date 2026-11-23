@@ -4,6 +4,7 @@ import {
 	matchRows,
 	newRowIdCandidates,
 	newRowIds,
+	type SeenIds,
 } from './loaded-rows.ts'
 import {
 	type RecipeFormIngredient,
@@ -26,7 +27,7 @@ export async function saveRecipeRows(
 		ingredients: RecipeFormIngredient[]
 		instructions: RecipeFormInstruction[]
 	},
-	loaded: { ingredients: Set<string> | null; instructions: Set<string> | null },
+	seen: { ingredients: SeenIds; instructions: SeenIds },
 ) {
 	const storedIngredients = await tx.ingredient.findMany({
 		where: { recipeId },
@@ -46,14 +47,19 @@ export async function saveRecipeRows(
 	const ingredients = matchRows(
 		storedIngredients,
 		postedIngredientIds,
-		loaded.ingredients,
+		seen.ingredients,
 	)
 	const ingredientIds = newRowIds(
 		postedIngredientIds,
 		ingredients.matches,
+		seen.ingredients,
 		await existingIds(
 			tx.ingredient,
-			newRowIdCandidates(postedIngredientIds, ingredients.matches),
+			newRowIdCandidates(
+				postedIngredientIds,
+				ingredients.matches,
+				seen.ingredients,
+			),
 		),
 	)
 	for (const [order, row] of rows.ingredients.entries()) {
@@ -91,14 +97,19 @@ export async function saveRecipeRows(
 	const instructions = matchRows(
 		storedInstructions,
 		postedInstructionIds,
-		loaded.instructions,
+		seen.instructions,
 	)
 	const instructionIds = newRowIds(
 		postedInstructionIds,
 		instructions.matches,
+		seen.instructions,
 		await existingIds(
 			tx.instruction,
-			newRowIdCandidates(postedInstructionIds, instructions.matches),
+			newRowIdCandidates(
+				postedInstructionIds,
+				instructions.matches,
+				seen.instructions,
+			),
 		),
 	)
 	for (const [order, row] of rows.instructions.entries()) {

@@ -8,7 +8,7 @@ import { useFitFileInput } from '#app/utils/downscale-image.ts'
 import { isEditScreenDone } from '#app/utils/edit-screen.ts'
 import { IMG_SIZES } from '#app/utils/image-route.ts'
 import { listErrors } from '#app/utils/list-errors.ts'
-import { loadedIdsValue } from '#app/utils/loaded-rows.ts'
+import { CREATED_IDS_FIELD, loadedIdsValue } from '#app/utils/loaded-rows.ts'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
 import { getHistoryLog, resolveAfterSave } from '#app/utils/nav-back.ts'
 import { historyIndex } from '#app/utils/nav-direction.ts'
@@ -125,17 +125,6 @@ function FormSection({
 /** The id the nav bar's Save submits (the route handle's `navForm`). */
 export const RECIPE_FORM_ID = 'recipe-form'
 
-/**
- * Gives each row its id once it is added or first changed, and Save posts
- * it. A Save that reaches the server twice then finds the rows the first
- * one added instead of adding them again (loaded-rows.ts). Rows get it on a
- * change, not on the first render, so the server's render and the
- * browser's agree.
- */
-function withRowIds<Row extends { id?: string }>(rows: Row[]) {
-	return rows.map((row) => (row.id ? row : { ...row, id: createId() }))
-}
-
 export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 	const actionData = useActionData<
 		| {
@@ -174,6 +163,26 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 	// The rows this form loaded, from the same first render as the rows
 	// above. Save removes only these when they are left out, so a row another
 	// member added meanwhile stays (loaded-rows.ts).
+	// Each row gets its id once it is added or first changed, and Save posts
+	// it. A Save that reaches the server twice then finds the rows the first
+	// one added instead of adding them again (loaded-rows.ts). Rows get it on
+	// a change, not on the first render, so the server's render and the
+	// browser's agree. The ids stay listed after their row is removed: an
+	// earlier Save whose answer was lost may have stored it, and a replay
+	// then removes it too.
+	const [createdIds, setCreatedIds] = useState<string[]>([])
+	function withRowIds<Row extends { id?: string }>(rows: Row[]) {
+		const created: string[] = []
+		const withIds = rows.map((row) => {
+			if (row.id) return row
+			const id = createId()
+			created.push(id)
+			return { ...row, id }
+		})
+		if (created.length > 0) setCreatedIds((ids) => [...ids, ...created])
+		return withIds
+	}
+
 	const [loadedIds] = useState(() =>
 		recipe
 			? {
@@ -319,6 +328,11 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 						type="hidden"
 						name="loadedInstructionIds"
 						value={loadedIds.instructions}
+					/>
+					<input
+						type="hidden"
+						name={CREATED_IDS_FIELD}
+						value={JSON.stringify(createdIds)}
 					/>
 				</>
 			)}

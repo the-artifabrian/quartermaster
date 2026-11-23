@@ -178,8 +178,8 @@ Most user data belongs to a Household, not an individual User.
 
 ```text
 User
-├── auth: Password, Session, Passkey, Connection, Verification, EmailCode
-├── access: Role, Permission, Subscription
+├── auth: Password, Session, Passkey, Verification, EmailCode
+├── access: Role, Subscription
 └── HouseholdMember → Household
     ├── Recipe → Ingredient, Instruction, RecipeImage
     ├── RecipeMetadataValue (Cuisine, Season, Course)
@@ -498,8 +498,7 @@ the days of Google sign-in (#439) that never set one. It can't log in, and gets
 a password from Forgot password, which emails a code first and upserts the
 `Password` row (`resetUserPassword` in `app/utils/auth.server.ts`). Settings
 sends such an account there too if it somehow holds a session, so nothing sets a
-first password without proof. The `Connection` and `Permission` tables are no
-longer read or written, and a later migration drops them.
+first password without proof.
 
 The browser's passkey list follows the server through the WebAuthn Signal API
 (`app/utils/passkeys.ts`), where the browser has it. The Passkeys page sends the

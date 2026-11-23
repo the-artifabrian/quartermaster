@@ -296,7 +296,8 @@ hint, on the first request before the hint check reloads, or with a zone the
 server doesn't know, today is the UTC day. Today is fixed per load: a page left
 open past midnight, or shown from the loader or service worker cache, keeps
 the old day until its next server load. Plan revalidates behind a cached entry
-at once; offline it waits for the network.
+at once, and its selected day and Add to Plan's day follow the new today
+unless the user picked one; offline they wait for the network.
 
 ## Shopping
 

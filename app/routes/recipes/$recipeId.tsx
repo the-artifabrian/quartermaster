@@ -537,7 +537,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		label: null,
 	})
 	const todayUTC = parseDate(loaderData.today)
-	const [planDate, setPlanDate] = useState(loaderData.today)
+	// Until a day is picked, Add to Plan follows today, which can move on
+	// when cached data from yesterday revalidates.
+	const [pickedPlanDate, setPlanDate] = useState<string | null>(null)
+	const planDate = pickedPlanDate ?? loaderData.today
 	const [planMealType, setPlanMealType] = useState<MealType | null>('dinner')
 
 	const allStepsChecked =

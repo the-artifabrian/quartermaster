@@ -550,6 +550,17 @@ export function MealPlanCalendar({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [search, targetMealId, urlDate])
 
+	// A new today with the same week (data cached yesterday, then revalidated)
+	// moves the default day with it, unless the URL picked a day or a Meal.
+	const shownToday = useRef(todayDate)
+	useLayoutEffect(() => {
+		if (shownToday.current === todayDate) return
+		shownToday.current = todayDate
+		if (!urlDate && !targetMealId) setSelectedDate(defaultDate)
+		// Only on a new today: a Meal added or removed must not move the day.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [todayDate])
+
 	useEffect(() => {
 		if (!weekDays.some((date) => serializeDate(date) === selectedDate)) {
 			setSelectedDate(defaultSelectedDay(weekDays, meals, todayDate))

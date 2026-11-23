@@ -11,6 +11,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
+import { useState } from 'react'
 import { createRoutesStub, Link, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { expect, test, vi } from 'vitest'
@@ -250,6 +251,37 @@ test('the Plan tab again (no day in the URL) goes back to the default day', asyn
 	).toHaveAttribute('aria-pressed', 'true')
 	expect(mobile.getByText('Banana Bread')).toBeVisible()
 })
+
+test.each([
+	{ entry: '/', after: 'Show Today, Apr 8, 1 Meal planned' },
+	{ entry: '/?day=2026-04-09', after: 'Show Thursday, Apr 9, 1 Meal planned' },
+])(
+	'a later today in the same week (data cached yesterday, then revalidated) moves the day unless $entry picks one',
+	async ({ entry, after }) => {
+		const user = userEvent.setup()
+		function Revalidated() {
+			const [current, setCurrent] = useState('2026-04-07')
+			return (
+				<>
+					<button type="button" onClick={() => setCurrent('2026-04-08')}>
+						Next day
+					</button>
+					<MealPlanCalendar weekDays={weekDays} meals={meals} today={current} />
+				</>
+			)
+		}
+		const Stub = createRoutesStub([{ path: '/', Component: Revalidated }])
+		render(<Stub initialEntries={[entry]} />)
+		const mobile = within(screen.getByTestId('mobile-plan'))
+
+		await user.click(screen.getByRole('button', { name: 'Next day' }))
+
+		expect(mobile.getByRole('button', { name: after })).toHaveAttribute(
+			'aria-pressed',
+			'true',
+		)
+	},
+)
 
 test('Edit details submits the date and stored-zone clock time, and keeps validation errors visible', async () => {
 	const user = userEvent.setup()

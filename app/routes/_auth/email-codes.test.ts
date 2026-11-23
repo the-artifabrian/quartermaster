@@ -79,11 +79,6 @@ import '#tests/setup/db-setup.ts'
 // Email change:
 // 18. A request for address A and then for B: A's code can't set the email
 //     to B.
-//
-// An account with no password (it only ever logged in with Google, which is
-// gone):
-// 19. Forgot password by its email sends a code, the code leads to the
-//     new-password form, and the new password logs in.
 // 19. A code submitted without the requesting device's cookie fails.
 //
 // Past the cap, what the person is told:
@@ -100,39 +95,43 @@ import '#tests/setup/db-setup.ts'
 // 24. A reset code sent to the old address stops working once the email
 //     changes.
 // 25. Changing the password in Settings ends reset codes.
-// 26. Creating a first password ends reset codes.
-// 27. The reset itself ends codes asked for after the verify step.
+// 26. The reset itself ends codes asked for after the verify step.
 //
 // More:
-// 28. A code sent from one device can't be used on another device that
+// 27. A code sent from one device can't be used on another device that
 //     asked for a different address.
-// 29. In a burst of requests each one ends as sent or as past the cap; none
+// 28. In a burst of requests each one ends as sent or as past the cap; none
 //     fails on the database.
-// 30. A stored hash can't be checked without the server's secret: it isn't a
+// 29. A stored hash can't be checked without the server's secret: it isn't a
 //     plain SHA-256 of the code or token, and a code stops checking under
 //     another secret.
-// 31. If the code can't be marked as sent after its email went out, the
+// 30. If the code can't be marked as sent after its email went out, the
 //     person is told the send failed, and no half-made code holds a place
 //     under the cap.
 //
 // Forgot-password answers before it sends:
-// 32. A known account gets its answer while the email is still going out, so
+// 31. A known account gets its answer while the email is still going out, so
 //     it doesn't answer slower than an unknown one. The code then arrives and
 //     works.
-// 33. A send that fails after the answer leaves no working code, and the
+// 32. A send that fails after the answer leaves no working code, and the
 //     failure is logged rather than lost or thrown at the request.
-// 34. The work after the answer throws (the database read fails): the error
+// 33. The work after the answer throws (the database read fails): the error
 //     is caught and logged, and never becomes an unhandled rejection, which
 //     would take the process down.
 //
 // Links opened on a device that is logged in (the iOS app always is):
-// 35. A signup link or typed code used while logged in uses nothing up. The
+// 34. A signup link or typed code used while logged in uses nothing up. The
 //     answer names who is logged in, and the same code works once they log
 //     out.
-// 36. A signup code used with a session cookie whose session has gone works
+// 35. A signup code used with a session cookie whose session has gone works
 //     as if logged out.
-// 37. A reset code used while logged in, as that account or another, goes on
+// 36. A reset code used while logged in, as that account or another, goes on
 //     to the new-password form.
+//
+// An account with no password (it only ever logged in with Google, which is
+// gone):
+// 37. Forgot password by its email sends a code, the code leads to the
+//     new-password form, and the new password logs in.
 //
 // GET /verify consuming nothing is checked in tests/e2e/onboarding.test.ts,
 // through the real page.

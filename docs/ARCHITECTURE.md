@@ -467,20 +467,20 @@ The 2FA guessing bound: a code is 6 digits, and the check accepts the code for
 the current 30 seconds and for one step either side, so a guess matches with a
 chance of 3 in 10^6. A pending sign-in takes at most 5 codes; after the fifth
 wrong one its row is deleted and the person logs in again. Only someone with the
-password can start one, so the cap can't lock the owner out. That is at most 5 ×
-3 ÷ 10^6 = 1.5 × 10^-5 per sign-in, and each new one needs the password, with
-sign-in and `/verify` sharing the auth tier's 10 POSTs a minute per address. The
-count is the pending `Session` row's `signInTries`, so a restart doesn't reset
-it. One `UPDATE … RETURNING` adds each try and reads the total, and a row that
-has gone counts as over the cap. A code for
-any account other than the browser's pending sign-in or its signed-in user isn't
-checked at all. Over a day, from one address: each cycle is one login POST and 5
-codes, so the auth tier's 10 POSTs a minute allow about 8.3 codes a minute,
-12,000 a day, a chance of 1 − (1 − 3 ÷ 10^6)^12,000 ≈ 3.5% a day. A reverify of
-a session someone already holds has no count of its own, only the auth tier's
-limit: 10 codes a minute, 14,400 a day, about 4.2% a day. The first needs the
-password and the second a live session, and both grow with the number of
-addresses an attacker has, since the limit is per address.
+password can start one, so the cap can't lock the owner out. That is at most
+5 × 3 ÷ 10^6 = 1.5 × 10^-5 per sign-in, and each new one needs the password,
+with sign-in and `/verify` sharing the auth tier's 10 POSTs a minute per
+address. The count is the pending `Session` row's `signInTries`, so a restart
+doesn't reset it. One `UPDATE … RETURNING` adds each try and reads the total,
+and a row that has gone counts as over the cap. A code for any account other
+than the browser's pending sign-in or its signed-in user isn't checked at all.
+Over a day, from one address: each cycle is one login POST and 5 codes, so the
+auth tier's 10 POSTs a minute allow about 8.3 codes a minute, 12,000 a day, a
+chance of 1 − (1 − 3 ÷ 10^6)^12,000 ≈ 3.5% a day. A reverify of a session
+someone already holds has no count of its own, only the auth tier's limit: 10
+codes a minute, 14,400 a day, about 4.2% a day. The first needs the password and
+the second a live session, and both grow with the number of addresses an
+attacker has, since the limit is per address.
 
 Adding a passkey asks for the current password
 (`app/routes/_auth/webauthn/registration.ts`). The request for the passkey

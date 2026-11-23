@@ -89,6 +89,9 @@ import '#tests/setup/mocks-setup.ts'
 //     don't count against the other.
 // 26. A sign-in ended by five wrong codes. Logging in again starts a new
 //     count, so the owner isn't held to the old one.
+// 27. Codes sent at once are all counted before any is checked. Five wrong
+//     ones counted with their checks still running, then the right one: it
+//     is the sixth try and signs nobody in, though it is right.
 
 const twoHoursAgo = (extraMinutes: number) =>
 	Date.now() - 1000 * 60 * (120 + extraMinutes)
@@ -355,6 +358,25 @@ describe('pending 2FA sign-in limits', () => {
 		expect(await authSessionFrom(right)).toBeNull()
 	})
 
+	test('the right code counted as a sixth try signs nobody in', async () => {
+		const { user, pending, cookie } = await pendingSignIn()
+		// Five wrong codes sent at once have been counted, and their checks
+		// haven't finished, so the row is still there.
+		await prisma.session.update({
+			where: { id: pending.id },
+			data: { signInTries: MAX_PENDING_SIGN_IN_TRIES },
+		})
+
+		const outcome = await submitVerify(
+			{ code: await totpFor(user), type: '2fa', target: user.id },
+			cookie,
+		)
+
+		expect(outcome.location).toBe('/login')
+		expect(await authSessionFrom(outcome)).toBeNull()
+		expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0)
+	})
+
 	test('a code for an account not pending or signed in here answers the same, right or wrong', async () => {
 		const user = await createUserWithTwoFA()
 		const someoneElse = await createUserWithTwoFA()
@@ -388,7 +410,7 @@ describe('pending 2FA sign-in limits', () => {
 		const { pending } = await pendingSignIn()
 		const row = await prisma.session.findUniqueOrThrow({
 			where: { id: pending.id },
-			select: { id: true, userId: true, createdAt: true },
+			select: { id: true },
 		})
 		await takePendingSignInTry(row)
 
@@ -404,7 +426,7 @@ describe('pending 2FA sign-in limits', () => {
 	async function pendingRow(id: string, db: PrismaClient = prisma) {
 		return db.session.findUniqueOrThrow({
 			where: { id },
-			select: { id: true, userId: true, createdAt: true },
+			select: { id: true },
 		})
 	}
 

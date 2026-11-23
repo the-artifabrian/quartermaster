@@ -32,7 +32,6 @@ import {
 } from '#app/utils/recipe-metadata.ts'
 import { recipeMetadataFilterWhere } from '#app/utils/recipe-search.server.ts'
 import { rankRecipeSearchMatches } from '#app/utils/recipe-search.ts'
-import { getUserTier } from '#app/utils/subscription.server.ts'
 import { staleWhileRevalidate } from '#app/utils/loader-cache.ts'
 import { useStaleRevalidate } from '#app/utils/use-stale-revalidate.ts'
 import { type Route } from './+types/index.ts'
@@ -55,8 +54,7 @@ const SORT_OPTIONS = [
 type SortOption = (typeof SORT_OPTIONS)[number]['value']
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const { userId, householdId } = await requireUserWithHousehold(request)
-	const { isProActive } = await getUserTier(userId)
+	const { householdId } = await requireUserWithHousehold(request)
 	const url = new URL(request.url)
 	// Trim so a whitespace-only query counts as "no search" — otherwise it is
 	// truthy for hasFilters/UI but produces no filter terms.
@@ -122,11 +120,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			prisma.householdIngredient.count({
 				where: { householdId, isStaple: true },
 			}),
-			isProActive
-				? prisma.meal.count({
-						where: { mealPlan: { householdId } },
-					})
-				: Promise.resolve(0),
+			prisma.meal.count({ where: { mealPlan: { householdId } } }),
 			prisma.recipe.count({ where: { householdId } }),
 		])
 

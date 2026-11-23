@@ -93,6 +93,20 @@ async function args(
 		}),
 	}
 }
+/** A restore of `exported`, sent as multipart the way the restore form sends it. */
+async function restoreArgs(session: { id: string }, exported: unknown) {
+	const routeArgs = await args(session, '/settings/profile/import')
+	const form = new FormData()
+	form.set('importData', JSON.stringify(exported))
+	return {
+		...routeArgs,
+		request: new Request(routeArgs.url, {
+			method: 'POST',
+			headers: routeArgs.request.headers,
+			body: form,
+		}),
+	}
+}
 /**
  * Runs one import, which saves at once, and returns the saved Recipe's id and
  * the notice its redirect asks the Recipe page for.
@@ -188,11 +202,7 @@ test('source survives full household and Recipe-only JSON recovery; older export
 		).json()) as { recipes: Array<{ rawText?: string }> }
 		expect(exported.recipes[0]!.rawText).toBe(source)
 		const recipient = await user()
-		await restoreAction(
-			await args(recipient, '/settings/profile/import', {
-				importData: JSON.stringify(exported),
-			}),
-		)
+		await restoreAction(await restoreArgs(recipient, exported))
 		expect(
 			await prisma.recipe.findFirst({
 				where: { householdId: recipient.householdId },
@@ -200,11 +210,7 @@ test('source survives full household and Recipe-only JSON recovery; older export
 		).toMatchObject({ rawText: source })
 		delete exported.recipes[0]!.rawText
 		const olderRecipient = await user()
-		await restoreAction(
-			await args(olderRecipient, '/settings/profile/import', {
-				importData: JSON.stringify(exported),
-			}),
-		)
+		await restoreAction(await restoreArgs(olderRecipient, exported))
 		expect(
 			await prisma.recipe.findFirst({
 				where: { householdId: olderRecipient.householdId },

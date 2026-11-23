@@ -9,7 +9,7 @@ async function seed() {
 	console.log('🌱 Seeding...')
 	console.time(`🌱 Database has been seeded`)
 
-	// Infrastructure: permissions, roles, tags (shared with production)
+	// Infrastructure: the admin and user roles (shared with production)
 	await seedInfrastructure()
 
 	// Test data below — only runs via `prisma db seed` in development
@@ -41,7 +41,6 @@ async function seed() {
 				roles: { connect: [{ name: 'admin' }, { name: 'user' }] },
 			},
 		})
-
 	}
 
 	console.timeEnd(`🐨 Find or create admin user "kody"`)

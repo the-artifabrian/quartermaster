@@ -167,14 +167,6 @@ export async function loader({ request }: Route.LoaderArgs) {
 									id: true,
 									name: true,
 									username: true,
-									roles: {
-										select: {
-											name: true,
-											permissions: {
-												select: { entity: true, action: true, access: true },
-											},
-										},
-									},
 								},
 								where: { id: userId },
 							}),

@@ -87,7 +87,7 @@ export function formatMonthDay(date: Date): string {
 /**
  * Format like "Feb 9 – 15" (this year) or "Feb 9 – 15, 2025" (other years).
  * `today` is the user's `yyyy-MM-dd` (see `todayInTimeZone`), so the year
- * shown follows their calendar, not the server's.
+ * shown follows their calendar.
  */
 export function formatWeekRange(weekStart: Date, today: string): string {
 	const weekEnd = getWeekEnd(weekStart)
@@ -126,6 +126,17 @@ export function todayInTimeZone(
 	const get = (type: string) =>
 		parts.find((part) => part.type === type)?.value ?? ''
 	return `${get('year').padStart(4, '0')}-${get('month')}-${get('day')}`
+}
+
+/**
+ * A loader's `today`, or the browser's own day when the data has none: route
+ * data cached before loaders sent `today` can still be served from the
+ * service worker after a deploy.
+ */
+export function loadedToday(today: string | undefined): string {
+	return (
+		today ?? todayInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone)
+	)
 }
 
 /** True when the stored day (UTC midnight) is `today`, a `yyyy-MM-dd`. */

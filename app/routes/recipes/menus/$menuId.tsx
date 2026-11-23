@@ -25,6 +25,7 @@ import {
 } from '#app/components/ui/tooltip.tsx'
 import {
 	getWeekStart,
+	loadedToday,
 	MEAL_TYPES,
 	MEAL_TYPE_LABELS,
 	serializeDate,
@@ -340,7 +341,8 @@ export default function MenuDetail({
 	loaderData,
 	actionData,
 }: Route.ComponentProps) {
-	const { menu, today } = loaderData
+	const { menu } = loaderData
+	const today = loadedToday(loaderData.today)
 	const [planning, setPlanning] = useState(false)
 	const [planFormDismissed, setPlanFormDismissed] = useState(false)
 	// On a phone the form is a bottom sheet; wider, it opens in place.

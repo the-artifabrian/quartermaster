@@ -14,6 +14,7 @@ import { Icon } from '#app/components/ui/icon.tsx'
 import {
 	getWeekDays,
 	getWeekStart,
+	loadedToday,
 	formatWeekRange,
 	getNextWeek,
 	getPreviousWeek,
@@ -45,7 +46,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const { householdId } = await requireUserWithHousehold(request)
 	const url = new URL(request.url)
 	const weekStartParam = url.searchParams.get('weekStart')
-	// The browser's day, not the server's: this picks the week and Today.
+	// Plan uses the browser's day to pick the week and mark Today.
 	const today = getRequestToday(request)
 
 	const weekStart = weekStartParam
@@ -198,14 +199,9 @@ export function shouldRevalidate(args: ShouldRevalidateFunctionArgs) {
 
 export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 	useStaleRevalidate(loaderData, { viewOnlyParams: PLAN_VIEW_ONLY_PARAMS })
-	const {
-		meals,
-		weekDays,
-		weekStart,
-		today,
-		planScope,
-		shoppingListItemCount,
-	} = loaderData
+	const { meals, weekDays, weekStart, planScope, shoppingListItemCount } =
+		loaderData
+	const today = loadedToday(loaderData.today)
 
 	const prevWeek = serializeDate(getPreviousWeek(parseDate(weekStart)))
 	const nextWeek = serializeDate(getNextWeek(parseDate(weekStart)))

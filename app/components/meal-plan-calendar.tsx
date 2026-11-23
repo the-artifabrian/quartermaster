@@ -7,6 +7,7 @@ import {
 } from 'react'
 import {
 	useFetcher,
+	useFetchers,
 	useNavigate,
 	useNavigation,
 	useSearchParams,
@@ -550,12 +551,22 @@ export function MealPlanCalendar({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [search, targetMealId, urlDate])
 
-	// A new today with the same week (data cached yesterday, then revalidated)
-	// moves the default day with it, unless the URL picked a day or a Meal.
-	const shownToday = useRef(todayDate)
+	// A later today with the same week (data cached yesterday, then
+	// revalidated) moves the default day with it, unless the URL picked a day
+	// or a Meal. An earlier today (an older cached entry) never moves it. Nor
+	// does a later one that arrives while the person is busy: a sheet or
+	// dialog open, a navigation or a fetcher under way. Moving the day then
+	// would swap out what they are working on, so the day stays and Today is
+	// still marked in the strip.
+	const fetchers = useFetchers()
+	const busy =
+		navigation.state !== 'idle' ||
+		fetchers.some((fetcher) => fetcher.state !== 'idle')
+	const followedToday = useRef(todayDate)
 	useLayoutEffect(() => {
-		if (shownToday.current === todayDate) return
-		shownToday.current = todayDate
+		if (todayDate <= followedToday.current) return
+		followedToday.current = todayDate
+		if (busy || document.querySelector('[role="dialog"]')) return
 		if (!urlDate && !targetMealId) setSelectedDate(defaultDate)
 		// Only on a new today: a Meal added or removed must not move the day.
 		// eslint-disable-next-line react-hooks/exhaustive-deps

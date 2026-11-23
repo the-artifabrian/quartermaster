@@ -286,18 +286,23 @@ Meals have explicit order within a day. Labels and serving times are optional
 context and do not control order.
 
 A Meal's day is a calendar day, stored as UTC midnight and sent by forms as
-`yyyy-MM-dd` (`z.iso.date()`, never a timestamp). Which day is today belongs to
-the user: `getRequestToday` (`app/utils/today.server.ts`) reads the browser's
-timezone hint cookie and returns that zone's date. Each loader that draws
-Today, past days or "this week" (Plan, Shopping's From Plan, Add to Plan on a
-Recipe or Menu) puts it in its data, and components compare against it rather
-than the clock, so the server and the browser render the same day. Without a
-hint, on the first request before the hint check reloads, or with a zone the
-server doesn't know, today is the UTC day. Today is fixed per load: a page left
-open past midnight, or shown from the loader or service worker cache, keeps
-the old day until its next server load. Plan revalidates behind a cached entry
-at once, and its selected day and Add to Plan's day follow the new today
-unless the user picked one; offline they wait for the network.
+`yyyy-MM-dd` (`z.iso.date()`). Which day is today belongs to the user:
+`getRequestToday` (`app/utils/today.server.ts`) reads the browser's timezone
+hint cookie and returns that zone's date. Each loader that draws Today, past
+days or "this week" (Plan, Shopping's From Plan, Add to Plan on a Recipe or
+Menu) puts it in its data, and components compare days against it, so the
+server and the browser render the same day. Without a hint, on the first
+request before the hint check reloads, or with a zone the server doesn't know,
+today is the UTC day. Data cached before loaders sent a today uses the
+browser's own date (`loadedToday`).
+
+Today is fixed per load: a page left open past midnight, or shown from the
+loader or service worker cache, keeps the old day until its next server load.
+Plan revalidates behind a cached entry at once. A later today then moves its
+selected day, unless the URL picked a day or a Meal or the person is busy (a
+sheet open, a navigation or fetcher under way). Add to Plan on a Recipe starts
+on today each time it opens. Offline, the old day stays until the network
+returns.
 
 ## Shopping
 

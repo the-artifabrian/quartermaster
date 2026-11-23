@@ -36,6 +36,7 @@ import {
 	addDaysUTC,
 	formatDayLabel,
 	isToday,
+	loadedToday,
 	MEAL_TYPES,
 	MEAL_TYPE_LABELS,
 	type MealType,
@@ -536,11 +537,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		date: '',
 		label: null,
 	})
-	const todayUTC = parseDate(loaderData.today)
+	const today = loadedToday(loaderData.today)
+	const todayUTC = parseDate(today)
 	// Until a day is picked, Add to Plan follows today, which can move on
 	// when cached data from yesterday revalidates.
 	const [pickedPlanDate, setPlanDate] = useState<string | null>(null)
-	const planDate = pickedPlanDate ?? loaderData.today
+	const planDate = pickedPlanDate ?? today
 	const [planMealType, setPlanMealType] = useState<MealType | null>('dinner')
 
 	const allStepsChecked =
@@ -613,9 +615,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			setPlanPickerOpen(false)
 			const { date, label } = submittedPlanRef.current
 			const d = parseDate(date)
-			const dayLabel = isToday(d, loaderData.today)
-				? 'Today'
-				: formatDayLabel(d)
+			const dayLabel = isToday(d, today) ? 'Today' : formatDayLabel(d)
 			const where = label ? `${dayLabel} ${MEAL_TYPE_LABELS[label]}` : dayLabel
 			const meal = planFetcher.data.meal
 			if (meal && !meal.created) {
@@ -637,13 +637,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			toast.error(`Could not add ${recipe.title} to Plan`)
 		}
 		prevPlanFetcherState.current = planFetcher.state
-	}, [
-		planFetcher.state,
-		planFetcher.data,
-		navigate,
-		recipe.title,
-		loaderData.today,
-	])
+	}, [planFetcher.state, planFetcher.data, navigate, recipe.title, today])
 
 	function handleAddToPlanSubmit() {
 		submittedPlanRef.current = { date: planDate, label: planMealType }
@@ -870,6 +864,9 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 								// A sheet on a phone, upright or on its side; a popover
 								// elsewhere.
 								setPlanPickerAsSheet(opensAsSheet())
+								// Each opening starts on today, so a day picked before
+								// midnight can't send yesterday.
+								setPlanDate(null)
 								setPlanPickerOpen(true)
 							}}
 							onCopy={handleCopyRecipe}

@@ -252,36 +252,89 @@ test('the Plan tab again (no day in the URL) goes back to the default day', asyn
 	expect(mobile.getByText('Banana Bread')).toBeVisible()
 })
 
-test.each([
-	{ entry: '/', after: 'Show Today, Apr 8, 1 Meal planned' },
-	{ entry: '/?day=2026-04-09', after: 'Show Thursday, Apr 9, 1 Meal planned' },
-])(
-	'a later today in the same week (data cached yesterday, then revalidated) moves the day unless $entry picks one',
-	async ({ entry, after }) => {
-		const user = userEvent.setup()
-		function Revalidated() {
-			const [current, setCurrent] = useState('2026-04-07')
-			return (
-				<>
-					<button type="button" onClick={() => setCurrent('2026-04-08')}>
-						Next day
-					</button>
-					<MealPlanCalendar weekDays={weekDays} meals={meals} today={current} />
-				</>
-			)
-		}
-		const Stub = createRoutesStub([{ path: '/', Component: Revalidated }])
-		render(<Stub initialEntries={[entry]} />)
-		const mobile = within(screen.getByTestId('mobile-plan'))
-
-		await user.click(screen.getByRole('button', { name: 'Next day' }))
-
-		expect(mobile.getByRole('button', { name: after })).toHaveAttribute(
-			'aria-pressed',
-			'true',
+/**
+ * Plan with a today that can change under it, as when data cached yesterday
+ * is revalidated. `setTodayTo` hands it a new today.
+ */
+let setTodayTo: (today: string) => void = () => {}
+function renderWithToday(entry: string, initialToday: string) {
+	function Revalidated() {
+		const [current, setCurrent] = useState(initialToday)
+		setTodayTo = setCurrent
+		return (
+			<MealPlanCalendar
+				weekDays={weekDays}
+				meals={meals}
+				today={current}
+				renderHeader={(titleAction) => (
+					<div data-testid="today-title">{titleAction}</div>
+				)}
+			/>
 		)
-	},
-)
+	}
+	server.use(
+		http.get('*/resources/plan-choices', () =>
+			HttpResponse.json({ recipes, menus }),
+		),
+	)
+	const Stub = createRoutesStub([{ path: '/', Component: Revalidated }])
+	render(<Stub initialEntries={[entry]} />)
+	return within(screen.getByTestId('mobile-plan'))
+}
+
+function expectSelected(mobile: ReturnType<typeof within>, name: string) {
+	expect(mobile.getByRole('button', { name })).toHaveAttribute(
+		'aria-pressed',
+		'true',
+	)
+}
+
+test('a later today in the same week moves the selected day to it', async () => {
+	const mobile = renderWithToday('/', '2026-04-07')
+	expectSelected(mobile, 'Show Today, Apr 7, no Meals planned')
+	await act(async () => setTodayTo('2026-04-08'))
+	expectSelected(mobile, 'Show Today, Apr 8, 1 Meal planned')
+})
+
+test.each([
+	{ name: 'a picked day', entry: '/?day=2026-04-09' },
+	{ name: 'a link to a Meal that is gone', entry: '/?mealId=meal-gone' },
+])('a later today leaves $name where it is', async ({ entry }) => {
+	const mobile = renderWithToday(entry, '2026-04-07')
+	const before = entry.includes('day=')
+		? 'Show Thursday, Apr 9, 1 Meal planned'
+		: 'Show Today, Apr 7, no Meals planned'
+	expectSelected(mobile, before)
+	await act(async () => setTodayTo('2026-04-08'))
+	expectSelected(
+		mobile,
+		entry.includes('day=') ? before : 'Show Tuesday, Apr 7, no Meals planned',
+	)
+})
+
+test('an earlier today (an older cached entry) leaves the selected day where it is', async () => {
+	const mobile = renderWithToday('/', '2026-04-08')
+	expectSelected(mobile, 'Show Today, Apr 8, 1 Meal planned')
+	await act(async () => setTodayTo('2026-04-07'))
+	expectSelected(mobile, 'Show Wednesday, Apr 8, 1 Meal planned')
+})
+
+test('a later today leaves the day alone while a sheet is open', async () => {
+	const user = userEvent.setup()
+	const mobile = renderWithToday('/', '2026-04-07')
+	await user.click(
+		within(screen.getByTestId('today-title')).getByRole('button', {
+			name: 'Add Meal to Tuesday, Apr 7',
+		}),
+	)
+	const sheet = await screen.findByRole('dialog', { name: 'Add a Meal' })
+
+	await act(async () => setTodayTo('2026-04-08'))
+
+	expectSelected(mobile, 'Show Tuesday, Apr 7, no Meals planned')
+	expect(sheet).toBeInTheDocument()
+	expect(screen.getByRole('dialog', { name: 'Add a Meal' })).toBe(sheet)
+})
 
 test('Edit details submits the date and stored-zone clock time, and keeps validation errors visible', async () => {
 	const user = userEvent.setup()

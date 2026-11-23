@@ -10,7 +10,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from '#app/components/ui/popover.tsx'
-import { isPast, parseDate } from '#app/utils/date.ts'
+import { isPast, loadedToday, parseDate } from '#app/utils/date.ts'
 import { HouseholdClientInput } from '#app/utils/household-client.tsx'
 import { addedToExistingMessage } from '#app/utils/meal-shopping-messages.ts'
 import { cn } from '#app/utils/misc.tsx'
@@ -31,7 +31,7 @@ type WeekChoices = {
 	weekStart: string
 	weekLabel: string
 	/** The user's today, `yyyy-MM-dd`, as the server worked it out. */
-	today: string
+	today?: string
 	days: PlanPickerDay[]
 }
 
@@ -66,7 +66,6 @@ function isWeekChoices(value: unknown): value is WeekChoices {
 	return (
 		typeof candidate.weekStart === 'string' &&
 		typeof candidate.weekLabel === 'string' &&
-		typeof candidate.today === 'string' &&
 		Array.isArray(candidate.days)
 	)
 }
@@ -138,7 +137,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 			const meals = result.days.flatMap((day) =>
 				day.meals.map((meal) => ({
 					meal,
-					past: isPastDay(day.date, result.today),
+					past: isPastDay(day.date, loadedToday(result.today)),
 				})),
 			)
 			setPicks(
@@ -165,7 +164,9 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 
 	const days = choiceState.status === 'success' ? choiceState.choices.days : []
 	const today =
-		choiceState.status === 'success' ? choiceState.choices.today : ''
+		choiceState.status === 'success'
+			? loadedToday(choiceState.choices.today)
+			: ''
 	const pickedMeals = days.flatMap((day) =>
 		day.meals.flatMap((meal) => {
 			const lines = [...(picks.get(meal.id) ?? [])]

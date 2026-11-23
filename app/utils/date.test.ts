@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import {
 	addDaysUTC,
 	getWeekStart,
@@ -9,6 +9,7 @@ import {
 	parseDate,
 	isToday,
 	isPast,
+	loadedToday,
 	formatDayLabel,
 	formatMonthDay,
 	formatShortDay,
@@ -195,7 +196,7 @@ describe('formatMonthDay', () => {
 })
 
 describe('formatWeekRange', () => {
-	// The year shown follows the user's today, not the server's clock.
+	// The year shown follows the user's today.
 	test('omits year when the week is in the year of today', () => {
 		const weekStart = new Date('2026-02-02T00:00:00.000Z')
 		expect(formatWeekRange(weekStart, '2026-11-23')).toBe('Feb 2 – 8')
@@ -257,5 +258,27 @@ describe('isPast', () => {
 
 	test('is true for an earlier month with a later day number', () => {
 		expect(isPast(parseDate('2026-10-30'), '2026-11-02')).toBe(true)
+	})
+})
+
+describe('loadedToday', () => {
+	test("is the loader's today when the data has one", () => {
+		expect(loadedToday('2026-11-23')).toBe('2026-11-23')
+	})
+
+	test('is the local date when cached data from before the change has none', () => {
+		vi.useFakeTimers({ toFake: ['Date'] })
+		try {
+			vi.setSystemTime(new Date('2026-11-22T22:30:00Z'))
+			const now = new Date()
+			const local = [
+				now.getFullYear(),
+				String(now.getMonth() + 1).padStart(2, '0'),
+				String(now.getDate()).padStart(2, '0'),
+			].join('-')
+			expect(loadedToday(undefined)).toBe(local)
+		} finally {
+			vi.useRealTimers()
+		}
 	})
 })

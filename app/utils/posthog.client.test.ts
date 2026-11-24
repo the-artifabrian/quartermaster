@@ -10,6 +10,9 @@ const posthog = vi.hoisted(() => ({
 	identify: vi.fn(),
 	group: vi.fn(),
 	register_for_session: vi.fn(),
+	register: vi.fn(),
+	unregister: vi.fn(),
+	get_property: vi.fn(),
 	reset: vi.fn(),
 	getFeatureFlag: vi.fn(),
 }))
@@ -60,6 +63,10 @@ test('initializes the deferred SDK with the existing privacy and performance beh
 	client.capture('$pageview', { path: '/recipes' }, captureOptions)
 	client.registerForSession({ display_mode: 'standalone' })
 	client.identify('user-1', { name: 'Ada' })
+	client.register({ is_demo: true })
+	client.unregister('is_demo')
+	expect(posthog.register).toHaveBeenCalledWith({ is_demo: true })
+	expect(posthog.unregister).toHaveBeenCalledWith('is_demo')
 	expect(posthog.capture).toHaveBeenCalledWith(
 		'$pageview',
 		{ path: '/recipes' },
@@ -294,4 +301,22 @@ test('replays mask every input type, hidden ones included', () => {
 	]) {
 		expect(recording.maskInputOptions?.[type], type).toBe(true)
 	}
+})
+
+test('resetIfRegistered resets only a browser that has the super property', () => {
+	vi.clearAllMocks()
+	posthog.__loaded = true
+	const client = initializePostHog({
+		apiKey: 'phc_test',
+		host: 'https://analytics.example.com',
+	})
+
+	posthog.get_property.mockReturnValueOnce(undefined)
+	client.resetIfRegistered('is_demo')
+	expect(posthog.get_property).toHaveBeenCalledWith('is_demo')
+	expect(posthog.reset).not.toHaveBeenCalled()
+
+	posthog.get_property.mockReturnValueOnce(true)
+	client.resetIfRegistered('is_demo')
+	expect(posthog.reset).toHaveBeenCalledTimes(1)
 })

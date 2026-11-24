@@ -21,13 +21,16 @@
  * - The sample week is the server's week, not the visitor's, near midnight
  *   on a Sunday.
  * - One client with no cookie starts demo after demo and fills the cap on
- *   its own; the refusal is a bare 429 page rather than the full message;
- *   one client's starts refuse another's.
+ *   its own; the refusal is a bare 429 page, or says the demo is full and to
+ *   try again in a few minutes, when this client can't start one for up to
+ *   an hour; one client's starts refuse another's.
  * - The session step fails after the copy committed: the visitor gets a
  *   500 page, the user holds a live slot for two hours, and
  *   `demo_started` is counted for a demo nobody got.
  * - The copy throws something unexpected: a 500 page, or the error goes
  *   unlogged and unreported.
+ * - `demo_started` goes to PostHog without `is_demo: true`, so the demo
+ *   user's person can't be told apart from a real one's.
  * End (`intent=end`)
  * - A demo user's account stays, so it keeps a live slot, or their cookies
  *   stay, so /signup bounces them.
@@ -470,7 +473,7 @@ function newClientKey() {
 	return `client-${Math.random().toString(36).slice(2)}`
 }
 
-test('a client gets five starts an hour; the next is refused with the full message', async () => {
+test('a client gets five starts an hour; the next is refused with a message of its own', async () => {
 	await buildTemplate()
 	productionLimits()
 	const clientKey = newClientKey()
@@ -484,7 +487,7 @@ test('a client gets five starts an hour; the next is refused with the full messa
 	expect(refused.status).toBe(302)
 	expect(refused.headers.get('location')).toBe('/login')
 	expect(await toastOf(refused)).toMatchObject({
-		description: 'The demo is full right now. Try again in a few minutes.',
+		description: 'You’ve started the demo a few times. Try again in an hour.',
 	})
 	expect(cookieNamed(refused, 'en_session')).toBeUndefined()
 	expect(await demoUsers()).toHaveLength(5)
@@ -533,7 +536,7 @@ test('ending a demo is never refused by the start limit and doesn’t use it up'
 		expect(started.headers.get('location')).toBe('/recipes')
 	}
 	expect(await toastOf(await postDemo({ clientKey }))).toMatchObject({
-		description: 'The demo is full right now. Try again in a few minutes.',
+		description: 'You’ve started the demo a few times. Try again in an hour.',
 	})
 }, 30_000)
 
@@ -554,12 +557,14 @@ test('a session step that fails deletes the new demo user and says the demo isn�
 	expect(reportServerError).toHaveBeenCalledWith(failure, expect.any(Request))
 })
 
-test('demo_started is counted once the session exists', async () => {
+test('demo_started is counted once the session exists, marked as a demo', async () => {
 	await buildTemplate()
 
 	const { userId } = await startDemo()
 
-	expect(captureServerEvent).toHaveBeenCalledWith(userId, DEMO_STARTED)
+	expect(captureServerEvent).toHaveBeenCalledWith(userId, DEMO_STARTED, {
+		is_demo: true,
+	})
 })
 
 test('an unexpected copy error says the demo isn’t available, and is reported', async () => {

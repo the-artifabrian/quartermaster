@@ -24,11 +24,28 @@
  *    or removing the demo user deletes the file the source still shows.
  * 8. A demo user's Save that fails partway cleans up "its" photo, which is
  *    the source's file. It must leave it alone.
+ *
+ * A demo user's copy points at the source's file, so these orderings of a
+ * Save against the source's owner must never leave a copy whose photo file
+ * is gone:
+ *
+ * 9. The source Recipe is deleted after the Save read it and before the
+ *    copy is written. Nothing showed the photo yet, so the delete removed
+ *    the file, and the copy must not take its key. Same for a Menu's Save.
+ * 10. The source's photo is replaced in the same window, which removes the
+ *    old file. The copy must not take the old key.
+ * 11. The Save runs while the source's delete is removing the photo file:
+ *    the file is gone but the source's rows are still there for the Save to
+ *    read. The delete must take the rows first, so the Save can't find a key
+ *    whose file is about to go.
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { RouterContextProvider } from 'react-router'
+import sharp from 'sharp'
 import { expect, test, vi } from 'vitest'
+import type * as DemoGuard from '#app/utils/demo-guard.server.ts'
+import type * as Storage from '#app/utils/storage.server.ts'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { deleteAccount } from '#app/utils/account-deletion.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
@@ -47,6 +64,45 @@ import {
 import { action as editAction } from './recipes/$recipeId_.edit.tsx'
 import { loader as menuRecipeLoader } from './share.menus.$menuId_.recipes.$itemId.tsx'
 import '#tests/setup/db-setup.ts'
+
+/**
+ * Steps a test slips in between two steps of the code under test, each run
+ * once: after a share Save has read its source (it asks whether the saver
+ * is a demo user next, before it writes), and after a stored photo file is
+ * deleted.
+ */
+const between = vi.hoisted(() => ({
+	saveReadSource: null as null | (() => Promise<unknown>),
+	photoFileDeleted: null as null | (() => Promise<unknown>),
+}))
+
+function takeStep(name: keyof typeof between) {
+	const step = between[name]
+	between[name] = null
+	return step?.()
+}
+
+vi.mock('#app/utils/demo-guard.server.ts', async (importOriginal) => {
+	const real = await importOriginal<typeof DemoGuard>()
+	return {
+		...real,
+		isDemoUserId: async (userId: string) => {
+			await takeStep('saveReadSource')
+			return real.isDemoUserId(userId)
+		},
+	}
+})
+
+vi.mock('#app/utils/storage.server.ts', async (importOriginal) => {
+	const real = await importOriginal<typeof Storage>()
+	return {
+		...real,
+		deleteRecipeImage: async (objectKey: string) => {
+			await real.deleteRecipeImage(objectKey)
+			await takeStep('photoFileDeleted')
+		},
+	}
+})
 
 type Kind = { demo: boolean; template?: boolean }
 
@@ -428,8 +484,9 @@ test("a demo user's Save that fails partway leaves the source's photo alone", as
 	await using source = await sharedWithPhoto()
 	const demo = await household({ demo: true })
 	source.owners.push(demo.userId)
-	using _create = vi
-		.spyOn(prisma.recipe, 'create')
+	// The copy is written in one transaction, which fails.
+	using _write = vi
+		.spyOn(prisma, '$transaction')
 		.mockRejectedValueOnce(new Error('the database went away'))
 
 	await expect(
@@ -444,4 +501,151 @@ test("a demo user's Save that fails partway leaves the source's photo alone", as
 
 	expect(await exists(source.key)).toBe(true)
 	expect(await savedPhotoKeys(source.owner.householdId)).toEqual([source.key])
+})
+
+/** The photo keys in a Household whose file is gone. */
+async function missingPhotos(householdId: string) {
+	const missing = []
+	for (const key of await savedPhotoKeys(householdId)) {
+		if (!(await exists(key))) missing.push(key)
+	}
+	return missing
+}
+
+/** The source's owner deletes their Recipe from its edit screen. */
+async function deleteSource(
+	source: Awaited<ReturnType<typeof sharedWithPhoto>>,
+) {
+	const body = new FormData()
+	body.set('intent', 'delete')
+	await editAction(
+		await args(
+			`/recipes/${source.recipeId}/edit`,
+			{ recipeId: source.recipeId },
+			{ session: source.owner, post: true, body },
+		),
+	)
+}
+
+/** The Recipes a Household holds, with their photo rows. */
+function recipesIn(householdId: string) {
+	return prisma.recipe.findMany({
+		where: { householdId },
+		select: { title: true, image: { select: { objectKey: true } } },
+	})
+}
+
+test('a demo Save of a Recipe deleted while it saves copies it without the photo', async () => {
+	await using source = await sharedWithPhoto()
+	const demo = await household({ demo: true })
+	source.owners.push(demo.userId)
+	between.saveReadSource = () => deleteSource(source)
+
+	const status = await statusOf(async () =>
+		saveRecipe(
+			await args(
+				`/share/${source.recipeId}`,
+				{ recipeId: source.recipeId },
+				{ session: demo, post: true },
+			),
+		),
+	)
+
+	expect(between.saveReadSource).toBeNull()
+	expect(await prisma.recipe.count({ where: { id: source.recipeId } })).toBe(0)
+	expect(status).toBe(302)
+	expect(await recipesIn(demo.householdId)).toEqual([
+		{ title: 'Lemon chickpeas', image: null },
+	])
+})
+
+test('a demo Save of a Menu whose Recipe is deleted while it saves copies it without the photo', async () => {
+	await using source = await sharedWithPhoto()
+	const demo = await household({ demo: true })
+	source.owners.push(demo.userId)
+	between.saveReadSource = () => deleteSource(source)
+
+	const status = await statusOf(async () =>
+		saveMenu(
+			await args(
+				`/share/menus/${source.menuId}`,
+				{ menuId: source.menuId },
+				{ session: demo, post: true },
+			),
+		),
+	)
+
+	expect(between.saveReadSource).toBeNull()
+	expect(await prisma.recipe.count({ where: { id: source.recipeId } })).toBe(0)
+	expect(status).toBe(302)
+	expect(
+		await prisma.menu.count({ where: { householdId: demo.householdId } }),
+	).toBe(1)
+	expect(await recipesIn(demo.householdId)).toEqual([
+		{ title: 'Lemon chickpeas', image: null },
+	])
+})
+
+test('a demo Save of a Recipe whose photo is replaced while it saves shows the new photo', async () => {
+	await using source = await sharedWithPhoto()
+	const demo = await household({ demo: true })
+	source.owners.push(demo.userId)
+	between.saveReadSource = async () => {
+		const photo = await sharp({
+			create: { width: 40, height: 30, channels: 3, background: '#c86b3c' },
+		})
+			.jpeg()
+			.toBuffer()
+		const body = new FormData()
+		body.set('title', 'Lemon chickpeas')
+		body.set('ingredients[0].name', 'chickpeas')
+		body.set('instructions[0].content', 'Warm the chickpeas.')
+		body.set('image', new File([photo], 'new.jpg', { type: 'image/jpeg' }))
+		await editAction(
+			await args(
+				`/recipes/${source.recipeId}/edit`,
+				{ recipeId: source.recipeId },
+				{ session: source.owner, post: true, body },
+			),
+		)
+	}
+
+	await saveRecipe(
+		await args(
+			`/share/${source.recipeId}`,
+			{ recipeId: source.recipeId },
+			{ session: demo, post: true },
+		),
+	)
+
+	expect(between.saveReadSource).toBeNull()
+	expect(await exists(source.key)).toBe(false)
+	expect(await savedPhotoKeys(demo.householdId)).toEqual(
+		await savedPhotoKeys(source.owner.householdId),
+	)
+	expect(await missingPhotos(demo.householdId)).toEqual([])
+})
+
+test("a demo Save while the source's delete removes its photo finds the Recipe gone", async () => {
+	await using source = await sharedWithPhoto()
+	const demo = await household({ demo: true })
+	source.owners.push(demo.userId)
+	let status: number | undefined
+	between.photoFileDeleted = async () => {
+		status = await statusOf(async () =>
+			saveRecipe(
+				await args(
+					`/share/${source.recipeId}`,
+					{ recipeId: source.recipeId },
+					{ session: demo, post: true },
+				),
+			),
+		)
+	}
+
+	await deleteSource(source)
+
+	expect(between.photoFileDeleted).toBeNull()
+	expect(status).toBe(404)
+	expect(await recipesIn(demo.householdId)).toEqual([])
 })

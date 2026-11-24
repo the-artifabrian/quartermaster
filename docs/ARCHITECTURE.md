@@ -212,18 +212,21 @@ template Household in the database: the sample Recipes with their stock photos
 by a user with no password and an email under `.invalid`. The `DemoTemplate`
 row points at it and holds two hashes, one of the sample Recipes and Staples
 and one of the photo files. Scheduled maintenance runs `ensureDemoTemplate`
-first, at startup and every hour; when either hash changed, it builds a new
-template beside the old one, moves the pointer in a write transaction, and
-deletes the old template's owner with `deleteAccount`. `createDemoCopy` keeps
-its transactions short, because the libSQL adapter runs one at a time per
-process: one counts live demo users and creates the visitor, the next re-reads
-the template and copies its library a statement per kind of row, and then the
-sample week is planned for the visitor's day through the app's own writers.
-The Plan, Shopping and Menus are made on each copy from the running code's
-content. A start that can't get a transaction in time is refused as
+right after demo expiry, at startup and every hour; when either hash changed, it
+builds a new template beside the old one, moves the pointer in a write
+transaction, and deletes the old template's owner with `deleteAccount`.
+`createDemoCopy` keeps its transactions short, because the libSQL adapter runs
+one at a time per process: one counts live demo users and creates the visitor,
+the next re-reads the template and copies its library a statement per kind of
+row, and then the sample week is planned for the visitor's day through the app's
+own writers. The Plan, Shopping and Menus are made on each copy from the running
+code's content. A start that can't get a transaction in time is refused as
 unavailable. Copies share the template's photo keys, so the refcount keeps a
 photo until no Recipe shows it. `DemoAiUsage` counts AI uses across all demo
-users and isn't tied to a user, so it outlives them.
+users and isn't tied to a user, so it outlives them. In PostHog a demo user's
+person and browser events carry `is_demo: true` (a super property, removed for
+anyone else on load), as do `demo_started` and a demo user's `server_error`;
+real users have no `is_demo` at all.
 
 A root middleware in `app/utils/demo-guard.server.ts` refuses a demo user's
 POST (or any method but GET and HEAD) to a route on its blocked list, keyed on
@@ -235,7 +238,8 @@ caller gets a 403 with the same message. Every other route with an action is on
 an allowed list with its reason, and a test fails on a route that is on
 neither. Inside allowed routes, a demo user's Recipe photo is dropped without
 being checked or stored, with a toast; a Recipe they save from a share page
-points at the source's photo instead of storing a copy; Recipes and Menus in a
+points at the source's photo instead of storing a copy, reading its key again
+in the transaction that writes the copy; Recipes and Menus in a
 Household with a demo user or the template's owner are not found on the public
 share pages; an invite into a demo Household reads as invalid; and no email
 goes to an `.invalid` address. The Upgrade page's return from checkout leaves a
@@ -285,7 +289,9 @@ Household needs the same handover.
 A Recipe's share link is `/share/<recipe id>`. It works until the Recipe is
 deleted and can't be revoked on its own. Saving from it copies the sender's
 Recipe as it stands, including the text it was imported from (`rawText`), and
-gives the photo its own copy.
+gives the photo its own copy (a demo user's copy points at the source's file,
+see the demo above). Deleting a Recipe removes its rows before its photo file,
+and the file only when no other Recipe shows it.
 
 An interactive transaction that reads, or decides what to write, before its
 first write runs through `writeTransaction` in
@@ -498,7 +504,9 @@ remembered one that has under `SESSION_REFRESH_THRESHOLD` (7 days) left. The
 "Remember me" box decides whether the cookie carries an `expires`; without one
 it is a browser-session cookie and is never extended. The iOS shell always
 remembers (`shouldRememberSession` in `app/utils/native-shell.server.ts`),
-because WKWebView drops session cookies when iOS kills the app.
+because WKWebView drops session cookies when iOS kills the app. A demo session
+is the exception to both: it ends with the demo and is never remembered (see
+the demo above).
 
 Changing the password in Settings signs out every other session of the user and
 keeps the current one; a password reset signs out all of them. With 2FA on,

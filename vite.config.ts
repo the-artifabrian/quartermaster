@@ -61,7 +61,12 @@ export default defineConfig((config) => {
 			isTest ? null : reactRouter(),
 		],
 		test: {
-			include: ['./{app,server,prisma}/**/*.test.{ts,tsx}'],
+			// tests/*.test.ts covers the test helpers themselves, such as
+			// the e2e lock; the Playwright files under tests/e2e stay out.
+			include: [
+				'./{app,server,prisma}/**/*.test.{ts,tsx}',
+				'./tests/*.test.ts',
+			],
 			setupFiles: ['./tests/setup/setup-test-env.ts'],
 			globalSetup: ['./tests/setup/global-setup.ts'],
 			restoreMocks: true,

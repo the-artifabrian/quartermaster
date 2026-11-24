@@ -10,6 +10,7 @@ import { getShareImageUrl } from '#app/utils/image-route.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { isUniqueConstraintError } from '#app/utils/menu-validation.ts'
 import { sharedRecipeSelect } from '#app/utils/share-menu.server.ts'
+import { writeTransaction } from '#app/utils/write-transaction.server.ts'
 import {
 	copyRecipeImage,
 	deleteRecipeImage,
@@ -150,49 +151,56 @@ export async function action({ params, request }: Route.ActionArgs) {
 		: null
 	let newRecipe: { id: string }
 	try {
-		newRecipe = await prisma.recipe.create({
-			data: {
-				id: newRecipeId,
-				title: recipe.title,
-				description: recipe.description,
-				activeTime: recipe.activeTime,
-				totalTime: recipe.totalTime,
-				yieldAmount: recipe.yieldAmount,
-				yieldLabel: recipe.yieldLabel,
-				isFavorite: false,
-				sourceUrl: recipe.sourceUrl,
-				rawText: recipe.rawText,
-				copiedFromRecipeId: recipe.id,
-				userId,
-				householdId,
-				ingredients: {
-					create: recipe.ingredients.map((ing) => ({
-						name: ing.name,
-						amount: ing.amount,
-						unit: ing.unit,
-						notes: ing.notes,
-						isHeading: ing.isHeading,
-						order: ing.order,
-					})),
+		newRecipe = await writeTransaction(prisma, async (tx) => {
+			// A demo copy takes the source's photo key, so it reads the key again
+			// here: since the read above, the source may have been deleted or its
+			// photo replaced, and with nothing else showing the old file, it is
+			// gone. Inside the transaction no delete can come between this read
+			// and the copy, and the count a delete makes after its rows go sees
+			// the copy.
+			const photo = sharesSourcePhoto
+				? await tx.recipeImage.findUnique({
+						where: { recipeId: recipe.id },
+						select: { objectKey: true, altText: true },
+					})
+				: recipe.image && imageObjectKey
+					? { objectKey: imageObjectKey, altText: recipe.image.altText }
+					: null
+			return tx.recipe.create({
+				data: {
+					id: newRecipeId,
+					title: recipe.title,
+					description: recipe.description,
+					activeTime: recipe.activeTime,
+					totalTime: recipe.totalTime,
+					yieldAmount: recipe.yieldAmount,
+					yieldLabel: recipe.yieldLabel,
+					isFavorite: false,
+					sourceUrl: recipe.sourceUrl,
+					rawText: recipe.rawText,
+					copiedFromRecipeId: recipe.id,
+					userId,
+					householdId,
+					ingredients: {
+						create: recipe.ingredients.map((ing) => ({
+							name: ing.name,
+							amount: ing.amount,
+							unit: ing.unit,
+							notes: ing.notes,
+							isHeading: ing.isHeading,
+							order: ing.order,
+						})),
+					},
+					instructions: {
+						create: recipe.instructions.map((inst) => ({
+							content: inst.content,
+							order: inst.order,
+						})),
+					},
+					...(photo ? { image: { create: photo } } : {}),
 				},
-				instructions: {
-					create: recipe.instructions.map((inst) => ({
-						content: inst.content,
-						order: inst.order,
-					})),
-				},
-				...(recipe.image && imageObjectKey
-					? {
-							image: {
-								create: {
-									altText: recipe.image.altText,
-									objectKey: imageObjectKey,
-								},
-							},
-						}
-					: {}),
-			},
-			select: { id: true },
+				select: { id: true },
+			})
 		})
 	} catch (error) {
 		// The staged copy belongs only to this attempt.

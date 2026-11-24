@@ -9,6 +9,8 @@ import { serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createDemoCopy } from '#app/utils/demo.server.ts'
 import { DEMO_BLOCKED_MESSAGE } from '#app/utils/demo.ts'
+import { withDemoAiUses } from '#tests/demo-ai-uses.ts'
+import { aiCallsFor, newAiCallMarker } from '#tests/mocks/anthropic.ts'
 import { browserToday, expect, test } from '#tests/playwright-utils.ts'
 
 const demoTest = test.extend<{
@@ -58,7 +60,7 @@ demoTest(
 )
 
 demoTest(
-	"a demo Recipe's share page is not found, and Share says why",
+	"a demo Recipe's share page is not found, and Share on a Recipe or Menu says why",
 	async ({ page, browser, demo }) => {
 		const recipe = await prisma.recipe.findFirstOrThrow({
 			where: { householdId: demo.householdId },
@@ -79,12 +81,35 @@ demoTest(
 		await expect(page.locator('html')).toHaveAttribute('data-hydrated')
 		await page.getByRole('button', { name: 'Share', exact: true }).click()
 		await expect(page.getByText(DEMO_BLOCKED_MESSAGE)).toBeVisible()
+
+		const menu = await prisma.menu.findFirstOrThrow({
+			where: { householdId: demo.householdId },
+			select: { id: true },
+		})
+		await page.goto(`/recipes/menus/${menu.id}`)
+		await expect(page.locator('html')).toHaveAttribute('data-hydrated')
+		await page.getByRole('button', { name: 'Share', exact: true }).click()
+		await expect(page.getByText(DEMO_BLOCKED_MESSAGE)).toBeVisible()
 	},
 )
 
 demoTest(
 	'after three AI imports the import screen says what the demo allows',
 	async ({ page, demo }) => {
+		// Waits for other tests that use the demo's shared AI count
+		// (e2e-lock.ts), which a test fills to its cap.
+		demoTest.slow()
+		// The AI mock counts calls for a Household with this cuisine
+		// (tests/mocks/anthropic.ts).
+		const aiCalls = newAiCallMarker()
+		await prisma.recipeMetadataValue.create({
+			data: {
+				householdId: demo.householdId,
+				dimension: 'cuisine',
+				name: aiCalls,
+				nameKey: aiCalls,
+			},
+		})
 		// Two of the demo's three imports are already spent.
 		await prisma.usageEvent.createMany({
 			data: [0, 1].map(() => ({
@@ -110,16 +135,21 @@ demoTest(
 			await page.getByRole('button', { name: 'Extract with AI' }).click()
 		}
 
-		await extract()
-		await expect(page).toHaveURL(/\/recipes\/(?!import)[^/?]+/)
+		await withDemoAiUses(async () => {
+			await extract()
+			await expect(page).toHaveURL(/\/recipes\/(?!import)[^/?]+/)
+			expect(await aiCallsFor(aiCalls)).toBe(1)
 
-		await extract()
-		await expect(
-			page.getByText(
-				'The demo allows 3 AI imports. Sign up to keep importing.',
-			),
-		).toBeVisible()
-		await expect(page).toHaveURL(/\/recipes\/import/)
+			await extract()
+			await expect(
+				page.getByText(
+					'The demo allows 3 AI imports. Sign up to keep importing.',
+				),
+			).toBeVisible()
+			await expect(page).toHaveURL(/\/recipes\/import/)
+			// Refused before the AI is asked.
+			expect(await aiCallsFor(aiCalls)).toBe(1)
+		})
 		expect(
 			await prisma.usageEvent.count({
 				where: { userId: demo.userId, type: 'recipe_extract_llm_call' },
@@ -152,10 +182,14 @@ demoTest(
 		await page.getByRole('button', { name: 'Save', exact: true }).click()
 
 		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+		// Styled as the same notice is after a redirect (a server toast), as
+		// a description with no title.
 		await expect(
-			page.getByText(
-				'Saved without the photo. Photos are turned off in the demo.',
-			),
+			page
+				.locator('[data-sonner-toast] [data-description]')
+				.getByText(
+					'Saved without the photo. Photos are turned off in the demo.',
+				),
 		).toBeVisible()
 		expect(
 			await prisma.recipeImage.findUnique({

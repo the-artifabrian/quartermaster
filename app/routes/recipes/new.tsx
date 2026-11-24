@@ -18,6 +18,7 @@ import {
 	isEditScreenDone,
 } from '#app/utils/edit-screen.ts'
 import {
+	DEMO_PHOTO_DROPPED_MESSAGE,
 	demoPhotoDroppedHeaders,
 	isDemoUserId,
 } from '#app/utils/demo-guard.server.ts'
@@ -242,13 +243,15 @@ export async function action({ request }: Route.ActionArgs) {
 	// The new Recipe takes the form's place: going back from it goes to the
 	// page before the form. A hydrated form leaves by itself, sliding back as
 	// an edit screen does (edit-screen.tsx).
-	const headers = photoDropped ? await demoPhotoDroppedHeaders() : undefined
 	if (clientLeaves(formData)) {
-		return data({ done: `/recipes/${recipe.id}` } satisfies EditScreenDone, {
-			headers,
-		})
+		return data({
+			done: `/recipes/${recipe.id}`,
+			...(photoDropped ? { notice: DEMO_PHOTO_DROPPED_MESSAGE } : {}),
+		} satisfies EditScreenDone)
 	}
-	return replace(`/recipes/${recipe.id}`, { headers })
+	return replace(`/recipes/${recipe.id}`, {
+		headers: photoDropped ? await demoPhotoDroppedHeaders() : undefined,
+	})
 }
 
 export default function NewRecipe({ loaderData }: Route.ComponentProps) {

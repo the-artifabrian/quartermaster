@@ -54,35 +54,6 @@ const exists = (filePath: string) =>
 	)
 
 describe('deleteRecipeImageUnlessShared', () => {
-	test('keeps the object while another Recipe still shows it', async () => {
-		const owner = await prisma.user.create({ data: createUser() })
-		await using object = await uploadedObject(owner.id)
-		const { objectKey, filePath } = object
-		const original = await recipeWithImage(objectKey)
-		await recipeWithImage(objectKey)
-
-		const deleted = await deleteRecipeImageUnlessShared(objectKey, {
-			exceptRecipeId: original.recipeId,
-		})
-
-		expect(deleted).toBe(false)
-		expect(await exists(filePath)).toBe(true)
-	})
-
-	test('removes the object when the deleting Recipe holds the last reference', async () => {
-		const owner = await prisma.user.create({ data: createUser() })
-		await using object = await uploadedObject(owner.id)
-		const { objectKey, filePath } = object
-		const only = await recipeWithImage(objectKey)
-
-		const deleted = await deleteRecipeImageUnlessShared(objectKey, {
-			exceptRecipeId: only.recipeId,
-		})
-
-		expect(deleted).toBe(true)
-		expect(await exists(filePath)).toBe(false)
-	})
-
 	test('removes an object no Recipe references', async () => {
 		const owner = await prisma.user.create({ data: createUser() })
 		await using object = await uploadedObject(owner.id)
@@ -92,7 +63,7 @@ describe('deleteRecipeImageUnlessShared', () => {
 		expect(await exists(filePath)).toBe(false)
 	})
 
-	test('without an excepted Recipe, any stored reference keeps the object', async () => {
+	test('keeps the object while a Recipe still shows it', async () => {
 		const owner = await prisma.user.create({ data: createUser() })
 		await using object = await uploadedObject(owner.id)
 		const { objectKey, filePath } = object

@@ -1,7 +1,22 @@
 /**
  * @vitest-environment jsdom
  */
+// Failure list for marking demo users (PostHogIdentify's `isDemo`):
+// - A demo user is identified with no `is_demo` person property.
+// - A demo user's browser events don't carry `is_demo`, or the first
+//   pageview goes out before it is registered.
+// - A real user is identified with `is_demo` (as false, or carried over),
+//   which changes existing filters.
+// - A browser that ran a demo loads again as a real user or signed out,
+//   with no in-page sign-out to reset it. The persisted super property goes
+//   on being sent unless it is removed.
+// - Signing out of a demo in the page keeps the flag for the next person.
+// - A demo ends outside the page (it expired, or the browser closed) and the
+//   next load is signed out: the SDK is still identified as the demo person,
+//   so anonymous events are filed under them, now without the flag. A
+//   visitor who never ran a demo must keep their anonymous id.
 import { act, render, waitFor } from '@testing-library/react'
+import { useEffect, useState } from 'react'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { expect, test, vi } from 'vitest'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
@@ -43,6 +58,9 @@ function makeClient(): AnalyticsClient {
 		identify: vi.fn(),
 		group: vi.fn(),
 		registerForSession: vi.fn(),
+		register: vi.fn(),
+		unregister: vi.fn(),
+		resetIfRegistered: vi.fn(),
 		reset: vi.fn(),
 		getFeatureFlag: vi.fn(),
 	}
@@ -433,4 +451,118 @@ test('reports one warm resume after a meaningful background interval', async () 
 		service_worker_controlled: false,
 		service_worker_state: 'uncontrolled',
 	})
+})
+
+async function loadIdentified(element: React.ReactNode) {
+	const client = makeClient()
+	posthogClientModule.initializePostHog.mockReturnValue(client)
+	const view = renderAnalytics(element)
+	await act(async () => {
+		runWhenIdle?.({ didTimeout: false, timeRemaining: () => 50 })
+	})
+	await waitFor(() => expect(client.capture).toHaveBeenCalled())
+	return { client, view }
+}
+
+test('a demo user is marked as one on their person and on every event', async () => {
+	using _environment = setupAnalyticsEnvironment()
+	const { client } = await loadIdentified(
+		<>
+			<PostHogIdentify
+				user={{ id: 'demo-1', name: null, username: 'guest-1' }}
+				householdId="household-1"
+				isDemo
+			/>
+			<PostHogPageview />
+		</>,
+	)
+
+	expect(client.identify).toHaveBeenCalledWith('demo-1', {
+		name: null,
+		username: 'guest-1',
+		is_demo: true,
+	})
+	expect(client.register).toHaveBeenCalledWith({ is_demo: true })
+	expect(client.unregister).not.toHaveBeenCalled()
+	// Registered before the first pageview, so it carries the flag too.
+	expect(vi.mocked(client.register).mock.invocationCallOrder[0]).toBeLessThan(
+		vi.mocked(client.capture).mock.invocationCallOrder[0]!,
+	)
+})
+
+test('a real user gets no is_demo at all, and loses one an earlier demo left', async () => {
+	using _environment = setupAnalyticsEnvironment()
+	const { client } = await loadIdentified(
+		<>
+			<PostHogIdentify
+				user={{ id: 'user-1', name: 'Ada', username: 'ada' }}
+				householdId="household-1"
+				isDemo={false}
+			/>
+			<PostHogPageview />
+		</>,
+	)
+
+	const [, properties] = vi.mocked(client.identify).mock.calls[0]!
+	expect(properties).not.toHaveProperty('is_demo')
+	expect(client.register).not.toHaveBeenCalled()
+	// The SDK keeps super properties in storage, so a demo in this browser
+	// before a reload would otherwise still mark this user.
+	expect(client.unregister).toHaveBeenCalledWith('is_demo')
+	expect(vi.mocked(client.unregister).mock.invocationCallOrder[0]).toBeLessThan(
+		vi.mocked(client.capture).mock.invocationCallOrder[0]!,
+	)
+})
+
+test('a signed-out load after a demo starts afresh, before its first pageview', async () => {
+	using _environment = setupAnalyticsEnvironment()
+	const { client } = await loadIdentified(
+		<>
+			<PostHogIdentify user={null} householdId={null} isDemo={false} />
+			<PostHogPageview />
+		</>,
+	)
+
+	expect(client.register).not.toHaveBeenCalled()
+	// Resets only a browser whose stored super properties say it was a demo
+	// (posthog.client.ts), so other visitors keep their anonymous id.
+	expect(client.resetIfRegistered).toHaveBeenCalledWith('is_demo')
+	expect(client.reset).not.toHaveBeenCalled()
+	expect(
+		vi.mocked(client.resetIfRegistered).mock.invocationCallOrder[0],
+	).toBeLessThan(vi.mocked(client.capture).mock.invocationCallOrder[0]!)
+})
+
+test('signing out of a demo clears the flag', async () => {
+	using _environment = setupAnalyticsEnvironment()
+	const session = { signOut: () => {} }
+	function Session() {
+		const [signedIn, setSignedIn] = useState(true)
+		useEffect(() => {
+			session.signOut = () => setSignedIn(false)
+		}, [])
+		return (
+			<PostHogIdentify
+				user={
+					signedIn ? { id: 'demo-1', name: null, username: 'guest-1' } : null
+				}
+				householdId={signedIn ? 'household-1' : null}
+				isDemo={signedIn}
+			/>
+		)
+	}
+	const { client } = await loadIdentified(
+		<>
+			<Session />
+			<PostHogPageview />
+		</>,
+	)
+	expect(client.register).toHaveBeenCalledWith({ is_demo: true })
+
+	act(() => session.signOut())
+
+	// reset() clears the SDK's super properties along with the identity.
+	expect(client.reset).toHaveBeenCalledTimes(1)
+	expect(client.resetIfRegistered).not.toHaveBeenCalled()
+	expect(client.register).toHaveBeenCalledTimes(1)
 })

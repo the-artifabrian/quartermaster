@@ -4,6 +4,7 @@ import { createId } from '@paralleldrive/cuid2'
 import { Img } from 'openimg/react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Form, useActionData } from 'react-router'
+import { toast } from 'sonner'
 import { useFitFileInput } from '#app/utils/downscale-image.ts'
 import { isEditScreenDone } from '#app/utils/edit-screen.ts'
 import { IMG_SIZES } from '#app/utils/image-route.ts'
@@ -269,10 +270,15 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 	// A Save that went through leaves as if the screen was dismissed.
 	const { leaving, leave } = useLeaveEditScreen()
 	const done = isEditScreenDone(actionData) ? actionData.done : null
+	const notice = isEditScreenDone(actionData) ? actionData.notice : undefined
 	useEffect(() => {
 		if (!done) return
 		// The server has the Save.
 		haptic('success')
+		// Shown here rather than from a toast cookie: leaving cancels the root
+		// reload that would read one. Styled as a server toast is (toaster.tsx),
+		// since a redirect shows the same notice that way.
+		if (notice) toast.message(undefined, { description: notice })
 		leave(
 			resolveAfterSave({ idx: historyIndex(), log: getHistoryLog(), to: done }),
 		)

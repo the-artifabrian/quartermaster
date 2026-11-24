@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto'
 import { http, HttpResponse, passthrough, type HttpHandler } from 'msw'
+import { createFixture, readFixture } from './utils.ts'
 
 const passthroughAnthropic = process.env.NODE_ENV !== 'test'
 
@@ -16,6 +18,33 @@ export const E2E_ANTHROPIC_KEY = 'e2e-mock-anthropic-key'
 export const E2E_UNREADABLE_MARKER = 'E2E unreadable'
 
 /**
+ * A Household metadata name that has the mock count the calls it gets: the
+ * prompt lists the Household's names, so a test adds one and reads the count
+ * with `aiCallsFor`. The mock runs in the server's process, so the count is
+ * a fixture file both processes can read.
+ */
+export function newAiCallMarker() {
+	return `e2e-ai-calls-${randomUUID().slice(0, 8)}`
+}
+
+const AI_CALL_MARKER = /e2e-ai-calls-[0-9a-f]{8}/
+
+/** How many messages calls the mock got with this marker in the prompt. */
+export async function aiCallsFor(marker: string) {
+	try {
+		return Number(await readFixture('anthropic', marker))
+	} catch {
+		return 0
+	}
+}
+
+async function countAiCall(prompt: string) {
+	const marker = prompt.match(AI_CALL_MARKER)?.[0]
+	if (marker)
+		await createFixture('anthropic', marker, (await aiCallsFor(marker)) + 1)
+}
+
+/**
  * A canned image extraction: a Recipe whose title counts the images that
  * arrived, or nothing found when the prompt holds `E2E_UNREADABLE_MARKER`.
  */
@@ -31,6 +60,7 @@ const e2eMessagesHandler = http.post(
 		const content = body.messages[0]?.content ?? []
 		const images = content.filter((block) => block.type === 'image').length
 		const prompt = content.find((block) => block.type === 'text')?.text ?? ''
+		await countAiCall(prompt)
 		const answer = prompt.includes(E2E_UNREADABLE_MARKER)
 			? { error: 'no_recipe_found' }
 			: {

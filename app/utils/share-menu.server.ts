@@ -170,6 +170,20 @@ export async function saveSharedMenu({
 				select: { titleKey: true },
 			})
 			const taken = new Set(titles.map((value) => value.titleKey))
+			// Demo copies take the source's photo keys, so they read them again
+			// here, as the Recipe share Save does (share.$recipeId.tsx): a source
+			// deleted or given a new photo since the read above may have had its
+			// old file removed.
+			if (sharesSourcePhotos) {
+				const current = await tx.recipeImage.findMany({
+					where: { recipeId: { in: recipes.map((recipe) => recipe.id) } },
+					select: { recipeId: true, objectKey: true },
+				})
+				imageKeys.clear()
+				for (const image of current) {
+					imageKeys.set(image.recipeId, image.objectKey)
+				}
+			}
 			let title = menu.title
 			for (let n = 2; taken.has(menuTitleKey(title)); n++) {
 				const suffix = ` (${n})`
@@ -216,7 +230,7 @@ export async function saveSharedMenu({
 								order: step.order,
 							})),
 						},
-						...(recipe.image
+						...(recipe.image && imageKeys.has(recipe.id)
 							? {
 									image: {
 										create: {

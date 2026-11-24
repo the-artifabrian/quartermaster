@@ -45,6 +45,11 @@ export type AnalyticsClient = {
 	identify: (userId: string, properties?: AnalyticsProperties) => void
 	group: (groupType: string, groupId: string) => void
 	registerForSession: (properties: AnalyticsProperties) => void
+	/** Super properties every later event carries, kept across reloads. */
+	register: (properties: AnalyticsProperties) => void
+	unregister: (property: string) => void
+	/** reset(), but only when this super property is set. */
+	resetIfRegistered: (property: string) => void
 	reset: () => void
 	getFeatureFlag: (key: string) => string | boolean | undefined
 }
@@ -55,6 +60,9 @@ const noopClient: AnalyticsClient = {
 	identify: () => undefined,
 	group: () => undefined,
 	registerForSession: () => undefined,
+	register: () => undefined,
+	unregister: () => undefined,
+	resetIfRegistered: () => undefined,
 	reset: () => undefined,
 	getFeatureFlag: () => undefined,
 }
@@ -105,6 +113,10 @@ function createClientBridge(enabled: boolean): ClientBridge {
 				run((client) => client.group(groupType, groupId)),
 			registerForSession: (properties) =>
 				run((client) => client.registerForSession(properties)),
+			register: (properties) => run((client) => client.register(properties)),
+			unregister: (property) => run((client) => client.unregister(property)),
+			resetIfRegistered: (property) =>
+				run((client) => client.resetIfRegistered(property)),
 			reset: () => run((client) => client.reset()),
 			getFeatureFlag: (key) => delegate?.getFeatureFlag(key),
 		},
@@ -309,33 +321,63 @@ export function PostHogPwaLifecycle() {
 	return null
 }
 
+/**
+ * Demo users (root loader's `demoExpiresAt`) carry `is_demo: true` on their
+ * person and, as a super property, on every event the browser sends. Everyone
+ * else has no `is_demo` at all, so filters written before the demo still
+ * match.
+ */
+const DEMO_PROPERTY = 'is_demo'
+
 export function PostHogIdentify({
 	user,
 	householdId,
+	isDemo = false,
 }: {
 	user: { id: string; name: string | null; username: string } | null
 	householdId: string | null
+	isDemo?: boolean
 }) {
 	const posthog = usePostHog()
 	const prevUserIdRef = useRef<string | null>(null)
+	const prevIsDemoRef = useRef<boolean | null>(null)
 
 	useEffect(() => {
 		const currentUserId = user?.id ?? null
+		const demo = Boolean(currentUserId) && isDemo
+
+		// Before identify, so the identify event and the first pageview carry
+		// it. The SDK keeps super properties in storage, so a browser that
+		// ran a demo before this page loaded still has the flag. A real user
+		// loses it. A load with nobody signed in starts afresh instead: the
+		// SDK is still identified as the demo person, whose demo ended
+		// outside the page (expired, or the browser closed), and anonymous
+		// events would go on being filed under them.
+		if (demo !== prevIsDemoRef.current) {
+			if (demo) posthog.register({ [DEMO_PROPERTY]: true })
+			else if (currentUserId) posthog.unregister(DEMO_PROPERTY)
+			else if (!prevUserIdRef.current) {
+				posthog.resetIfRegistered(DEMO_PROPERTY)
+			}
+		}
 
 		if (currentUserId && currentUserId !== prevUserIdRef.current) {
 			posthog.identify(currentUserId, {
 				name: user!.name,
 				username: user!.username,
+				...(demo ? { [DEMO_PROPERTY]: true } : {}),
 			})
 			if (householdId) {
 				posthog.group('household', householdId)
 			}
 		} else if (!currentUserId && prevUserIdRef.current) {
+			// Clears the super properties too, the demo flag among them.
 			posthog.reset()
 		}
 
 		prevUserIdRef.current = currentUserId
-	}, [posthog, user, householdId])
+		prevIsDemoRef.current = demo
+	}, [posthog, user, householdId, isDemo])
 
 	return null
 }

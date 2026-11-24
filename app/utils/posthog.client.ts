@@ -193,6 +193,16 @@ export function initializePostHog({
 		registerForSession: (properties) => {
 			posthog.register_for_session(properties)
 		},
+		register: (properties) => {
+			posthog.register(properties)
+		},
+		unregister: (property) => {
+			posthog.unregister(property)
+		},
+		resetIfRegistered: (property) => {
+			// get_property reads the stored super properties.
+			if (posthog.get_property(property) !== undefined) posthog.reset()
+		},
 		reset: () => {
 			posthog.reset()
 		},

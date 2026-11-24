@@ -1,7 +1,8 @@
 /**
  * Render the link preview image (1200×630) from the homepage hero.
  *
- * Start the app first (`bun run dev`, or a production build), then run:
+ * Start the app first (a production build is what it was made against), then
+ * run:
  *   bun other/generate-og-image.ts [origin]
  * The origin defaults to http://localhost:3000.
  *

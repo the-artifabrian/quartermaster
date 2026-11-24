@@ -54,6 +54,22 @@
  * - The copy's Plan is in the template's week, or the wrong week on a Monday
  *   or a Sunday.
  * - Expiring the copy deletes the template's photos or rows.
+ * - A copy that fails after its user is made leaves the user for expiry, so
+ *   it holds a live slot for two hours; or a clean-up that fails too turns
+ *   the refusal into a thrown error.
+ * Expiry
+ * - It deletes a demo user who still has time, a real user, or the
+ *   template's owner, none of whom it may touch.
+ * - A demo user whose time ran out exactly now stays.
+ * - One user that can't be deleted stops the rest from going.
+ * - A demo user something else deleted first (Log Out, another process)
+ *   counts as a failure; or a not-found error while the user is still there
+ *   is taken as "already gone", so a failed delete goes unreported.
+ * - Deleting a demo user by id deletes a real user or the template's owner
+ *   when handed one.
+ * - The copy doesn't say when the demo ends, so the session has to read the
+ *   user again to match it.
+ * - Expiring a copy deletes the template's photos.
  */
 import fs from 'node:fs/promises'
 import os from 'node:os'
@@ -71,7 +87,9 @@ import { DEMO_LIFETIME_MS, DEMO_LIVE_LIMIT } from './demo.ts'
 import {
 	createDemoCopy,
 	DEMO_TEMPLATE_EMAIL_DOMAIN,
+	deleteDemoUser,
 	ensureDemoTemplate,
+	expireDemoUsers,
 } from './demo.server.ts'
 import { getWeekStart, parseDate, serializeDate } from './date.ts'
 import {
@@ -605,6 +623,7 @@ test('forty starts at once never make more copies than the cap allows, and each 
 				today: THURSDAY,
 				now: NOW,
 				content: SMALL,
+				log,
 			}),
 		),
 	)
@@ -935,6 +954,8 @@ test('starts that wait too long for the database are refused, not thrown', async
 				today: THURSDAY,
 				now: NOW,
 				content: SMALL,
+				// A clean-up that can't get the database either is logged.
+				log,
 			}),
 		),
 	)
@@ -945,25 +966,34 @@ test('starts that wait too long for the database are refused, not thrown', async
 	)
 	expect(values.filter((r) => r.ok).length).toBeGreaterThan(0)
 	expect(values).toContainEqual({ ok: false, reason: 'unavailable' })
-	// A start refused after its user was made leaves that user for expiry.
+	// A start refused after its user was made deletes it, unless that
+	// clean-up couldn't get the database either; expiry takes those.
 	expect(
 		await prisma.user.count({ where: { demoExpiresAt: { not: null } } }),
 	).toBeGreaterThanOrEqual(values.filter((r) => r.ok).length)
 }, 30_000)
 
-test('a template rebuilt between making the visitor and copying the library gives unavailable, and expiry can sweep the visitor', async () => {
-	await using _photos = await photos()
-	await build()
+/**
+ * `prisma` with the copy's second transaction (the library copy) replaced:
+ * `before` runs first, then `fail` decides what it throws instead, if
+ * anything.
+ */
+function withSecondTransaction({
+	before,
+	fail,
+}: {
+	before?: () => Promise<unknown>
+	fail?: () => Error
+}): PrismaClient {
 	let transactions = 0
-	// The pointer goes, as a rebuild's switch and clean-up would take it,
-	// just before the copy's second transaction.
-	const db = new Proxy(prisma, {
+	return new Proxy(prisma, {
 		get(target, key) {
 			const value = Reflect.get(target, key) as unknown
 			if (key === '$transaction') {
 				return async (work: unknown, ...rest: unknown[]) => {
 					if (typeof work === 'function' && ++transactions === 2) {
-						await target.demoTemplate.deleteMany()
+						await before?.()
+						if (fail) throw fail()
 					}
 					return Reflect.apply(target.$transaction, target, [work, ...rest])
 				}
@@ -971,25 +1001,212 @@ test('a template rebuilt between making the visitor and copying the library give
 			return typeof value === 'function' ? value.bind(target) : value
 		},
 	})
+}
+
+function transactionTimeout() {
+	return Object.assign(new Error('Transaction API error'), { code: 'P2028' })
+}
+
+const liveDemoCount = () =>
+	prisma.user.count({ where: { demoExpiresAt: { gt: NOW } } })
+
+test('a template rebuilt between making the visitor and copying the library gives unavailable and deletes the visitor', async () => {
+	await using _photos = await photos()
+	await build()
+	// The pointer goes, as a rebuild's switch and clean-up would take it,
+	// just before the copy's second transaction.
+	const db = withSecondTransaction({
+		before: () => prisma.demoTemplate.deleteMany(),
+	})
 
 	await expect(
-		createDemoCopy(db, { today: THURSDAY, now: NOW }),
+		createDemoCopy(db, { today: THURSDAY, now: NOW, log }),
 	).resolves.toEqual({ ok: false, reason: 'unavailable' })
 
-	const visitor = await prisma.user.findFirstOrThrow({
-		where: { demoExpiresAt: { not: null } },
-		select: {
-			demoExpiresAt: true,
-			householdMembers: {
-				select: { household: { select: { _count: true } } },
-			},
-		},
-	})
-	expect(visitor.demoExpiresAt).toEqual(
-		new Date(NOW.getTime() + DEMO_LIFETIME_MS),
+	expect(await liveDemoCount()).toBe(0)
+	// Only the template's Household is left.
+	expect(await prisma.household.count()).toBe(1)
+})
+
+test('a copy that times out after its visitor was made gives unavailable and frees the slot', async () => {
+	await using _photos = await photos()
+	await build({ content: SMALL })
+
+	await expect(
+		createDemoCopy(withSecondTransaction({ fail: transactionTimeout }), {
+			today: THURSDAY,
+			now: NOW,
+			content: SMALL,
+			log,
+		}),
+	).resolves.toEqual({ ok: false, reason: 'unavailable' })
+
+	expect(await liveDemoCount()).toBe(0)
+})
+
+test('a copy that fails some other way after its visitor was made deletes the visitor and throws', async () => {
+	await using _photos = await photos()
+	await build({ content: SMALL })
+
+	await expect(
+		createDemoCopy(
+			withSecondTransaction({ fail: () => new Error('disk I/O error') }),
+			{ today: THURSDAY, now: NOW, content: SMALL, log },
+		),
+	).rejects.toThrow('disk I/O error')
+
+	expect(await liveDemoCount()).toBe(0)
+})
+
+test('a clean-up that fails after a refused copy is logged, and the copy is still refused', async () => {
+	await using _photos = await photos()
+	await build({ content: SMALL })
+	vi.mocked(deleteAccount).mockRejectedValueOnce(new Error('database busy'))
+
+	await expect(
+		createDemoCopy(withSecondTransaction({ fail: transactionTimeout }), {
+			today: THURSDAY,
+			now: NOW,
+			content: SMALL,
+			log,
+		}),
+	).resolves.toEqual({ ok: false, reason: 'unavailable' })
+
+	expect(log.error).toHaveBeenCalledWith(
+		expect.stringContaining('database busy'),
 	)
-	expect(visitor.householdMembers[0]!.household._count).toMatchObject({
-		recipes: 0,
-		mealPlans: 0,
+	// Left for expiry, which still has its time.
+	expect(await liveDemoCount()).toBe(1)
+})
+
+// Expiry
+
+test('expiry deletes only demo users whose time is up', async () => {
+	await using _photos = await photos()
+	await build({ content: SMALL })
+	const { userId: templateOwner } = await template()
+	const real = await prisma.user.create({
+		data: createUser(),
+		select: { id: true },
 	})
+	const live = await liveDemoUser(new Date(NOW.getTime() + 1))
+	const endsNow = await liveDemoUser(NOW)
+	const expired = await liveDemoUser(new Date(NOW.getTime() - 1))
+	const onFailure = vi.fn()
+
+	const summary = await expireDemoUsers({ now: NOW, onFailure })
+
+	expect(summary).toEqual({ deleted: 2, failed: 0 })
+	expect(onFailure).not.toHaveBeenCalled()
+	const left = await prisma.user.findMany({ select: { id: true } })
+	expect(left.map((u) => u.id).sort()).toEqual(
+		[templateOwner, real.id, live.id].sort(),
+	)
+	expect(left.map((u) => u.id)).not.toContain(endsNow.id)
+	expect(left.map((u) => u.id)).not.toContain(expired.id)
+})
+
+test('expiry keeps going after a demo user it can’t delete', async () => {
+	const first = await liveDemoUser(new Date(NOW.getTime() - 2))
+	const second = await liveDemoUser(new Date(NOW.getTime() - 1))
+	const failure = new Error('database busy')
+	vi.mocked(deleteAccount).mockRejectedValueOnce(failure)
+	const onFailure = vi.fn()
+
+	const summary = await expireDemoUsers({ now: NOW, onFailure })
+
+	expect(summary).toEqual({ deleted: 1, failed: 1 })
+	expect(onFailure).toHaveBeenCalledOnce()
+	expect(onFailure).toHaveBeenCalledWith(expect.any(String), failure)
+	const left = await prisma.user.findMany({
+		where: { id: { in: [first.id, second.id] } },
+		select: { id: true },
+	})
+	expect(left).toHaveLength(1)
+})
+
+test('a demo user deleted by something else first is neither deleted nor a failure', async () => {
+	const visitor = await liveDemoUser(new Date(NOW.getTime() - 1))
+	const real = await vi.importActual<typeof AccountDeletion>(
+		'./account-deletion.server.ts',
+	)
+	// Log Out deletes the user between expiry's read and its delete.
+	vi.mocked(deleteAccount).mockImplementationOnce(async (userId) => {
+		await real.deleteAccount(userId)
+		return real.deleteAccount(userId)
+	})
+	const onFailure = vi.fn()
+
+	const summary = await expireDemoUsers({ now: NOW, onFailure })
+
+	expect(summary).toEqual({ deleted: 0, failed: 0 })
+	expect(onFailure).not.toHaveBeenCalled()
+	expect(await prisma.user.count({ where: { id: visitor.id } })).toBe(0)
+})
+
+test('expiring copies leaves the template’s photos in place', async () => {
+	await using _photos = await photos()
+	await build()
+	const { householdId } = await template()
+	const before = await library(householdId)
+	await startCopy()
+	await startCopy()
+
+	const summary = await expireDemoUsers({
+		now: new Date(NOW.getTime() + DEMO_LIFETIME_MS),
+		onFailure: vi.fn(),
+	})
+
+	expect(summary).toEqual({ deleted: 2, failed: 0 })
+	expect(await library(householdId)).toEqual(before)
+	const images = before.recipes.flatMap((recipe) =>
+		recipe.image ? [recipe.image] : [],
+	)
+	expect(images).toHaveLength(PICTURED.length)
+	for (const image of images) {
+		expect(await stored(image.objectKey)).toBe(true)
+	}
+})
+
+test('deleting a demo user by id leaves a real user and the template’s owner alone', async () => {
+	await using _photos = await photos()
+	await build({ content: SMALL })
+	const { userId: templateOwner } = await template()
+	const real = await prisma.user.create({
+		data: createUser(),
+		select: { id: true },
+	})
+	const before = await rowCounts()
+	vi.mocked(deleteAccount).mockClear()
+
+	await expect(deleteDemoUser(real.id)).resolves.toBe(false)
+	await expect(deleteDemoUser(templateOwner)).resolves.toBe(false)
+
+	expect(deleteAccount).not.toHaveBeenCalled()
+	expect(await rowCounts()).toEqual(before)
+})
+
+test('a not-found error while the demo user is still there is thrown, not taken as already gone', async () => {
+	const visitor = await liveDemoUser(new Date(NOW.getTime() - 1))
+	const notFound = Object.assign(new Error('No record was found'), {
+		code: 'P2025',
+	})
+	vi.mocked(deleteAccount).mockRejectedValueOnce(notFound)
+
+	await expect(deleteDemoUser(visitor.id)).rejects.toBe(notFound)
+	expect(await prisma.user.count({ where: { id: visitor.id } })).toBe(1)
+})
+
+test('a copy says when the demo ends', async () => {
+	await using _photos = await photos()
+	await build({ content: SMALL })
+
+	const copy = await startCopy(THURSDAY, SMALL)
+
+	const user = await prisma.user.findUniqueOrThrow({
+		where: { id: copy.userId },
+		select: { demoExpiresAt: true },
+	})
+	expect(copy.demoExpiresAt).toEqual(user.demoExpiresAt)
+	expect(copy.demoExpiresAt).toEqual(new Date(NOW.getTime() + DEMO_LIFETIME_MS))
 })

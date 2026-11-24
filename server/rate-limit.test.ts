@@ -19,6 +19,8 @@ import {
 //
 // 1. Sign-in, sign-up, code and passkey submissions get the auth tier,
 //    including the router's `.data` form of the same URL.
+// 1a. Demo starts don't use up the sign-in bucket: the route has its own
+//    limit on starts (demo-start-limit.server.ts), and ends are cheap.
 // 2. The router matches paths case-insensitively, decoded and with dot
 //    segments resolved, so /LOGIN, /%6Cogin, //login, /x/../login,
 //    /x/%2e%2e/login and /\login get the same tier as /login.
@@ -87,6 +89,13 @@ describe('rate limit tier', () => {
 		expect(rateLimitTier('POST', p)).toBe('ai')
 	})
 
+	test.each(['/demo', '/demo.data'])(
+		'POST %s is on the strong tier, not the sign-in bucket',
+		(p) => {
+			expect(rateLimitTier('POST', p)).toBe('strong')
+		},
+	)
+
 	test('POST to other routes is on the strong tier', () => {
 		expect(rateLimitTier('POST', '/recipes/abc123')).toBe('strong')
 		expect(rateLimitTier('DELETE', '/resources/undo-delete')).toBe('strong')
@@ -100,7 +109,7 @@ describe('rate limit tier', () => {
 		expect(rateLimitTier('POST', '/webauthn/registration')).toBe('auth')
 	})
 
-	test.each(['/login', '/recipes', '/recipes/import', '/verify'])(
+	test.each(['/login', '/recipes', '/recipes/import', '/verify', '/demo'])(
 		'GET %s is on the general tier',
 		(p) => {
 			expect(rateLimitTier('GET', p)).toBe('general')

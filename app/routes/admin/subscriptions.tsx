@@ -4,6 +4,7 @@ import { Spacer } from '#app/components/spacer.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireAdmin } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { REAL_USER_WHERE } from '#app/utils/demo.server.ts'
 import { type Route } from './+types/subscriptions.ts'
 
 export const handle: SEOHandle = {
@@ -26,6 +27,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 	await requireAdmin(request)
 
 	const users = await prisma.user.findMany({
+		// Demo visitors and the demo template's owner aren't accounts anyone
+		// signed up for.
+		where: REAL_USER_WHERE,
 		select: {
 			id: true,
 			username: true,

@@ -2,6 +2,8 @@ import { startOfUsageDay } from '#app/utils/ai-rate-limit.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
 	ensureDemoTemplate,
+	expireDemoUsers,
+	type DemoExpirySummary,
 	type DemoTemplateSummary,
 } from '#app/utils/demo.server.ts'
 import {
@@ -94,6 +96,9 @@ type ScheduledMaintenanceOptions = {
 	prune?: () => Promise<MaintenanceSummary>
 	pruneImages?: () => Promise<ImageCachePruneSummary>
 	buildDemoTemplate?: () => Promise<DemoTemplateSummary>
+	expireDemos?: (options: {
+		onFailure: (userId: string, error: unknown) => void
+	}) => Promise<DemoExpirySummary>
 	log?: (message: string) => void
 	logError?: (message: string) => void
 	reportFailure?: (error: unknown) => void
@@ -104,11 +109,21 @@ export function startScheduledMaintenance({
 	prune = pruneExpiredData,
 	pruneImages = pruneResizedImages,
 	buildDemoTemplate = buildDemoTemplateWithAppClient,
+	expireDemos = expireDemoUsers,
 	log = console.log,
 	logError = console.error,
 	reportFailure = reportMaintenanceFailure,
 }: ScheduledMaintenanceOptions = {}) {
 	let running = false
+	/** Report a failure; a report that fails is returned, never thrown. */
+	const report = (error: unknown) => {
+		try {
+			reportFailure(error)
+			return ''
+		} catch (caught) {
+			return ` reporting_error=${serializeError(caught)}`
+		}
+	}
 	// Each step logs and reports its own failure, so one failing (a full
 	// volume can fail the database deletes) doesn't skip the other.
 	const step = async (label: string, work: () => Promise<string>) => {
@@ -117,14 +132,9 @@ export function startScheduledMaintenance({
 			const summary = await work()
 			log(`🧹 ${label}: ${summary} duration_ms=${Date.now() - startedAt}`)
 		} catch (error) {
-			let reportingError: unknown
-			try {
-				reportFailure(error)
-			} catch (caught) {
-				reportingError = caught
-			}
+			const reportingError = report(error)
 			logError(
-				`🧹 ${label}: failed error=${serializeError(error)} duration_ms=${Date.now() - startedAt}${reportingError === undefined ? '' : ` reporting_error=${serializeError(reportingError)}`}`,
+				`🧹 ${label}: failed error=${serializeError(error)} duration_ms=${Date.now() - startedAt}${reportingError}`,
 			)
 		}
 	}
@@ -132,7 +142,21 @@ export function startScheduledMaintenance({
 		if (running) return
 		running = true
 		try {
-			// First, so the demo is back soon after a deploy changed the
+			// Before the template, whose build can be slow, so expired demo
+			// users' rows and photos go promptly. (They stopped counting
+			// toward the live cap when their time ran out.)
+			await step('demo expiry', async () => {
+				const result = await expireDemos({
+					onFailure: (userId, error) => {
+						const reportingError = report(error)
+						logError(
+							`🧹 demo expiry: couldn’t delete user=${userId} error=${serializeError(error)}${reportingError}`,
+						)
+					},
+				})
+				return `deleted=${result.deleted} failed=${result.failed}`
+			})
+			// Next, so the demo is back soon after a deploy changed the
 			// template. Otherwise a hash of the photo files and one query. A
 			// failure waits for the next hour.
 			await step('demo template', async () => {

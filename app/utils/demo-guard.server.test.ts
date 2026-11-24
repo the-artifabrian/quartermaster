@@ -528,9 +528,6 @@ function unlistedLayoutActions(
 		.filter((id) => !(id in listed))
 }
 
-/** Routes added by other parts of the demo work that may not be here yet. */
-const NOT_YET_HERE = new Set(['demo'])
-
 describe('every route with an action is classified for demo users', () => {
 	test('each route that exports an action is blocked or allowed', async () => {
 		const withAction = (await routeFiles()).filter(hasAction)
@@ -553,7 +550,7 @@ describe('every route with an action is classified for demo users', () => {
 		const listed = [
 			...Object.keys(DEMO_BLOCKED_ROUTES),
 			...Object.keys(DEMO_ALLOWED_ROUTES),
-		].filter((pattern) => !NOT_YET_HERE.has(pattern))
+		]
 		expect(listed.filter((pattern) => !withAction.has(pattern))).toEqual([])
 		const layoutIds = new Set(routes.filter(hasAction).map((route) => route.id))
 		expect(

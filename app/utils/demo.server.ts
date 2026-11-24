@@ -5,6 +5,7 @@ import { createId } from '@paralleldrive/cuid2'
 import { type Prisma, type PrismaClient } from '#app/generated/prisma/client.ts'
 import { deleteAccount } from './account-deletion.server.ts'
 import { createOwnHousehold } from './auth.server.ts'
+import { prisma } from './db.server.ts'
 import {
 	DEMO_LIFETIME_MS,
 	DEMO_LIVE_LIMIT,
@@ -363,7 +364,7 @@ async function deleteAbandonedTemplates(
 }
 
 export type DemoCopyResult =
-	| { ok: true; userId: string; householdId: string }
+	| { ok: true; userId: string; householdId: string; demoExpiresAt: Date }
 	| { ok: false; reason: 'full' | 'unavailable' }
 
 /** Prisma's error for a transaction that couldn't begin, or ran too long. */
@@ -386,8 +387,7 @@ function isTransactionTimeout(error: unknown) {
  *
  * 1. Read the template, count the live demo users and create the user and
  *    their Household. The count and the create share a write transaction,
- *    or parallel starts all pass the cap. The user is created with its
- *    `demoExpiresAt`, so whatever fails after this, expiry removes it.
+ *    or parallel starts all pass the cap.
  * 2. Read the template again and copy its library, a statement per kind of
  *    row. A rebuild may have replaced the template since step 1, and the
  *    second read sees that; the copy is then `unavailable`.
@@ -397,6 +397,12 @@ function isTransactionTimeout(error: unknown) {
  * other Recipes than this code's (just after a deploy, until the startup
  * build finishes), or a transaction couldn't begin in time because the
  * database is busy; and `full` at DEMO_LIVE_LIMIT.
+ *
+ * When step 2 or 3 fails, the user step 1 made is deleted before the copy is
+ * refused (or the error thrown), so it doesn't hold a live slot. A clean-up
+ * that fails too is logged and the user is left to expiry, which deletes it
+ * once its `demoExpiresAt` passes. deleteAccount works on the app's own
+ * client, so the clean-up does too, whatever `db` is.
  */
 export async function createDemoCopy(
 	db: PrismaClient,
@@ -404,13 +410,28 @@ export async function createDemoCopy(
 		today,
 		now = new Date(),
 		content = SAMPLE_HOUSEHOLD,
-	}: { today: string; now?: Date; content?: SampleHouseholdContent },
+		log = console,
+	}: {
+		today: string
+		now?: Date
+		content?: SampleHouseholdContent
+		log?: Pick<Log, 'error'>
+	},
 ): Promise<DemoCopyResult> {
+	let started: DemoCopyResult
 	try {
-		const started = await startDemoUser(db, { now, content })
-		if (!started.ok) return started
+		started = await startDemoUser(db, { now, content })
+	} catch (error) {
+		if (isTransactionTimeout(error)) return { ok: false, reason: 'unavailable' }
+		throw error
+	}
+	if (!started.ok) return started
+	try {
 		const copied = await copyTemplateLibrary(db, { ...started, content })
-		if (!copied.ok) return copied
+		if (!copied.ok) {
+			await deleteHalfMadeVisitor(started.userId, log)
+			return copied
+		}
 		await planSampleWeek(db, {
 			userId: started.userId,
 			householdId: started.householdId,
@@ -419,8 +440,20 @@ export async function createDemoCopy(
 		})
 		return started
 	} catch (error) {
+		await deleteHalfMadeVisitor(started.userId, log)
 		if (isTransactionTimeout(error)) return { ok: false, reason: 'unavailable' }
 		throw error
+	}
+}
+
+/** Delete a visitor whose copy failed partway; a failure is only logged. */
+async function deleteHalfMadeVisitor(userId: string, log: Pick<Log, 'error'>) {
+	try {
+		await deleteDemoUser(userId)
+	} catch (error) {
+		log.error(
+			`Demo copy: couldn't delete the half-made visitor ${userId}, leaving it to expiry: ${error instanceof Error ? error.message : String(error)}`,
+		)
 	}
 }
 
@@ -446,13 +479,14 @@ function startDemoUser(
 			})
 			if (live >= DEMO_LIVE_LIMIT) return { ok: false, reason: 'full' }
 
+			const demoExpiresAt = new Date(now.getTime() + DEMO_LIFETIME_MS)
 			const user = await tx.user.create({
 				data: {
 					// The hyphen keeps it out of signup's reach, as the template's.
 					username: `demo-${id}`,
 					email: `${id}@${DEMO_EMAIL_DOMAIN}`,
 					name: 'Guest',
-					demoExpiresAt: new Date(now.getTime() + DEMO_LIFETIME_MS),
+					demoExpiresAt,
 					roles: {
 						connectOrCreate: {
 							where: { name: 'user' },
@@ -466,7 +500,12 @@ function startDemoUser(
 				select: { id: true, name: true, username: true },
 			})
 			const household = await createOwnHousehold(tx, user)
-			return { ok: true, userId: user.id, householdId: household.id }
+			return {
+				ok: true,
+				userId: user.id,
+				householdId: household.id,
+				demoExpiresAt,
+			}
 		},
 		COPY_TRANSACTION,
 	)
@@ -537,3 +576,105 @@ async function copyClassification(
 			.map((value) => ({ ...value, householdId: toHouseholdId })),
 	})
 }
+
+/** Prisma's error for a row that was already gone. */
+function isRecordNotFound(error: unknown) {
+	return (
+		typeof error === 'object' &&
+		error !== null &&
+		'code' in error &&
+		(error as { code: unknown }).code === 'P2025'
+	)
+}
+
+/**
+ * Delete `userId` through deleteAccount if it is a demo user, whether or not
+ * its time is up. Returns whether this call deleted it: false for a real
+ * user or the template's owner (no `demoExpiresAt`), which it never
+ * touches, and for a user something else already deleted (Log Out and
+ * expiry at once, or a double submit). A not-found error while the user is
+ * still there is thrown.
+ */
+export async function deleteDemoUser(userId: string) {
+	const user = await prisma.user.findUnique({
+		where: { id: userId },
+		select: { demoExpiresAt: true },
+	})
+	if (!user?.demoExpiresAt) return false
+	try {
+		await deleteAccount(userId)
+		return true
+	} catch (error) {
+		// Gone already, unless the user is still there and the not-found
+		// was about something else.
+		if (
+			isRecordNotFound(error) &&
+			!(await prisma.user.findUnique({
+				where: { id: userId },
+				select: { id: true },
+			}))
+		) {
+			return false
+		}
+		throw error
+	}
+}
+
+/**
+ * Delete a demo user now, as Log Out and the demo banner's Sign up do, so
+ * its live slot frees at once. Real users are left alone. A delete that
+ * fails is logged, and expiry deletes the user when its time is up, so the
+ * caller can still end the session.
+ */
+export async function endDemoUser(userId: string) {
+	try {
+		await deleteDemoUser(userId)
+	} catch (error) {
+		console.error(
+			`Demo: couldn't delete demo user ${userId}, leaving it to expiry: ${error instanceof Error ? error.message : String(error)}`,
+		)
+	}
+}
+
+export type DemoExpirySummary = { deleted: number; failed: number }
+
+/**
+ * Delete every demo user whose `demoExpiresAt` has passed, each through
+ * deleteAccount in a transaction of its own. A user that can't be deleted
+ * goes to `onFailure` and the rest still go; the next run tries it again.
+ * Users with no `demoExpiresAt` (real users, the template's owner) are never
+ * read.
+ */
+export async function expireDemoUsers({
+	now = new Date(),
+	onFailure,
+}: {
+	now?: Date
+	onFailure: (userId: string, error: unknown) => void
+}): Promise<DemoExpirySummary> {
+	const expired = await prisma.user.findMany({
+		where: { demoExpiresAt: { lte: now } },
+		select: { id: true },
+	})
+	const summary = { deleted: 0, failed: 0 }
+	for (const { id } of expired) {
+		try {
+			if (await deleteDemoUser(id)) summary.deleted++
+		} catch (error) {
+			summary.failed++
+			onFailure(id, error)
+		}
+	}
+	return summary
+}
+
+/**
+ * The users that are real accounts: neither a demo visitor nor a template's
+ * owner. For lists of accounts, such as the admin pages. The email domain
+ * also catches a template build still running or one that died partway,
+ * which the DemoTemplate pointer doesn't name.
+ */
+export const REAL_USER_WHERE = {
+	demoExpiresAt: null,
+	NOT: { email: { endsWith: `@${DEMO_TEMPLATE_EMAIL_DOMAIN}` } },
+} satisfies Prisma.UserWhereInput

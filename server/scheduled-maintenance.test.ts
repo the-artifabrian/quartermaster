@@ -1,3 +1,11 @@
+// Failure list for the demo expiry step:
+// - Expiry waits behind a slow template build, so expired demo users' rows
+//   and photos stay for the length of the build.
+// - One demo user that can't be deleted stops the rest from being deleted,
+//   or its failure goes unlogged and unreported.
+// - The step's counts aren't logged.
+// - A failed expiry step skips the template build or the other steps.
+//
 // Failure list for the demo template step:
 // - A failed build stops boot, or skips the prune and image-cache steps.
 // - A failed build is never retried, so the demo stays unavailable until the
@@ -10,7 +18,10 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
-import { type DemoTemplateSummary } from '#app/utils/demo.server.ts'
+import {
+	type DemoExpirySummary,
+	type DemoTemplateSummary,
+} from '#app/utils/demo.server.ts'
 import { type ImageCachePruneSummary } from '#app/utils/image-cache.server.ts'
 import {
 	pruneExpiredData,
@@ -44,6 +55,8 @@ const CURRENT_TEMPLATE: DemoTemplateSummary = {
 	abandoned: 0,
 }
 const buildDemoTemplate = async () => CURRENT_TEMPLATE
+const NO_EXPIRED_DEMOS: DemoExpirySummary = { deleted: 0, failed: 0 }
+const expireDemos = async () => NO_EXPIRED_DEMOS
 
 afterEach(() => {
 	vi.useRealTimers()
@@ -231,6 +244,7 @@ describe('startScheduledMaintenance', () => {
 
 		const timer = startScheduledMaintenance({
 			intervalMs: 1_000,
+			expireDemos,
 			buildDemoTemplate,
 			prune,
 			pruneImages,
@@ -265,6 +279,7 @@ describe('startScheduledMaintenance', () => {
 		)
 		const timer = startScheduledMaintenance({
 			intervalMs: 1_000,
+			expireDemos,
 			buildDemoTemplate,
 			prune,
 			pruneImages,
@@ -285,6 +300,7 @@ describe('startScheduledMaintenance', () => {
 		const logError = vi.fn()
 		const timer = startScheduledMaintenance({
 			intervalMs: 1_000,
+			expireDemos,
 			buildDemoTemplate,
 			prune: vi.fn().mockRejectedValue(new Error('prune failed')),
 			pruneImages,
@@ -314,6 +330,7 @@ describe('startScheduledMaintenance', () => {
 		const log = vi.fn()
 		const timer = startScheduledMaintenance({
 			intervalMs: 1_000,
+			expireDemos,
 			buildDemoTemplate,
 			prune: vi.fn().mockRejectedValue(new Error('disk full')),
 			pruneImages: prunedImages,
@@ -337,6 +354,7 @@ describe('startScheduledMaintenance', () => {
 		const reportFailure = vi.fn()
 		const timer = startScheduledMaintenance({
 			intervalMs: 1_000,
+			expireDemos,
 			buildDemoTemplate,
 			prune: async () => EMPTY_SUMMARY,
 			pruneImages: vi.fn().mockRejectedValue(failure),
@@ -364,6 +382,7 @@ describe('startScheduledMaintenance', () => {
 		const log = vi.fn()
 		const timer = startScheduledMaintenance({
 			intervalMs: 1_000,
+			expireDemos,
 			prune: async () => EMPTY_SUMMARY,
 			pruneImages,
 			buildDemoTemplate: build,
@@ -393,6 +412,7 @@ describe('startScheduledMaintenance', () => {
 		const reportFailure = vi.fn()
 		const timer = startScheduledMaintenance({
 			intervalMs: 1_000,
+			expireDemos,
 			prune,
 			pruneImages,
 			buildDemoTemplate: build,
@@ -413,11 +433,15 @@ describe('startScheduledMaintenance', () => {
 	})
 })
 
-test('builds the demo template before the other steps', async () => {
+test('expires demo users first, then builds the template, then the rest', async () => {
 	vi.useFakeTimers()
 	const order: string[] = []
 	const timer = startScheduledMaintenance({
 		intervalMs: 1_000,
+		expireDemos: async () => {
+			order.push('demo expiry')
+			return NO_EXPIRED_DEMOS
+		},
 		prune: async () => {
 			order.push('prune')
 			return EMPTY_SUMMARY
@@ -434,6 +458,90 @@ test('builds the demo template before the other steps', async () => {
 	})
 	await vi.advanceTimersByTimeAsync(0)
 
-	expect(order).toEqual(['demo template', 'prune', 'image cache'])
+	expect(order).toEqual([
+		'demo expiry',
+		'demo template',
+		'prune',
+		'image cache',
+	])
 	clearInterval(timer)
+})
+
+describe('demo expiry step', () => {
+	test('logs how many demo users it deleted and how many failed', async () => {
+		vi.useFakeTimers()
+		const log = vi.fn()
+		const timer = startScheduledMaintenance({
+			intervalMs: 1_000,
+			expireDemos: async () => ({ deleted: 3, failed: 1 }),
+			buildDemoTemplate,
+			prune: async () => EMPTY_SUMMARY,
+			pruneImages,
+			log,
+			logError: vi.fn(),
+		})
+		await vi.advanceTimersByTimeAsync(0)
+
+		expect(log).toHaveBeenCalledWith(
+			'🧹 demo expiry: deleted=3 failed=1 duration_ms=0',
+		)
+		clearInterval(timer)
+	})
+
+	test('logs and reports each demo user it couldn’t delete', async () => {
+		vi.useFakeTimers()
+		const failure = new Error('database busy')
+		const logError = vi.fn()
+		const reportFailure = vi.fn()
+		const timer = startScheduledMaintenance({
+			intervalMs: 1_000,
+			expireDemos: async ({ onFailure }) => {
+				onFailure('demo-user-1', failure)
+				return { deleted: 2, failed: 1 }
+			},
+			buildDemoTemplate,
+			prune: async () => EMPTY_SUMMARY,
+			pruneImages,
+			log: vi.fn(),
+			logError,
+			reportFailure,
+		})
+		await vi.advanceTimersByTimeAsync(0)
+
+		expect(reportFailure).toHaveBeenCalledWith(failure)
+		expect(logError).toHaveBeenCalledWith(
+			expect.stringContaining(
+				'demo expiry: couldn’t delete user=demo-user-1 error=database busy',
+			),
+		)
+		clearInterval(timer)
+	})
+
+	test('a failed expiry step still builds the template and runs the rest', async () => {
+		vi.useFakeTimers()
+		const failure = new Error('disk full')
+		const build = vi.fn(buildDemoTemplate)
+		const prune = vi.fn(async () => EMPTY_SUMMARY)
+		const logError = vi.fn()
+		const reportFailure = vi.fn()
+		const timer = startScheduledMaintenance({
+			intervalMs: 1_000,
+			expireDemos: vi.fn().mockRejectedValue(failure),
+			buildDemoTemplate: build,
+			prune,
+			pruneImages,
+			log: vi.fn(),
+			logError,
+			reportFailure,
+		})
+		await vi.advanceTimersByTimeAsync(0)
+
+		expect(build).toHaveBeenCalledOnce()
+		expect(prune).toHaveBeenCalledOnce()
+		expect(reportFailure).toHaveBeenCalledWith(failure)
+		expect(logError).toHaveBeenCalledWith(
+			expect.stringContaining('demo expiry: failed error=disk full'),
+		)
+		clearInterval(timer)
+	})
 })

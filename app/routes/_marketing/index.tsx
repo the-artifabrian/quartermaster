@@ -539,9 +539,19 @@ function PlanAgenda({
 									) : null}
 									{row.meal.menuOpen ? <MealMenu /> : null}
 								</div>
-								<div className="mt-1 space-y-1.5">
-									{row.meal.items.map((item) => (
-										<div key={item.dish} className="flex items-start gap-2">
+								<div className="mt-1">
+									{/* Like the Plan's Meal card: 28px rows, 16px apart with a
+									    line between them that starts at the titles. */}
+									{row.meal.items.map((item, index) => (
+										<div
+											key={item.dish}
+											className={cn(
+												'flex gap-2',
+												controls ? 'min-h-7 items-center' : 'items-start',
+												index > 0 &&
+													"before:border-espresso-line/60 relative mt-2 pt-2 before:absolute before:top-0 before:right-0 before:left-7 before:border-t before:content-['']",
+											)}
+										>
 											<span className="flex h-5 items-center">
 												<DoneCircle done={Boolean(item.done)} />
 											</span>
@@ -558,7 +568,7 @@ function PlanAgenda({
 											{controls ? (
 												<span
 													className={cn(
-														'bg-espresso-raised/70 -my-1 inline-flex h-7 min-w-11 shrink-0 items-center justify-center rounded-md px-2 text-xs tabular-nums',
+														'bg-espresso-raised/70 inline-flex h-7 min-w-11 shrink-0 items-center justify-center rounded-md px-2 text-xs tabular-nums',
 														!item.multiplier && 'text-cream-muted',
 													)}
 												>
@@ -878,7 +888,9 @@ function ShoppingScreen() {
 							({checked}/{shoppingNext.length})
 						</span>
 					</h3>
-					<div className="flex items-center gap-2">
+					{/* The app keeps these right after the title; here they sit on
+					    the right edge, and under the title on a phone. */}
+					<div className="flex items-center gap-2 sm:ml-auto">
 						<span className="border-espresso-line/70 inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium">
 							<Icon name="file-text" size="sm" />
 							From Staples

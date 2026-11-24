@@ -9,20 +9,12 @@ import { deleteRecipeImage } from './storage.server.ts'
  * copied bytes share their source's key too. Counting rows first keeps a
  * delete on one copy from blanking the picture on every other.
  *
- * `exceptRecipeId` is the Recipe whose image row is about to go away, so its
- * own reference does not count.
+ * Call it once the row that showed the image is gone, so the count sees
+ * only other Recipes, including a copy written a moment before.
  */
-export async function deleteRecipeImageUnlessShared(
-	objectKey: string,
-	{ exceptRecipeId }: { exceptRecipeId?: string } = {},
-) {
-	const otherReferences = await prisma.recipeImage.count({
-		where: {
-			objectKey,
-			...(exceptRecipeId ? { recipeId: { not: exceptRecipeId } } : {}),
-		},
-	})
-	if (otherReferences > 0) return false
+export async function deleteRecipeImageUnlessShared(objectKey: string) {
+	const references = await prisma.recipeImage.count({ where: { objectKey } })
+	if (references > 0) return false
 	await deleteRecipeImage(objectKey)
 	return true
 }

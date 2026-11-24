@@ -27,7 +27,11 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
-	process.env.DATABASE_PATH = previousDatabasePath
+	if (previousDatabasePath === undefined) {
+		Reflect.deleteProperty(process.env, 'DATABASE_PATH')
+	} else {
+		process.env.DATABASE_PATH = previousDatabasePath
+	}
 	await fs.rm(dir, { recursive: true, force: true })
 })
 

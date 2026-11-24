@@ -210,5 +210,3 @@ plan into Shopping.
 Product terms live in [GLOSSARY.md](../GLOSSARY.md). Shipped, stopped, and
 deferred roadmap outcomes live in [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md)
 and roadmap #98.
-
-_Updated 23 November 2026._

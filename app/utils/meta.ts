@@ -1,9 +1,13 @@
 /**
- * Shared meta tag helpers for marketing pages.
+ * Shared meta tag helpers for root and the marketing pages.
  *
  * A child route's `meta` completely replaces its parent's, so marketing pages
  * must re-include the base OG/Twitter tags from root.
  */
+
+// The build fingerprints the image (other/generate-og-image.ts makes it), so
+// each new image gets a new URL and sites that cache previews by URL fetch it.
+import ogImageAssetUrl from '#app/assets/og-image.png'
 
 type MetaDescriptor =
 	| { title: string }
@@ -31,7 +35,7 @@ export function baseMetaTags(
 			? [
 					{
 						property: 'og:image',
-						content: `${origin}/og-image.png`,
+						content: `${origin}${ogImageAssetUrl}`,
 					},
 					{ property: 'og:image:width', content: '1200' },
 					{ property: 'og:image:height', content: '630' },

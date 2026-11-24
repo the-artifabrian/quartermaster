@@ -8,19 +8,18 @@ import { pipeHeaders } from '#app/utils/headers.server.ts'
 import { baseMetaTags } from '#app/utils/meta.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
+import { SITE_DESCRIPTION } from '#app/utils/site-description.ts'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
 	getSitemapEntries: () => [{ route: '', priority: 1.0 }],
 }
 
-const description = 'Save your Recipes. Plan Meals. Keep Shopping in one place.'
-
 export const meta: Route.MetaFunction = ({ matches }) => [
 	{ title: 'Quartermaster' },
-	{ name: 'description', content: description },
+	{ name: 'description', content: SITE_DESCRIPTION },
 	{ property: 'og:title', content: 'Quartermaster' },
-	{ property: 'og:description', content: description },
+	{ property: 'og:description', content: SITE_DESCRIPTION },
 	...baseMetaTags(matches),
 ]
 
@@ -38,7 +37,7 @@ const webApplicationJsonLd = JSON.stringify({
 	'@context': 'https://schema.org',
 	'@type': 'WebApplication',
 	name: 'Quartermaster',
-	description,
+	description: SITE_DESCRIPTION,
 	applicationCategory: 'LifestyleApplication',
 	operatingSystem: 'Web',
 	offers: {

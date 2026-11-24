@@ -2,9 +2,22 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
+import { SITE_DESCRIPTION } from '#app/utils/site-description.ts'
 import { createUser, expect, test } from '#tests/playwright-utils.ts'
 
 /* eslint-disable playwright/no-raw-locators -- this test inspects document head metadata */
+
+// Failure list for the link preview tags, by route:
+// - / and any page that falls back to root's meta (the 404 page) must carry
+//   the site description in description and og:description, og:title
+//   "Quartermaster", and one og:image that loads as a 1200×630 PNG.
+// - /about, /support, /privacy and /tos replace root's meta, so each must
+//   still carry the preview image tags itself.
+// - The image URL must be fingerprinted, so a new image gets a new URL.
+// - A shared Recipe keeps its own title, description and photo; root's tags
+//   must not add a second og:image.
+// - Root's error page has no origin and must not write a relative og:image
+//   (covered in app/utils/meta.test.ts, since a page can't reach it).
 
 // A link to a public page, pasted into Slack, LinkedIn or iMessage, unfurls
 // with the preview image. Each marketing page's meta replaces root's, so each
@@ -16,7 +29,9 @@ for (const pagePath of ['/', '/about', '/support', '/privacy', '/tos']) {
 		const ogImage = page.locator('meta[property="og:image"]')
 		await expect(ogImage).toHaveCount(1)
 		const imageUrl = await ogImage.getAttribute('content')
-		expect(imageUrl).toMatch(/^https?:\/\/.+\/og-image\.png$/)
+		// The build fingerprints the image, so a new one gets a new URL and
+		// sites that cache previews by URL fetch it again.
+		expect(imageUrl).toMatch(/^https?:\/\/.+\/assets\/og-image-[\w-]+\.png$/)
 		await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
 			'content',
 			'summary_large_image',
@@ -25,6 +40,44 @@ for (const pagePath of ['/', '/about', '/support', '/privacy', '/tos']) {
 		const image = await page.request.get(new URL(imageUrl!).pathname)
 		expect(image.ok()).toBe(true)
 		expect(image.headers()['content-type']).toBe('image/png')
+	})
+}
+
+// The homepage and any page that falls back to root's meta (here the 404
+// page) describe the site in the same words as the install sheet, and preview
+// with the full-size image.
+for (const pagePath of ['/', '/no-such-page']) {
+	test(`${pagePath} describes the site and previews at full size`, async ({
+		page,
+	}) => {
+		await page.goto(pagePath)
+
+		await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+			'content',
+			SITE_DESCRIPTION,
+		)
+		await expect(
+			page.locator('meta[property="og:description"]'),
+		).toHaveAttribute('content', SITE_DESCRIPTION)
+		await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+			'content',
+			'Quartermaster',
+		)
+
+		const imageUrl = new URL(
+			(await page
+				.locator('meta[property="og:image"]')
+				.getAttribute('content'))!,
+		)
+		const image = await page.request.get(imageUrl.pathname)
+		expect(image.ok()).toBe(true)
+		expect(image.headers()['content-type']).toBe('image/png')
+		// A PNG keeps its width and height in the IHDR chunk, at bytes 16 to 23.
+		const png = await image.body()
+		expect({
+			width: png.readUInt32BE(16),
+			height: png.readUInt32BE(20),
+		}).toEqual({ width: 1200, height: 630 })
 	})
 }
 
@@ -102,6 +155,15 @@ test('a shared Recipe link unfurls with its photo', async ({ page }) => {
 	try {
 		await page.goto(`/share/${recipe.id}`)
 		await expectPreviewImage(page)
+		// The share page's own title and description, not the site's.
+		await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+			'content',
+			'Roast carrots | Quartermaster',
+		)
+		await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+			'content',
+			'View recipe for Roast carrots',
+		)
 	} finally {
 		await recipe.removePhoto()
 	}

@@ -20,7 +20,9 @@ export default defineConfig((config) => {
 			assetsInlineLimit: (source: string) => {
 				if (
 					source.endsWith('favicon.svg') ||
-					source.endsWith('apple-touch-icon.png')
+					source.endsWith('apple-touch-icon.png') ||
+					// Link preview sites need a real URL, never a data: URL.
+					source.endsWith('og-image.png')
 				) {
 					return false
 				}

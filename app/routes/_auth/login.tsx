@@ -7,10 +7,18 @@ import {
 } from '@simplewebauthn/browser'
 import { useEffect, useOptimistic, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
-import { data, Form, Link, useNavigate, useSearchParams } from 'react-router'
+import {
+	data,
+	Form,
+	Link,
+	useLocation,
+	useNavigate,
+	useSearchParams,
+} from 'react-router'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { CheckboxField, ErrorList, Field } from '#app/components/forms.tsx'
+import { TryDemoButton } from '#app/components/demo.tsx'
 import { Spacer } from '#app/components/spacer.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
@@ -96,6 +104,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 export default function LoginPage({ actionData }: Route.ComponentProps) {
 	const isPending = useIsPending()
+	const location = useLocation()
 	const [searchParams] = useSearchParams()
 	const redirectTo = searchParams.get('redirectTo')
 	// The iOS app always remembers the login; the server enforces it.
@@ -208,6 +217,14 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 							>
 								Create an account
 							</Link>
+						</div>
+						<div className="pt-4">
+							<TryDemoButton
+								// Back here, search and all, when the demo is full.
+								redirectTo={`${location.pathname}${location.search}`}
+								variant="outline"
+								className="w-full"
+							/>
 						</div>
 					</div>
 				</div>

@@ -1,5 +1,6 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { useIsDemo } from '#app/components/demo.tsx'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { settingsRootNav } from '#app/utils/nav-back.ts'
 import { useEffect, useState } from 'react'
@@ -110,33 +111,52 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 	// tier but links nowhere and says nothing about subscribing.
 	const isNativeShell = useIsNativeShell()
 	const tierLabel = tierInfo.isProActive ? 'Pro' : 'Free'
+	// The demo can't change the account or the Household, or restore a backup
+	// (the server refuses those too), so their rows aren't offered.
+	const isDemo = useIsDemo()
+	const avatar = (
+		<div
+			className="bg-accent/20 text-accent-foreground flex size-16 shrink-0 items-center justify-center rounded-full text-xl font-bold"
+			aria-hidden="true"
+		>
+			{(user.name ?? user.username).charAt(0).toUpperCase()}
+		</div>
+	)
 
 	return (
 		<div className="flex flex-col gap-6">
 			{/* Profile Banner */}
-			<PushLink
-				to="edit"
-				className="bg-muted/40 hover:bg-muted/60 flex items-center gap-4 rounded-lg p-4 transition-colors"
-			>
-				<div
-					className="bg-accent/20 text-accent-foreground flex size-16 shrink-0 items-center justify-center rounded-full text-xl font-bold"
-					aria-hidden="true"
+			{isDemo ? (
+				<div className="bg-muted/40 flex items-center gap-4 rounded-lg p-4">
+					{avatar}
+					<p className="min-w-0 flex-1 truncate font-medium">
+						{user.name ?? user.username}
+					</p>
+				</div>
+			) : (
+				<PushLink
+					to="edit"
+					className="bg-muted/40 hover:bg-muted/60 flex items-center gap-4 rounded-lg p-4 transition-colors"
 				>
-					{(user.name ?? user.username).charAt(0).toUpperCase()}
-				</div>
-				<div className="min-w-0 flex-1">
-					<p className="truncate font-medium">{user.name ?? user.username}</p>
-					<p className="text-muted-foreground truncate text-sm">{user.email}</p>
-				</div>
-				<Icon
-					name="chevron-right"
-					className="text-muted-foreground size-5 shrink-0"
-				/>
-			</PushLink>
+					{avatar}
+					<div className="min-w-0 flex-1">
+						<p className="truncate font-medium">{user.name ?? user.username}</p>
+						<p className="text-muted-foreground truncate text-sm">
+							{user.email}
+						</p>
+					</div>
+					<Icon
+						name="chevron-right"
+						className="text-muted-foreground size-5 shrink-0"
+					/>
+				</PushLink>
+			)}
 
 			{/* General */}
 			<SettingsSection label="General">
-				<SettingsRow to="household" icon="home" label="Household" />
+				{isDemo ? null : (
+					<SettingsRow to="household" icon="home" label="Household" />
+				)}
 				<SettingsRow
 					to={isNativeShell ? undefined : '/upgrade'}
 					icon="sparkles"
@@ -163,26 +183,34 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 			</SettingsSection>
 
 			{/* Account */}
-			<SettingsSection label="Account">
-				<SettingsRow
-					to="change-email"
-					icon="envelope-closed"
-					label="Email"
-					value={user.email}
-				/>
-				<SettingsRow to="password" icon="dots-horizontal" label="Password" />
-				<SettingsRow
-					to="two-factor"
-					icon={loaderData.isTwoFactorEnabled ? 'lock-closed' : 'lock-open-1'}
-					label="Two-Factor Auth"
-					value={loaderData.isTwoFactorEnabled ? 'On' : 'Off'}
-				/>
-				<SettingsRow to="passkeys" icon="passkey" label="Passkeys" />
-			</SettingsSection>
+			{isDemo ? (
+				<p className="text-muted-foreground px-1 text-sm">
+					Account, Household and import settings are off in the demo.
+				</p>
+			) : (
+				<SettingsSection label="Account">
+					<SettingsRow
+						to="change-email"
+						icon="envelope-closed"
+						label="Email"
+						value={user.email}
+					/>
+					<SettingsRow to="password" icon="dots-horizontal" label="Password" />
+					<SettingsRow
+						to="two-factor"
+						icon={loaderData.isTwoFactorEnabled ? 'lock-closed' : 'lock-open-1'}
+						label="Two-Factor Auth"
+						value={loaderData.isTwoFactorEnabled ? 'On' : 'Off'}
+					/>
+					<SettingsRow to="passkeys" icon="passkey" label="Passkeys" />
+				</SettingsSection>
+			)}
 
 			{/* Data */}
 			<SettingsSection label="Data">
-				<SettingsRow to="import" icon="update" label="Import Data" />
+				{isDemo ? null : (
+					<SettingsRow to="import" icon="update" label="Import Data" />
+				)}
 				<SettingsRow
 					href="/resources/export-all-data"
 					download
@@ -213,15 +241,18 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 				</Form>
 			</SettingsSection>
 
-			{/* Danger Zone */}
-			<SettingsSection>
-				<div className="px-4 py-3">
-					<SignOutOfSessions loaderData={loaderData} />
-				</div>
-				<div className="px-4 py-3">
-					<DeleteData outcome={loaderData.deletionOutcome} />
-				</div>
-			</SettingsSection>
+			{/* Danger Zone. A demo has one session, and Log out already
+			    deletes it. */}
+			{isDemo ? null : (
+				<SettingsSection>
+					<div className="px-4 py-3">
+						<SignOutOfSessions loaderData={loaderData} />
+					</div>
+					<div className="px-4 py-3">
+						<DeleteData outcome={loaderData.deletionOutcome} />
+					</div>
+				</SettingsSection>
+			)}
 		</div>
 	)
 }

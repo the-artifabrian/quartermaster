@@ -18,6 +18,7 @@ import dmSansFontUrl from './assets/fonts/dm-sans-latin.woff2?url'
 import youngSerifFontUrl from './assets/fonts/young-serif-latin.woff2?url'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { BottomNav } from './components/bottom-nav.tsx'
+import { DemoBanner } from './components/demo.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
 import { useRefreshAfterTraversal } from './components/gone-item.tsx'
 import { HouseholdActivityNotifier } from './components/household-activity-notifier.tsx'
@@ -168,6 +169,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 									id: true,
 									name: true,
 									username: true,
+									demoExpiresAt: true,
 								},
 								where: { id: userId },
 							}),
@@ -196,9 +198,16 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const householdId = member?.household.id ?? null
 	const householdName = member?.household.name ?? null
 	const { toast, headers: toastHeaders } = toastResult
+	// The demo banner draws its first paint from the time left by this clock,
+	// so a browser whose clock is off still shows the right time (DemoBanner).
+	const demoExpiresAt = user?.demoExpiresAt ?? null
 	return data(
 		{
-			user,
+			user: user && { id: user.id, name: user.name, username: user.username },
+			demoExpiresAt: demoExpiresAt?.toISOString() ?? null,
+			demoMsLeft: demoExpiresAt
+				? Math.max(0, demoExpiresAt.getTime() - Date.now())
+				: null,
 			tierInfo,
 			householdId,
 			householdName,
@@ -496,6 +505,7 @@ function App() {
 							navBar ? 'bg-card sticky top-0' : 'bg-card md:sticky md:top-0',
 						)}
 					>
+						<DemoBanner />
 						<nav
 							aria-label="Main"
 							// Signed in, the iOS app's row is as tall as a native nav bar

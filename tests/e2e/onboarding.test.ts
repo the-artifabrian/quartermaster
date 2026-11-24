@@ -81,8 +81,12 @@ const test = base.extend<{
 async function expectHiddenFieldsBlocked(page: Page, names: string[]) {
 	for (const name of names) {
 		// eslint-disable-next-line playwright/no-raw-locators -- hidden inputs have no role
-		const input = page.locator(`input[type="hidden"][name="${name}"]`)
-		await expect(input, name).toHaveClass(/\bph-no-capture\b/)
+		const inputs = page.locator(`input[type="hidden"][name="${name}"]`)
+		// The login page has two: its own form's and "Try the demo"'s.
+		await expect(inputs.first(), name).toBeAttached()
+		for (const input of await inputs.all()) {
+			await expect(input, name).toHaveClass(/\bph-no-capture\b/)
+		}
 	}
 }
 

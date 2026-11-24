@@ -13,9 +13,9 @@ export const DEMO_STARTS_PER_CLIENT = 5
 export const DEMO_STARTS_WINDOW_MS = 60 * 60 * 1000
 
 /**
- * A fixed-window count per key, in memory, so it starts over on deploy. Only
- * an allowed take counts, so a client that keeps trying gets back in when
- * its window ends.
+ * A fixed-window count per key, in memory, so it starts over on deploy. A
+ * window starts at a key's first take and lasts `windowMs`, however often
+ * the client is refused meanwhile.
  */
 export function createStartLimiter({
 	limit,

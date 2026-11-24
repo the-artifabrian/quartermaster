@@ -6,7 +6,8 @@
  *   live-demo cap on its own.
  * - One client's starts use up another client's.
  * - A client stays refused after the window is over.
- * - A refused start counts, so a client that keeps trying never gets back in.
+ * - A client that keeps trying while refused stays refused past the end of
+ *   its window.
  * - The client sets its own key with the header the server uses to pass
  *   the key on, and gets a fresh allowance with each request.
  * - A request with no key (one that didn't come through the server) isn't
@@ -59,7 +60,7 @@ test('each client has its own count', () => {
 	expect(starts.take('b')).toBe(true)
 })
 
-test('a client starts again once the window is over, and refusals don’t count', () => {
+test('a client that kept trying starts again once the window is over', () => {
 	const clock = { t: 0 }
 	const starts = limiter(clock)
 	for (let i = 0; i < 5; i++) starts.take('a')

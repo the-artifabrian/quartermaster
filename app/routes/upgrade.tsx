@@ -6,6 +6,8 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getAppOrigin } from '#app/utils/app-origin.server.ts'
 import { getUserId } from '#app/utils/auth.server.ts'
+import { prisma } from '#app/utils/db.server.ts'
+import { isDemoUser } from '#app/utils/demo.ts'
 import { isNativeShell } from '#app/utils/native-shell.server.ts'
 import {
 	CHECKOUT_STARTED,
@@ -49,6 +51,14 @@ function throwNotFoundInNativeShell(request: Request) {
 	}
 }
 
+async function isDemoUserId(userId: string) {
+	const user = await prisma.user.findUnique({
+		where: { id: userId },
+		select: { demoExpiresAt: true },
+	})
+	return user ? isDemoUser(user) : false
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
 	throwNotFoundInNativeShell(request)
 	const userId = await getUserId(request)
@@ -67,10 +77,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 		tierInfo = await getUserTier(userId)
 	}
 
-	// Handle Stripe checkout success redirect
+	// Handle Stripe checkout success redirect. A demo user's subscription is
+	// the demo's, so their return from checkout changes nothing.
 	const url = new URL(request.url)
 	const sessionId = url.searchParams.get('session_id')
-	if (sessionId && userId) {
+	if (sessionId && userId && !(await isDemoUserId(userId))) {
 		const stripe = getStripeClient()
 		if (stripe) {
 			try {

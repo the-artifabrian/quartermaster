@@ -14,7 +14,7 @@ import { browserToday, expect, test } from '#tests/playwright-utils.ts'
 const demoTest = test.extend<{
 	demo: { userId: string; householdId: string }
 }>({
-	demo: async ({ login }, use) => {
+	demo: async ({ login, page }, use) => {
 		const copy = await createDemoCopy(prisma, {
 			today: serializeDate(browserToday()),
 		})
@@ -24,8 +24,10 @@ const demoTest = test.extend<{
 			await login({ id: copy.userId })
 			await use(copy)
 		} finally {
-			// The way expiry removes a demo user, which keeps the template's
-			// photos for the other copies.
+			// Closed first, so the page sends nothing for rows about to go.
+			// Then removed the way expiry removes a demo user, which keeps the
+			// template's photos for the other copies.
+			await page.close()
 			await deleteAccount(copy.userId)
 		}
 	},

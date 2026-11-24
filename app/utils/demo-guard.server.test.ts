@@ -20,7 +20,10 @@
  *    with no lookup.
  * 8. PUT, PATCH and DELETE get through where POST doesn't.
  * 9. A `.data` request (every hydrated form) isn't matched, or goes back to
- *    the `.data` URL. It must be refused the same way and go back to the page.
+ *    the `.data` URL, or gets a raw 403 the router can't read because its
+ *    body isn't a form. It must go back to the page with the toast.
+ * 9a. The no-lookup checks pass only because the read isn't counted. A
+ *    signed-in post to a blocked route must count exactly one.
  * 10. A route with params is matched on the URL instead of the pattern, so a
  *    URL that happens to spell a blocked route's path is refused, or a
  *    blocked route is missed.
@@ -262,6 +265,28 @@ describe('demoGuardMiddleware', () => {
 		expect(response.headers.get('location')).toBe(
 			'/settings/profile/two-factor',
 		)
+	})
+
+	test('a .data request goes back to the page whatever its body', async () => {
+		const session = await demoUser()
+		const { response, ran } = await guard('settings/profile/import', {
+			session,
+			json: true,
+			path: '/settings/profile/import.data',
+			referer: `${BASE_URL}/settings/profile/import`,
+		})
+
+		expect(ran).toBe(false)
+		expect(response.status).toBe(302)
+		expect(response.headers.get('location')).toBe('/settings/profile/import')
+	})
+
+	test("a signed-in user's post to a blocked route takes exactly one lookup", async () => {
+		const session = await realUser()
+		using counter = countReads()
+		await guard('settings/profile/household', { session })
+
+		expect(counter.reads()).toBe(1)
 	})
 
 	test('routes are matched on their pattern, not on the URL', async () => {

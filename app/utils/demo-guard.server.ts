@@ -107,8 +107,9 @@ function pageBack(request: Request) {
 }
 
 /**
- * The answer to a refused request. A form posted by a page goes back to
- * that page with the message as a toast: a Response returned here would
+ * The answer to a refused request. A hydrated form's submit (a `.data`
+ * request, whatever its body) and a form posted without JavaScript go back
+ * to the page with the message as a toast: a Response returned here would
  * replace the page, and a redirect is the one answer React Router passes to
  * the page as it is. Anything else, such as the passkey page's JSON, gets a
  * 403 with the message in the shape that page reads.
@@ -117,7 +118,8 @@ async function refuse(request: Request) {
 	const mediaType =
 		request.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ??
 		''
-	if (FORM_TYPES.includes(mediaType)) {
+	const fromRouter = new URL(request.url).pathname.endsWith('.data')
+	if (fromRouter || FORM_TYPES.includes(mediaType)) {
 		return replace(pageBack(request), {
 			headers: await createToastHeaders({
 				type: 'error',

@@ -7,6 +7,7 @@ import { DEMO_AI_USES_PER_DAY, DEMO_BLOCKED_MESSAGE } from '#app/utils/demo.ts'
 import { SAMPLE_HOUSEHOLD } from '#app/utils/sample-household-data.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { withDemoAiUses } from '#tests/demo-ai-uses.ts'
+import { aiCallsFor, newAiCallMarker } from '#tests/mocks/anthropic.ts'
 import { expect, hydrated, test } from '#tests/playwright-utils.ts'
 
 /**
@@ -79,6 +80,18 @@ async function startDemo(page: Page, demoUserIds: string[]) {
 }
 
 const demoUserIds: string[] = []
+
+/**
+ * Gives the Household a metadata name the AI mock counts calls by
+ * (tests/mocks/anthropic.ts), and returns it.
+ */
+async function countAiCalls(householdId: string) {
+	const marker = newAiCallMarker()
+	await prisma.recipeMetadataValue.create({
+		data: { householdId, dimension: 'cuisine', name: marker, nameKey: marker },
+	})
+	return marker
+}
 
 test.afterEach(async () => {
 	for (const userId of demoUserIds.splice(0)) {
@@ -181,6 +194,7 @@ test('once the demo’s shared AI uses for the day are gone, an AI import says s
 	test.slow()
 	const visitor = await startDemo(page, demoUserIds)
 	const householdId = visitor.householdMembers[0]!.householdId
+	const aiCalls = await countAiCalls(householdId)
 	const screenshot = await sharp({
 		create: { width: 60, height: 40, channels: 3, background: '#f4efe6' },
 	})
@@ -213,8 +227,9 @@ test('once the demo’s shared AI uses for the day are gone, an AI import says s
 				),
 			).toBeVisible()
 			await expect(page).toHaveURL(/\/recipes\/import/)
-			// The use is refused before the AI is asked: nothing counted, nothing
-			// saved.
+			// The use is refused before the AI is asked: no call, nothing
+			// counted, nothing saved.
+			expect(await aiCallsFor(aiCalls)).toBe(0)
 			expect(
 				await prisma.usageEvent.count({ where: { userId: visitor.id } }),
 			).toBe(0)

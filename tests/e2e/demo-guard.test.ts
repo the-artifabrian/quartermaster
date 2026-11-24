@@ -10,6 +10,7 @@ import { prisma } from '#app/utils/db.server.ts'
 import { createDemoCopy } from '#app/utils/demo.server.ts'
 import { DEMO_BLOCKED_MESSAGE } from '#app/utils/demo.ts'
 import { withDemoAiUses } from '#tests/demo-ai-uses.ts'
+import { aiCallsFor, newAiCallMarker } from '#tests/mocks/anthropic.ts'
 import { browserToday, expect, test } from '#tests/playwright-utils.ts'
 
 const demoTest = test.extend<{
@@ -98,6 +99,17 @@ demoTest(
 		// Waits for other tests that use the demo's shared AI count
 		// (e2e-lock.ts), which a test fills to its cap.
 		demoTest.slow()
+		// The AI mock counts calls for a Household with this cuisine
+		// (tests/mocks/anthropic.ts).
+		const aiCalls = newAiCallMarker()
+		await prisma.recipeMetadataValue.create({
+			data: {
+				householdId: demo.householdId,
+				dimension: 'cuisine',
+				name: aiCalls,
+				nameKey: aiCalls,
+			},
+		})
 		// Two of the demo's three imports are already spent.
 		await prisma.usageEvent.createMany({
 			data: [0, 1].map(() => ({
@@ -126,6 +138,7 @@ demoTest(
 		await withDemoAiUses(async () => {
 			await extract()
 			await expect(page).toHaveURL(/\/recipes\/(?!import)[^/?]+/)
+			expect(await aiCallsFor(aiCalls)).toBe(1)
 
 			await extract()
 			await expect(
@@ -134,6 +147,8 @@ demoTest(
 				),
 			).toBeVisible()
 			await expect(page).toHaveURL(/\/recipes\/import/)
+			// Refused before the AI is asked.
+			expect(await aiCallsFor(aiCalls)).toBe(1)
 		})
 		expect(
 			await prisma.usageEvent.count({

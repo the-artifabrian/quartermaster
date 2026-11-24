@@ -63,11 +63,13 @@ The light palette is aged paper, ink, cedar, sage, copper, and clay:
 | border           | `#DED6CA` | hairlines                          |
 | primary          | `#48724E` | actions and links                  |
 | accent           | `#C4956A` | structural “now” markers           |
-| destructive      | `#B85C4A` | destructive actions, error notices |
-| field error      | `#A85040` | field error text and invalid input |
+| destructive      | `#B85C4A` | red button fills                   |
+| red text         | `#A85040` | errors, Delete labels, bad input   |
 
-The field error color (`--foreground-destructive` and `--input-invalid`) is a
-shade darker than the red button so 14px error text clears 4.5:1 on cream.
+Red text on the page (`text-foreground-destructive`, and `--input-invalid` for
+an invalid field's border) is a shade darker than the red button fill so small
+text clears 4.5:1 on cream. `text-destructive` is the fill color, so keep it off
+text.
 
 Dark mode uses warm charcoal, smoke, parchment, light sage, and light copper.
 Red buttons there take dark text, as sage buttons do. The exact semantic tokens

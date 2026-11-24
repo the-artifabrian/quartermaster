@@ -284,7 +284,7 @@ export function ShoppingListItemCard({
 				<p
 					id={serverErrorId}
 					role="alert"
-					className="text-destructive text-sm empty:hidden"
+					className="text-foreground-destructive text-sm empty:hidden"
 				>
 					{serverError}
 				</p>

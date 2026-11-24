@@ -159,7 +159,10 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 							Cancel
 						</Button>
 						{addFetcher.data?.status === 'error' && (
-							<p className="text-destructive basis-full text-sm" role="alert">
+							<p
+								className="text-foreground-destructive basis-full text-sm"
+								role="alert"
+							>
 								{addFetcher.data.message ?? 'Could not add Staple'}
 							</p>
 						)}
@@ -357,7 +360,7 @@ function StapleRow({
 					<Button
 						type="button"
 						variant="ghost"
-						className="text-destructive hover:text-destructive hidden min-h-11 min-w-11 px-3 pointer-fine:inline-flex"
+						className="text-foreground-destructive hover:text-foreground-destructive hidden min-h-11 min-w-11 px-3 pointer-fine:inline-flex"
 						aria-label={`Delete ${staple.displayName}`}
 						onClick={deleteStaple}
 					>
@@ -393,7 +396,7 @@ function StapleRow({
 				</button>
 			</div>
 			{shopFailed && (
-				<p className="text-destructive mt-1 text-sm" role="alert">
+				<p className="text-foreground-destructive mt-1 text-sm" role="alert">
 					{shopFetcher.data?.message ??
 						`Could not add ${staple.displayName} to Next shop`}
 				</p>

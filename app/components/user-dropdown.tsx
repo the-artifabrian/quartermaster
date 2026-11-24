@@ -47,7 +47,7 @@ export function UserDropdown() {
 						className={cn(
 							'text-xs font-medium',
 							daysLeft <= 3
-								? 'text-destructive font-bold'
+								? 'text-foreground-destructive font-bold'
 								: daysLeft <= 7
 									? 'text-copper-text'
 									: 'text-muted-foreground',

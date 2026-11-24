@@ -313,7 +313,7 @@ function AddToPlanPanel({
 				Plan.
 			</p>
 			{errors.length > 0 ? (
-				<ul className="text-destructive mt-2 space-y-0.5 text-sm">
+				<ul className="text-foreground-destructive mt-2 space-y-0.5 text-sm">
 					{errors.map((error) => (
 						<li key={error}>{error}</li>
 					))}

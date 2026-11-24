@@ -122,7 +122,7 @@ test('a row menu near the bottom opens clear of the add button and tab bar', asy
 	// Delete is red before it is armed, not only once it asks.
 	const red = await page.evaluate(() => {
 		const probe = document.createElement('span')
-		probe.className = 'text-destructive'
+		probe.className = 'text-foreground-destructive'
 		document.body.append(probe)
 		const color = getComputedStyle(probe).color
 		probe.remove()

@@ -759,7 +759,7 @@ function MenuItemRow({
 						{title}
 					</p>
 					{missing ? (
-						<p className="text-destructive mt-0.5 text-xs">
+						<p className="text-foreground-destructive mt-0.5 text-xs">
 							No longer in your recipe library
 						</p>
 					) : null}

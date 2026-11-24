@@ -176,7 +176,7 @@ export default function SharedMenu({ loaderData }: Route.ComponentProps) {
 					</p>
 				)}
 				{save.data?.error && (
-					<p role="alert" className="text-destructive mt-2 text-sm">
+					<p role="alert" className="text-foreground-destructive mt-2 text-sm">
 						{save.data.error}
 					</p>
 				)}

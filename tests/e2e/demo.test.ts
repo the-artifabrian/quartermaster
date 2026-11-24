@@ -6,7 +6,7 @@ import { deleteDemoUser, expireDemoUsers } from '#app/utils/demo.server.ts'
 import { DEMO_AI_USES_PER_DAY, DEMO_BLOCKED_MESSAGE } from '#app/utils/demo.ts'
 import { SAMPLE_HOUSEHOLD } from '#app/utils/sample-household-data.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
-import { SEEDED_DEMO_AI_USE, withDemoAiUses } from '#tests/demo-ai-uses.ts'
+import { withDemoAiUses } from '#tests/demo-ai-uses.ts'
 import { expect, hydrated, test } from '#tests/playwright-utils.ts'
 
 /**
@@ -188,10 +188,10 @@ test('once the demo’s shared AI uses for the day are gone, an AI import says s
 		.toBuffer()
 
 	await withDemoAiUses(async () => {
-		// A full day's worth, whatever other demo users used today.
+		// A full day's worth; withDemoAiUses started the count from zero.
 		const seeded = await prisma.demoAiUsage.createManyAndReturn({
 			data: Array.from({ length: DEMO_AI_USES_PER_DAY }, () => ({
-				type: SEEDED_DEMO_AI_USE,
+				type: 'recipe_extract_llm_call',
 			})),
 			select: { id: true },
 		})

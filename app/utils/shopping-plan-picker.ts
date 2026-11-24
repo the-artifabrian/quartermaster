@@ -22,6 +22,12 @@ export type PlanPickerLineStatus =
 	 */
 	| 'changed'
 	/**
+	 * The Meal's amount is on an unchecked Later row. Ticking moves that row
+	 * to Next shop, as adding the Meal does, so the line can be ticked. It
+	 * starts unticked: someone moved it to Later on purpose.
+	 */
+	| 'later'
+	/**
 	 * A row with this name is on Shopping, but this Meal's amount isn't on
 	 * it: a typed row, a Recipe-detail row or another Meal's. Ticking adds
 	 * this Meal's amount.
@@ -79,10 +85,11 @@ export function planPickerLineStatus({
 }: {
 	canonicalName: string
 	/**
-	 * This Meal's current Shopping contribution for the line, if it has one,
-	 * and whether it still holds the line's amount.
+	 * This Meal's current Shopping contribution for the line, if it has one:
+	 * whether it still holds the line's amount, and whether its row is an
+	 * unchecked Later row.
 	 */
-	contribution?: { sameAmount: boolean }
+	contribution?: { sameAmount: boolean; onLater: boolean }
 	/** Demand identities of every row currently on the Shopping list. */
 	listedIdentities: ReadonlySet<string>
 	/** Demand identities the availability seam kept for this Meal. */
@@ -90,6 +97,7 @@ export function planPickerLineStatus({
 	/** The ingredient heuristic recognises this as a plain pantry basic. */
 	pantryStaple: boolean
 }): PlanPickerLineStatus {
+	if (contribution?.onLater) return 'later'
 	if (contribution) return contribution.sameAmount ? 'added' : 'changed'
 	if (listedIdentities.has(canonicalName)) return 'name-on-list'
 	if (!keptByAvailability.has(canonicalName) || pantryStaple) return 'on-hand'

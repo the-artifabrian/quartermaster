@@ -47,6 +47,8 @@ type AddFromPlanResponse = {
 	createdRowCount: number
 	attachedCount: number
 	alreadyContributedCount: number
+	/** Later rows moved to Next shop. */
+	promotedRowCount: number
 }
 
 /** Ticked lines, keyed by Meal — the set the writer receives. */
@@ -85,6 +87,7 @@ const STATUS_NOTE: Record<PlanPickerLine['status'], string | null> = {
 	needed: null,
 	added: 'On the list',
 	changed: 'On the list',
+	later: 'On Later',
 	'name-on-list': 'On the list, not this Meal’s amount',
 	'on-hand': 'Usually on hand',
 }
@@ -202,8 +205,12 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 			fetcher.state === 'idle' &&
 			fetcher.data?.status === 'success'
 		) {
-			const { createdRowCount, attachedCount, alreadyContributedCount } =
-				fetcher.data
+			const {
+				createdRowCount,
+				attachedCount,
+				alreadyContributedCount,
+				promotedRowCount,
+			} = fetcher.data
 			if (createdRowCount > 0) {
 				toast.success(
 					`Added ${createdRowCount} item${createdRowCount === 1 ? '' : 's'} to Next shop`,
@@ -211,6 +218,10 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 			} else if (attachedCount > 0) {
 				// The amounts joined rows already there, which now show more.
 				toast.success(addedToExistingMessage(attachedCount))
+			} else if (promotedRowCount > 0) {
+				toast.success(
+					`Moved ${promotedRowCount} item${promotedRowCount === 1 ? '' : 's'} to Next shop`,
+				)
 			} else if (alreadyContributedCount > 0) {
 				toast.info('Everything picked is already on your list')
 			} else {

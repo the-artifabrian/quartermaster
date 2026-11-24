@@ -15,6 +15,7 @@ import {
 import { loadMealShoppingDemand } from '#app/utils/meal-shopping.server.ts'
 import { isStapleIngredient } from '#app/utils/recipe-matching.server.ts'
 import { holdsSameAmount } from '#app/utils/shopping-contribution.server.ts'
+import { LATER } from '#app/utils/shopping-horizon.ts'
 import { demandIdentity } from '#app/utils/shopping-demand.server.ts'
 import {
 	annotateShoppingDemand,
@@ -103,6 +104,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 				name: true,
 				quantity: true,
 				unit: true,
+				item: { select: { checked: true, horizon: true } },
 			},
 		}),
 	])
@@ -164,6 +166,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 					canonicalName: line.canonicalName,
 					contribution: contributed && {
 						sameAmount: holdsSameAmount(contributed, line),
+						onLater:
+							!contributed.item.checked && contributed.item.horizon === LATER,
 					},
 					listedIdentities,
 					keptByAvailability,

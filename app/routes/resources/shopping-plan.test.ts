@@ -18,6 +18,9 @@
  *   a line the Meal added reads as only sharing a name with a row.
  * - A Meal scaled up (or its Recipe changed) after it was added shows the
  *   new amount as on the list, though Shopping still has the old one.
+ * - A Meal's amount on an unchecked Later row reads as on the list, so it
+ *   can't be moved to Next shop from From Plan; or one on a checked Later
+ *   row (bought) reads as on Later.
  */
 import { RouterContextProvider } from 'react-router'
 import { expect, test } from 'vitest'
@@ -341,6 +344,28 @@ test('a Staple line the Meal put on the list is on the list, not usually on hand
 
 	expect(await statuses(session, weekStart)).toEqual([
 		{ olive: 'added', caper: 'on-hand' },
+	])
+})
+
+test('a Meal’s amount on an unchecked Later row is on Later; a checked one is on the list', async () => {
+	const session = await setupHousehold('Later')
+	const recipe = await createRecipe(session, 'Lemon tart', [
+		{ name: 'lemons', amount: '3' },
+		{ name: 'butter', amount: '100', unit: 'g' },
+	])
+	const { weekStart, meals, listId } = await planWeek(session, [recipe])
+	await addToShopping(session, meals[0]!.id, listId)
+	await prisma.shoppingListItem.updateMany({
+		where: { listId },
+		data: { horizon: 'later' },
+	})
+	await prisma.shoppingListItem.updateMany({
+		where: { listId, name: 'butter' },
+		data: { checked: true },
+	})
+
+	expect(await statuses(session, weekStart)).toEqual([
+		{ lemon: 'later', butter: 'added' },
 	])
 })
 

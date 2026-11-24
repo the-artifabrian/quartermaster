@@ -25,6 +25,9 @@
  *   other way round.
  * - A request that names such a line anyway adds a row, a contribution or
  *   an amount, or rewrites the row.
+ * - A line whose amount sits on a Later row can't be moved to Next shop
+ *   from From Plan, or picking it adds a second row instead of moving it,
+ *   or the answer doesn't say a row moved.
  *
  * Row Edit and Remove generated amount (status codes the page acts on):
  * - A stale version answers 409 with the row as it is now, and saves nothing.
@@ -1196,9 +1199,6 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 	})
 
 	test('picking a line the Meal already has on a Later row moves that row to Next shop', async () => {
-		// The picker shows such a line as on the list and offers no box, so
-		// only a hand-made request does this. It is the Meal-add path's rule
-		// for amounts a Meal already has, kept as it is.
 		const session = await setupUser()
 		const recipe = await prisma.recipe.create({
 			data: {
@@ -1220,12 +1220,18 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 
 		const choices = await runPlanPickerLoader(session)
 		const line = choices.data.days[0]!.meals[0]!.lines[0]!
-		expect(line.status).toBe('added')
-		await runShoppingAction(session, {
+		expect(line.status).toBe('later')
+		const moved = await runShoppingAction(session, {
 			intent: 'add-from-plan',
 			picks: JSON.stringify([{ mealId: meal.id, lines: [line.canonicalName] }]),
 		})
 
+		expect(moved).toMatchObject({
+			status: 'success',
+			createdRowCount: 0,
+			attachedCount: 0,
+			promotedRowCount: 1,
+		})
 		const rows = await getShoppingRows(session.householdId)
 		expect(rows.map((row) => [row.name, row.quantity, row.horizon])).toEqual([
 			['lemons', '3', 'next'],

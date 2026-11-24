@@ -618,6 +618,39 @@ test('From Plan shows what a Meal already put on Shopping as on the list, and th
 			where: { list: { householdId: user.householdId } },
 		}),
 	).toBe(3)
+	await picker.getByRole('button', { name: 'Close', exact: true }).click()
+	await expect(picker).toBeHidden()
+
+	// Lemon moved to Later: From Plan offers it unticked, and ticking it moves
+	// the row back to Next shop.
+	const lemonRow = { name: 'lemon', list: { householdId: user.householdId } }
+	await prisma.shoppingListItem.updateMany({
+		where: lemonRow,
+		data: { horizon: 'later' },
+	})
+	await fromPlan.click()
+	await expect(lineButton('lemon')).toHaveAttribute('aria-pressed', 'false')
+	await expect(lineButton('lemon')).toContainText('On Later')
+	await expect(mealBoxes).toHaveAttribute('aria-pressed', 'false')
+	await lineButton('lemon').click()
+	await addButton.click()
+	await expect(picker).toBeHidden()
+	await expect(page.getByText('Moved 1 item to Next shop')).toBeVisible()
+	await expect
+		.poll(async () =>
+			(
+				await prisma.shoppingListItem.findMany({
+					where: { list: { householdId: user.householdId } },
+					select: { name: true, horizon: true },
+					orderBy: { name: 'asc' },
+				})
+			).map((row) => [row.name, row.horizon]),
+		)
+		.toEqual([
+			['broccoli', 'next'],
+			['chicken thighs', 'next'],
+			['lemon', 'next'],
+		])
 })
 
 test('household Staples can be added together from the quiet Shopping picker', async ({

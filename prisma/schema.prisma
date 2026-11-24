@@ -30,6 +30,13 @@ model User {
   householdEvents    HouseholdEvent[]
   subscription       Subscription?
   usageEvents        UsageEvent[]
+  demoTemplate       DemoTemplate?
+
+  /// Set on a demo visitor's user: when the visit ends and expiry deletes
+  /// them. Null for every real user and for the template's owner.
+  demoExpiresAt DateTime?
+
+  @@index([demoExpiresAt])
 }
 
 model Password {
@@ -167,6 +174,7 @@ model Household {
   mealPlans         MealPlan[]
   shoppingLists     ShoppingList[]
   menus             Menu[]
+  demoTemplate      DemoTemplate?
 }
 
 model HouseholdMember {
@@ -718,4 +726,30 @@ model UsageEvent {
 
   @@index([type, createdAt])
   @@index([userId, createdAt])
+}
+
+/// One use of an AI feature by any demo visitor, counted for the daily cap all
+/// demo visitors share. Not linked to a User: expiry deletes demo users every
+/// hour, and the count has to outlive them.
+model DemoAiUsage {
+  id        String   @id @default(cuid())
+  type      String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Points at the template Household every demo copy is made from. One row at
+/// most, with the id "current". contentVersion hashes the sample content and
+/// photoVersion the photo files, so a change to either builds a new template.
+model DemoTemplate {
+  id             String   @id @default("current")
+  contentVersion String
+  photoVersion   String
+  builtAt        DateTime @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String    @unique
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  householdId String    @unique
 }

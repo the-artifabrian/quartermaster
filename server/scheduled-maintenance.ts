@@ -1,6 +1,10 @@
 import { startOfUsageDay } from '#app/utils/ai-rate-limit.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
+	ensureDemoTemplate,
+	type DemoTemplateSummary,
+} from '#app/utils/demo.server.ts'
+import {
 	getImageCacheDir,
 	pruneImageCache,
 	type ImageCachePruneSummary,
@@ -17,6 +21,7 @@ export type MaintenanceSummary = {
 	verifications: number
 	emailCodes: number
 	usageEvents: number
+	demoAiUses: number
 	householdEvents: number
 }
 
@@ -29,32 +34,47 @@ export async function pruneExpiredData(
 		now.getTime() - HOUSEHOLD_EVENT_RETENTION_DAYS * DAY_MS,
 	)
 
-	const [sessions, verifications, emailCodes, usageEvents, householdEvents] =
-		await prisma.$transaction([
-			prisma.session.deleteMany({
-				where: { expirationDate: { lte: now } },
-			}),
-			prisma.verification.deleteMany({
-				where: { expiresAt: { lte: now } },
-			}),
-			prisma.emailCode.deleteMany({
-				where: { expiresAt: { lte: now } },
-			}),
-			prisma.usageEvent.deleteMany({
-				where: { createdAt: { lt: usageCutoff } },
-			}),
-			prisma.householdEvent.deleteMany({
-				where: { createdAt: { lt: householdEventCutoff } },
-			}),
-		])
+	const [
+		sessions,
+		verifications,
+		emailCodes,
+		usageEvents,
+		demoAiUses,
+		householdEvents,
+	] = await prisma.$transaction([
+		prisma.session.deleteMany({
+			where: { expirationDate: { lte: now } },
+		}),
+		prisma.verification.deleteMany({
+			where: { expiresAt: { lte: now } },
+		}),
+		prisma.emailCode.deleteMany({
+			where: { expiresAt: { lte: now } },
+		}),
+		prisma.usageEvent.deleteMany({
+			where: { createdAt: { lt: usageCutoff } },
+		}),
+		// The demo's shared daily cap counts in the same window.
+		prisma.demoAiUsage.deleteMany({
+			where: { createdAt: { lt: usageCutoff } },
+		}),
+		prisma.householdEvent.deleteMany({
+			where: { createdAt: { lt: householdEventCutoff } },
+		}),
+	])
 
 	return {
 		sessions: sessions.count,
 		verifications: verifications.count,
 		emailCodes: emailCodes.count,
 		usageEvents: usageEvents.count,
+		demoAiUses: demoAiUses.count,
 		householdEvents: householdEvents.count,
 	}
+}
+
+function buildDemoTemplateWithAppClient() {
+	return ensureDemoTemplate(prisma)
 }
 
 async function pruneResizedImages() {
@@ -73,6 +93,7 @@ type ScheduledMaintenanceOptions = {
 	intervalMs?: number
 	prune?: () => Promise<MaintenanceSummary>
 	pruneImages?: () => Promise<ImageCachePruneSummary>
+	buildDemoTemplate?: () => Promise<DemoTemplateSummary>
 	log?: (message: string) => void
 	logError?: (message: string) => void
 	reportFailure?: (error: unknown) => void
@@ -82,6 +103,7 @@ export function startScheduledMaintenance({
 	intervalMs = MAINTENANCE_INTERVAL_MS,
 	prune = pruneExpiredData,
 	pruneImages = pruneResizedImages,
+	buildDemoTemplate = buildDemoTemplateWithAppClient,
 	log = console.log,
 	logError = console.error,
 	reportFailure = reportMaintenanceFailure,
@@ -112,11 +134,18 @@ export function startScheduledMaintenance({
 		try {
 			await step('maintenance', async () => {
 				const result = await prune()
-				return `sessions=${result.sessions} verifications=${result.verifications} email_codes=${result.emailCodes} usage_events=${result.usageEvents} household_events=${result.householdEvents}`
+				return `sessions=${result.sessions} verifications=${result.verifications} email_codes=${result.emailCodes} usage_events=${result.usageEvents} demo_ai_uses=${result.demoAiUses} household_events=${result.householdEvents}`
 			})
 			await step('image cache', async () => {
 				const result = await pruneImages()
 				return `removed_files=${result.removedFiles} removed_bytes=${result.removedBytes} kept_bytes=${result.keptBytes} skipped=${result.skipped}`
+			})
+			// At startup this builds the template the first time, or after a
+			// deploy changed the content or photos; after that it is a hash of
+			// the photo files and one query. A failure waits for the next hour.
+			await step('demo template', async () => {
+				const result = await buildDemoTemplate()
+				return `status=${result.status} missing_photos=${result.missingPhotos.length} abandoned=${result.abandoned}`
 			})
 		} finally {
 			running = false

@@ -130,12 +130,17 @@ jobs:
       - name: 🏗 Build
         run: bun run build
 
-      # WAL, as production runs it (other/litefs.yml).
+      # WAL, as production runs it (other/litefs.yml). The demo template is
+      # built from tiny photos before the server starts; the server reads the
+      # same DEMO_PHOTO_DIR, so it finds the template current.
       - name: 🛠 Setup Database
         run: |
           bunx prisma migrate deploy
           bun prisma/run-seed-infrastructure.ts
+          bun tests/build-e2e-demo-template.ts
           bun prisma/journal-mode-wal.ts
+        env:
+          DEMO_PHOTO_DIR: ${{ runner.temp }}/demo-photos
 
       - name: 📥 Install Playwright Browsers
         run: bunx playwright install --with-deps --only-shell chromium
@@ -143,6 +148,7 @@ jobs:
       - name: 🎭 Playwright tests
         run: bunx playwright test
         env:
+          DEMO_PHOTO_DIR: ${{ runner.temp }}/demo-photos
           # Runner load makes the 34 ms bottom-nav feedback budget flaky; the
           # number is still logged to the report (#304).
           BOTTOM_NAV_FEEDBACK_TRACE_ONLY: '1'

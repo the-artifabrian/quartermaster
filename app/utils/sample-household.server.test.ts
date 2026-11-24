@@ -26,6 +26,15 @@
  *   saved after the Meals were added.
  * - The wrong rows are checked, or a check is made before the Meal amounts
  *   it should cover arrive.
+ * - Shopping doesn't read as a week part-way through: a row only Meals up
+ *   to the bought day need is left unchecked, a row a later Meal also needs
+ *   is checked, the typed rows lose their own checked flags, or the unchecked
+ *   list is far from the 8 to 12 rows a real list holds.
+ * - The favourites aren't marked, or a run marks others.
+ * - The Menu is missing, saved twice on a second run, names a Recipe outside
+ *   the Household, loses its note card's Shopping lines, or isn't a shape the
+ *   Menu builder can load (no unnamed section, a Recipe card with no
+ *   multiplier).
  */
 import { expect, test } from 'vitest'
 import { createOwnHousehold } from '#app/utils/auth.server.ts'
@@ -59,6 +68,7 @@ async function snapshot(householdId: string) {
 		orderBy: { title: 'asc' },
 		select: {
 			title: true,
+			isFavorite: true,
 			activeTime: true,
 			totalTime: true,
 			yieldAmount: true,
@@ -114,7 +124,38 @@ async function snapshot(householdId: string) {
 			},
 		},
 	})
-	return { recipes, meals, staples, rows }
+	const menus = await prisma.menu.findMany({
+		where: { householdId },
+		orderBy: { title: 'asc' },
+		select: {
+			title: true,
+			titleKey: true,
+			description: true,
+			sections: {
+				orderBy: { order: 'asc' },
+				select: {
+					name: true,
+					order: true,
+					items: {
+						orderBy: { order: 'asc' },
+						select: {
+							kind: true,
+							order: true,
+							note: true,
+							recipeTitle: true,
+							scaleMultiplier: true,
+							recipe: { select: { title: true } },
+							shoppingLines: {
+								orderBy: { order: 'asc' },
+								select: { name: true, quantity: true, unit: true },
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	return { recipes, meals, staples, rows, menus }
 }
 
 test('a second run on the same day adds nothing', async () => {
@@ -159,17 +200,24 @@ test('running it again finishes a run that stopped partway', async () => {
 	const nothingAfter: SampleHouseholdContent = {
 		...SAMPLE_HOUSEHOLD,
 		staples: [],
+		menus: [],
 		plan: [],
-		shopping: { manual: [], checkedMealLines: [] },
+		shopping: { manual: [], boughtThroughDay: -1 },
 	}
-	// The builder writes Recipes, then Staples, then Meals, then Shopping, so
-	// these are the places a run can stop.
+	// The builder writes Recipes, then Staples, then Menus, then Meals, then
+	// Shopping, so these are the places a run can stop.
 	const stops: SampleHouseholdContent[] = [
 		{ ...nothingAfter, recipes: SAMPLE_HOUSEHOLD.recipes.slice(0, 6) },
-		{ ...SAMPLE_HOUSEHOLD, plan: SAMPLE_HOUSEHOLD.plan.slice(0, 3) },
+		{ ...nothingAfter, recipes: SAMPLE_HOUSEHOLD.recipes },
+		// Stopped after three Meals, before any row was checked.
 		{
 			...SAMPLE_HOUSEHOLD,
-			shopping: { ...SAMPLE_HOUSEHOLD.shopping, checkedMealLines: [] },
+			plan: SAMPLE_HOUSEHOLD.plan.slice(0, 3),
+			shopping: { ...SAMPLE_HOUSEHOLD.shopping, boughtThroughDay: -1 },
+		},
+		{
+			...SAMPLE_HOUSEHOLD,
+			shopping: { ...SAMPLE_HOUSEHOLD.shopping, boughtThroughDay: -1 },
 		},
 	]
 	for (const content of stops) {
@@ -313,7 +361,7 @@ test('every Recipe line is read as amount, unit and name', async () => {
 	expect(misread).toEqual([])
 })
 
-test('Staples stay off Shopping, and only the listed rows are checked', async () => {
+test('Staples stay off Shopping, and the start of the week is bought', async () => {
 	const { userId, householdId } = await newHousehold()
 	await fillSampleHousehold(prisma, { userId, householdId, today: THURSDAY })
 	const { staples, rows } = await snapshot(householdId)
@@ -328,26 +376,100 @@ test('Staples stay off Shopping, and only the listed rows are checked', async ()
 		[],
 	)
 
-	const checked = rows.filter((row) => row.checked)
-	expect(checked.map((row) => demandIdentity(row.name)).sort()).toEqual(
-		[
-			...SAMPLE_HOUSEHOLD.shopping.manual
-				.filter((row) => row.checked)
-				.map((row) => row.name),
-			...SAMPLE_HOUSEHOLD.shopping.checkedMealLines,
-		]
-			.map(demandIdentity)
-			.sort(),
-	)
-	// The checked Meal row holds its Meal's amount: it was checked after the
-	// amount arrived.
-	const checkedMealRow = checked.find((row) => row.source !== 'manual')
-	expect(checkedMealRow?.mealContributions).toHaveLength(1)
+	// Monday is 0. A Meal row is bought when every Meal it feeds is on
+	// boughtThroughDay or before.
+	const { boughtThroughDay } = SAMPLE_HOUSEHOLD.shopping
+	const weekday = (date: Date) => (date.getUTCDay() + 6) % 7
+	const mealRows = rows.filter((row) => row.source !== 'manual')
+	for (const row of mealRows) {
+		const days = row.mealContributions.map((c) => weekday(c.meal!.date))
+		expect(days.length).toBeGreaterThan(0)
+		expect({ row: row.name, checked: row.checked }).toEqual({
+			row: row.name,
+			checked: days.every((day) => day <= boughtThroughDay),
+		})
+	}
+	// Both kinds are there: a row only the early Meals need, and one an early
+	// and a late Meal share.
+	expect(mealRows.some((row) => row.checked)).toBe(true)
+	expect(
+		mealRows.some(
+			(row) =>
+				!row.checked &&
+				row.mealContributions.some(
+					(c) => weekday(c.meal!.date) <= boughtThroughDay,
+				),
+		),
+	).toBe(true)
 
 	const manualRows = rows.filter((row) => row.source === 'manual')
-	expect(manualRows.map((row) => [row.name, row.horizon]).sort()).toEqual(
+	expect(
+		manualRows.map((row) => [row.name, row.horizon, row.checked]).sort(),
+	).toEqual(
 		SAMPLE_HOUSEHOLD.shopping.manual
-			.map((row) => [row.name, row.horizon])
+			.map((row) => [row.name, row.horizon, row.checked ?? false])
 			.sort(),
 	)
+
+	// What the Next shop shows still to buy.
+	const toBuy = rows.filter((row) => !row.checked && row.horizon === 'next')
+	expect(toBuy.length).toBeGreaterThanOrEqual(8)
+	expect(toBuy.length).toBeLessThanOrEqual(12)
+})
+
+test('three Recipes are favourites, and the Menu is saved once in a shape the builder loads', async () => {
+	const { userId, householdId } = await newHousehold()
+	await fillSampleHousehold(prisma, { userId, householdId, today: THURSDAY })
+	await fillSampleHousehold(prisma, { userId, householdId, today: THURSDAY })
+	const { recipes, menus } = await snapshot(householdId)
+
+	expect(
+		recipes.filter((recipe) => recipe.isFavorite).map((r) => r.title),
+	).toEqual(['Banana bread', 'Lemon chicken traybake', 'Red lentil soup'])
+
+	expect(menus).toEqual([
+		{
+			title: 'Friday taco night',
+			titleKey: 'friday taco night',
+			description: SAMPLE_HOUSEHOLD.menus[0]!.description,
+			sections: [
+				{
+					name: null,
+					order: 0,
+					items: [
+						{
+							kind: 'recipe',
+							order: 0,
+							note: null,
+							recipeTitle: 'Black bean tacos',
+							scaleMultiplier: 1,
+							recipe: { title: 'Black bean tacos' },
+							shoppingLines: [],
+						},
+						{
+							kind: 'recipe',
+							order: 1,
+							note: null,
+							recipeTitle: 'Greek salad',
+							scaleMultiplier: 1,
+							recipe: { title: 'Greek salad' },
+							shoppingLines: [],
+						},
+						{
+							kind: 'note',
+							order: 2,
+							note: 'Tortilla chips and salsa',
+							recipeTitle: null,
+							scaleMultiplier: null,
+							recipe: null,
+							shoppingLines: [
+								{ name: 'tortilla chips', quantity: '1', unit: 'bag' },
+								{ name: 'salsa', quantity: '1', unit: 'jar' },
+							],
+						},
+					],
+				},
+			],
+		},
+	])
 })

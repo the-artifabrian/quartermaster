@@ -181,6 +181,7 @@ Most user data belongs to a Household, not an individual User.
 User
 ├── auth: Password, Session, Passkey, Verification, EmailCode
 ├── access: Role, Subscription
+├── DemoTemplate (one row: the demo's template Household)
 └── HouseholdMember → Household
     ├── Recipe → Ingredient, Instruction, RecipeImage
     ├── RecipeMetadataValue (Cuisine, Season, Course)
@@ -204,6 +205,23 @@ Next shop or Later.
 
 `UsageEvent` holds one row per use of a paid AI feature, for the daily limits
 described under AI.
+
+The demo (#440) gives a visitor a user of their own, with `demoExpiresAt` set,
+on Pro, with a copy of a sample Household. `app/utils/demo.server.ts` keeps one
+template Household in the database: the sample Recipes with their stock photos
+(`app/assets/demo-photos`) and the Staples, owned by a user with no password
+and an email under `.invalid`. The `DemoTemplate` row points at it and holds two
+hashes, one of the sample content and one of the photo files. Scheduled
+maintenance runs `ensureDemoTemplate` at startup and every hour; when either
+hash changed, it builds a new template beside the old one, moves the pointer in
+a write transaction, and deletes the old template's owner with
+`deleteAccount`. `createDemoCopy` counts live demo users, creates the visitor
+and copies the template's library in one write transaction, then plans the
+sample week for the visitor's day. Copies share the template's photo keys, so
+the refcount keeps a photo until no Recipe shows it. `DemoAiUsage` counts AI
+uses across all demo users and isn't tied to a user, so it outlives them. The
+entry route, expiry, the guard on what a demo user can change, and the AI caps
+come in later parts of #440.
 
 New household data must be authorized by household membership, included in
 export/import when durable, and handled in sole-member household moves.

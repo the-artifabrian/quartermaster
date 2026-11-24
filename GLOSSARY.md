@@ -72,6 +72,10 @@ available, running low, pantry item
 Staples, and Shopping. Everything a user saves belongs to their Household, not
 to them. _Avoid_: account, family, team
 
+**Demo**: A visitor's own copy of a sample Household, on Pro, that they can use
+without signing up. It is deleted a couple of hours after it starts. _Avoid_:
+guest account, trial
+
 ## Surfaces
 
 **Web app**: Quartermaster opened in a browser, including the Home Screen

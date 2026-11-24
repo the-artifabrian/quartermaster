@@ -376,7 +376,10 @@ export async function acceptInvite(
 			}
 		} else if (currentHouseholdId) {
 			// Multi-member: deep-copy recipes only
-			await deepCopyRecipes(tx, userId, currentHouseholdId, targetHouseholdId)
+			await deepCopyRecipes(tx, {
+				from: { userId, householdId: currentHouseholdId },
+				to: { userId, householdId: targetHouseholdId },
+			})
 		}
 
 		// A sole member's Household is empty now and dissolves. Otherwise an
@@ -488,7 +491,10 @@ async function leaveInTransaction(
 	})
 
 	const newHousehold = await createOwnHousehold(tx, { id: userId, ...user })
-	await deepCopyRecipes(tx, userId, membership.householdId, newHousehold.id)
+	await deepCopyRecipes(tx, {
+		from: { userId, householdId: membership.householdId },
+		to: { userId, householdId: newHousehold.id },
+	})
 	// Only a Household already without an owner can be left empty here. It
 	// dissolves; otherwise its heir becomes owner if it has none.
 	return removeMembership(tx, membership.householdId, userId)
@@ -513,14 +519,25 @@ export async function revokeInvite(
 	})
 }
 
-async function deepCopyRecipes(
-	tx: any,
-	userId: string,
-	fromHouseholdId: string,
-	toHouseholdId: string,
+/**
+ * Copy the Recipes `from.userId` saved in `from.householdId` into
+ * `to.householdId`, owned by `to.userId`: lines, steps, classification and
+ * photo. A member leaving or joining takes copies of their own Recipes this
+ * way (the same user on both sides), and a demo copy takes the template
+ * owner's Recipes for the visitor.
+ */
+export async function deepCopyRecipes(
+	tx: Prisma.TransactionClient,
+	{
+		from,
+		to,
+	}: {
+		from: { userId: string; householdId: string }
+		to: { userId: string; householdId: string }
+	},
 ) {
 	const recipes = await tx.recipe.findMany({
-		where: { userId, householdId: fromHouseholdId },
+		where: { userId: from.userId, householdId: from.householdId },
 		include: {
 			ingredients: true,
 			instructions: true,
@@ -530,11 +547,9 @@ async function deepCopyRecipes(
 	})
 	// Copies get their ids up front so each sub-Recipe link can point at the
 	// copy of its target once every copy exists.
-	const recipeIds = new Map<string, string>(
-		recipes.map((recipe: { id: string }) => [recipe.id, createId()]),
-	)
-	const ingredientIds = new Map<string, string>(
-		recipes.flatMap((recipe: { ingredients: Array<{ id: string }> }) =>
+	const recipeIds = new Map(recipes.map((recipe) => [recipe.id, createId()]))
+	const ingredientIds = new Map(
+		recipes.flatMap((recipe) =>
 			recipe.ingredients.map((ing) => [ing.id, createId()] as const),
 		),
 	)
@@ -542,17 +557,8 @@ async function deepCopyRecipes(
 	for (const recipe of recipes) {
 		const metadataValueIds = await ensureRecipeMetadataValues(
 			tx,
-			toHouseholdId,
-			recipe.metadataAssignments.map(
-				(assignment: {
-					value: {
-						dimension: string
-						name: string
-						nameKey: string
-						sortOrder: number
-					}
-				}) => assignment.value,
-			),
+			to.householdId,
+			recipe.metadataAssignments.map((assignment) => assignment.value),
 		)
 		await tx.recipe.create({
 			data: {
@@ -567,39 +573,27 @@ async function deepCopyRecipes(
 				sourceUrl: recipe.sourceUrl,
 				rawText: recipe.rawText,
 				notes: recipe.notes,
-				userId,
-				householdId: toHouseholdId,
+				userId: to.userId,
+				householdId: to.householdId,
 				metadataAssignments: {
 					create: metadataValueIds.map((valueId) => ({ valueId })),
 				},
 				ingredients: {
-					create: recipe.ingredients.map(
-						(ing: {
-							id: string
-							name: string
-							amount: string | null
-							unit: string | null
-							notes: string | null
-							isHeading: boolean
-							order: number
-						}) => ({
-							id: ingredientIds.get(ing.id)!,
-							name: ing.name,
-							amount: ing.amount,
-							unit: ing.unit,
-							notes: ing.notes,
-							isHeading: ing.isHeading,
-							order: ing.order,
-						}),
-					),
+					create: recipe.ingredients.map((ing) => ({
+						id: ingredientIds.get(ing.id)!,
+						name: ing.name,
+						amount: ing.amount,
+						unit: ing.unit,
+						notes: ing.notes,
+						isHeading: ing.isHeading,
+						order: ing.order,
+					})),
 				},
 				instructions: {
-					create: recipe.instructions.map(
-						(inst: { content: string; order: number }) => ({
-							content: inst.content,
-							order: inst.order,
-						}),
-					),
+					create: recipe.instructions.map((inst) => ({
+						content: inst.content,
+						order: inst.order,
+					})),
 				},
 				// The copy shares the source's bytes: copying them means a fetch
 				// inside this write transaction. Image deletes count references
@@ -621,10 +615,7 @@ async function deepCopyRecipes(
 	// A link survives only when its target was copied too. One to a Recipe
 	// left behind in the old household becomes a plain ingredient.
 	for (const recipe of recipes) {
-		for (const ing of recipe.ingredients as Array<{
-			id: string
-			linkedRecipeId: string | null
-		}>) {
+		for (const ing of recipe.ingredients) {
 			const linkedRecipeId =
 				ing.linkedRecipeId && recipeIds.get(ing.linkedRecipeId)
 			if (linkedRecipeId)

@@ -57,12 +57,14 @@ test('the sample Household shows its Recipes, this week’s Plan and its Shoppin
 	expect(meals).toHaveLength(SAMPLE_HOUSEHOLD.plan.length)
 
 	await page.goto('/shopping')
-	for (const name of ['spaghetti', 'coffee beans']) {
+	// The shop for Monday to Friday is done; Saturday's Meals and a typed row
+	// are still to buy.
+	for (const name of ['chickpeas', 'spaghetti', 'coffee beans']) {
 		await expect(
 			main.getByRole('button', { name: `Uncheck ${name}`, exact: true }),
 		).toHaveAttribute('aria-pressed', 'true')
 	}
-	for (const name of ['chickpeas', 'dish soap']) {
+	for (const name of ['pork sausages', 'dish soap']) {
 		await expect(
 			main.getByRole('button', { name: `Check off ${name}`, exact: true }),
 		).toBeVisible()
@@ -71,10 +73,13 @@ test('the sample Household shows its Recipes, this week’s Plan and its Shoppin
 	await expect(
 		main.getByRole('group', { name: 'olive oil shopping item', exact: true }),
 	).toHaveCount(0)
-	const rows = await prisma.shoppingListItem.findMany({
-		where: { list: { householdId: user.householdId }, checked: true },
-		select: { name: true },
-		orderBy: { name: 'asc' },
+	const toBuy = await prisma.shoppingListItem.count({
+		where: {
+			list: { householdId: user.householdId },
+			checked: false,
+			horizon: 'next',
+		},
 	})
-	expect(rows.map((row) => row.name)).toEqual(['coffee beans', 'spaghetti'])
+	expect(toBuy).toBeGreaterThanOrEqual(8)
+	expect(toBuy).toBeLessThanOrEqual(12)
 })

@@ -55,7 +55,9 @@
 			}
 		},
 		{
-			"files": ["./index.ts"],
+			// Both install the MSW mocks: the server in mocks mode, and the
+			// development seed, which uploads the demo template's photos.
+			"files": ["./index.ts", "./prisma/seed.ts"],
 			"rules": {
 				"eslint/no-restricted-imports": "off"
 			}

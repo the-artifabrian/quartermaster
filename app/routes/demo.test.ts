@@ -28,6 +28,8 @@
  *   `demo_started` is counted for a demo nobody got.
  * - The copy throws something unexpected: a 500 page, or the error goes
  *   unlogged and unreported.
+ * - `demo_started` goes to PostHog without `is_demo: true`, so the demo
+ *   user's person can't be told apart from a real one's.
  * End (`intent=end`)
  * - A demo user's account stays, so it keeps a live slot, or their cookies
  *   stay, so /signup bounces them.
@@ -554,12 +556,14 @@ test('a session step that fails deletes the new demo user and says the demo isnâ
 	expect(reportServerError).toHaveBeenCalledWith(failure, expect.any(Request))
 })
 
-test('demo_started is counted once the session exists', async () => {
+test('demo_started is counted once the session exists, marked as a demo', async () => {
 	await buildTemplate()
 
 	const { userId } = await startDemo()
 
-	expect(captureServerEvent).toHaveBeenCalledWith(userId, DEMO_STARTED)
+	expect(captureServerEvent).toHaveBeenCalledWith(userId, DEMO_STARTED, {
+		is_demo: true,
+	})
 })
 
 test('an unexpected copy error says the demo isnâ€™t available, and is reported', async () => {

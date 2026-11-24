@@ -10,6 +10,8 @@ const posthog = vi.hoisted(() => ({
 	identify: vi.fn(),
 	group: vi.fn(),
 	register_for_session: vi.fn(),
+	register: vi.fn(),
+	unregister: vi.fn(),
 	reset: vi.fn(),
 	getFeatureFlag: vi.fn(),
 }))
@@ -60,6 +62,10 @@ test('initializes the deferred SDK with the existing privacy and performance beh
 	client.capture('$pageview', { path: '/recipes' }, captureOptions)
 	client.registerForSession({ display_mode: 'standalone' })
 	client.identify('user-1', { name: 'Ada' })
+	client.register({ is_demo: true })
+	client.unregister('is_demo')
+	expect(posthog.register).toHaveBeenCalledWith({ is_demo: true })
+	expect(posthog.unregister).toHaveBeenCalledWith('is_demo')
 	expect(posthog.capture).toHaveBeenCalledWith(
 		'$pageview',
 		{ path: '/recipes' },

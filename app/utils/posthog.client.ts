@@ -193,6 +193,12 @@ export function initializePostHog({
 		registerForSession: (properties) => {
 			posthog.register_for_session(properties)
 		},
+		register: (properties) => {
+			posthog.register(properties)
+		},
+		unregister: (property) => {
+			posthog.unregister(property)
+		},
 		reset: () => {
 			posthog.reset()
 		},

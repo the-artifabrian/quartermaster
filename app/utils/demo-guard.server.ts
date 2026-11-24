@@ -166,8 +166,11 @@ export function demoPhotoDroppedHeaders() {
 	})
 }
 
-/** Whether the signed-in user, if any, is a demo user. One read, by session. */
-async function isDemoSession(request: Request) {
+/**
+ * Whether the signed-in user, if any, is a demo user. One read, by session,
+ * and none without a session cookie.
+ */
+export async function isDemoSession(request: Request) {
 	const cookie = request.headers.get('cookie')
 	if (!cookie) return false
 	const authSession = await authSessionStorage.getSession(cookie)

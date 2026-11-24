@@ -464,6 +464,7 @@ function App() {
 						: null
 				}
 				householdId={data.householdId}
+				isDemo={data.demoExpiresAt != null}
 			/>
 			<PostHogPageview />
 			<PostHogPwaLifecycle />

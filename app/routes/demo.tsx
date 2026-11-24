@@ -95,7 +95,7 @@ export async function action({ request }: Route.ActionArgs) {
 		await endDemoUser(copy.userId)
 		return refuse(redirectTo, 'unavailable')
 	}
-	captureServerEvent(copy.userId, DEMO_STARTED)
+	captureServerEvent(copy.userId, DEMO_STARTED, { is_demo: true })
 	return redirect(APP_HOME, { headers })
 }
 

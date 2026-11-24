@@ -16,13 +16,21 @@ export function reportServerError(error: unknown, request: Request) {
 	}
 
 	runInBackground(
-		import('./posthog.server.ts').then(({ captureServerEvent }) => {
+		(async () => {
+			// A demo user's errors are marked, as their browser events are. The
+			// database may be why the request failed, so a failed lookup only
+			// leaves the mark off.
+			const demo = await import('./demo-guard.server.ts')
+				.then(({ isDemoSession }) => isDemoSession(request))
+				.catch(() => false)
+			const { captureServerEvent } = await import('./posthog.server.ts')
 			captureServerEvent('server', 'server_error', {
 				error: serializeError(error),
 				stack: error instanceof Error ? error.stack : undefined,
 				url: redactUrl(request.url),
+				...(demo ? { is_demo: true } : {}),
 			})
-		}),
+		})(),
 		'reporting a server error',
 	)
 }

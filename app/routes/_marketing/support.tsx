@@ -40,7 +40,7 @@ const faqs = [
 	{
 		question: 'How does the Plan work?',
 		answer:
-			'The Plan shows an ordered week of Meals made from Recipes, Menu snapshots, or simple notes. When you\u2019re ready, open From Plan on Shopping: every Meal and line arrives ticked except things usually on hand, such as your Staples and salt, names already on the list, and days that have passed. A line the Meal already put on Shopping shows as on the list. Untick what you do not need and add the rest.',
+			'The Plan shows an ordered week of Meals made from Recipes, Menu snapshots, or simple notes. When you\u2019re ready, open From Plan on Shopping: every Meal and line arrives ticked except things usually on hand, such as your Staples and salt, things already on the list from somewhere else, and days that have passed. A line the Meal already put on Shopping shows as on the list. Untick what you do not need and add the rest.',
 	},
 	{
 		question: 'Which features use AI?',

@@ -32,6 +32,10 @@
  * 14. Enhance gets a 429: the use must come back.
  * 15. The use can't be recorded: the call must be refused with a 503 and a
  *     message that says to try again soon, without calling the model.
+ * 16. A demo user gets a real user's cap on any of the three, or is refused
+ *     without being told what the demo allows.
+ * 17. A demo user is let through once the demo's shared uses for today are
+ *     gone, or isn't told why.
  */
 import { http, HttpResponse } from 'msw'
 import { RouterContextProvider } from 'react-router'
@@ -53,7 +57,7 @@ import '#tests/setup/db-setup.ts'
 const GROQ_URL = 'https://api.groq.com/openai/v1/audio/transcriptions'
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 
-async function proUser() {
+async function proUser({ demo = false } = {}) {
 	return prisma.$transaction(async (tx) => {
 		const session = await tx.session.create({
 			data: {
@@ -61,6 +65,7 @@ async function proUser() {
 				user: {
 					create: {
 						...createUser(),
+						demoExpiresAt: demo ? new Date(Date.now() + 3_600_000) : null,
 						subscription: { create: { tier: 'pro' } },
 					},
 				},
@@ -637,5 +642,119 @@ describe('Recipe enhance', () => {
 			'Recipe enhance hit a rate limit. Please wait a moment and try again.',
 		)
 		expect(await uses(session.userId)).toBe(0)
+	})
+})
+
+describe('demo users', () => {
+	/** A demo user who has already spent the demo's uses of `type` today. */
+	async function demoUserAtCap(type: string) {
+		const session = await proUser({ demo: true })
+		await prisma.usageEvent.createMany({
+			data: Array.from({ length: 3 }, () => ({ type, userId: session.userId })),
+		})
+		return session
+	}
+
+	function countProviderCalls() {
+		let calls = 0
+		server.use(
+			http.post(GROQ_URL, () => {
+				calls++
+				return HttpResponse.json({ text: '2 lb apples' })
+			}),
+			http.post(ANTHROPIC_URL, () => {
+				calls++
+				return HttpResponse.json({ content: [] })
+			}),
+		)
+		return () => calls
+	}
+
+	test('voice adds stop after the demo allows, and say so', async () => {
+		using _groq = withEnv('GROQ_API_KEY', 'test-key')
+		const calls = countProviderCalls()
+		const session = await demoUserAtCap('voice_transcribe_call')
+
+		const refused = await call(
+			transcribeAction,
+			'/resources/transcribe',
+			session,
+			audioForm(),
+		)
+
+		expect(refused.status).toBe(429)
+		expect(refused.body.error).toBe(
+			'The demo allows 3 voice entries. Sign up to keep adding by voice.',
+		)
+		expect(calls()).toBe(0)
+	})
+
+	test('enhances stop after the demo allows, and say so', async () => {
+		using _anthropic = withEnv('ANTHROPIC_API_KEY', 'test-key')
+		const calls = countProviderCalls()
+		const session = await demoUserAtCap('recipe_enhance_llm_call')
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Soup',
+				userId: session.userId,
+				householdId: session.householdId,
+			},
+		})
+
+		const refused = await call(
+			enhanceAction,
+			'/resources/enhance-recipe',
+			session,
+			form({ recipeId: recipe.id }),
+		)
+
+		expect(refused.status).toBe(429)
+		expect(refused.body.error).toBe(
+			'The demo allows 3 suggestion requests. Sign up to keep getting suggestions.',
+		)
+		expect(calls()).toBe(0)
+	})
+
+	test('imports stop after the demo allows, and say so', async () => {
+		using _anthropic = withEnv('ANTHROPIC_API_KEY', 'test-key')
+		const calls = countProviderCalls()
+		const session = await demoUserAtCap('recipe_extract_llm_call')
+
+		const refused = await call(
+			importAction,
+			'/recipes/import',
+			session,
+			form({ intent: 'extract-text', rawText: 'Soup. Boil water.' }),
+		)
+
+		expect(refused.status).toBe(429)
+		expect(refused.body.error).toBe(
+			'The demo allows 3 AI imports. Sign up to keep importing.',
+		)
+		expect(calls()).toBe(0)
+	})
+
+	test("a demo user is refused once the demo's AI is used up for today", async () => {
+		using _anthropic = withEnv('ANTHROPIC_API_KEY', 'test-key')
+		const calls = countProviderCalls()
+		const session = await proUser({ demo: true })
+		await prisma.demoAiUsage.createMany({
+			data: Array.from({ length: 60 }, () => ({
+				type: 'recipe_extract_llm_call',
+			})),
+		})
+
+		const refused = await call(
+			importAction,
+			'/recipes/import',
+			session,
+			form({ intent: 'extract-text', rawText: 'Soup. Boil water.' }),
+		)
+
+		expect(refused.status).toBe(429)
+		expect(refused.body.error).toBe(
+			"The demo's AI is used up for today. Try again tomorrow, or sign up.",
+		)
+		expect(calls()).toBe(0)
 	})
 })

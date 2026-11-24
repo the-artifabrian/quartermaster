@@ -1,5 +1,6 @@
 import { type FileUpload } from '@mjackson/form-data-parser'
 import {
+	aiUsageLimitsFor,
 	aiUsageRefusal,
 	claimAiUsage,
 } from '#app/utils/ai-rate-limit.server.ts'
@@ -38,7 +39,6 @@ import {
 	sniffImageType,
 } from '#app/utils/recipe-photo.server.ts'
 
-const DAILY_EXTRACT_LIMIT = 10
 export const MAX_IMAGE_SIZE = MAX_IMPORT_IMAGE_SIZE
 export const MAX_IMAGE_COUNT = MAX_IMPORT_IMAGE_COUNT
 export const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -190,13 +190,13 @@ export async function importWithAi(
 	const metadataValues = await recipeMetadataOptions(householdId)
 	const vocabulary = metadataVocabulary(metadataValues)
 
-	const usage = await claimAiUsage(userId, 'recipe_extract_llm_call', {
-		perUser: DAILY_EXTRACT_LIMIT,
-	})
+	const limits = await aiUsageLimitsFor(userId, 'recipe_extract_llm_call')
+	const usage = await claimAiUsage(userId, 'recipe_extract_llm_call', limits)
 	if (!usage.allowed) {
 		const refusal = aiUsageRefusal(usage.reason, {
-			limit: DAILY_EXTRACT_LIMIT,
+			limits,
 			uses: 'AI imports',
+			keepGoing: 'keep importing',
 			unavailable: "Couldn't start the import just now.",
 		})
 		return importFailure(intentKey, refusal.error, refusal.status)

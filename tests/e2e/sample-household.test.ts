@@ -57,8 +57,8 @@ test('the sample Household shows its Recipes, this week’s Plan and its Shoppin
 	expect(meals).toHaveLength(SAMPLE_HOUSEHOLD.plan.length)
 
 	await page.goto('/shopping')
-	// The shop for Monday to Friday is done; Saturday's Meals and a typed row
-	// are still to buy.
+	// Bought for Monday to Saturday; Sunday's Meals and a typed row are still
+	// to buy.
 	for (const name of ['chickpeas', 'spaghetti', 'coffee beans']) {
 		await expect(
 			main.getByRole('button', { name: `Uncheck ${name}`, exact: true }),

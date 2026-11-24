@@ -79,8 +79,6 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		{
 			title: 'Lemon chicken traybake',
 			isFavorite: true,
-			photo: 'lemon-chicken-traybake.webp',
-			photoAlt: 'Roast chicken thighs and potatoes in a tray with lemon wedges',
 			description:
 				'Chicken thighs roasted on a bed of potatoes with lemon and whole garlic cloves. Most of the hour is oven time.',
 			activeTime: 15,
@@ -108,8 +106,6 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		},
 		{
 			title: 'Chickpea and spinach curry',
-			photo: 'chickpea-and-spinach-curry.webp',
-			photoAlt: 'A bowl of chickpea curry with spinach, next to rice',
 			description:
 				'A quick curry from the cupboard, with a bag of spinach stirred in at the end.',
 			activeTime: 15,
@@ -145,7 +141,8 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		{
 			title: 'Tomato and basil spaghetti',
 			photo: 'tomato-and-basil-spaghetti.webp',
-			photoAlt: 'Spaghetti with burst cherry tomatoes and basil leaves',
+			photoAlt:
+				'Spaghetti in tomato sauce with a few wilted green leaves, on a white plate',
 			description:
 				'Cherry tomatoes cooked down in garlicky oil until they burst. Ready in the time the pasta takes.',
 			activeTime: 10,
@@ -176,8 +173,6 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		},
 		{
 			title: 'Greek salad',
-			photo: 'greek-salad.webp',
-			photoAlt: 'Tomatoes, cucumber, olives and a slab of feta in a bowl',
 			description: 'Tomato and cucumber salad with a slab of feta on top.',
 			activeTime: 15,
 			totalTime: 15,
@@ -208,7 +203,8 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		{
 			title: 'Beef and broccoli stir-fry',
 			photo: 'beef-and-broccoli-stir-fry.webp',
-			photoAlt: 'Strips of beef and broccoli stir-fried in a glossy sauce',
+			photoAlt:
+				'Strips of beef and broccoli florets in a glossy brown sauce, in a white bowl',
 			description:
 				'Thin strips of steak and broccoli in a glossy soy sauce. Have everything chopped before the pan goes on.',
 			activeTime: 20,
@@ -245,8 +241,6 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		},
 		{
 			title: 'Black bean tacos',
-			photo: 'black-bean-tacos.webp',
-			photoAlt: 'Soft tacos filled with black beans and toppings',
 			description:
 				'Spiced black beans in warm tortillas, with avocado and feta on top.',
 			activeTime: 20,
@@ -280,8 +274,6 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		},
 		{
 			title: 'Sausage and pepper traybake',
-			photo: 'sausage-and-pepper-traybake.webp',
-			photoAlt: 'Sausages roasted with strips of red and yellow pepper',
 			description:
 				'Sausages roasted with peppers and red onion until sticky. Good with bread or mash.',
 			activeTime: 10,
@@ -306,8 +298,6 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		},
 		{
 			title: 'Mushroom omelette',
-			photo: 'mushroom-omelette.webp',
-			photoAlt: 'A folded omelette with sliced mushrooms',
 			description: 'A weekend breakfast for two, made one omelette at a time.',
 			activeTime: 15,
 			totalTime: 15,
@@ -333,8 +323,6 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		{
 			title: 'Red lentil soup',
 			isFavorite: true,
-			photo: 'red-lentil-soup.webp',
-			photoAlt: 'A bowl of orange red lentil soup',
 			description:
 				'A thick lentil soup with cumin and a squeeze of lemon. Freezes well.',
 			activeTime: 15,
@@ -365,8 +353,6 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		},
 		{
 			title: 'Soy and ginger salmon',
-			photo: 'soy-and-ginger-salmon.webp',
-			photoAlt: 'A glazed salmon fillet with greens',
 			description:
 				'Salmon baked under a sticky soy and ginger glaze, with green beans on the side.',
 			activeTime: 10,
@@ -398,8 +384,6 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		},
 		{
 			title: 'Egg fried rice',
-			photo: 'egg-fried-rice.webp',
-			photoAlt: 'A bowl of egg fried rice with peas and spring onion',
 			description: 'What to do with yesterday’s rice.',
 			activeTime: 15,
 			totalTime: 15,
@@ -430,8 +414,6 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		},
 		{
 			title: 'Roast carrots with cumin',
-			photo: 'roast-carrots-with-cumin.webp',
-			photoAlt: 'Roast carrots on a spread of yoghurt',
 			description: 'Sweet roast carrots on a spoonful of yoghurt.',
 			activeTime: 10,
 			totalTime: 40,
@@ -455,7 +437,8 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		{
 			title: 'Overnight oats',
 			photo: 'overnight-oats.webp',
-			photoAlt: 'A jar of overnight oats topped with blueberries',
+			photoAlt:
+				'A small white pot of oats topped with raspberries and halved figs',
 			description: 'Made the night before, eaten cold.',
 			activeTime: 5,
 			totalTime: 480,
@@ -479,7 +462,8 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 			title: 'Banana bread',
 			isFavorite: true,
 			photo: 'banana-bread.webp',
-			photoAlt: 'Slices of banana bread on a board',
+			photoAlt:
+				'Three slices of banana bread on a dark plate dusted with icing sugar',
 			description: 'For the bananas nobody wants to eat.',
 			activeTime: 15,
 			totalTime: 85,
@@ -534,9 +518,9 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		},
 		{ day: 3, label: 'dinner', recipes: ['Soy and ginger salmon'] },
 		{ day: 4, label: 'dinner', recipes: ['Black bean tacos'] },
-		{ day: 5, label: 'breakfast', recipes: ['Mushroom omelette'] },
-		{ day: 5, label: 'dinner', recipes: ['Sausage and pepper traybake'] },
-		{ day: 6, label: 'dinner', text: 'Leftovers' },
+		{ day: 5, label: 'dinner', text: 'Leftovers' },
+		{ day: 6, label: 'breakfast', recipes: ['Mushroom omelette'] },
+		{ day: 6, label: 'dinner', recipes: ['Sausage and pepper traybake'] },
 	],
 	shopping: {
 		manual: [
@@ -544,7 +528,8 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 			{ name: 'dish soap', horizon: 'next' },
 			{ name: 'kitchen roll', quantity: '2', horizon: 'later' },
 		],
-		// The weekday shop is done; Saturday's Meals are still to buy.
-		boughtThroughDay: 4,
+		// Bought for everything up to Saturday; Sunday's Meals are still to
+		// buy, so nothing left on the list is for a day already gone.
+		boughtThroughDay: 5,
 	},
 }

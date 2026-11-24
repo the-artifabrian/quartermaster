@@ -30,6 +30,8 @@
  *   to the bought day need is left unchecked, a row a later Meal also needs
  *   is checked, the typed rows lose their own checked flags, or the unchecked
  *   list is far from the 8 to 12 rows a real list holds.
+ * - On a day after the bought day, Shopping still lists rows only for
+ *   Meals already cooked.
  * - The favourites aren't marked, or a run marks others.
  * - The Menu is missing, saved twice on a second run, names a Recipe outside
  *   the Household, loses its note card's Shopping lines, or isn't a shape the
@@ -318,6 +320,19 @@ test('every Meal lands in the week of today, cooked only before today, and Shopp
 					? meal.completed
 					: meal.recipeItems.every((item) => item.cooked)
 			expect({ date, cooked }).toEqual({ date, cooked: date < today })
+		}
+
+		// Nothing left to buy is only for a Meal that's already cooked.
+		for (const row of rows) {
+			if (row.checked || row.source === 'manual') continue
+			const days = row.mealContributions.map((c) => serializeDate(c.meal!.date))
+			expect({
+				row: row.name,
+				forTodayOrLater: days.some((d) => d >= today),
+			}).toEqual({
+				row: row.name,
+				forTodayOrLater: true,
+			})
 		}
 
 		const shopping = rows.map(({ mealContributions, ...row }) => ({

@@ -9,7 +9,7 @@ import { serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createDemoCopy } from '#app/utils/demo.server.ts'
 import { DEMO_BLOCKED_MESSAGE } from '#app/utils/demo.ts'
-import { withDemoAiUses } from '#tests/e2e-lock.ts'
+import { withDemoAiUses } from '#tests/demo-ai-uses.ts'
 import { browserToday, expect, test } from '#tests/playwright-utils.ts'
 
 const demoTest = test.extend<{

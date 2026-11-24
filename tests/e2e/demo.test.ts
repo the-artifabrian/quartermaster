@@ -6,7 +6,7 @@ import { deleteDemoUser, expireDemoUsers } from '#app/utils/demo.server.ts'
 import { DEMO_AI_USES_PER_DAY, DEMO_BLOCKED_MESSAGE } from '#app/utils/demo.ts'
 import { SAMPLE_HOUSEHOLD } from '#app/utils/sample-household-data.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
-import { SEEDED_DEMO_AI_USE, withDemoAiUses } from '#tests/e2e-lock.ts'
+import { SEEDED_DEMO_AI_USE, withDemoAiUses } from '#tests/demo-ai-uses.ts'
 import { expect, hydrated, test } from '#tests/playwright-utils.ts'
 
 /**

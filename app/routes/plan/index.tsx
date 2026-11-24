@@ -299,7 +299,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 						nudgeId="generate-shopping-list"
 						icon="cart"
 						title="Shop for these Meals"
-						description="On Shopping, open From Plan and pick the Meals you're buying for."
+						description="On Shopping, open From Plan and pick the Meals you're shopping for."
 						ctaText="Go to Shopping"
 						ctaHref="/shopping"
 						className="mt-4"

@@ -1,6 +1,16 @@
+// Failure list for the demo template step:
+// - A failed build stops boot, or skips the prune and image-cache steps.
+// - A failed build is never retried, so the demo stays unavailable until the
+//   next deploy.
+// - The step's result isn't logged, so a build that keeps missing photos
+//   goes unnoticed.
+// - Demo AI uses from before today aren't pruned, or today's are.
+// - The build waits behind the other steps at startup, which leaves the
+//   demo unavailable for longer after a deploy.
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
+import { type DemoTemplateSummary } from '#app/utils/demo.server.ts'
 import { type ImageCachePruneSummary } from '#app/utils/image-cache.server.ts'
 import {
 	pruneExpiredData,
@@ -14,6 +24,7 @@ const EMPTY_SUMMARY: MaintenanceSummary = {
 	verifications: 0,
 	emailCodes: 0,
 	usageEvents: 0,
+	demoAiUses: 0,
 	householdEvents: 0,
 }
 
@@ -24,6 +35,15 @@ const EMPTY_IMAGE_CACHE: ImageCachePruneSummary = {
 	skipped: 0,
 }
 const pruneImages = async () => EMPTY_IMAGE_CACHE
+
+const CURRENT_TEMPLATE: DemoTemplateSummary = {
+	status: 'current',
+	userId: 'template-user',
+	householdId: 'template-household',
+	missingPhotos: [],
+	abandoned: 0,
+}
+const buildDemoTemplate = async () => CURRENT_TEMPLATE
 
 afterEach(() => {
 	vi.useRealTimers()
@@ -126,6 +146,21 @@ describe('pruneExpiredData', () => {
 				},
 			],
 		})
+		// Not tied to a user: the demo users they count are deleted hourly.
+		await prisma.demoAiUsage.createMany({
+			data: [
+				{
+					id: 'old-demo-ai-use',
+					type: 'maintenance-test',
+					createdAt: new Date(startOfDay.getTime() - 1),
+				},
+				{
+					id: 'current-demo-ai-use',
+					type: 'maintenance-test',
+					createdAt: startOfDay,
+				},
+			],
+		})
 		await prisma.householdEvent.createMany({
 			data: [
 				{
@@ -152,8 +187,12 @@ describe('pruneExpiredData', () => {
 			verifications: 1,
 			emailCodes: 1,
 			usageEvents: 1,
+			demoAiUses: 1,
 			householdEvents: 1,
 		})
+		await expect(
+			prisma.demoAiUsage.findMany({ select: { id: true } }),
+		).resolves.toEqual([{ id: 'current-demo-ai-use' }])
 		await expect(
 			prisma.session.findMany({ select: { id: true } }),
 		).resolves.toEqual([{ id: 'active-session' }])
@@ -192,6 +231,7 @@ describe('startScheduledMaintenance', () => {
 
 		const timer = startScheduledMaintenance({
 			intervalMs: 1_000,
+			buildDemoTemplate,
 			prune,
 			pruneImages,
 			log,
@@ -209,7 +249,7 @@ describe('startScheduledMaintenance', () => {
 
 		expect(prune).toHaveBeenCalledTimes(2)
 		expect(log).toHaveBeenCalledWith(
-			'🧹 maintenance: sessions=0 verifications=0 email_codes=0 usage_events=0 household_events=0 duration_ms=0',
+			'🧹 maintenance: sessions=0 verifications=0 email_codes=0 usage_events=0 demo_ai_uses=0 household_events=0 duration_ms=0',
 		)
 		clearInterval(timer)
 	})
@@ -225,6 +265,7 @@ describe('startScheduledMaintenance', () => {
 		)
 		const timer = startScheduledMaintenance({
 			intervalMs: 1_000,
+			buildDemoTemplate,
 			prune,
 			pruneImages,
 			log: vi.fn(),
@@ -244,6 +285,7 @@ describe('startScheduledMaintenance', () => {
 		const logError = vi.fn()
 		const timer = startScheduledMaintenance({
 			intervalMs: 1_000,
+			buildDemoTemplate,
 			prune: vi.fn().mockRejectedValue(new Error('prune failed')),
 			pruneImages,
 			logError,
@@ -272,6 +314,7 @@ describe('startScheduledMaintenance', () => {
 		const log = vi.fn()
 		const timer = startScheduledMaintenance({
 			intervalMs: 1_000,
+			buildDemoTemplate,
 			prune: vi.fn().mockRejectedValue(new Error('disk full')),
 			pruneImages: prunedImages,
 			log,
@@ -294,6 +337,7 @@ describe('startScheduledMaintenance', () => {
 		const reportFailure = vi.fn()
 		const timer = startScheduledMaintenance({
 			intervalMs: 1_000,
+			buildDemoTemplate,
 			prune: async () => EMPTY_SUMMARY,
 			pruneImages: vi.fn().mockRejectedValue(failure),
 			log: vi.fn(),
@@ -308,4 +352,88 @@ describe('startScheduledMaintenance', () => {
 		)
 		clearInterval(timer)
 	})
+
+	test('builds the demo template on every run and logs what it did', async () => {
+		vi.useFakeTimers()
+		const build = vi.fn(async () => ({
+			...CURRENT_TEMPLATE,
+			status: 'built' as const,
+			missingPhotos: ['greek-salad.webp'],
+			abandoned: 1,
+		}))
+		const log = vi.fn()
+		const timer = startScheduledMaintenance({
+			intervalMs: 1_000,
+			prune: async () => EMPTY_SUMMARY,
+			pruneImages,
+			buildDemoTemplate: build,
+			log,
+		})
+		await vi.advanceTimersByTimeAsync(0)
+
+		expect(log).toHaveBeenCalledWith(
+			'🧹 demo template: status=built missing_photos=1 abandoned=1 duration_ms=0',
+		)
+		await vi.advanceTimersByTimeAsync(1_000)
+		expect(build).toHaveBeenCalledTimes(2)
+		clearInterval(timer)
+	})
+
+	// A failed build must never stop boot or the other steps, and the next
+	// hour tries again.
+	test('contains and reports a failed demo template build, then retries', async () => {
+		vi.useFakeTimers()
+		const failure = new Error('storage down')
+		const build = vi
+			.fn<() => Promise<DemoTemplateSummary>>()
+			.mockRejectedValueOnce(failure)
+			.mockResolvedValueOnce(CURRENT_TEMPLATE)
+		const prune = vi.fn(async () => EMPTY_SUMMARY)
+		const logError = vi.fn()
+		const reportFailure = vi.fn()
+		const timer = startScheduledMaintenance({
+			intervalMs: 1_000,
+			prune,
+			pruneImages,
+			buildDemoTemplate: build,
+			log: vi.fn(),
+			logError,
+			reportFailure,
+		})
+		await vi.advanceTimersByTimeAsync(0)
+
+		expect(prune).toHaveBeenCalledOnce()
+		expect(reportFailure).toHaveBeenCalledWith(failure)
+		expect(logError).toHaveBeenCalledWith(
+			expect.stringContaining('demo template: failed error=storage down'),
+		)
+		await vi.advanceTimersByTimeAsync(1_000)
+		expect(build).toHaveBeenCalledTimes(2)
+		clearInterval(timer)
+	})
+})
+
+test('builds the demo template before the other steps', async () => {
+	vi.useFakeTimers()
+	const order: string[] = []
+	const timer = startScheduledMaintenance({
+		intervalMs: 1_000,
+		prune: async () => {
+			order.push('prune')
+			return EMPTY_SUMMARY
+		},
+		pruneImages: async () => {
+			order.push('image cache')
+			return EMPTY_IMAGE_CACHE
+		},
+		buildDemoTemplate: async () => {
+			order.push('demo template')
+			return CURRENT_TEMPLATE
+		},
+		log: vi.fn(),
+	})
+	await vi.advanceTimersByTimeAsync(0)
+
+	expect(order).toEqual(['demo template', 'prune', 'image cache'])
+	clearInterval(timer)
 })

@@ -116,8 +116,8 @@ export function writeAfterFirstRead(
 	wal: PrismaClient,
 	url: string,
 	[model, method]: [
-		'meal' | 'mealRecipeItem' | 'shoppingListItem',
-		'findFirst' | 'findMany',
+		'meal' | 'mealRecipeItem' | 'shoppingListItem' | 'user',
+		'findFirst' | 'findMany' | 'count',
 	],
 	sql: string,
 	args: Array<string | number> = [],
@@ -151,10 +151,19 @@ export function writeAfterFirstRead(
 			get(target, key) {
 				if (key === model) return wrapped
 				if (key === '$transaction') {
-					return (work: (tx: Prisma.TransactionClient) => Promise<unknown>) =>
-						(target as unknown as PrismaClient).$transaction((tx) =>
-							work(hooked(tx)),
-						)
+					return (
+						work:
+							| ((tx: Prisma.TransactionClient) => Promise<unknown>)
+							| Prisma.PrismaPromise<unknown>[],
+						...rest: unknown[]
+					) => {
+						const client = target as unknown as PrismaClient
+						// An array transaction runs its queries as given.
+						if (Array.isArray(work)) {
+							return Reflect.apply(client.$transaction, client, [work, ...rest])
+						}
+						return client.$transaction((tx) => work(hooked(tx)))
+					}
 				}
 				const value = Reflect.get(target, key) as unknown
 				return typeof value === 'function' ? value.bind(target) : value

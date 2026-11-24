@@ -10,12 +10,17 @@ import { type ShoppingHorizon } from './shopping-horizon.ts'
 export type SampleHouseholdContent = {
 	recipes: SampleRecipe[]
 	staples: string[]
+	menus: SampleMenu[]
 	plan: SampleMeal[]
 	shopping: {
 		/** Typed rows. Their names are things no sample Recipe uses. */
 		manual: SampleShoppingRow[]
-		/** Ingredients already bought for a planned Meal. */
-		checkedMealLines: string[]
+		/**
+		 * The shop for the start of the week is done: a Meal row is checked
+		 * when every Meal it feeds falls on this day of the week or earlier
+		 * (0 is Monday). A row a later Meal also needs stays unchecked.
+		 */
+		boughtThroughDay: number
 	}
 }
 
@@ -31,6 +36,28 @@ export type SampleRecipe = {
 	ingredients: Array<string | { heading: string }>
 	steps: string[]
 	notes?: string
+	isFavorite?: boolean
+	/**
+	 * A file in the demo photo directory (see demo.server.ts). Only the demo
+	 * template uploads it; the dev seed's own sample Household has no photos.
+	 * A missing file leaves the template's Recipe without one.
+	 */
+	photo?: string
+	/** What the photo shows. The page falls back to the title without it. */
+	photoAlt?: string
+}
+
+/** A Menu with one unnamed section, its cards in order. */
+export type SampleMenu = {
+	title: string
+	description?: string
+	cards: Array<
+		| { recipe: string; multiplier?: string }
+		| {
+				text: string
+				shoppingLines: Array<{ name: string; quantity?: string; unit?: string }>
+		  }
+	>
 }
 
 export type SampleMeal = {
@@ -51,6 +78,7 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 	recipes: [
 		{
 			title: 'Lemon chicken traybake',
+			isFavorite: true,
 			description:
 				'Chicken thighs roasted on a bed of potatoes with lemon and whole garlic cloves. Most of the hour is oven time.',
 			activeTime: 15,
@@ -112,6 +140,9 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		},
 		{
 			title: 'Tomato and basil spaghetti',
+			photo: 'tomato-and-basil-spaghetti.webp',
+			photoAlt:
+				'Spaghetti in tomato sauce with a few wilted green leaves, on a white plate',
 			description:
 				'Cherry tomatoes cooked down in garlicky oil until they burst. Ready in the time the pasta takes.',
 			activeTime: 10,
@@ -171,6 +202,9 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		},
 		{
 			title: 'Beef and broccoli stir-fry',
+			photo: 'beef-and-broccoli-stir-fry.webp',
+			photoAlt:
+				'Strips of beef and broccoli florets in a glossy brown sauce, in a white bowl',
 			description:
 				'Thin strips of steak and broccoli in a glossy soy sauce. Have everything chopped before the pan goes on.',
 			activeTime: 20,
@@ -288,6 +322,7 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		},
 		{
 			title: 'Red lentil soup',
+			isFavorite: true,
 			description:
 				'A thick lentil soup with cumin and a squeeze of lemon. Freezes well.',
 			activeTime: 15,
@@ -401,6 +436,9 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		},
 		{
 			title: 'Overnight oats',
+			photo: 'overnight-oats.webp',
+			photoAlt:
+				'A small white pot of oats topped with raspberries and halved figs',
 			description: 'Made the night before, eaten cold.',
 			activeTime: 5,
 			totalTime: 480,
@@ -412,16 +450,20 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 				'150 ml milk',
 				'2 tbsp Greek yoghurt',
 				'1 tsp honey',
-				'50 g blueberries',
+				'50 g raspberries',
 			],
 			steps: [
 				'Stir the oats, milk and yoghurt together in a jar.',
 				'Cover and leave in the fridge overnight.',
-				'Top with the honey and blueberries in the morning.',
+				'Top with the honey and raspberries in the morning.',
 			],
 		},
 		{
 			title: 'Banana bread',
+			isFavorite: true,
+			photo: 'banana-bread.webp',
+			photoAlt:
+				'Three slices of banana bread on a dark plate dusted with icing sugar',
 			description: 'For the bananas nobody wants to eat.',
 			activeTime: 15,
 			totalTime: 85,
@@ -448,6 +490,24 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		},
 	],
 	staples: ['Olive oil', 'Salt', 'Black pepper', 'Soy sauce', 'Rice'],
+	menus: [
+		{
+			title: 'Friday taco night',
+			description:
+				'Tacos with a salad on the side, and something to pick at first.',
+			cards: [
+				{ recipe: 'Black bean tacos' },
+				{ recipe: 'Greek salad' },
+				{
+					text: 'Tortilla chips and salsa',
+					shoppingLines: [
+						{ name: 'tortilla chips', quantity: '1', unit: 'bag' },
+						{ name: 'salsa', quantity: '1', unit: 'jar' },
+					],
+				},
+			],
+		},
+	],
 	plan: [
 		{ day: 0, label: 'dinner', recipes: ['Lemon chicken traybake'] },
 		{ day: 1, label: 'dinner', recipes: ['Chickpea and spinach curry'] },
@@ -458,9 +518,9 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		},
 		{ day: 3, label: 'dinner', recipes: ['Soy and ginger salmon'] },
 		{ day: 4, label: 'dinner', recipes: ['Black bean tacos'] },
-		{ day: 5, label: 'breakfast', recipes: ['Mushroom omelette'] },
-		{ day: 5, label: 'dinner', recipes: ['Sausage and pepper traybake'] },
-		{ day: 6, label: 'dinner', text: 'Leftovers' },
+		{ day: 5, label: 'dinner', text: 'Leftovers' },
+		{ day: 6, label: 'breakfast', recipes: ['Mushroom omelette'] },
+		{ day: 6, label: 'dinner', recipes: ['Sausage and pepper traybake'] },
 	],
 	shopping: {
 		manual: [
@@ -468,6 +528,8 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 			{ name: 'dish soap', horizon: 'next' },
 			{ name: 'kitchen roll', quantity: '2', horizon: 'later' },
 		],
-		checkedMealLines: ['spaghetti'],
+		// Bought for everything up to Saturday; Sunday's Meals are still to
+		// buy, so nothing left on the list is for a day already gone.
+		boughtThroughDay: 5,
 	},
 }

@@ -205,6 +205,28 @@ Next shop or Later.
 `UsageEvent` holds one row per use of a paid AI feature, for the daily limits
 described under AI.
 
+The demo (#440) gives a visitor a user of their own, with `demoExpiresAt` set,
+on Pro, with a copy of a sample Household. `app/utils/demo.server.ts` keeps one
+template Household in the database: the sample Recipes with their stock photos
+(`app/assets/demo-photos`, credits in its `CREDITS.md`) and the Staples, owned
+by a user with no password and an email under `.invalid`. The `DemoTemplate`
+row points at it and holds two hashes, one of the sample Recipes and Staples
+and one of the photo files. Scheduled maintenance runs `ensureDemoTemplate`
+first, at startup and every hour; when either hash changed, it builds a new
+template beside the old one, moves the pointer in a write transaction, and
+deletes the old template's owner with `deleteAccount`. `createDemoCopy` keeps
+its transactions short, because the libSQL adapter runs one at a time per
+process: one counts live demo users and creates the visitor, the next re-reads
+the template and copies its library a statement per kind of row, and then the
+sample week is planned for the visitor's day through the app's own writers.
+The Plan, Shopping and Menus are made on each copy from the running code's
+content. A start that can't get a transaction in time is refused as
+unavailable. Copies share the template's photo keys, so the refcount keeps a
+photo until no Recipe shows it. `DemoAiUsage` counts AI uses across all demo
+users and isn't tied to a user, so it outlives them. The entry route, expiry,
+the guard on what a demo user can change, and the AI caps come in later parts
+of #440.
+
 New household data must be authorized by household membership, included in
 export/import when durable, and handled in sole-member household moves.
 

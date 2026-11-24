@@ -10,6 +10,10 @@ import { seedInfrastructure } from './seed-infrastructure.ts'
 async function seed() {
 	// Before any write, roles included.
 	assertLocalDatabase()
+	// The demo template uploads its photos. The dev server runs with
+	// MOCKS=true, which keeps uploads in tests/fixtures/uploaded, so the seed
+	// puts them there too.
+	await import('#tests/mocks/index.ts')
 	console.time('Seeded the database')
 	await seedInfrastructure()
 
@@ -32,4 +36,6 @@ seed()
 	})
 	.finally(async () => {
 		await prisma.$disconnect()
+		// The mock server would keep the process open.
+		process.exit()
 	})

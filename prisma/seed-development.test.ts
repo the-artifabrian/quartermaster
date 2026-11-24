@@ -15,11 +15,18 @@
  * - Once the owner has also joined another Household, a second seed fills
  *   that one, because it picked the owner's oldest membership instead of
  *   the Household they own.
+ * - The seed leaves no demo template, so the demo is unavailable locally
+ *   until the server's first maintenance run, or a second seed builds
+ *   another one.
+ * - The sample owner's Household has no Menu.
  */
 import fs from 'node:fs/promises'
-import { expect, test, vi } from 'vitest'
+import os from 'node:os'
+import path from 'node:path'
+import { afterAll, afterEach, beforeAll, expect, test, vi } from 'vitest'
 import { verifyUserPassword } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { DEMO_TEMPLATE_EMAIL_DOMAIN } from '#app/utils/demo.server.ts'
 import { SAMPLE_HOUSEHOLD } from '#app/utils/sample-household-data.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
 import { seedInfrastructure } from './seed-infrastructure.ts'
@@ -29,13 +36,39 @@ import {
 	SECOND_USER,
 	seedDevelopment,
 } from './seed-development.ts'
+import { writeTinyDemoPhotos } from '#tests/demo-photos.ts'
 import '#tests/setup/db-setup.ts'
+import '#tests/setup/mocks-setup.ts'
 
 const TODAY = '2026-11-26'
+let demoPhotoDir: string
+
+beforeAll(async () => {
+	demoPhotoDir = await fs.mkdtemp(path.join(os.tmpdir(), 'seed-demo-photos-'))
+	await writeTinyDemoPhotos(demoPhotoDir)
+})
+
+afterEach(async () => {
+	// The template's photos, uploaded to the mock bucket.
+	const owners = await prisma.user.findMany({
+		where: { email: { endsWith: `@${DEMO_TEMPLATE_EMAIL_DOMAIN}` } },
+		select: { id: true },
+	})
+	for (const owner of owners) {
+		await fs.rm(
+			path.join(process.cwd(), 'tests/fixtures/uploaded/users', owner.id),
+			{ recursive: true, force: true },
+		)
+	}
+})
+
+afterAll(async () => {
+	await fs.rm(demoPhotoDir, { recursive: true, force: true })
+})
 
 async function seed() {
 	await seedInfrastructure()
-	await seedDevelopment(prisma, { today: TODAY })
+	await seedDevelopment(prisma, { today: TODAY, demoPhotoDir })
 }
 
 async function membership(username: string) {
@@ -93,16 +126,36 @@ test('the README’s logins work, and the owner is an admin on Pro', async () =>
 	})
 })
 
-test('seeding twice keeps one of each user, Household and Recipe', async () => {
+test('seeding twice keeps one of each user, Household and Recipe, and one demo template', async () => {
 	await seed()
+	const template = await prisma.demoTemplate.findUniqueOrThrow({
+		where: { id: 'current' },
+	})
 	await seed()
 
-	expect(await prisma.user.count()).toBe(2)
-	expect(await prisma.household.count()).toBe(2)
-	expect(await prisma.householdMember.count()).toBe(2)
+	expect(
+		await prisma.demoTemplate.findUniqueOrThrow({ where: { id: 'current' } }),
+	).toEqual(template)
+	// Sam, Robin and the template's owner.
+	expect(await prisma.user.count()).toBe(3)
+	expect(await prisma.household.count()).toBe(3)
+	expect(await prisma.householdMember.count()).toBe(3)
 	expect(await prisma.subscription.count()).toBe(2)
-	expect(await prisma.recipe.count()).toBe(SAMPLE_HOUSEHOLD.recipes.length)
+	const samples = SAMPLE_HOUSEHOLD.recipes.length
+	expect(await prisma.recipe.count()).toBe(samples * 2)
+	expect(
+		await prisma.recipe.count({ where: { householdId: template.householdId } }),
+	).toBe(samples)
 	expect(await prisma.meal.count()).toBe(SAMPLE_HOUSEHOLD.plan.length)
+	expect(
+		await prisma.menu.findMany({ select: { title: true, householdId: true } }),
+	).toEqual([
+		{
+			title: SAMPLE_HOUSEHOLD.menus[0]!.title,
+			householdId: (await membership(SAMPLE_OWNER.username))
+				.householdMembers[0]!.household.id,
+		},
+	])
 })
 
 test('it refuses to run in production or on Fly, and writes nothing', async () => {
@@ -152,5 +205,7 @@ test('a second seed fills the Household the owner owns, not one they joined', as
 		mealPlans: 0,
 		householdIngredients: 0,
 	})
-	expect(await prisma.recipe.count()).toBe(SAMPLE_HOUSEHOLD.recipes.length)
+	expect(await prisma.recipe.count({ where: { userId: sam.id } })).toBe(
+		SAMPLE_HOUSEHOLD.recipes.length,
+	)
 })

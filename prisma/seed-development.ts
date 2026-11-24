@@ -1,5 +1,6 @@
 import { type PrismaClient } from '#app/generated/prisma/client.ts'
 import { createOwnHousehold, getPasswordHash } from '#app/utils/auth.server.ts'
+import { ensureDemoTemplate } from '#app/utils/demo.server.ts'
 import { fillSampleHousehold } from '#app/utils/sample-household.server.ts'
 
 /**
@@ -39,13 +40,15 @@ export function assertLocalDatabase() {
 
 /**
  * Creates both users, each with their own Household and Pro, and fills the
- * owner's Household with sample data for the week of `today`. Safe to run
- * again: users are found by username, and fillSampleHousehold adds only what
- * is missing.
+ * owner's Household with sample data for the week of `today`. Then builds the
+ * demo template from the photos in `demoPhotoDir`, as the server does at
+ * startup. Safe to run again: users are found by username,
+ * fillSampleHousehold adds only what is missing, and the template is rebuilt
+ * only when the content or a photo changed.
  */
 export async function seedDevelopment(
 	db: PrismaClient,
-	{ today }: { today: string },
+	{ today, demoPhotoDir }: { today: string; demoPhotoDir?: string },
 ) {
 	assertLocalDatabase()
 	const owner = await ensureUser(db, SAMPLE_OWNER)
@@ -66,6 +69,7 @@ export async function seedDevelopment(
 		householdId: owner.householdId,
 		today,
 	})
+	await ensureDemoTemplate(db, { photoDir: demoPhotoDir })
 	return { owner, second }
 }
 

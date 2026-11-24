@@ -9,12 +9,24 @@ cd "$(dirname "$0")/.."
 
 export PORT="${PORT:-3117}"
 DB_DIR="$(mktemp -d)"
-trap 'rm -rf "$DB_DIR"' EXIT
+# The demo template's photos land in the mock bucket, which outlives the run.
+cleanup() {
+	if [[ -s "$DB_DIR/template-owner" ]]; then
+		rm -rf "tests/fixtures/uploaded/users/$(cat "$DB_DIR/template-owner")"
+	fi
+	rm -rf "$DB_DIR"
+}
+trap cleanup EXIT
 export DATABASE_PATH="$DB_DIR/e2e.db"
 export DATABASE_URL="file:$DATABASE_PATH"
+# Tiny generated photos for the demo template. The server reads the same
+# directory, so its startup build finds the template current.
+export DEMO_PHOTO_DIR="$DB_DIR/demo-photos"
+export DEMO_TEMPLATE_OWNER_FILE="$DB_DIR/template-owner"
 
 bun run build
 bunx prisma migrate deploy
 bun prisma/run-seed-infrastructure.ts
+bun tests/build-e2e-demo-template.ts
 bun prisma/journal-mode-wal.ts
 CI=true bunx playwright test "$@"

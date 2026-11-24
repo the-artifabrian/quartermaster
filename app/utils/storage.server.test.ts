@@ -8,14 +8,18 @@
 //   the key until it no longer fits
 // - an id that would break the shape must stop the write, so no page is
 //   left with an object it can't show
+// - an upload whose PUT never answers holds its caller forever; the hourly
+//   demo template build would then never run again, because maintenance
+//   skips a run while the last one is still going
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { delay, http } from 'msw'
 import sharp from 'sharp'
-import { afterEach, expect, test } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
 import { isRecipeImageKey } from './image-route.ts'
 import { checkRecipePhoto } from './recipe-photo.server.ts'
 import { copyRecipeImage, uploadRecipeImage } from './storage.server.ts'
-import '#tests/setup/mocks-setup.ts'
+import { server } from '#tests/setup/mocks-setup.ts'
 
 const UPLOADS_DIR = path.join(process.cwd(), 'tests/fixtures/uploaded')
 const USER = 'storage-test-user'
@@ -89,3 +93,19 @@ test('refuses to store under an id that would break the key shape', async () => 
 		})
 	}
 })
+
+test('gives up on an upload that storage never answers', async () => {
+	const photo = await checkedPhoto('photo.png', 'image/png')
+	server.use(http.put('*', () => delay('infinite')))
+	// The real limit is 30 seconds; a short one stands in for it.
+	const timeout = AbortSignal.timeout.bind(AbortSignal)
+	const spy = vi
+		.spyOn(AbortSignal, 'timeout')
+		.mockImplementation(() => timeout(50))
+	try {
+		await expect(uploadRecipeImage(USER, 'recipe-1', photo)).rejects.toThrow()
+		expect(spy).toHaveBeenCalledWith(30_000)
+	} finally {
+		spy.mockRestore()
+	}
+}, 5_000)

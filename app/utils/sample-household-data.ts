@@ -450,12 +450,12 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 				'150 ml milk',
 				'2 tbsp Greek yoghurt',
 				'1 tsp honey',
-				'50 g blueberries',
+				'50 g raspberries',
 			],
 			steps: [
 				'Stir the oats, milk and yoghurt together in a jar.',
 				'Cover and leave in the fridge overnight.',
-				'Top with the honey and blueberries in the morning.',
+				'Top with the honey and raspberries in the morning.',
 			],
 		},
 		{

@@ -233,9 +233,11 @@ JSON backup, Stripe checkout and the billing portal, and admin. A form goes
 back to its page with a toast that says it's turned off in the demo; a JSON
 caller gets a 403 with the same message. Every other route with an action is on
 an allowed list with its reason, and a test fails on a route that is on
-neither. Inside allowed routes, a demo user's Recipe photo is dropped unread
-with a toast, Recipes and Menus in a Household with a demo user are not found
-on the public share pages, an invite into one reads as invalid, and no email
+neither. Inside allowed routes, a demo user's Recipe photo is dropped without
+being checked or stored, with a toast; a Recipe they save from a share page
+points at the source's photo instead of storing a copy; Recipes and Menus in a
+Household with a demo user or the template's owner are not found on the public
+share pages; an invite into a demo Household reads as invalid; and no email
 goes to an `.invalid` address. The Upgrade page's return from checkout leaves a
 demo user's subscription alone. `aiUsageLimitsFor` gives the three AI call
 sites their caps: a demo user gets three uses of each feature, and each use

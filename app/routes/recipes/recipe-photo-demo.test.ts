@@ -10,7 +10,7 @@
  *    says photos are off in the demo, both when a hydrated form leaves by
  *    itself (`{ done }`) and when the action redirects.
  * 4. The photo is read and checked first, so a file that isn't a photo stops
- *    a demo user's save. The file must not be read at all.
+ *    a demo user's save. The file must not be checked at all.
  * 5. A demo user's save without a photo gets the toast anyway.
  * 6. A real user's photo stops being saved.
  */
@@ -221,7 +221,7 @@ test("a demo user's edit with a new photo keeps the old photo and stores nothing
 	expect(await exists(user.uploads)).toBe(false)
 })
 
-test("a demo user's file is never read, so one that isn't a photo doesn't stop the save", async () => {
+test("a demo user's file is never checked, so one that isn't a photo doesn't stop the save", async () => {
 	await using user = await cook({ demo: true })
 	const notAPhoto = new File(['plain text'], 'notes.jpg', {
 		type: 'image/jpeg',

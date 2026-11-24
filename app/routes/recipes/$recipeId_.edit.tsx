@@ -182,8 +182,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 	})
 
 	let imageFile: FileUpload | null = null
-	// Photos are off in the demo: a demo user's file is dropped unread, and
-	// the Recipe saves without it.
+	// Photos are off in the demo: a demo user's file is dropped without being
+	// checked or stored, and the Recipe saves without it.
 	const demo = await isDemoUserId(userId)
 	let photoDropped = false
 

@@ -145,7 +145,7 @@ export async function isDemoUserId(userId: string) {
 /**
  * The toast on a demo user's Recipe saved without the photo they picked.
  * Photos aren't stored for the demo: the Recipe forms drop a demo user's
- * file unread.
+ * file without checking or storing it.
  */
 export function demoPhotoDroppedHeaders() {
 	return createToastHeaders({

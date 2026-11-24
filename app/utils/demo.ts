@@ -5,6 +5,7 @@
  * server-only. The copy itself is in demo.server.ts.
  */
 import { type Prisma } from '#app/generated/prisma/client.ts'
+import { formatDuration } from './format-duration.ts'
 
 /** How long a demo visit lasts before expiry deletes the demo user. */
 export const DEMO_LIFETIME_MS = 2 * 60 * 60 * 1000
@@ -55,3 +56,43 @@ export const NOT_A_DEMO_HOUSEHOLD = {
 		},
 	},
 } satisfies Prisma.HouseholdWhereInput
+
+/**
+ * The time left in a demo now, by the server's clock. The root loader sends
+ * `msLeftAtLoad`, the time left when it ran, and the page notes its own
+ * clock when that reading arrives (`loadedAt`). Only the time passed on the
+ * page's clock since then counts, so a page whose clock is hours off still
+ * agrees with the server, and a tab that slept has lost the time it slept.
+ * A clock set back adds nothing.
+ */
+export function demoMsLeftNow({
+	msLeftAtLoad,
+	loadedAt,
+	now,
+}: {
+	msLeftAtLoad: number
+	loadedAt: number
+	now: number
+}) {
+	return msLeftAtLoad - Math.max(0, now - loadedAt)
+}
+
+/** Whole minutes left, rounded up, so a demo never reads "0 min" while it runs. */
+function minutesLeft(msLeft: number) {
+	return msLeft > 0 ? Math.ceil(msLeft / 60_000) : 0
+}
+
+/** "1 hr 40 min" for the banner, or null once the demo has ended. */
+export function demoTimeLeftLabel(msLeft: number) {
+	const minutes = minutesLeft(msLeft)
+	return minutes > 0 ? formatDuration(minutes) : null
+}
+
+/** The same time left as an ISO 8601 duration, for `<time dateTime>`. */
+export function demoTimeLeftIso(msLeft: number) {
+	const minutes = minutesLeft(msLeft)
+	if (minutes === 0) return null
+	const hours = Math.floor(minutes / 60)
+	const rest = minutes % 60
+	return `PT${hours ? `${hours}H` : ''}${rest ? `${rest}M` : ''}`
+}

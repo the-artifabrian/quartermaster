@@ -2,6 +2,7 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { upgradeNav } from '#app/utils/nav-back.ts'
 import { data, Form, Link, redirect } from 'react-router'
+import { DemoSignUpForm, useIsDemo } from '#app/components/demo.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getAppOrigin } from '#app/utils/app-origin.server.ts'
@@ -184,6 +185,7 @@ const proFeatures = [
 
 export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 	const { tierInfo, stripeConfigured, isLoggedIn, pricingVariant } = loaderData
+	const isDemo = useIsDemo()
 
 	return (
 		<div
@@ -228,12 +230,14 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 							Pro.
 						</p>
 					</>
-				) : tierInfo.isProActive ? (
+				) : tierInfo.isProActive && !isDemo ? (
 					<p className="text-primary mt-2 text-sm font-medium">
 						You&apos;re on the Pro plan
 					</p>
 				) : null}
 			</div>
+
+			{isDemo ? <DemoProNote /> : null}
 
 			<div className="grid gap-6 md:grid-cols-2">
 				<div className="bg-card rounded-lg border p-6">
@@ -313,6 +317,37 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					</Button>
 				</div>
 			)}
+		</div>
+	)
+}
+
+// A demo user is on Pro until the demo ends, and checkout is off for them
+// (the server refuses it too). This says why, in place of the checkout.
+function DemoProNote() {
+	return (
+		<div className="bg-card border-border mx-auto mb-8 max-w-2xl rounded-lg border p-6">
+			<h2 className="text-lg font-semibold">Pro in the demo</h2>
+			<p className="text-muted-foreground mt-2 text-sm">
+				The demo runs on Pro, so there&apos;s no checkout. Quartermaster is my
+				portfolio project, and Pro is here to show Stripe Checkout and its
+				webhooks working end to end.
+			</p>
+			<div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+				<DemoSignUpForm>
+					{(pending) => (
+						<Button
+							type="submit"
+							disabled={pending}
+							aria-busy={pending || undefined}
+						>
+							Sign up
+						</Button>
+					)}
+				</DemoSignUpForm>
+				<p className="text-muted-foreground text-sm">
+					A new account starts empty.
+				</p>
+			</div>
 		</div>
 	)
 }

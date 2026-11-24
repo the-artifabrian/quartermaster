@@ -169,7 +169,8 @@ export function SharedRecipeView({
 				{/* Content zone: Ingredients + Instructions */}
 				<div className="mt-4 grid gap-5 md:mt-8 lg:grid-cols-[6fr_7fr] lg:gap-6">
 					{/* Ingredients */}
-					<div className="min-w-0 lg:sticky lg:top-20 lg:self-start">
+					{/* Under the header: a demo's banner makes it taller (DemoBanner). */}
+					<div className="min-w-0 lg:sticky lg:top-[calc(5rem+var(--demo-banner-h,0px))] lg:self-start">
 						<div>
 							<RecipeIngredientsControls
 								scaleMultiplier={ratio}

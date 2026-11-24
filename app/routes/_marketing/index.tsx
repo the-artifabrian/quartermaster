@@ -1,6 +1,7 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { type MouseEvent, type ReactNode } from 'react'
 import { data, Link, redirect } from 'react-router'
+import { TryDemoButton } from '#app/components/demo.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
 import { formatDuration } from '#app/utils/format-duration.ts'
@@ -115,6 +116,11 @@ function Hero() {
 				</p>
 				<div className="mt-9 flex flex-wrap items-center gap-x-5 gap-y-4">
 					<PrimaryCta />
+					{/* Secondary: the header's Log in colours in the CTA's shape. */}
+					<TryDemoButton
+						redirectTo="/"
+						className="bg-espresso-raised text-cream ring-offset-espresso focus-visible:ring-cream-muted hover:bg-espresso-raised h-12 rounded-full px-7 text-base font-semibold hover:brightness-110 active:brightness-95"
+					/>
 					<a
 						href="#how-it-works"
 						onClick={glideToHowItWorks}

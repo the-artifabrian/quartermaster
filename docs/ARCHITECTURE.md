@@ -258,6 +258,10 @@ each through `deleteAccount`; one that fails is logged and reported, and the
 next run tries again. The admin user lists leave out demo users and template
 owners.
 
+A demo user gets a banner in the site header that counts down from the time
+left the root loader sends by the server's clock, and an Upgrade page that
+explains Pro in place of checkout.
+
 New household data must be authorized by household membership, included in
 export/import when durable, and handled in sole-member household moves.
 

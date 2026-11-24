@@ -11,6 +11,7 @@ import { data, Form, Link, useNavigate, useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { CheckboxField, ErrorList, Field } from '#app/components/forms.tsx'
+import { TryDemoButton } from '#app/components/demo.tsx'
 import { Spacer } from '#app/components/spacer.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
@@ -209,6 +210,17 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 								Create an account
 							</Link>
 						</div>
+						{/* A redirectTo is an invite or a page to come back to, and a
+						    demo can't join a Household or keep anything. */}
+						{redirectTo ? null : (
+							<div className="pt-4">
+								<TryDemoButton
+									redirectTo="/login"
+									variant="outline"
+									className="w-full"
+								/>
+							</div>
+						)}
 					</div>
 				</div>
 			</div>

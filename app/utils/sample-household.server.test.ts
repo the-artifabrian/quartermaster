@@ -198,6 +198,8 @@ test('a run on Monday and another on Thursday end where a Thursday run does', as
 	)
 })
 
+// Fills a Household more than once, so like the weekday test below it gets
+// more than the default five seconds on a busy CI runner.
 test('running it again finishes a run that stopped partway', async () => {
 	const clean = await newHousehold()
 	await fillSampleHousehold(prisma, { ...clean, today: THURSDAY })
@@ -236,7 +238,7 @@ test('running it again finishes a run that stopped partway', async () => {
 		await fillSampleHousehold(prisma, { ...interrupted, today: THURSDAY })
 		expect(await snapshot(interrupted.householdId)).toEqual(expected)
 	}
-})
+}, 30_000)
 
 /**
  * Shopping's amounts as the page shows them. A row Add to Shopping made
@@ -294,6 +296,8 @@ test('Update Shopping on every seeded Meal changes nothing', async () => {
 	expect(await shoppingAsShown(householdId)).toEqual(before)
 })
 
+// Fills a Household seven times, about a second here and several on a busy CI
+// runner, so it gets the same allowance as the demo copy tests.
 test('every Meal lands in the week of today, cooked only before today, and Shopping is the same whatever the weekday', async () => {
 	const monday = parseDate('2026-11-23')
 	const shoppingByDay: unknown[] = []
@@ -352,7 +356,7 @@ test('every Meal lands in the week of today, cooked only before today, and Shopp
 	for (const shopping of shoppingByDay) {
 		expect(shopping).toEqual(shoppingByDay[0])
 	}
-})
+}, 30_000)
 
 test('every Recipe line is read as amount, unit and name', async () => {
 	const { userId, householdId } = await newHousehold()

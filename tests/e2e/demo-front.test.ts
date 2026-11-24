@@ -90,8 +90,7 @@ function postedFields(request: Request) {
 }
 
 test.describe('starting a demo', () => {
-	// Switch these on once POST /demo is on master (#440, slice 2).
-	test.fixme('Try the demo on the homepage opens the app with the sample Recipes', async ({
+	test('Try the demo on the homepage opens the app with the sample Recipes', async ({
 		page,
 	}) => {
 		await page.goto('/')
@@ -117,7 +116,7 @@ test.describe('starting a demo', () => {
 		}
 	})
 
-	test.fixme('Try the demo on the login page opens the app with the sample Recipes', async ({
+	test('Try the demo on the login page opens the app with the sample Recipes', async ({
 		page,
 	}) => {
 		await page.goto('/login')
@@ -307,8 +306,7 @@ test('Sign up in the banner ends the demo on its way to signup', async ({
 	await expect(form.locator('input[name="redirectTo"]')).toHaveValue('/signup')
 })
 
-// Switch on once POST /demo is on master (#440, slice 2).
-test.fixme('Sign up in the banner deletes the demo user and opens signup', async ({
+test('Sign up in the banner deletes the demo user and opens signup', async ({
 	page,
 	signInDemoUser,
 }) => {
@@ -399,9 +397,8 @@ test('a real user sees no banner and no demo notes', async ({
 	await expect(page.getByText(/Pro is here to show/)).toHaveCount(0)
 })
 
-// Switch on once POST /demo is on master (#440, slice 2): there the demo's
-// session ends at `demoExpiresAt`.
-test.fixme('when time runs out and the session ends with it, the visitor is signed out', async ({
+// The demo's session ends at `demoExpiresAt` (app/routes/demo.tsx).
+test('when time runs out and the session ends with it, the visitor is signed out', async ({
 	page,
 	signInDemoUser,
 }) => {

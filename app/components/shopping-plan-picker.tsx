@@ -78,6 +78,11 @@ function lineAmount(line: { quantity: string | null; unit: string | null }) {
 	return [line.quantity, line.unit].filter(Boolean).join(' ')
 }
 
+/** The id of a Meal's own button, the one that folds its lines. */
+function mealButtonId(mealId: string) {
+	return `plan-picker-${mealId}-meal`
+}
+
 /** A `yyyy-MM-dd` day before the user's today, the same today Plan uses. */
 function isPastDay(date: string, today: string) {
 	return isPast(parseDate(date), today)
@@ -178,6 +183,14 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 
 	useEffect(() => () => choiceRequest.current?.abort(), [])
 
+	const focusMealAfterRender = useRef<string>(null)
+	useEffect(() => {
+		const mealId = focusMealAfterRender.current
+		if (!mealId) return
+		focusMealAfterRender.current = null
+		document.getElementById(mealButtonId(mealId))?.focus()
+	})
+
 	const days = choiceState.status === 'success' ? choiceState.choices.days : []
 	const today =
 		choiceState.status === 'success'
@@ -244,14 +257,13 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 	}
 
 	function toggleMeal(mealId: string, lines: PlanPickerLine[]) {
-		setPicks((current) => {
-			const next = new Map(current)
-			next.set(
-				mealId,
-				toggleMealPicks(lines, next.get(mealId) ?? new Set<string>()),
-			)
-			return next
-		})
+		const nextPicks = toggleMealPicks(lines, picks.get(mealId) ?? new Set())
+		// A done Meal has no box, so the one just pressed is about to go.
+		// Focus moves to the Meal's own button instead of the page.
+		if (mealPickState(lines, nextPicks) === 'done') {
+			focusMealAfterRender.current = mealId
+		}
+		setPicks((current) => new Map(current).set(mealId, nextPicks))
 	}
 
 	function toggleExpanded(mealId: string) {
@@ -452,9 +464,13 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 										)}
 										<button
 											type="button"
+											id={mealButtonId(meal.id)}
 											onClick={() => toggleExpanded(meal.id)}
 											aria-expanded={isExpanded}
 											aria-controls={panelId}
+											aria-describedby={
+												pickState === 'done' ? `${panelId}-done` : undefined
+											}
 											className="flex min-h-11 min-w-0 flex-1 items-center gap-2 py-1 text-left"
 										>
 											<span className="min-w-0 flex-1">
@@ -480,8 +496,9 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 										</button>
 										{pickState === 'done' && (
 											// The muted check says it to the eye; this says it
-											// to a screen reader, folded or not.
-											<span className="sr-only">
+											// to a screen reader, folded or not, and describes
+											// the Meal's button for someone tabbing to it.
+											<span id={`${panelId}-done`} className="sr-only">
 												Everything to buy is on the list
 											</span>
 										)}

@@ -504,6 +504,12 @@ test('From Plan shows what a Meal already put on Shopping as on the list, and th
 	page,
 	login,
 }) => {
+	// Failure list for the done Meal box:
+	// - The box disappears under keyboard focus when a toggle makes the Meal
+	//   done, and focus drops to the page.
+	// - Someone tabbing never hears that the Meal is done, because the text
+	//   saying so isn't tied to anything they can focus.
+	// - The Meal's button still says done once a line is ticked.
 	const user = await login()
 	await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
 	const recipe = await prisma.recipe.create({
@@ -604,15 +610,34 @@ test('From Plan shows what a Meal already put on Shopping as on the list, and th
 	await expect(addButton).toHaveText('Add to Next shop')
 	await expect(addButton).toBeDisabled()
 
+	// The Meal's own button carries the done state for someone tabbing
+	// through, who never reaches the hidden text on its own.
+	const disclosure = picker.locator('[aria-controls^="plan-picker-"]')
+	await expect(disclosure).toHaveAccessibleDescription(
+		'Everything to buy is on the list',
+	)
+
 	// Salt can still be ticked on its own. The Meal box comes back while it
 	// is, and the Meal is done again once it isn't.
 	await lineButton('salt').click()
 	await expect(lineButton('salt')).toHaveAttribute('aria-pressed', 'true')
 	await expect(mealBoxes).toHaveAttribute('aria-pressed', 'true')
+	await expect(disclosure).toHaveAccessibleDescription('')
 	await expect(addButton).toHaveText('Add 1 from 1 Meal')
 	await lineButton('salt').click()
 	await expect(mealBoxes).toHaveCount(0)
 	await expect(addButton).toBeDisabled()
+
+	// Emptying the Meal from its box by keyboard makes it done, and the box
+	// goes; focus lands on the Meal's own button rather than the page.
+	await lineButton('salt').click()
+	await mealBoxes.focus()
+	await page.keyboard.press('Enter')
+	await expect(mealBoxes).toHaveCount(0)
+	await expect(disclosure).toBeFocused()
+	await expect(disclosure).toHaveAccessibleDescription(
+		'Everything to buy is on the list',
+	)
 	expect(
 		await prisma.shoppingListItem.count({
 			where: { list: { householdId: user.householdId } },

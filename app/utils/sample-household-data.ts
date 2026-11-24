@@ -337,7 +337,7 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 			ingredients: [
 				'2 tbsp olive oil',
 				'1 onion, chopped',
-				'2 carrots, chopped',
+				'250 g carrots, chopped',
 				'2 garlic cloves, chopped',
 				'1 tsp ground cumin',
 				'250 g red lentils, rinsed',
@@ -448,8 +448,8 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 			ingredients: [
 				'80 g rolled oats',
 				'150 ml milk',
-				'2 tbsp Greek yoghurt',
-				'1 tsp honey',
+				'50 g Greek yoghurt',
+				'1 tbsp honey',
 				'50 g raspberries',
 			],
 			steps: [

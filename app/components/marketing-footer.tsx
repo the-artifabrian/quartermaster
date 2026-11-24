@@ -17,6 +17,12 @@ export function MarketingFooter() {
 					<Link to="/tos" className="hover:text-foreground">
 						Terms
 					</Link>
+					<a
+						href="https://github.com/the-artifabrian/quartermaster"
+						className="hover:text-foreground"
+					>
+						Source on GitHub
+					</a>
 				</nav>
 			</div>
 		</footer>

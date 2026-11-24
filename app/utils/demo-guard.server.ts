@@ -73,6 +73,14 @@ export const DEMO_ALLOWED_ROUTES = {
 	'*': 'Answers not found.',
 } as const satisfies Record<string, string>
 
+/**
+ * Layout routes with an action of their own whose pattern an index route
+ * shares, by route id. The lists key on pattern, so such a layout gets its
+ * index route's verdict; each one listed here says why that verdict fits it
+ * too. There are none today.
+ */
+export const DEMO_LAYOUT_ACTIONS: Record<string, string> = {}
+
 /** A pattern as these lists spell it: no leading slash, the index route as `/`. */
 export function demoGuardKey(pattern: string) {
 	return pattern.replace(/^\/+/, '') || '/'

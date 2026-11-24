@@ -45,6 +45,11 @@
  *    so the list reads as covering something it doesn't.
  * 17. A route sits on both lists.
  * 18. An entry has no reason.
+ * 19. A layout route with its own action shares its pattern with an index
+ *    route, so the index route's verdict covers the layout's action without
+ *    anyone looking at it. It must be listed by route id.
+ * 20. A route re-exports another module with `export * from`, which can
+ *    carry an action the check never sees. It counts as having one.
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -62,6 +67,7 @@ import {
 	DEMO_ALLOWED_ROUTES,
 	DEMO_BLOCKED_MESSAGE,
 	DEMO_BLOCKED_ROUTES,
+	DEMO_LAYOUT_ACTIONS,
 	demoGuardKey,
 	demoGuardMiddleware,
 } from './demo-guard.server.ts'
@@ -445,41 +451,89 @@ describe('checkout and the billing portal', () => {
 	})
 })
 
-type RouteFile = { pattern: string; file: string }
+type RouteFile = {
+	id: string
+	pattern: string
+	file: string
+	index: boolean
+	children: RouteFile[]
+}
 
-/** Every route's pattern, spelled as React Router matches it, and its file. */
+type Entry = {
+	id?: string
+	path?: string
+	index?: boolean
+	file: string
+	children?: Entry[]
+}
+
+/** A route's id, pattern (spelled as React Router matches it) and file. */
+function toRoute(entry: Entry, parents: string[]): RouteFile {
+	const parts = entry.path ? [...parents, entry.path] : parents
+	return {
+		id: entry.id ?? entry.file,
+		pattern: demoGuardKey(parts.join('/').replace(/\/\/+/g, '/')),
+		file: path.resolve('app', entry.file),
+		index: entry.index ?? false,
+		children: (entry.children ?? []).map((child) => toRoute(child, parts)),
+	}
+}
+
+/** Every route in the tree, parents before their children. */
+function flatten(entries: Entry[]): RouteFile[] {
+	const all = (route: RouteFile): RouteFile[] => [
+		route,
+		...route.children.flatMap(all),
+	]
+	return entries.map((entry) => toRoute(entry, [])).flatMap(all)
+}
+
 async function routeFiles(): Promise<RouteFile[]> {
 	;(
 		globalThis as { __reactRouterAppDirectory?: string }
 	).__reactRouterAppDirectory = path.resolve('app')
 	const { default: routes } = await import('#app/routes.ts')
-	const found: RouteFile[] = []
-	type Entry = { path?: string; file: string; children?: Entry[] }
-	const walk = (entries: Entry[], parents: string[]) => {
-		for (const entry of entries) {
-			const parts = entry.path ? [...parents, entry.path] : parents
-			found.push({
-				pattern: demoGuardKey(parts.join('/').replace(/\/\/+/g, '/')),
-				file: path.resolve('app', entry.file),
-			})
-			walk(entry.children ?? [], parts)
-		}
-	}
-	walk(routes as Entry[], [])
-	return found
+	return flatten(routes as Entry[])
 }
 
-const ACTION_EXPORT =
-	/export\s+(async\s+)?function\s+action\b|export\s+(const|let|var)\s+action\b|export\s*\{[^}]*\baction\b[^}]*\}/
+/** Whether a route module's source exports an action, or may, through `export *`. */
+function exportsAction(source: string) {
+	return (
+		/export\s+(async\s+)?function\s+action\b|export\s+(const|let|var)\s+action\b|export\s*\{[^}]*\baction\b[^}]*\}/.test(
+			source,
+		) || /export\s*\*\s*(as\s+action\s*)?from\b/.test(source)
+	)
+}
+
+const hasAction = (route: RouteFile) =>
+	exportsAction(readFileSync(route.file, 'utf8'))
+
+/**
+ * Layout routes with an action whose pattern one of their index routes
+ * shares, and that DEMO_LAYOUT_ACTIONS doesn't list.
+ */
+function unlistedLayoutActions(
+	routes: RouteFile[],
+	withAction: (route: RouteFile) => boolean,
+	listed: Record<string, string>,
+) {
+	return routes
+		.filter(
+			(route) =>
+				route.children.some(
+					(child) => child.index && child.pattern === route.pattern,
+				) && withAction(route),
+		)
+		.map((route) => route.id)
+		.filter((id) => !(id in listed))
+}
 
 /** Routes added by other parts of the demo work that may not be here yet. */
 const NOT_YET_HERE = new Set(['demo'])
 
 describe('every route with an action is classified for demo users', () => {
 	test('each route that exports an action is blocked or allowed', async () => {
-		const withAction = (await routeFiles()).filter((route) =>
-			ACTION_EXPORT.test(readFileSync(route.file, 'utf8')),
-		)
+		const withAction = (await routeFiles()).filter(hasAction)
 		expect(withAction.length).toBeGreaterThan(30)
 		const unclassified = withAction
 			.map((route) => route.pattern)
@@ -492,16 +546,67 @@ describe('every route with an action is classified for demo users', () => {
 	})
 
 	test('each listed route exists and has an action', async () => {
+		const routes = await routeFiles()
 		const withAction = new Set(
-			(await routeFiles())
-				.filter((route) => ACTION_EXPORT.test(readFileSync(route.file, 'utf8')))
-				.map((route) => route.pattern),
+			routes.filter(hasAction).map((route) => route.pattern),
 		)
 		const listed = [
 			...Object.keys(DEMO_BLOCKED_ROUTES),
 			...Object.keys(DEMO_ALLOWED_ROUTES),
 		].filter((pattern) => !NOT_YET_HERE.has(pattern))
 		expect(listed.filter((pattern) => !withAction.has(pattern))).toEqual([])
+		const layoutIds = new Set(routes.filter(hasAction).map((route) => route.id))
+		expect(
+			Object.keys(DEMO_LAYOUT_ACTIONS).filter((id) => !layoutIds.has(id)),
+		).toEqual([])
+	})
+
+	test("a layout with an action that shares its index route's pattern is listed by id", async () => {
+		const routes = await routeFiles()
+		expect(
+			routes.some((route) =>
+				route.children.some(
+					(child) => child.index && child.pattern === route.pattern,
+				),
+			),
+		).toBe(true)
+
+		expect(
+			unlistedLayoutActions(routes, hasAction, DEMO_LAYOUT_ACTIONS),
+		).toEqual([])
+	})
+
+	test('the layout check catches a layout action that is not listed', () => {
+		const routes = flatten([
+			{
+				id: 'layout',
+				path: 'settings',
+				file: 'routes/settings/_layout.tsx',
+				children: [
+					{ id: 'index', index: true, file: 'routes/settings/index.tsx' },
+				],
+			},
+		])
+		const layoutHasAction = (route: RouteFile) => route.id === 'layout'
+
+		expect(unlistedLayoutActions(routes, layoutHasAction, {})).toEqual([
+			'layout',
+		])
+		expect(
+			unlistedLayoutActions(routes, layoutHasAction, {
+				layout: "Its action does what the index route's does.",
+			}),
+		).toEqual([])
+	})
+
+	test('the action check counts every way a module can export one', () => {
+		expect(exportsAction('export async function action() {}')).toBe(true)
+		expect(exportsAction('export const action = make()')).toBe(true)
+		expect(exportsAction("export { action } from './x.ts'")).toBe(true)
+		expect(exportsAction("export * from './x.ts'")).toBe(true)
+		expect(exportsAction("export * as action from './x.ts'")).toBe(true)
+		expect(exportsAction("export * as helpers from './x.ts'")).toBe(false)
+		expect(exportsAction('export async function loader() {}')).toBe(false)
 	})
 
 	test('no route is on both lists, and every entry gives a reason', () => {
@@ -512,6 +617,7 @@ describe('every route with an action is classified for demo users', () => {
 		for (const [pattern, reason] of [
 			...Object.entries(DEMO_BLOCKED_ROUTES),
 			...Object.entries(DEMO_ALLOWED_ROUTES),
+			...Object.entries(DEMO_LAYOUT_ACTIONS),
 		]) {
 			expect({ pattern, reason: reason.trim().length > 0 }).toEqual({
 				pattern,

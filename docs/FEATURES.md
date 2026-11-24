@@ -159,7 +159,8 @@ plan into Shopping.
 - Suggest Recipe description and time improvements for explicit review.
 - Transcribe voice with Groq Whisper and parse short spoken inputs.
 - Each user gets 10 AI imports, 10 enhancements and 30 voice inputs a day. A
-  call that fails on the provider's side doesn't count.
+  demo user gets 3 of each, and all demo users share 60 a day. A call that fails
+  on the provider's side doesn't count.
 - Rate limits, schema validation, and manual fallback keep these features
   optional. The app works without API keys.
 
@@ -181,7 +182,18 @@ plan into Shopping.
 - Home Screen quick actions for Shopping and Import recipe, pull to refresh,
   haptics, reopening the last page on a cold start, and a native offline view
   with Retry.
-- Pro is hidden in the app, and sessions are always remembered.
+- Pro is hidden in the app, and sessions are always remembered, except a demo's.
+
+### Demo
+
+- "Try the demo", on the homepage and the login page, gives a visitor their own
+  copy of a sample Household on Pro: Recipes (some with photos), Staples, a
+  Menu, this week's Plan, and Shopping part-way through the week.
+- It lasts two hours, with a banner counting down. Log out, or Sign up in the
+  banner, ends it at once and deletes the visitor's copy.
+- Account and Household changes, backup restore, billing and new photos are
+  turned off, with a toast that says so. Demo Recipes and Menus can't be shared.
+- Up to 30 demos run at once, and one client can start 5 an hour.
 
 ## UI and infrastructure
 

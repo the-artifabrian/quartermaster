@@ -44,3 +44,23 @@ tool produces the web view. So we write the shell ourselves.
   embedded web views. Password and passkey login remain.
 - Android later can use a Trusted Web Activity, which Play accepts for PWAs
   without wrapper code.
+
+## Revisited
+
+The shell has grown from 1,245 to 2,314 lines of Swift in `ios/Quartermaster`,
+plus a 316-line check of the share code in `ios/checks`. About 880 of the new
+lines are share import: the Share Extension hands a link or screenshots to the
+app through an App Group, and the app imports them at once. The other 190 keep
+the launch screen up until the page has painted and set the screen's insets on
+the page before its first paint.
+
+The page now calls the shell for haptics, the status bar colour, pull to refresh
+and launch timing, which is the case the Capacitor option names. The approach
+still holds. Those calls are four one-way string messages in one 173-line file
+(`ShellBridge.swift`), with the iOS README as the contract. The reason above is
+unchanged: the app loads a server-rendered site, which Capacitor's supported
+mode does not do, and the extension work is the same whichever tool makes the
+web view.
+
+Look again if the page needs a native call that answers back, such as a picker
+or a permission prompt, or if the bridge grows well past a handful of messages.

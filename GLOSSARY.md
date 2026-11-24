@@ -72,6 +72,12 @@ available, running low, pantry item
 Staples, and Shopping. Everything a user saves belongs to their Household, not
 to them. _Avoid_: account, family, team
 
+**Pro**: The paid tier, a Stripe subscription held by one user. A new account
+gets 14 days of it as a trial. It adds AI import from pasted text or
+screenshots, AI enhancement of a Recipe, voice input on Shopping, and live
+updates from the rest of the Household. It is a reference implementation of a
+paid tier, and nobody is expected to buy it. _Avoid_: Premium, Plus, paid plan
+
 **Demo**: A visitor's own copy of a sample Household, on Pro, that they can use
 without signing up. It is deleted a couple of hours after it starts. _Avoid_:
 guest account, trial

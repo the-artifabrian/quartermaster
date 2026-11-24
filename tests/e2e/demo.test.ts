@@ -81,6 +81,12 @@ test('a demo opens on the sample Recipes and this week’s Plan, and ends signed
 	const visitor = await startDemo(page, demoUserIds)
 	const householdId = visitor.householdMembers[0]!.householdId
 	expect(visitor.demoExpiresAt).not.toBeNull()
+	// The session ends when the demo does.
+	const session = await prisma.session.findFirstOrThrow({
+		where: { userId: visitor.id },
+		select: { expirationDate: true },
+	})
+	expect(session.expirationDate).toEqual(visitor.demoExpiresAt)
 
 	await page.goto('/recipes')
 	const main = page.getByRole('main')
@@ -93,6 +99,9 @@ test('a demo opens on the sample Recipes and this week’s Plan, and ends signed
 		await expect(main.getByRole('heading', { name: title })).toBeVisible()
 	}
 
+	// Leave the app first, so no request from the open Plan (its live-update
+	// poll) reaches the server after the time moves.
+	await page.goto('about:blank')
 	// The demo's time runs out. Its session was made to end at the same
 	// moment, so both move back.
 	const past = new Date(Date.now() - 1000)
@@ -105,20 +114,12 @@ test('a demo opens on the sample Recipes and this week’s Plan, and ends signed
 		data: { expirationDate: past },
 	})
 
-	// The next request that reaches the server finds the session over and
-	// sends the browser home with its cookie cleared. When that is the open
-	// Plan's live-update poll, the cookie is already gone by this
-	// navigation, which then lands on Log in instead.
+	// The server finds the session over and sends the browser home with its
+	// cookie cleared.
 	await page.goto('/plan')
-	await expect(page).toHaveURL(
-		(url) => url.pathname === '/' || url.pathname === '/login',
-	)
-	// The homepage's header link, or the Log in page's own button.
+	await expect(page).toHaveURL('/')
 	await expect(
-		page
-			.getByRole('link', { name: 'Log in', exact: true })
-			.or(page.getByRole('button', { name: 'Log in', exact: true }))
-			.first(),
+		page.getByRole('link', { name: 'Log in', exact: true }).first(),
 	).toBeVisible()
 	expect(await signedInUserId(page)).toBeNull()
 

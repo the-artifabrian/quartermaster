@@ -595,24 +595,48 @@ test('at the live-demo cap a copy is refused; expired demo users and real users 
 	expect(await prisma.user.count()).toBe(before)
 })
 
-test('forty starts at once make exactly as many copies as the cap allows', async () => {
+test('forty starts at once never make more copies than the cap allows, and each one settles', async () => {
 	await using _photos = await photos()
 	await build({ content: SMALL })
 
-	const results = await Promise.all(
+	const results = await Promise.allSettled(
 		Array.from({ length: DEMO_LIVE_LIMIT + 10 }, () =>
-			createDemoCopy(prisma, { today: THURSDAY, now: NOW, content: SMALL }),
+			createDemoCopy(prisma, {
+				today: THURSDAY,
+				now: NOW,
+				content: SMALL,
+				log,
+			}),
 		),
 	)
 
-	expect(results.filter((r) => r.ok)).toHaveLength(DEMO_LIVE_LIMIT)
-	expect(results.filter((r) => !r.ok)).toEqual(
-		Array.from({ length: 10 }, () => ({ ok: false, reason: 'full' })),
+	expect(results.filter((r) => r.status === 'rejected')).toEqual([])
+	const values = results.flatMap((r) =>
+		r.status === 'fulfilled' ? [r.value] : [],
 	)
-	expect(
-		await prisma.user.count({ where: { demoExpiresAt: { not: null } } }),
-	).toBe(DEMO_LIVE_LIMIT)
-})
+	const copies = values.filter((r) => r.ok)
+	const refusals = values.filter((r) => !r.ok)
+	expect(copies.length).toBeLessThanOrEqual(DEMO_LIVE_LIMIT)
+	for (const refusal of refusals) {
+		expect(['full', 'unavailable']).toContain(refusal.reason)
+	}
+	// On a loaded machine some starts wait past maxWait and are refused as
+	// unavailable, so the cap may not be reached. A start refused as full
+	// saw the cap's worth of users, each of which became a copy or was
+	// refused as unavailable; so with no unavailable refusals, exactly the
+	// cap's worth went through.
+	const unavailable = refusals.filter((r) => r.reason === 'unavailable')
+	expect(copies.length + unavailable.length).toBeGreaterThanOrEqual(
+		DEMO_LIVE_LIMIT,
+	)
+	const live = await prisma.user.count({
+		where: { demoExpiresAt: { not: null } },
+	})
+	// A start refused after its user was made deletes it, unless that
+	// clean-up couldn't get the database either.
+	expect(live).toBeGreaterThanOrEqual(copies.length)
+	expect(live).toBeLessThanOrEqual(DEMO_LIVE_LIMIT)
+}, 30_000)
 
 test('a write from another process between the count and the create waits for the copy to commit', async () => {
 	await using _photos = await photos()

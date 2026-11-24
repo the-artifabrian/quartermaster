@@ -54,22 +54,23 @@ for arm’s-length reading.
 
 The light palette is aged paper, ink, cedar, sage, copper, and clay:
 
-| Token            | Value     | Use                                |
-| ---------------- | --------- | ---------------------------------- |
-| background       | `#F6F1EB` | cream canvas                       |
-| card             | `#FDFAF6` | overlays and limited tile surfaces |
-| foreground       | `#2D2926` | primary text                       |
-| muted foreground | `#6F6358` | secondary text                     |
-| border           | `#DED6CA` | hairlines                          |
-| primary          | `#48724E` | actions and links                  |
-| accent           | `#C4956A` | structural “now” markers           |
-| destructive      | `#B85C4A` | red button fills                   |
-| red text         | `#A85040` | errors, Delete labels, bad input   |
+| Token                             | Value     | Use                                |
+| --------------------------------- | --------- | ---------------------------------- |
+| background                        | `#F6F1EB` | cream canvas                       |
+| card                              | `#FDFAF6` | overlays and limited tile surfaces |
+| foreground                        | `#2D2926` | primary text                       |
+| muted foreground                  | `#6F6358` | secondary text                     |
+| border                            | `#DED6CA` | hairlines                          |
+| primary                           | `#48724E` | actions and links                  |
+| accent                            | `#C4956A` | structural “now” markers           |
+| destructive                       | `#B85C4A` | red button fills                   |
+| foreground-destructive (red text) | `#A85040` | errors, Delete labels, bad input   |
 
 Red text on the page (`text-foreground-destructive`, and `--input-invalid` for
 an invalid field's border) is a shade darker than the red button fill so small
-text clears 4.5:1 on cream. `text-destructive` is the fill color, so keep it off
-text.
+text clears 4.5:1 on cream and card. A boxed error sits on the faint
+`bg-destructive/5` tint, where it still clears 4.5:1; a stronger tint does not.
+`text-destructive` is the fill color, so keep it off text.
 
 Dark mode uses warm charcoal, smoke, parchment, light sage, and light copper.
 Red buttons there take dark text, as sage buttons do. The exact semantic tokens

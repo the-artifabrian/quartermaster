@@ -198,7 +198,7 @@ export function OTPField({
 				{flexible ? null : <InputOTPSeparator />}
 				<InputOTPGroup className={groupClass}>{slots(half)}</InputOTPGroup>
 			</InputOTP>
-			<div className="min-h-[32px] px-4 pt-1 pb-3">
+			<div className="min-h-[36px] px-4 pt-1 pb-3">
 				{errorId ? <ErrorList id={errorId} errors={errors} /> : null}
 			</div>
 		</div>

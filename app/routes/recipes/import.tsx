@@ -412,7 +412,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 							/>
 						</div>
 						{urlError && (
-							<div className="border-destructive bg-destructive/10 text-foreground-destructive rounded-lg border p-4 text-sm">
+							<div className="border-destructive bg-destructive/5 text-foreground-destructive rounded-lg border p-4 text-sm">
 								{urlError}
 							</div>
 						)}
@@ -441,7 +441,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 							/>
 						</div>
 						{textError && (
-							<div className="border-destructive bg-destructive/10 text-foreground-destructive rounded-lg border p-4 text-sm">
+							<div className="border-destructive bg-destructive/5 text-foreground-destructive rounded-lg border p-4 text-sm">
 								{textError}
 							</div>
 						)}
@@ -503,7 +503,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 							</p>
 						</div>
 						{imageError && (
-							<div className="border-destructive bg-destructive/10 text-foreground-destructive rounded-lg border p-4 text-sm">
+							<div className="border-destructive bg-destructive/5 text-foreground-destructive rounded-lg border p-4 text-sm">
 								{imageError}
 							</div>
 						)}

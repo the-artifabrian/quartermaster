@@ -346,7 +346,7 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 			{error ? (
 				<div
 					role="alert"
-					className="bg-destructive/15 text-foreground-destructive rounded-lg p-4"
+					className="bg-destructive/5 text-foreground-destructive rounded-lg p-4"
 				>
 					{error}
 				</div>

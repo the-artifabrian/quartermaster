@@ -5,8 +5,11 @@
  * the same variable, finds the template current and leaves it alone.
  *
  * Uploads go to the mock bucket (tests/fixtures/uploaded), which the server
- * reads in mocks mode.
+ * reads in mocks mode. With DEMO_TEMPLATE_OWNER_FILE set, the template
+ * owner's id is written there, so scripts/e2e.sh can remove those uploads
+ * when the run ends.
  */
+import fs from 'node:fs/promises'
 import '#tests/mocks/index.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { ensureDemoTemplate } from '#app/utils/demo.server.ts'
@@ -22,6 +25,8 @@ try {
 	await writeTinyDemoPhotos(photoDir)
 	const result = await ensureDemoTemplate(prisma, { photoDir })
 	console.log(`Demo template: ${result.status}`)
+	const ownerFile = process.env.DEMO_TEMPLATE_OWNER_FILE
+	if (ownerFile) await fs.writeFile(ownerFile, result.userId)
 } finally {
 	await prisma.$disconnect()
 }

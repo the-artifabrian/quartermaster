@@ -132,6 +132,13 @@ export function startScheduledMaintenance({
 		if (running) return
 		running = true
 		try {
+			// First, so the demo is back soon after a deploy changed the
+			// template. Otherwise a hash of the photo files and one query. A
+			// failure waits for the next hour.
+			await step('demo template', async () => {
+				const result = await buildDemoTemplate()
+				return `status=${result.status} missing_photos=${result.missingPhotos.length} abandoned=${result.abandoned}`
+			})
 			await step('maintenance', async () => {
 				const result = await prune()
 				return `sessions=${result.sessions} verifications=${result.verifications} email_codes=${result.emailCodes} usage_events=${result.usageEvents} demo_ai_uses=${result.demoAiUses} household_events=${result.householdEvents}`
@@ -139,13 +146,6 @@ export function startScheduledMaintenance({
 			await step('image cache', async () => {
 				const result = await pruneImages()
 				return `removed_files=${result.removedFiles} removed_bytes=${result.removedBytes} kept_bytes=${result.keptBytes} skipped=${result.skipped}`
-			})
-			// At startup this builds the template the first time, or after a
-			// deploy changed the content or photos; after that it is a hash of
-			// the photo files and one query. A failure waits for the next hour.
-			await step('demo template', async () => {
-				const result = await buildDemoTemplate()
-				return `status=${result.status} missing_photos=${result.missingPhotos.length} abandoned=${result.abandoned}`
 			})
 		} finally {
 			running = false

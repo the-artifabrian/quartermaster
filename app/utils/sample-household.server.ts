@@ -312,10 +312,10 @@ export async function planSampleWeek(
 		select: { name: true },
 	})
 	const onList = new Set(rows.map((row) => demandIdentity(row.name)))
-	for (const row of content.shopping.manual) {
-		if (onList.has(demandIdentity(row.name))) continue
-		await db.shoppingListItem.create({
-			data: {
+	await db.shoppingListItem.createMany({
+		data: content.shopping.manual
+			.filter((row) => !onList.has(demandIdentity(row.name)))
+			.map((row) => ({
 				name: row.name,
 				quantity: row.quantity ?? null,
 				unit: row.unit ?? null,
@@ -323,12 +323,12 @@ export async function planSampleWeek(
 				listId: list.id,
 				source: 'manual',
 				horizon: row.horizon,
-			},
-		})
-	}
+			})),
+	})
 
 	// Checks come last, once every amount they cover is on the row: new
-	// demand never joins a checked row.
+	// demand never joins a checked row. One statement checks them all, as
+	// one check request would.
 	const checkedTyped = new Set(
 		content.shopping.manual
 			.filter((row) => row.checked)
@@ -338,17 +338,15 @@ export async function planSampleWeek(
 		where: { listId: list.id, checked: false },
 		select: { id: true, name: true, source: true },
 	})
-	for (const row of unchecked) {
-		const check =
-			row.source === 'manual'
-				? checkedTyped.has(demandIdentity(row.name))
-				: bought.has(row.id)
-		if (!check) continue
-		await db.shoppingListItem.update({
-			where: { id: row.id },
-			data: { checked: true, lastCheckMutationId: createId() },
-		})
-	}
+	const toCheck = unchecked.filter((row) =>
+		row.source === 'manual'
+			? checkedTyped.has(demandIdentity(row.name))
+			: bought.has(row.id),
+	)
+	await db.shoppingListItem.updateMany({
+		where: { id: { in: toCheck.map((row) => row.id) } },
+		data: { checked: true, lastCheckMutationId: createId() },
+	})
 }
 
 /** Saves the Recipes the Household doesn't have yet, the way New Recipe does. */

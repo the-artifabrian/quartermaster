@@ -12,10 +12,18 @@
  * - A missing photo file fails the whole build, or the Recipe is skipped
  *   instead of saved without a photo. When the file turns up later, nothing
  *   picks it up.
+ * - A photo the check turns away for a passing reason (the photo queue was
+ *   busy) leaves its Recipe without a photo, and the stored version says the
+ *   template is current, so no later run tries again.
+ * - A change to what the template doesn't hold (the Plan, Shopping, the
+ *   Menus) rebuilds it anyway, or blocks copies until it is rebuilt.
  * - Two builds at once leave two templates, or the losing build's user and
- *   photos stay behind.
+ *   photos stay behind, or the losing build reports its own deleted user as
+ *   the template.
  * - A build that died partway leaves its user and photos behind for good, or
- *   the clean-up removes a build that is still running.
+ *   the clean-up removes a build that is still running, or removes the
+ *   current template once its owner is more than an hour old.
+ * - A clean-up that fails after a failed build hides the build's own error.
  * - The template's owner can sign in (a password, a passkey, a session), has
  *   a `demoExpiresAt` that expiry would act on, or has a username a visitor
  *   could register first.
@@ -29,6 +37,11 @@
  *   users count toward the cap.
  * - Parallel starts all pass the cap, because the count and the create are
  *   not one transaction, or another process writes between them.
+ * - Copies hold the database lock so long that other starts wait past
+ *   Prisma's limit to begin a transaction, and those starts throw instead of
+ *   being refused.
+ * - The template is rebuilt between the visitor's user being made and the
+ *   library copy, and the copy reads a template that is gone.
  * - The demo user isn't on Pro, has no expiry, isn't the owner of a Household
  *   of their own, or has a username or email a real signup could take.
  * - The copy misses Recipes, lines, steps, classification, Staples,
@@ -42,7 +55,12 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, beforeEach, expect, test, vi } from 'vitest'
+import { http, HttpResponse } from 'msw'
+import { expect, test, vi } from 'vitest'
+import { type PrismaClient } from '#app/generated/prisma/client.ts'
+import type * as AccountDeletion from './account-deletion.server.ts'
+import type * as RecipePhoto from './recipe-photo.server.ts'
+import type * as Storage from './storage.server.ts'
 import { verifyUserPassword } from './auth.server.ts'
 import { deleteAccount } from './account-deletion.server.ts'
 import { prisma } from './db.server.ts'
@@ -57,6 +75,7 @@ import {
 	SAMPLE_HOUSEHOLD,
 	type SampleHouseholdContent,
 } from './sample-household-data.ts'
+import { checkRecipePhoto } from './recipe-photo.server.ts'
 import { getUserTier } from './subscription.server.ts'
 import { UsernameSchema } from './user-validation.ts'
 import { writeTinyDemoPhotos, writeTinyPhoto } from '#tests/demo-photos.ts'
@@ -66,11 +85,39 @@ import {
 	writeAfterFirstRead,
 } from '#tests/sqlite-concurrency.ts'
 import '#tests/setup/db-setup.ts'
-import '#tests/setup/mocks-setup.ts'
+import { consoleError } from '#tests/setup/setup-test-env.ts'
+import { server } from '#tests/setup/mocks-setup.ts'
+
+// Whose folders the uploads went into, so each test can remove them, even
+// for template owners already deleted.
+const uploadedFor = vi.hoisted(() => new Set<string>())
+vi.mock('./storage.server.ts', async (importOriginal) => {
+	const real = await importOriginal<typeof Storage>()
+	return {
+		...real,
+		uploadRecipeImage: vi.fn(
+			(...args: Parameters<typeof real.uploadRecipeImage>) => {
+				uploadedFor.add(args[0])
+				return real.uploadRecipeImage(...args)
+			},
+		),
+	}
+})
+vi.mock('./recipe-photo.server.ts', async (importOriginal) => {
+	const real = await importOriginal<typeof RecipePhoto>()
+	return { ...real, checkRecipePhoto: vi.fn(real.checkRecipePhoto) }
+})
+vi.mock('./account-deletion.server.ts', async (importOriginal) => {
+	const real = await importOriginal<typeof AccountDeletion>()
+	return { ...real, deleteAccount: vi.fn(real.deleteAccount) }
+})
 
 const UPLOADS_DIR = path.join(process.cwd(), 'tests/fixtures/uploaded')
 const NOW = new Date('2026-11-26T12:00:00Z')
 const THURSDAY = '2026-11-26'
+
+/** The sample Recipes that name a photo. */
+const PICTURED = SAMPLE_HOUSEHOLD.recipes.filter((recipe) => recipe.photo)
 
 /** Two Recipes and one Meal, for the tests that make many copies. */
 const SMALL: SampleHouseholdContent = {
@@ -84,26 +131,30 @@ const SMALL: SampleHouseholdContent = {
 }
 
 let photoDir: string
-const log = { warn: vi.fn() }
+const log = { warn: vi.fn(), error: vi.fn() }
 
-beforeEach(async () => {
+/**
+ * Tiny photos in a folder of their own. Disposing removes the folder and
+ * every upload the test made, even those of template owners since deleted.
+ */
+async function photos() {
 	photoDir = await fs.mkdtemp(path.join(os.tmpdir(), 'demo-photos-'))
 	await writeTinyDemoPhotos(photoDir)
 	log.warn.mockReset()
-})
-
-afterEach(async () => {
-	await fs.rm(photoDir, { recursive: true, force: true })
-	const users = await prisma.user.findMany({ select: { id: true } })
-	await Promise.all(
-		users.map((user) =>
-			fs.rm(path.join(UPLOADS_DIR, 'users', user.id), {
-				recursive: true,
-				force: true,
-			}),
-		),
-	)
-})
+	log.error.mockReset()
+	return {
+		async [Symbol.asyncDispose]() {
+			await fs.rm(photoDir, { recursive: true, force: true })
+			for (const userId of uploadedFor) {
+				await fs.rm(path.join(UPLOADS_DIR, 'users', userId), {
+					recursive: true,
+					force: true,
+				})
+			}
+			uploadedFor.clear()
+		},
+	}
+}
 
 /** The stored photo files under one user's upload folder. */
 async function filesUnder(userId: string) {
@@ -207,6 +258,7 @@ function liveDemoUser(expiresAt: Date) {
 // Template
 
 test('the template holds the sample Recipes with their photos and the Staples, and nothing dated', async () => {
+	await using _photos = await photos()
 	const result = await build()
 	expect(result.status).toBe('built')
 	const { userId, householdId } = await template()
@@ -215,16 +267,25 @@ test('the template holds the sample Recipes with their photos and the Staples, a
 	expect(recipes.map((recipe) => recipe.title).sort()).toEqual(
 		SAMPLE_HOUSEHOLD.recipes.map((recipe) => recipe.title).sort(),
 	)
-	for (const recipe of recipes) {
-		const sample = SAMPLE_HOUSEHOLD.recipes.find(
-			(r) => r.title === recipe.title,
-		)!
-		expect(recipe.image?.altText).toBe(sample.photoAlt)
-		expect(recipe.image!.objectKey).toMatch(
-			new RegExp(`^users/${userId}/recipes/`),
-		)
-		expect(await stored(recipe.image!.objectKey)).toBe(true)
+	// Only the Recipes that name a photo have one, with its alt text.
+	expect(
+		recipes
+			.map((recipe) => [recipe.title, recipe.image?.altText ?? null])
+			.sort(),
+	).toEqual(
+		SAMPLE_HOUSEHOLD.recipes
+			.map((recipe) => [recipe.title, recipe.photoAlt ?? null])
+			.sort(),
+	)
+	const images = recipes.flatMap((recipe) =>
+		recipe.image ? [recipe.image] : [],
+	)
+	expect(images).toHaveLength(PICTURED.length)
+	for (const image of images) {
+		expect(image.objectKey).toMatch(new RegExp(`^users/${userId}/recipes/`))
+		expect(await stored(image.objectKey)).toBe(true)
 	}
+	expect(log.warn).not.toHaveBeenCalled()
 	expect(staples.map((staple) => staple.displayName).sort()).toEqual(
 		[...SAMPLE_HOUSEHOLD.staples].sort(),
 	)
@@ -239,6 +300,7 @@ test('the template holds the sample Recipes with their photos and the Staples, a
 })
 
 test('a second build with the same content and photos changes nothing', async () => {
+	await using _photos = await photos()
 	await build()
 	const first = await template()
 	const before = await rowCounts()
@@ -251,6 +313,7 @@ test('a second build with the same content and photos changes nothing', async ()
 })
 
 test('the template’s owner can’t sign in and is never a demo user', async () => {
+	await using _photos = await photos()
 	await build()
 	const { userId } = await template()
 	const owner = await prisma.user.findUniqueOrThrow({
@@ -276,6 +339,7 @@ test('the template’s owner can’t sign in and is never a demo user', async ()
 })
 
 test('a changed photo builds a new template; a live copy keeps its photos and an unused one goes', async () => {
+	await using _photos = await photos()
 	await build()
 	const old = await template()
 	const copy = await startCopy()
@@ -289,10 +353,7 @@ test('a changed photo builds a new template; a live copy keeps its photos and an
 	await prisma.recipeImage.delete({ where: { id: dropped.id } })
 	const kept = copyImages.slice(1)
 
-	await writeTinyPhoto(
-		path.join(photoDir, SAMPLE_HOUSEHOLD.recipes[0]!.photo!),
-		999,
-	)
+	await writeTinyPhoto(path.join(photoDir, PICTURED[0]!.photo!), 999)
 	const result = await build()
 
 	expect(result.status).toBe('built')
@@ -314,6 +375,7 @@ test('a changed photo builds a new template; a live copy keeps its photos and an
 })
 
 test('changed content builds a new template that has the change', async () => {
+	await using _photos = await photos()
 	await build()
 	const old = await template()
 	const [first, ...rest] = SAMPLE_HOUSEHOLD.recipes
@@ -335,7 +397,8 @@ test('changed content builds a new template that has the change', async () => {
 })
 
 test('a missing photo leaves its Recipe without one, and a later build picks the file up', async () => {
-	const missing = SAMPLE_HOUSEHOLD.recipes[1]!
+	await using _photos = await photos()
+	const missing = PICTURED[1]!
 	await fs.rm(path.join(photoDir, missing.photo!))
 
 	const result = await build()
@@ -349,9 +412,9 @@ test('a missing photo leaves its Recipe without one, and a later build picks the
 		select: { title: true, image: { select: { id: true } } },
 	})
 	expect(recipes).toHaveLength(SAMPLE_HOUSEHOLD.recipes.length)
-	expect(recipes.filter((recipe) => !recipe.image)).toEqual([
-		{ title: missing.title, image: null },
-	])
+	const pictured = recipes.filter((recipe) => recipe.image)
+	expect(pictured).toHaveLength(PICTURED.length - 1)
+	expect(pictured.map((recipe) => recipe.title)).not.toContain(missing.title)
 
 	await writeTinyPhoto(path.join(photoDir, missing.photo!), 7)
 	expect((await build()).status).toBe('built')
@@ -360,13 +423,14 @@ test('a missing photo leaves its Recipe without one, and a later build picks the
 		await prisma.recipeImage.count({
 			where: { recipe: { householdId: now.householdId } },
 		}),
-	).toBe(SAMPLE_HOUSEHOLD.recipes.length)
+	).toBe(PICTURED.length)
 })
 
 test('two builds at once leave one template, and the other build cleans up after itself', async () => {
+	await using _photos = await photos()
 	const results = await Promise.all([build(), build()])
 
-	expect(results.map((r) => r.status).sort()).toEqual(['built', 'built'])
+	expect(results.map((r) => r.status).sort()).toEqual(['built', 'current'])
 	const owners = await prisma.user.findMany({
 		where: { email: { endsWith: `@${DEMO_TEMPLATE_EMAIL_DOMAIN}` } },
 		select: { id: true },
@@ -374,12 +438,16 @@ test('two builds at once leave one template, and the other build cleans up after
 	const { userId } = await template()
 	expect(owners).toEqual([{ id: userId }])
 	expect(await prisma.household.count()).toBe(1)
-	const loser = results.find((r) => r.userId !== userId)!
-	expect(await filesUnder(loser.userId)).toEqual([])
-	expect(await filesUnder(userId)).toHaveLength(SAMPLE_HOUSEHOLD.recipes.length)
+	// Both report the template that stayed.
+	expect(results.map((r) => r.userId)).toEqual([userId, userId])
+	const losers = [...uploadedFor].filter((id) => id !== userId)
+	expect(losers).toHaveLength(1)
+	expect(await filesUnder(losers[0]!)).toEqual([])
+	expect(await filesUnder(userId)).toHaveLength(PICTURED.length)
 })
 
 test('a build that died partway is cleaned up by the next one, and one still running is left', async () => {
+	await using _photos = await photos()
 	const stale = await prisma.user.create({
 		data: {
 			username: 'demo-template-stale',
@@ -404,9 +472,87 @@ test('a build that died partway is cleaned up by the next one, and one still run
 	).not.toBeNull()
 })
 
+test('a photo turned away because the photo queue was busy fails the build, and the next build has it', async () => {
+	await using _photos = await photos()
+	vi.mocked(checkRecipePhoto).mockResolvedValueOnce({
+		ok: false,
+		reason: 'busy',
+	})
+
+	await expect(build()).rejects.toThrow(/busy/)
+
+	expect(await prisma.demoTemplate.count()).toBe(0)
+	expect(
+		await prisma.user.count({
+			where: { email: { endsWith: `@${DEMO_TEMPLATE_EMAIL_DOMAIN}` } },
+		}),
+	).toBe(0)
+	expect((await build()).status).toBe('built')
+	const { householdId } = await template()
+	expect(
+		await prisma.recipeImage.count({ where: { recipe: { householdId } } }),
+	).toBe(PICTURED.length)
+})
+
+test('a change to the Plan, Shopping or Menus keeps the template and still allows copies', async () => {
+	await using _photos = await photos()
+	await build()
+	const first = await template()
+	const content: SampleHouseholdContent = {
+		...SAMPLE_HOUSEHOLD,
+		plan: SAMPLE_HOUSEHOLD.plan.slice(1),
+		menus: [],
+		shopping: { ...SAMPLE_HOUSEHOLD.shopping, manual: [] },
+	}
+
+	expect((await build({ content })).status).toBe('current')
+	expect(await template()).toEqual(first)
+	const copy = await createDemoCopy(prisma, {
+		today: THURSDAY,
+		now: NOW,
+		content,
+	})
+	expect(copy.ok).toBe(true)
+})
+
+test('the current template is never swept as abandoned, however old its owner', async () => {
+	await using _photos = await photos()
+	await build()
+	const first = await template()
+	await prisma.user.update({
+		where: { id: first.userId },
+		data: { createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000) },
+	})
+
+	const again = await build()
+
+	expect(again).toMatchObject({ status: 'current', abandoned: 0 })
+	expect(await template()).toEqual(first)
+	expect(
+		await prisma.user.findUnique({ where: { id: first.userId } }),
+	).not.toBeNull()
+})
+
+test('a clean-up that fails after a failed build is logged, and the build’s own error is the one thrown', async () => {
+	await using _photos = await photos()
+	server.use(
+		http.put('*', () => new HttpResponse('storage down', { status: 500 })),
+	)
+	vi.mocked(deleteAccount).mockRejectedValueOnce(new Error('clean-up broke'))
+	// Storage logs the failed upload itself.
+	consoleError.mockImplementation(() => {})
+
+	await expect(build()).rejects.toThrow(/Failed to upload/)
+
+	expect(log.error).toHaveBeenCalledWith(
+		expect.stringContaining('clean-up broke'),
+	)
+})
+
 // Copy
 
 test('with no template yet the copy is unavailable and makes no user', async () => {
+	await using _photos = await photos()
 	const before = await prisma.user.count()
 	await expect(
 		createDemoCopy(prisma, { today: THURSDAY, now: NOW }),
@@ -415,6 +561,7 @@ test('with no template yet the copy is unavailable and makes no user', async () 
 })
 
 test('a template built from other content than the running code’s is unavailable', async () => {
+	await using _photos = await photos()
 	await build({ content: SMALL })
 	const before = await prisma.user.count()
 
@@ -425,6 +572,7 @@ test('a template built from other content than the running code’s is unavailab
 })
 
 test('at the live-demo cap a copy is refused; expired demo users and real users don’t count', async () => {
+	await using _photos = await photos()
 	await build({ content: SMALL })
 	const later = new Date(NOW.getTime() + 60_000)
 	for (let i = 0; i < DEMO_LIVE_LIMIT - 1; i++) await liveDemoUser(later)
@@ -445,6 +593,7 @@ test('at the live-demo cap a copy is refused; expired demo users and real users 
 })
 
 test('forty starts at once make exactly as many copies as the cap allows', async () => {
+	await using _photos = await photos()
 	await build({ content: SMALL })
 
 	const results = await Promise.all(
@@ -463,22 +612,10 @@ test('forty starts at once make exactly as many copies as the cap allows', async
 })
 
 test('a write from another process between the count and the create waits for the copy to commit', async () => {
+	await using _photos = await photos()
 	await using database = await createWalDatabase()
 	const { db: wal, url } = database
-	const built = await ensureDemoTemplate(wal, {
-		photoDir,
-		log,
-		content: SMALL,
-	})
-	// Its photos aren't under a user of the shared test database.
-	await using _uploads = {
-		async [Symbol.asyncDispose]() {
-			await fs.rm(path.join(UPLOADS_DIR, 'users', built.userId), {
-				recursive: true,
-				force: true,
-			})
-		},
-	}
+	await ensureDemoTemplate(wal, { photoDir, log, content: SMALL })
 	const later = new Date(NOW.getTime() + 60_000)
 	for (let i = 0; i < DEMO_LIVE_LIMIT - 1; i++) {
 		await wal.user.create({
@@ -521,6 +658,7 @@ test('a write from another process between the count and the create waits for th
 })
 
 test('the demo user is a Pro guest who owns their own Household and expires in two hours', async () => {
+	await using _photos = await photos()
 	await build()
 	const copy = await startCopy()
 
@@ -556,6 +694,7 @@ test('the demo user is a Pro guest who owns their own Household and expires in t
 })
 
 test('the copy has the template’s library, owned by the visitor, sharing its photo keys', async () => {
+	await using _photos = await photos()
 	await build()
 	const { householdId: templateHouseholdId } = await template()
 	const copy = await startCopy()
@@ -573,6 +712,7 @@ test('the copy has the template’s library, owned by the visitor, sharing its p
 })
 
 test('the copy’s Menu points at the copy’s own Recipes', async () => {
+	await using _photos = await photos()
 	await build()
 	const copy = await startCopy()
 
@@ -609,6 +749,7 @@ test('the copy’s Menu points at the copy’s own Recipes', async () => {
 })
 
 test('a sub-Recipe link in the copy points at the copy of its Recipe', async () => {
+	await using _photos = await photos()
 	await build()
 	const { householdId } = await template()
 	const [parent, child] = await prisma.recipe.findMany({
@@ -638,10 +779,12 @@ test('a sub-Recipe link in the copy points at the copy of its Recipe', async () 
 
 test.each([
 	['a Monday', '2026-11-23', 0],
-	['a Sunday', '2026-11-29', 7],
+	// Leftovers on Saturday and every weekday Meal; Sunday's two are today.
+	['a Sunday', '2026-11-29', 6],
 ])(
 	'on %s the copy plans the visitor’s week, cooked before today',
 	async (_, today, cookedMeals) => {
+		await using _photos = await photos()
 		await build()
 		const copy = await startCopy(today)
 
@@ -674,6 +817,7 @@ test.each([
 )
 
 test('a template built in another week gives a copy in the visitor’s week', async () => {
+	await using _photos = await photos()
 	vi.useFakeTimers({ now: new Date('2026-10-01T09:00:00Z'), toFake: ['Date'] })
 	try {
 		await build()
@@ -692,6 +836,7 @@ test('a template built in another week gives a copy in the visitor’s week', as
 })
 
 test('expiring a copy leaves the template’s rows and photos as they were', async () => {
+	await using _photos = await photos()
 	await build()
 	const { householdId } = await template()
 	const before = await library(householdId)
@@ -703,7 +848,108 @@ test('expiring a copy leaves the template’s rows and photos as they were', asy
 		await prisma.user.findUnique({ where: { id: copy.userId } }),
 	).toBeNull()
 	expect(await library(householdId)).toEqual(before)
-	for (const recipe of before.recipes) {
-		expect(await stored(recipe.image!.objectKey)).toBe(true)
+	const images = before.recipes.flatMap((recipe) =>
+		recipe.image ? [recipe.image] : [],
+	)
+	expect(images).toHaveLength(PICTURED.length)
+	for (const image of images) {
+		expect(await stored(image.objectKey)).toBe(true)
 	}
+})
+
+/**
+ * `db` with every start's first interactive transaction (the cap check)
+ * held open `ms` longer, as on a slow machine. Each start gets its own.
+ */
+function slowFirstTransaction(db: PrismaClient, ms: number): PrismaClient {
+	let slowed = false
+	return new Proxy(db, {
+		get(target, key) {
+			const value = Reflect.get(target, key) as unknown
+			if (key === '$transaction') {
+				return (work: unknown, ...rest: unknown[]) => {
+					if (typeof work !== 'function' || slowed) {
+						return Reflect.apply(target.$transaction, target, [work, ...rest])
+					}
+					slowed = true
+					return Reflect.apply(target.$transaction, target, [
+						async (tx: unknown) => {
+							await new Promise((resolve) => setTimeout(resolve, ms))
+							return (work as (tx: unknown) => Promise<unknown>)(tx)
+						},
+						...rest,
+					])
+				}
+			}
+			return typeof value === 'function' ? value.bind(target) : value
+		},
+	})
+}
+
+test('starts that wait too long for the database are refused, not thrown', async () => {
+	await using _photos = await photos()
+	await build({ content: SMALL })
+
+	const results = await Promise.allSettled(
+		Array.from({ length: DEMO_LIVE_LIMIT + 10 }, () =>
+			createDemoCopy(slowFirstTransaction(prisma, 400), {
+				today: THURSDAY,
+				now: NOW,
+				content: SMALL,
+			}),
+		),
+	)
+
+	expect(results.filter((r) => r.status === 'rejected')).toEqual([])
+	const values = results.flatMap((r) =>
+		r.status === 'fulfilled' ? [r.value] : [],
+	)
+	expect(values.filter((r) => r.ok).length).toBeGreaterThan(0)
+	expect(values).toContainEqual({ ok: false, reason: 'unavailable' })
+	expect(
+		await prisma.user.count({ where: { demoExpiresAt: { not: null } } }),
+	).toBe(values.filter((r) => r.ok).length)
+}, 30_000)
+
+test('a template rebuilt between making the visitor and copying the library gives unavailable, and expiry can sweep the visitor', async () => {
+	await using _photos = await photos()
+	await build()
+	let transactions = 0
+	// The pointer goes, as a rebuild's switch and clean-up would take it,
+	// just before the copy's second transaction.
+	const db = new Proxy(prisma, {
+		get(target, key) {
+			const value = Reflect.get(target, key) as unknown
+			if (key === '$transaction') {
+				return async (work: unknown, ...rest: unknown[]) => {
+					if (typeof work === 'function' && ++transactions === 2) {
+						await target.demoTemplate.deleteMany()
+					}
+					return Reflect.apply(target.$transaction, target, [work, ...rest])
+				}
+			}
+			return typeof value === 'function' ? value.bind(target) : value
+		},
+	})
+
+	await expect(
+		createDemoCopy(db, { today: THURSDAY, now: NOW }),
+	).resolves.toEqual({ ok: false, reason: 'unavailable' })
+
+	const visitor = await prisma.user.findFirstOrThrow({
+		where: { demoExpiresAt: { not: null } },
+		select: {
+			demoExpiresAt: true,
+			householdMembers: {
+				select: { household: { select: { _count: true } } },
+			},
+		},
+	})
+	expect(visitor.demoExpiresAt).toEqual(
+		new Date(NOW.getTime() + DEMO_LIFETIME_MS),
+	)
+	expect(visitor.householdMembers[0]!.household._count).toMatchObject({
+		recipes: 0,
+		mealPlans: 0,
+	})
 })

@@ -20,13 +20,19 @@ import { type Prisma, type PrismaClient } from '#app/generated/prisma/client.ts'
  * The lock statement matches no row: SQLite's write lock covers the whole
  * database, and an UPDATE takes it even when nothing matches. So it needs no
  * id, works when a row is gone, and changes no page.
+ *
+ * `options` go to Prisma: `maxWait` is how long to wait for the transaction
+ * to begin, `timeout` how long it may run. The libSQL adapter runs one
+ * transaction at a time per process, so a caller that must not queue for
+ * long sets them itself.
  */
 export function writeTransaction<T>(
 	db: Pick<PrismaClient, '$transaction'>,
 	work: (tx: Prisma.TransactionClient) => Promise<T>,
+	options?: { maxWait?: number; timeout?: number },
 ): Promise<T> {
 	return db.$transaction(async (tx) => {
 		await tx.$executeRaw`UPDATE "Household" SET "name" = "name" WHERE 0`
 		return work(tx)
-	})
+	}, options)
 }

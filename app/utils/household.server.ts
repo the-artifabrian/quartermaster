@@ -525,6 +525,10 @@ export async function revokeInvite(
  * photo. A member leaving or joining takes copies of their own Recipes this
  * way (the same user on both sides), and a demo copy takes the template
  * owner's Recipes for the visitor.
+ *
+ * Every kind of row goes in with one statement, so the copy costs about the
+ * same for one Recipe as for twenty: the transaction it runs in holds the
+ * process's only database connection while it lasts.
  */
 export async function deepCopyRecipes(
 	tx: Prisma.TransactionClient,
@@ -545,84 +549,94 @@ export async function deepCopyRecipes(
 			metadataAssignments: { include: { value: true } },
 		},
 	})
-	// Copies get their ids up front so each sub-Recipe link can point at the
-	// copy of its target once every copy exists.
+	if (recipes.length === 0) return
+	// Copies get their ids up front, so lines can point at the copy of their
+	// sub-Recipe as they are written.
 	const recipeIds = new Map(recipes.map((recipe) => [recipe.id, createId()]))
-	const ingredientIds = new Map(
-		recipes.flatMap((recipe) =>
-			recipe.ingredients.map((ing) => [ing.id, createId()] as const),
-		),
+
+	// Each classification value once, then each Recipe's assignments by key.
+	const valueKey = (value: { dimension: string; nameKey: string }) =>
+		`${value.dimension}\u0000${value.nameKey}`
+	const values = [
+		...new Map(
+			recipes
+				.flatMap((recipe) => recipe.metadataAssignments)
+				.map((assignment) => [valueKey(assignment.value), assignment.value]),
+		).values(),
+	]
+	const valueIds = await ensureRecipeMetadataValues(tx, to.householdId, values)
+	const valueIdByKey = new Map(
+		values.map((value, index) => [valueKey(value), valueIds[index]!]),
 	)
 
-	for (const recipe of recipes) {
-		const metadataValueIds = await ensureRecipeMetadataValues(
-			tx,
-			to.householdId,
-			recipe.metadataAssignments.map((assignment) => assignment.value),
-		)
-		await tx.recipe.create({
-			data: {
-				id: recipeIds.get(recipe.id)!,
-				title: recipe.title,
-				description: recipe.description,
-				activeTime: recipe.activeTime,
-				totalTime: recipe.totalTime,
-				yieldAmount: recipe.yieldAmount,
-				yieldLabel: recipe.yieldLabel,
-				isFavorite: recipe.isFavorite,
-				sourceUrl: recipe.sourceUrl,
-				rawText: recipe.rawText,
-				notes: recipe.notes,
-				userId: to.userId,
-				householdId: to.householdId,
-				metadataAssignments: {
-					create: metadataValueIds.map((valueId) => ({ valueId })),
-				},
-				ingredients: {
-					create: recipe.ingredients.map((ing) => ({
-						id: ingredientIds.get(ing.id)!,
-						name: ing.name,
-						amount: ing.amount,
-						unit: ing.unit,
-						notes: ing.notes,
-						isHeading: ing.isHeading,
-						order: ing.order,
-					})),
-				},
-				instructions: {
-					create: recipe.instructions.map((inst) => ({
-						content: inst.content,
-						order: inst.order,
-					})),
-				},
-				// The copy shares the source's bytes: copying them means a fetch
-				// inside this write transaction. Image deletes count references
-				// first, so either side may drop its picture without blanking the
-				// other's.
-				...(recipe.image
-					? {
-							image: {
-								create: {
-									altText: recipe.image.altText,
-									objectKey: recipe.image.objectKey,
-								},
-							},
-						}
-					: {}),
-			},
-		})
-	}
+	await tx.recipe.createMany({
+		data: recipes.map((recipe) => ({
+			id: recipeIds.get(recipe.id)!,
+			title: recipe.title,
+			description: recipe.description,
+			activeTime: recipe.activeTime,
+			totalTime: recipe.totalTime,
+			yieldAmount: recipe.yieldAmount,
+			yieldLabel: recipe.yieldLabel,
+			isFavorite: recipe.isFavorite,
+			sourceUrl: recipe.sourceUrl,
+			rawText: recipe.rawText,
+			notes: recipe.notes,
+			userId: to.userId,
+			householdId: to.householdId,
+		})),
+	})
+	await tx.recipeMetadataAssignment.createMany({
+		data: recipes.flatMap((recipe) =>
+			[
+				...new Set(
+					recipe.metadataAssignments.map((assignment) =>
+						valueIdByKey.get(valueKey(assignment.value))!,
+					),
+				),
+			].map((valueId) => ({ recipeId: recipeIds.get(recipe.id)!, valueId })),
+		),
+	})
 	// A link survives only when its target was copied too. One to a Recipe
 	// left behind in the old household becomes a plain ingredient.
-	for (const recipe of recipes) {
-		for (const ing of recipe.ingredients) {
-			const linkedRecipeId =
-				ing.linkedRecipeId && recipeIds.get(ing.linkedRecipeId)
-			if (linkedRecipeId)
-				await tx.ingredient.update({
-					where: { id: ingredientIds.get(ing.id)! },
-					data: { linkedRecipeId },
-				})
-		}
-	}
+	await tx.ingredient.createMany({
+		data: recipes.flatMap((recipe) =>
+			recipe.ingredients.map((ing) => ({
+				name: ing.name,
+				amount: ing.amount,
+				unit: ing.unit,
+				notes: ing.notes,
+				isHeading: ing.isHeading,
+				order: ing.order,
+				recipeId: recipeIds.get(recipe.id)!,
+				linkedRecipeId:
+					(ing.linkedRecipeId && recipeIds.get(ing.linkedRecipeId)) || null,
+			})),
+		),
+	})
+	await tx.instruction.createMany({
+		data: recipes.flatMap((recipe) =>
+			recipe.instructions.map((inst) => ({
+				content: inst.content,
+				order: inst.order,
+				recipeId: recipeIds.get(recipe.id)!,
+			})),
+		),
+	})
+	// The copy shares the source's bytes: copying them means a fetch inside
+	// this write transaction. Image deletes count references first, so either
+	// side may drop its picture without blanking the other's.
+	await tx.recipeImage.createMany({
+		data: recipes.flatMap((recipe) =>
+			recipe.image
+				? [
+						{
+							recipeId: recipeIds.get(recipe.id)!,
+							altText: recipe.image.altText,
+							objectKey: recipe.image.objectKey,
+						},
+					]
+				: [],
+		),
+	})
 }

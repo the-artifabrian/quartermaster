@@ -5,6 +5,8 @@
 // - The step's result isn't logged, so a build that keeps missing photos
 //   goes unnoticed.
 // - Demo AI uses from before today aren't pruned, or today's are.
+// - The build waits behind the other steps at startup, which leaves the
+//   demo unavailable for longer after a deploy.
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
@@ -409,4 +411,29 @@ describe('startScheduledMaintenance', () => {
 		expect(build).toHaveBeenCalledTimes(2)
 		clearInterval(timer)
 	})
+})
+
+test('builds the demo template before the other steps', async () => {
+	vi.useFakeTimers()
+	const order: string[] = []
+	const timer = startScheduledMaintenance({
+		intervalMs: 1_000,
+		prune: async () => {
+			order.push('prune')
+			return EMPTY_SUMMARY
+		},
+		pruneImages: async () => {
+			order.push('image cache')
+			return EMPTY_IMAGE_CACHE
+		},
+		buildDemoTemplate: async () => {
+			order.push('demo template')
+			return CURRENT_TEMPLATE
+		},
+		log: vi.fn(),
+	})
+	await vi.advanceTimersByTimeAsync(0)
+
+	expect(order).toEqual(['demo template', 'prune', 'image cache'])
+	clearInterval(timer)
 })

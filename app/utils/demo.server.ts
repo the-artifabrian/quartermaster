@@ -2,12 +2,11 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { createId } from '@paralleldrive/cuid2'
-import { type PrismaClient } from '#app/generated/prisma/client.ts'
+import { type Prisma, type PrismaClient } from '#app/generated/prisma/client.ts'
 import { deleteAccount } from './account-deletion.server.ts'
 import { createOwnHousehold } from './auth.server.ts'
 import { DEMO_LIFETIME_MS, DEMO_LIVE_LIMIT } from './demo.ts'
 import { deepCopyRecipes } from './household.server.ts'
-import { ensureRecipeMetadataValues } from './recipe-metadata.server.ts'
 import { checkRecipePhoto } from './recipe-photo.server.ts'
 import {
 	SAMPLE_HOUSEHOLD,
@@ -31,9 +30,11 @@ import { writeTransaction } from './write-transaction.server.ts'
  *   library, the sample Menu, and a Plan and Shopping for the visitor's week.
  *
  * The `DemoTemplate` row points at the current template. Its contentVersion
- * hashes the sample content and photoVersion the photo files, so changing
- * either builds a new template from scratch. Building in place can't work:
- * addSampleLibrary skips Recipes it already has by title.
+ * hashes what the template holds (the sample Recipes and Staples) and
+ * photoVersion the photo files, so changing either builds a new template
+ * from scratch. Building in place can't work: addSampleLibrary skips Recipes
+ * it already has by title. The Plan, Shopping and Menus are made on each
+ * copy from the running code's content, so changing them needs no rebuild.
  */
 
 /** The `DemoTemplate` row's id. There is never another. */
@@ -60,6 +61,14 @@ const TEMPLATE_FORMAT = 1
 const ABANDONED_BUILD_MS = 60 * 60 * 1000
 
 /**
+ * The libSQL adapter runs one transaction at a time in the process, so every
+ * copy's transaction makes every other request wait. A start that can't
+ * begin within maxWait is refused as `unavailable` rather than queueing
+ * behind a crowd of others.
+ */
+const COPY_TRANSACTION = { maxWait: 2_000, timeout: 10_000 }
+
+/**
  * Where the stock photos the sample Recipes name are read from. It ships in
  * the production image (other/Dockerfile copies everything but what
  * Dockerfile.dockerignore leaves out). DEMO_PHOTO_DIR overrides it, so the
@@ -76,12 +85,26 @@ function sha256(value: string | Uint8Array) {
 	return createHash('sha256').update(value).digest('hex')
 }
 
-/** The content's version, which a copy checks against the template's. */
+/**
+ * The version of what the template holds: the Recipes (with their photo
+ * names and alt text) and the Staples. A copy checks it against the
+ * template's, so a copy never reads a template from other Recipes.
+ */
 export function demoContentVersion(content: SampleHouseholdContent) {
-	return sha256(JSON.stringify({ format: TEMPLATE_FORMAT, content }))
+	return sha256(
+		JSON.stringify({
+			format: TEMPLATE_FORMAT,
+			recipes: content.recipes,
+			staples: content.staples,
+		}),
+	)
 }
 
-/** Each photo the content names, as bytes, or null when the file is missing. */
+/**
+ * Each photo the content names, as bytes, or null when the file is missing.
+ * Only named files are read, so anything else in the folder (the credits)
+ * counts for nothing.
+ */
 async function readPhotos(dir: string, content: SampleHouseholdContent) {
 	const files = new Map<string, Uint8Array<ArrayBuffer> | null>()
 	for (const recipe of content.recipes) {
@@ -104,6 +127,7 @@ async function readPhotos(dir: string, content: SampleHouseholdContent) {
 }
 
 export type DemoTemplateSummary = {
+	/** `current` when this run left the template it found, or one another run built. */
 	status: 'current' | 'built'
 	userId: string
 	householdId: string
@@ -113,21 +137,28 @@ export type DemoTemplateSummary = {
 	abandoned: number
 }
 
-type Log = { warn: (message: string) => void }
+type Log = {
+	warn: (message: string) => void
+	error: (message: string) => void
+}
 
 /**
- * Make sure the template matches the running code's content and the photo
- * files, and build a new one when it doesn't.
+ * Make sure the template matches the running code's Recipes, Staples and
+ * photo files, and build a new one when it doesn't.
  *
  * A new template is built beside the old one, outside any transaction, and
  * then the pointer moves to it in one write transaction that reads the
  * pointer again first. When another build (another process) has already
  * switched it to the same versions, this build deletes its own template and
- * keeps theirs, so two builds at once leave one template. The old template's
- * owner is deleted after the switch, through deleteAccount, which keeps any
- * photo a copy still shows.
+ * reports theirs, so two builds at once leave one template. The old
+ * template's owner is deleted after the switch, through deleteAccount, which
+ * keeps any photo a copy still shows.
  *
- * A missing or unusable photo is logged and leaves that Recipe without one.
+ * A missing photo file, or one the photo check refuses, is logged and leaves
+ * that Recipe without a photo; the same bytes would be refused again. A photo
+ * turned away only because the photo queue was busy fails the build instead,
+ * so the next run tries again rather than storing a template that looks
+ * current without it.
  *
  * deleteAccount works on the app's own client, so a build that has a
  * template or an abandoned build to delete must be given that client.
@@ -169,43 +200,48 @@ export async function ensureDemoTemplate(
 	}
 
 	const built = await buildTemplate(db, { content, photos: photos.files, log })
-	let switched: { oldUserId: string | null } | null
-	try {
-		switched = await writeTransaction(db, async (tx) => {
-			const now = await tx.demoTemplate.findUnique({
-				where: { id: TEMPLATE_ID },
-				select: { userId: true, contentVersion: true, photoVersion: true },
-			})
-			if (
-				now?.contentVersion === contentVersion &&
-				now.photoVersion === photos.version
-			) {
-				return null
-			}
-			const pointer = {
-				userId: built.userId,
-				householdId: built.householdId,
-				contentVersion,
-				photoVersion: photos.version,
-				builtAt: new Date(),
-			}
-			await tx.demoTemplate.upsert({
-				where: { id: TEMPLATE_ID },
-				create: { id: TEMPLATE_ID, ...pointer },
-				update: pointer,
-			})
-			return { oldUserId: now?.userId ?? null }
+	const switched = await writeTransaction(db, async (tx) => {
+		const now = await tx.demoTemplate.findUnique({
+			where: { id: TEMPLATE_ID },
+			select: {
+				userId: true,
+				householdId: true,
+				contentVersion: true,
+				photoVersion: true,
+			},
 		})
-	} catch (error) {
-		await deleteAccount(built.userId)
-		throw error
-	}
-	if (!switched) {
+		if (
+			now?.contentVersion === contentVersion &&
+			now.photoVersion === photos.version
+		) {
+			return { won: false as const, winner: now }
+		}
+		const pointer = {
+			userId: built.userId,
+			householdId: built.householdId,
+			contentVersion,
+			photoVersion: photos.version,
+			builtAt: new Date(),
+		}
+		await tx.demoTemplate.upsert({
+			where: { id: TEMPLATE_ID },
+			create: { id: TEMPLATE_ID, ...pointer },
+			update: pointer,
+		})
+		return { won: true as const, oldUserId: now?.userId ?? null }
+	}).catch((error: unknown) => cleanUpAfterFailure(built.userId, error, log))
+	if (!switched.won) {
 		// Another build got there first with the same template.
 		await deleteAccount(built.userId)
-	} else if (switched.oldUserId) {
-		await deleteAccount(switched.oldUserId)
+		return {
+			status: 'current',
+			userId: switched.winner.userId,
+			householdId: switched.winner.householdId,
+			missingPhotos,
+			abandoned,
+		}
 	}
+	if (switched.oldUserId) await deleteAccount(switched.oldUserId)
 	return {
 		status: 'built',
 		userId: built.userId,
@@ -213,6 +249,26 @@ export async function ensureDemoTemplate(
 		missingPhotos: [...missingPhotos, ...built.unusablePhotos],
 		abandoned,
 	}
+}
+
+/**
+ * Delete a half-built template after `error`, then throw `error`. A clean-up
+ * that fails too is logged, not thrown, so the cause stays the one reported;
+ * the abandoned-build sweep removes the template later.
+ */
+async function cleanUpAfterFailure(
+	userId: string,
+	error: unknown,
+	log: Log,
+): Promise<never> {
+	try {
+		await deleteAccount(userId)
+	} catch (cleanUpError) {
+		log.error(
+			`Demo template: couldn't delete the failed build's owner ${userId}: ${cleanUpError instanceof Error ? cleanUpError.message : String(cleanUpError)}`,
+		)
+	}
+	throw error
 }
 
 /**
@@ -265,6 +321,11 @@ async function buildTemplate(
 				continue
 			}
 			const check = await checkRecipePhoto(new Blob([bytes]))
+			if (!check.ok && check.reason === 'busy') {
+				throw new Error(
+					`Demo template: the photo queue was busy for ${recipe.photo}; trying again next run`,
+				)
+			}
 			if (!check.ok) {
 				log.warn(
 					`Demo template: photo ${recipe.photo} can't be used (${check.reason}), so "${recipe.title}" has no photo`,
@@ -280,8 +341,7 @@ async function buildTemplate(
 		}
 		return { userId, householdId, unusablePhotos }
 	} catch (error) {
-		await deleteAccount(userId)
-		throw error
+		return cleanUpAfterFailure(userId, error, log)
 	}
 }
 
@@ -309,21 +369,37 @@ export type DemoCopyResult =
 	| { ok: true; userId: string; householdId: string }
 	| { ok: false; reason: 'full' | 'unavailable' }
 
+/** Prisma's error for a transaction that couldn't begin, or ran too long. */
+function isTransactionTimeout(error: unknown) {
+	return (
+		typeof error === 'object' &&
+		error !== null &&
+		'code' in error &&
+		(error as { code: unknown }).code === 'P2028'
+	)
+}
+
 /**
  * Give a visitor a demo user of their own: on Pro, expiring after
  * DEMO_LIFETIME_MS, with a copy of the template's library and the sample
  * Menu, and the sample week planned for `today` (the visitor's `yyyy-MM-dd`).
  *
- * One write transaction reads the template, counts the live demo users,
- * creates the user and copies the library. The count and the create have to
- * share it, or parallel starts all pass the cap; reading the template in it
- * too means a rebuild can't delete the template between the read and the
- * copy. The user is created with its `demoExpiresAt`, so if planning the
- * week fails afterwards, expiry still removes it.
+ * The libSQL adapter runs one transaction at a time in the process, so the
+ * work is split into short ones:
  *
- * Returns `unavailable` when there is no template yet, or the template was
- * built from other content than this code's (just after a deploy, until the
- * startup build finishes), and `full` at DEMO_LIVE_LIMIT.
+ * 1. Read the template, count the live demo users and create the user and
+ *    their Household. The count and the create share a write transaction,
+ *    or parallel starts all pass the cap. The user is created with its
+ *    `demoExpiresAt`, so whatever fails after this, expiry removes it.
+ * 2. Read the template again and copy its library, a statement per kind of
+ *    row. A rebuild may have replaced the template since step 1, and the
+ *    second read sees that; the copy is then `unavailable`.
+ * 3. Plan the sample week through the app's own Meal and Shopping writers.
+ *
+ * Returns `unavailable` when there is no template yet, or the template holds
+ * other Recipes than this code's (just after a deploy, until the startup
+ * build finishes), or a transaction couldn't begin in time because the
+ * database is busy; and `full` at DEMO_LIVE_LIMIT.
  */
 export async function createDemoCopy(
 	db: PrismaClient,
@@ -333,16 +409,39 @@ export async function createDemoCopy(
 		content = SAMPLE_HOUSEHOLD,
 	}: { today: string; now?: Date; content?: SampleHouseholdContent },
 ): Promise<DemoCopyResult> {
+	try {
+		const started = await startDemoUser(db, { now, content })
+		if (!started.ok) return started
+		const copied = await copyTemplateLibrary(db, { ...started, content })
+		if (!copied.ok) return copied
+		await planSampleWeek(db, {
+			userId: started.userId,
+			householdId: started.householdId,
+			today,
+			content,
+		})
+		return started
+	} catch (error) {
+		if (isTransactionTimeout(error)) return { ok: false, reason: 'unavailable' }
+		throw error
+	}
+}
+
+/** Step 1 of createDemoCopy: the cap, the user and their empty Household. */
+function startDemoUser(
+	db: PrismaClient,
+	{ now, content }: { now: Date; content: SampleHouseholdContent },
+) {
 	const contentVersion = demoContentVersion(content)
 	const id = createId()
-	const started = await writeTransaction(
+	return writeTransaction(
 		db,
 		async (tx): Promise<DemoCopyResult> => {
 			const template = await tx.demoTemplate.findUnique({
 				where: { id: TEMPLATE_ID },
-				select: { userId: true, householdId: true, contentVersion: true },
+				select: { contentVersion: true },
 			})
-			if (!template || template.contentVersion !== contentVersion) {
+			if (template?.contentVersion !== contentVersion) {
 				return { ok: false, reason: 'unavailable' }
 			}
 			const live = await tx.user.count({
@@ -370,37 +469,74 @@ export async function createDemoCopy(
 				select: { id: true, name: true, username: true },
 			})
 			const household = await createOwnHousehold(tx, user)
+			return { ok: true, userId: user.id, householdId: household.id }
+		},
+		COPY_TRANSACTION,
+	)
+}
 
-			const values = await tx.recipeMetadataValue.findMany({
-				where: { householdId: template.householdId },
-				orderBy: [{ sortOrder: 'asc' }, { nameKey: 'asc' }],
-				select: { dimension: true, name: true, nameKey: true, sortOrder: true },
+/** Step 2 of createDemoCopy: the template's library, and the sample Menus. */
+function copyTemplateLibrary(
+	db: PrismaClient,
+	{
+		userId,
+		householdId,
+		content,
+	}: { userId: string; householdId: string; content: SampleHouseholdContent },
+) {
+	const contentVersion = demoContentVersion(content)
+	return writeTransaction(
+		db,
+		async (tx): Promise<{ ok: true } | DemoCopyResult> => {
+			const template = await tx.demoTemplate.findUnique({
+				where: { id: TEMPLATE_ID },
+				select: { userId: true, householdId: true, contentVersion: true },
 			})
-			await ensureRecipeMetadataValues(tx, household.id, values)
+			if (!template || template.contentVersion !== contentVersion) {
+				return { ok: false, reason: 'unavailable' }
+			}
+			await copyClassification(tx, template.householdId, householdId)
 			await deepCopyRecipes(tx, {
 				from: { userId: template.userId, householdId: template.householdId },
-				to: { userId: user.id, householdId: household.id },
+				to: { userId, householdId },
 			})
 			const staples = await tx.householdIngredient.findMany({
 				where: { householdId: template.householdId },
 				select: { displayName: true, canonicalKey: true, isStaple: true },
 			})
 			await tx.householdIngredient.createMany({
-				data: staples.map((staple) => ({
-					...staple,
-					householdId: household.id,
-				})),
+				data: staples.map((staple) => ({ ...staple, householdId })),
 			})
-			await addSampleMenus(tx, { householdId: household.id, content })
-			return { ok: true, userId: user.id, householdId: household.id }
+			await addSampleMenus(tx, { householdId, content })
+			return { ok: true }
 		},
+		COPY_TRANSACTION,
 	)
-	if (!started.ok) return started
-	await planSampleWeek(db, {
-		userId: started.userId,
-		householdId: started.householdId,
-		today,
-		content,
+}
+
+/**
+ * The template's classification values the copy doesn't have yet, unused
+ * ones included. The copy starts with the default Seasons and Courses.
+ */
+async function copyClassification(
+	tx: Prisma.TransactionClient,
+	fromHouseholdId: string,
+	toHouseholdId: string,
+) {
+	const [values, existing] = await Promise.all([
+		tx.recipeMetadataValue.findMany({
+			where: { householdId: fromHouseholdId },
+			select: { dimension: true, name: true, nameKey: true, sortOrder: true },
+		}),
+		tx.recipeMetadataValue.findMany({
+			where: { householdId: toHouseholdId },
+			select: { dimension: true, nameKey: true },
+		}),
+	])
+	const have = new Set(existing.map((v) => `${v.dimension}\u0000${v.nameKey}`))
+	await tx.recipeMetadataValue.createMany({
+		data: values
+			.filter((v) => !have.has(`${v.dimension}\u0000${v.nameKey}`))
+			.map((value) => ({ ...value, householdId: toHouseholdId })),
 	})
-	return started
 }

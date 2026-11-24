@@ -47,6 +47,7 @@ import {
 } from './utils/auth.server.ts'
 import { ClientHintCheck, getHints } from './utils/client-hints.tsx'
 import { prisma } from './utils/db.server.ts'
+import { demoGuardMiddleware } from './utils/demo-guard.server.ts'
 import { getEnv } from './utils/env.server.ts'
 import { formBodyMiddleware } from './utils/form-body.server.ts'
 import { pipeHeaders } from './utils/headers.server.ts'
@@ -293,7 +294,10 @@ export function shouldRevalidate({
 
 export const headers: Route.HeadersFunction = pipeHeaders
 
-export const middleware: Route.MiddlewareFunction[] = [formBodyMiddleware]
+export const middleware: Route.MiddlewareFunction[] = [
+	formBodyMiddleware,
+	demoGuardMiddleware,
+]
 
 function Document({
 	children,

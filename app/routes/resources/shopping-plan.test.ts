@@ -16,6 +16,8 @@
  * - A Staple line the Meal did put on the list reads as usually on hand.
  * - The loader keys a line differently from the writer (case, plurals), so
  *   a line the Meal added reads as only sharing a name with a row.
+ * - A Meal scaled up (or its Recipe changed) after it was added shows the
+ *   new amount as on the list, though Shopping still has the old one.
  */
 import { RouterContextProvider } from 'react-router'
 import { expect, test } from 'vitest'
@@ -339,6 +341,46 @@ test('a Staple line the Meal put on the list is on the list, not usually on hand
 
 	expect(await statuses(session, weekStart)).toEqual([
 		{ olive: 'added', caper: 'on-hand' },
+	])
+})
+
+test('a Meal scaled after it was added shows the amount Shopping has, not the new one', async () => {
+	const session = await setupHousehold('Scaled')
+	const recipe = await createRecipe(session, 'Chicken traybake', [
+		{ name: 'chicken thighs', amount: '8' },
+		{ name: 'lemon', amount: '1' },
+	])
+	const { weekStart, meals, listId } = await planWeek(session, [recipe])
+	await addToShopping(session, meals[0]!.id, listId)
+	await prisma.mealRecipeItem.updateMany({
+		where: { mealId: meals[0]!.id },
+		data: { scaleMultiplier: 2 },
+	})
+
+	const result = await loadWeek(session, weekStart)
+
+	expect(
+		result.data.days[0]!.meals[0]!.lines.map(
+			({ name, quantity, status, contributed }) => ({
+				name,
+				quantity,
+				status,
+				contributed,
+			}),
+		),
+	).toEqual([
+		{
+			name: 'chicken thighs',
+			quantity: '16',
+			status: 'changed',
+			contributed: { quantity: '8', unit: null },
+		},
+		{
+			name: 'lemon',
+			quantity: '2',
+			status: 'changed',
+			contributed: { quantity: '1', unit: null },
+		},
 	])
 })
 

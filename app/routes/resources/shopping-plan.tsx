@@ -14,6 +14,7 @@ import {
 } from '#app/utils/today.server.ts'
 import { loadMealShoppingDemand } from '#app/utils/meal-shopping.server.ts'
 import { isStapleIngredient } from '#app/utils/recipe-matching.server.ts'
+import { holdsSameAmount } from '#app/utils/shopping-contribution.server.ts'
 import { demandIdentity } from '#app/utils/shopping-demand.server.ts'
 import {
 	annotateShoppingDemand,
@@ -96,18 +97,29 @@ export async function loader({ request }: Route.LoaderArgs) {
 		loadMealShoppingDemand(prisma, { mealIds }),
 		prisma.mealShoppingContribution.findMany({
 			where: { mealId: { in: mealIds } },
-			select: { mealId: true, canonicalName: true },
+			select: {
+				mealId: true,
+				canonicalName: true,
+				name: true,
+				quantity: true,
+				unit: true,
+			},
 		}),
 	])
 	const listedIdentities = new Set(
 		listedRows.map((row) => demandIdentity(row.name)),
 	)
-	const addedByMeal = new Map<string, Set<string>>()
-	for (const { mealId, canonicalName } of contributions) {
-		if (!mealId) continue
-		const added = addedByMeal.get(mealId) ?? new Set<string>()
-		added.add(canonicalName)
-		addedByMeal.set(mealId, added)
+	const contributedByMeal = new Map<
+		string,
+		Map<string, (typeof contributions)[number]>
+	>()
+	for (const contribution of contributions) {
+		if (!contribution.mealId) continue
+		const byIdentity =
+			contributedByMeal.get(contribution.mealId) ??
+			new Map<string, (typeof contributions)[number]>()
+		byIdentity.set(contribution.canonicalName, contribution)
+		contributedByMeal.set(contribution.mealId, byIdentity)
 	}
 
 	const days: PlanPickerDay[] = []
@@ -144,14 +156,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 			// Two Meals on one day can share a Recipe title; the familiar label
 			// is what tells them apart. Never repeated as its own title.
 			label: label === title ? null : label,
-			lines: lines.map((line) => ({
-				canonicalName: line.canonicalName,
-				name: line.name,
-				quantity: line.quantity,
-				unit: line.unit,
-				status: planPickerLineStatus({
+			lines: lines.map((line) => {
+				const contributed = contributedByMeal
+					.get(meal.id)
+					?.get(line.canonicalName)
+				const status = planPickerLineStatus({
 					canonicalName: line.canonicalName,
-					addedIdentities: addedByMeal.get(meal.id) ?? new Set(),
+					contribution: contributed && {
+						sameAmount: holdsSameAmount(contributed, line),
+					},
 					listedIdentities,
 					keptByAvailability,
 					// Explicit note Shopping text is deliberate, so the heuristic
@@ -159,8 +172,23 @@ export async function loader({ request }: Route.LoaderArgs) {
 					// card meant to buy some.
 					pantryStaple:
 						!line.fromNote && isStapleIngredient({ name: line.name }),
-				}),
-			})),
+				})
+				return {
+					canonicalName: line.canonicalName,
+					name: line.name,
+					quantity: line.quantity,
+					unit: line.unit,
+					status,
+					...(status === 'changed' && contributed
+						? {
+								contributed: {
+									quantity: contributed.quantity,
+									unit: contributed.unit,
+								},
+							}
+						: {}),
+				}
+			}),
 		})
 	}
 

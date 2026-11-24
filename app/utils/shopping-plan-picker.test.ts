@@ -24,6 +24,10 @@
  *   reads as done though nothing of it is on Shopping.
  * - A Meal with a line still to buy, or a name on the list without its
  *   amount, reads as done because the rest is on the list or on hand.
+ * - A line whose amount on Shopping is no longer what the Meal needs (it
+ *   was scaled after the add) reads as on the list, counts toward done, or
+ *   can be ticked, though ticking would change nothing.
+ * - A Meal with nothing left to tick but such a line reads as done.
  */
 import { expect, test } from 'vitest'
 import {
@@ -55,20 +59,46 @@ const lines: PlanPickerLine[] = [
 ]
 
 test('a line this Meal already put on Shopping is added, whatever else is true of it', () => {
-	const status = (canonicalName: string, added: string[]) =>
+	const status = (
+		canonicalName: string,
+		contribution?: { sameAmount: boolean },
+	) =>
 		planPickerLineStatus({
 			canonicalName,
-			addedIdentities: new Set(added),
+			contribution,
 			listedIdentities: new Set(['lemon', 'rice']),
 			keptByAvailability: new Set(['lemon', 'rice', 'chicken']),
 			pantryStaple: canonicalName === 'salt',
 		})
-	expect(status('lemon', ['lemon'])).toBe('added')
+	const same = { sameAmount: true }
+	expect(status('lemon', same)).toBe('added')
 	// Its row could be the only row with the name, or a Staple's name.
-	expect(status('salt', ['salt'])).toBe('added')
-	expect(status('rice', [])).toBe('name-on-list')
-	expect(status('salt', [])).toBe('on-hand')
-	expect(status('chicken', [])).toBe('needed')
+	expect(status('salt', same)).toBe('added')
+	// Scaled since: the Meal's old amount is what Shopping has.
+	expect(status('lemon', { sameAmount: false })).toBe('changed')
+	expect(status('salt', { sameAmount: false })).toBe('changed')
+	expect(status('rice')).toBe('name-on-list')
+	expect(status('salt')).toBe('on-hand')
+	expect(status('chicken')).toBe('needed')
+})
+
+test('a line with a different amount on Shopping can’t be ticked and never makes a Meal done', () => {
+	const changed = line('chicken', 'changed')
+	expect(defaultPickedLines([changed])).toEqual([])
+	expect(
+		toggleMealPicks([changed, line('salt', 'on-hand')], new Set()),
+	).toEqual(new Set(['salt']))
+	// Nothing to tick, but not done either.
+	expect(mealPickState([line('lemon', 'added'), changed], new Set())).toBe(
+		'unpickable',
+	)
+	expect(mealPickState([changed], new Set())).toBe('unpickable')
+	expect(
+		mealPickState(
+			[line('lemon', 'added'), changed, line('salt', 'on-hand')],
+			new Set(),
+		),
+	).toBe('none')
 })
 
 test('only needed lines are ticked by default', () => {

@@ -72,7 +72,7 @@ function isWeekChoices(value: unknown): value is WeekChoices {
 	)
 }
 
-function lineAmount(line: PlanPickerLine) {
+function lineAmount(line: { quantity: string | null; unit: string | null }) {
 	return [line.quantity, line.unit].filter(Boolean).join(' ')
 }
 
@@ -84,8 +84,18 @@ function isPastDay(date: string, today: string) {
 const STATUS_NOTE: Record<PlanPickerLine['status'], string | null> = {
 	needed: null,
 	added: 'On the list',
+	changed: 'On the list',
 	'name-on-list': 'On the list, not this Meal’s amount',
 	'on-hand': 'Usually on hand',
+}
+
+/** The line's note. A `changed` line says what Shopping has, "8 on the list". */
+function lineNote(line: PlanPickerLine) {
+	if (line.status === 'changed' && line.contributed) {
+		const listed = lineAmount(line.contributed)
+		if (listed) return `${listed} on the list`
+	}
+	return STATUS_NOTE[line.status]
 }
 
 /**
@@ -396,6 +406,13 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 											<span className="flex min-h-11 shrink-0 items-center">
 												<TickBox done />
 											</span>
+										) : pickState === 'unpickable' ? (
+											// Nothing to tick, but an amount on the list is out
+											// of date, so it isn't done either: no box at all.
+											<span
+												aria-hidden
+												className="flex min-h-11 w-5 shrink-0"
+											/>
 										) : (
 											<button
 												type="button"
@@ -464,7 +481,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 											className="border-border/60 ml-2.5 border-l pl-4"
 										>
 											{meal.lines.map((line) => {
-												const note = STATUS_NOTE[line.status]
+												const note = lineNote(line)
 												const amount = lineAmount(line)
 												const text = (
 													<span className="min-w-0 flex-1">
@@ -487,13 +504,22 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 												// This Meal's amount is on the list already. A tick
 												// could add nothing, so it is a plain row whose note
 												// says where it stands, not a toggle.
-												if (line.status === 'added') {
+												// A changed line is the same, without the done check:
+												// its note says what Shopping has instead.
+												if (
+													line.status === 'added' ||
+													line.status === 'changed'
+												) {
 													return (
 														<div
 															key={line.canonicalName}
 															className="flex min-h-11 w-full items-center gap-3 py-1"
 														>
-															<TickBox done />
+															{line.status === 'added' ? (
+																<TickBox done />
+															) : (
+																<span aria-hidden className="size-5 shrink-0" />
+															)}
 															{text}
 														</div>
 													)

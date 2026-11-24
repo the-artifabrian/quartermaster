@@ -15,6 +15,13 @@ export type PlanPickerLineStatus =
 	 */
 	| 'added'
 	/**
+	 * The Meal put an amount on Shopping, but not the one it needs now: it
+	 * was scaled, or its Recipe changed, after the add. From Plan doesn't
+	 * update amounts (Update Shopping on Plan does), so the line can't be
+	 * ticked. It says what Shopping has, and it never makes a Meal done.
+	 */
+	| 'changed'
+	/**
 	 * A row with this name is on Shopping, but this Meal's amount isn't on
 	 * it: a typed row, a Recipe-detail row or another Meal's. Ticking adds
 	 * this Meal's amount.
@@ -36,6 +43,8 @@ export type PlanPickerLine = {
 	quantity: string | null
 	unit: string | null
 	status: PlanPickerLineStatus
+	/** For a `changed` line, the amount this Meal has on Shopping. */
+	contributed?: { quantity: string | null; unit: string | null }
 }
 
 export type PlanPickerMeal = {
@@ -63,14 +72,17 @@ export type PlanPickerDay = {
  */
 export function planPickerLineStatus({
 	canonicalName,
-	addedIdentities,
+	contribution,
 	listedIdentities,
 	keptByAvailability,
 	pantryStaple,
 }: {
 	canonicalName: string
-	/** Identities this Meal has a current Shopping contribution for. */
-	addedIdentities: ReadonlySet<string>
+	/**
+	 * This Meal's current Shopping contribution for the line, if it has one,
+	 * and whether it still holds the line's amount.
+	 */
+	contribution?: { sameAmount: boolean }
 	/** Demand identities of every row currently on the Shopping list. */
 	listedIdentities: ReadonlySet<string>
 	/** Demand identities the availability seam kept for this Meal. */
@@ -78,15 +90,17 @@ export function planPickerLineStatus({
 	/** The ingredient heuristic recognises this as a plain pantry basic. */
 	pantryStaple: boolean
 }): PlanPickerLineStatus {
-	if (addedIdentities.has(canonicalName)) return 'added'
+	if (contribution) return contribution.sameAmount ? 'added' : 'changed'
 	if (listedIdentities.has(canonicalName)) return 'name-on-list'
 	if (!keptByAvailability.has(canonicalName) || pantryStaple) return 'on-hand'
 	return 'needed'
 }
 
-/** The lines a tick can add: every line except this Meal's amounts on the list. */
+/** The lines a tick can do something for: not this Meal's amounts on the list. */
 export function pickableLines(lines: PlanPickerLine[]) {
-	return lines.filter((line) => line.status !== 'added')
+	return lines.filter(
+		(line) => line.status !== 'added' && line.status !== 'changed',
+	)
 }
 
 /**
@@ -94,18 +108,22 @@ export function pickableLines(lines: PlanPickerLine[]) {
  * of its lines are on the list already, and the rest are usually on hand and
  * not ticked. An on-hand line can still be ticked on its own, and the box
  * then counts the lines a tick can add, as it does for any other Meal. A
- * Meal with nothing on the list is never done, however much is on hand.
+ * Meal with nothing on the list is never done, however much is on hand, and
+ * neither is one with an amount Shopping has wrong. `unpickable` is a Meal
+ * with no line to tick that isn't done: it shows no box at all.
  */
 export function mealPickState(
 	lines: PlanPickerLine[],
 	picked: ReadonlySet<string>,
-): 'done' | 'all' | 'some' | 'none' {
+): 'done' | 'unpickable' | 'all' | 'some' | 'none' {
 	const pickable = pickableLines(lines)
 	const count = pickable.filter((line) => picked.has(line.canonicalName)).length
 	const nothingToBuy =
-		pickable.length < lines.length &&
-		pickable.every((line) => line.status === 'on-hand')
-	if (count === 0) return nothingToBuy ? 'done' : 'none'
+		lines.some((line) => line.status === 'added') &&
+		lines.every((line) => line.status === 'added' || line.status === 'on-hand')
+	if (count === 0 && nothingToBuy) return 'done'
+	if (pickable.length === 0) return 'unpickable'
+	if (count === 0) return 'none'
 	return count === pickable.length ? 'all' : 'some'
 }
 
@@ -137,7 +155,9 @@ export function toggleMealPicks(
 	picked: ReadonlySet<string>,
 ): Set<string> {
 	const state = mealPickState(lines, picked)
-	if (state === 'done' || state === 'all') return new Set()
+	if (state === 'done' || state === 'unpickable' || state === 'all') {
+		return new Set()
+	}
 	if (state === 'none') {
 		const needed = defaultPickedLines(lines)
 		if (needed.length > 0) return new Set(needed)

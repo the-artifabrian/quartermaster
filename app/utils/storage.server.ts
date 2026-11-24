@@ -100,7 +100,13 @@ export async function uploadRecipeImage(
 	const file = new File([photo.bytes], `photo.${photo.extension}`, {
 		type: photo.type,
 	})
-	return uploadToStorage(file, newImageKey(userId, recipeId, photo.extension))
+	// As deletes and copies do: a PUT storage never answers would otherwise
+	// hold its caller, the hourly maintenance run included, for good.
+	return uploadToStorage(
+		file,
+		newImageKey(userId, recipeId, photo.extension),
+		AbortSignal.timeout(30_000),
+	)
 }
 
 /** Copy bytes to a recipient-owned key before committing a shared bundle. */

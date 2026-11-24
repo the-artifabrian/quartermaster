@@ -244,17 +244,19 @@ sites their caps: a demo user gets three uses of each feature, and each use
 also takes one of the uses all demo users share in a day, counted in
 `DemoAiUsage` in the same write transaction.
 
-A POST to `/demo` (on
-the auth rate limit tier) starts a demo for a signed-out browser and signs it
-in. The Session's `expirationDate` is the user's `demoExpiresAt`, so
-`getUserId` ends it on time without waiting for expiry, and its cookie never
-has an Expires, in the iOS app too. A copy that fails partway deletes the
-user it made. The user is deleted at once by Log Out and by `intent=end`
-(which the demo banner's Sign up posts), and otherwise by the first step of
-scheduled maintenance, which deletes every demo user whose `demoExpiresAt`
-has passed, each through `deleteAccount`; one that fails is logged and
-reported, and the next run tries again. The admin user lists leave out demo
-users and template owners.
+A POST to `/demo` starts a demo for a signed-out browser and signs it in.
+Each client gets five starts an hour, counted in memory under the client key
+`server/index.ts` stamps on every request; the route is otherwise on the
+strong tier, so starts don't use up sign-in attempts. The Session's
+`expirationDate` is the user's `demoExpiresAt`, so `getUserId` ends it on time
+without waiting for expiry, and its cookie never has an Expires, in the iOS
+app too. A copy or session that fails partway deletes the user it made. The
+user is deleted at once by Log Out and by `intent=end` (which the demo
+banner's Sign up posts), and otherwise by the first step of scheduled
+maintenance, which deletes every demo user whose `demoExpiresAt` has passed,
+each through `deleteAccount`; one that fails is logged and reported, and the
+next run tries again. The admin user lists leave out demo users and template
+owners.
 
 New household data must be authorized by household membership, included in
 export/import when durable, and handled in sole-member household moves.

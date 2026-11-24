@@ -220,25 +220,24 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	// Handle delete
 	if (intent === 'delete') {
-		// Drop the picture from storage unless a copy of this Recipe still shows
-		// it; the row itself goes with the Recipe.
 		const recipeWithImage = await prisma.recipe.findUnique({
 			where: { id: recipeId },
 			select: { title: true, image: { select: { objectKey: true } } },
 		})
 
+		// The Recipe and its photo row go first, then the file, unless another
+		// Recipe still shows it. In this order a share Save that copies the
+		// photo's key either wrote its copy before the delete, and the count
+		// sees it, or finds no photo to copy (share.$recipeId.tsx).
+		await prisma.recipe.delete({ where: { id: recipeId } })
 		if (recipeWithImage?.image?.objectKey) {
 			try {
-				await deleteRecipeImageUnlessShared(recipeWithImage.image.objectKey, {
-					exceptRecipeId: recipeId,
-				})
+				await deleteRecipeImageUnlessShared(recipeWithImage.image.objectKey)
 			} catch (error) {
+				// The Recipe is gone either way; the file is left behind.
 				console.error('Failed to delete recipe image from storage:', error)
-				// Continue with recipe deletion even if image deletion fails
 			}
 		}
-
-		await prisma.recipe.delete({ where: { id: recipeId } })
 		if (clientLeaves(formData)) {
 			return data({ done: '/recipes' } satisfies EditScreenDone)
 		}

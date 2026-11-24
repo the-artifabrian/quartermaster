@@ -58,7 +58,7 @@ demoTest(
 )
 
 demoTest(
-	"a demo Recipe's share page is not found, and Share says why",
+	"a demo Recipe's share page is not found, and Share on a Recipe or Menu says why",
 	async ({ page, browser, demo }) => {
 		const recipe = await prisma.recipe.findFirstOrThrow({
 			where: { householdId: demo.householdId },
@@ -76,6 +76,15 @@ demoTest(
 		}
 
 		await page.goto(`/recipes/${recipe.id}`)
+		await expect(page.locator('html')).toHaveAttribute('data-hydrated')
+		await page.getByRole('button', { name: 'Share', exact: true }).click()
+		await expect(page.getByText(DEMO_BLOCKED_MESSAGE)).toBeVisible()
+
+		const menu = await prisma.menu.findFirstOrThrow({
+			where: { householdId: demo.householdId },
+			select: { id: true },
+		})
+		await page.goto(`/recipes/menus/${menu.id}`)
 		await expect(page.locator('html')).toHaveAttribute('data-hydrated')
 		await page.getByRole('button', { name: 'Share', exact: true }).click()
 		await expect(page.getByText(DEMO_BLOCKED_MESSAGE)).toBeVisible()

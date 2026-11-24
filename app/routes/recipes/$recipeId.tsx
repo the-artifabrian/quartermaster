@@ -1,5 +1,6 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { useIsDemo } from '#app/components/demo.tsx'
 import { goneItemMiddleware } from '#app/components/gone-item.tsx'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { recipeDetailNav } from '#app/utils/nav-back.ts'
@@ -70,7 +71,6 @@ import { formatRecipeForCopy } from '#app/utils/recipe-copy.ts'
 import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
 import { MAX_RECIPE_DESCRIPTION_LENGTH } from '#app/utils/recipe-validation.ts'
-import { isDemoUserId } from '#app/utils/demo-guard.server.ts'
 import { DEMO_BLOCKED_MESSAGE } from '#app/utils/demo.ts'
 import { browserShareFunctions, shareOrCopy } from '#app/utils/share-link.ts'
 import { haptic } from '#app/utils/shell-bridge.ts'
@@ -189,10 +189,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		status: 403,
 	})
 
-	const [tierInfo, isDemo] = await Promise.all([
-		getUserTier(userId),
-		isDemoUserId(userId),
-	])
+	const tierInfo = await getUserTier(userId)
 
 	// A just-imported Recipe's notice points at an older one with its title.
 	const sameTitle = new URL(request.url).searchParams.has('imported')
@@ -208,8 +205,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		userId,
 		householdId,
 		isProActive: tierInfo.isProActive,
-		// A demo's Recipes aren't shared (share.$recipeId.tsx).
-		isDemo,
 		sameTitle,
 		// Add to Plan's Today chip, the browser's day (see getRequestToday).
 		today: getRequestToday(request),
@@ -415,6 +410,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const { recipe, isProActive } = loaderData
 	// The image moves from its Recipes card while the page slides in or out.
 	const imageTransitionsFromList = useViewTransitionState('/recipes')
+	// A demo's Recipes aren't shared (share.$recipeId.tsx).
+	const isDemo = useIsDemo()
 	const rootData = useRouteLoaderData('root') as
 		{ requestInfo?: { origin?: string } } | undefined
 	const origin = rootData?.requestInfo?.origin
@@ -680,7 +677,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	// ignored until the first share settles.
 	const shareInFlight = useRef(false)
 	async function handleShare() {
-		if (loaderData.isDemo) {
+		if (isDemo) {
 			toast.error(DEMO_BLOCKED_MESSAGE)
 			return
 		}

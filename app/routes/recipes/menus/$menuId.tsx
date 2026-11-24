@@ -1,6 +1,7 @@
 import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
+import { useIsDemo } from '#app/components/demo.tsx'
 import { goneItemMiddleware } from '#app/components/gone-item.tsx'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { menuDetailNav } from '#app/utils/nav-back.ts'
@@ -37,7 +38,6 @@ import { PlanMenuSchema } from '#app/utils/meal-plan-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { planMenu } from '#app/utils/plan-menu.server.ts'
 import { servingInstantFromWallTime } from '#app/utils/serving-time.ts'
-import { isDemoUserId } from '#app/utils/demo-guard.server.ts'
 import { DEMO_BLOCKED_MESSAGE } from '#app/utils/demo.ts'
 import { browserShareFunctions, shareOrCopy } from '#app/utils/share-link.ts'
 import { type Route } from './+types/$menuId.ts'
@@ -61,7 +61,7 @@ export const meta: Route.MetaFunction = ({ loaderData }) => {
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-	const { userId, householdId } = await requireUserWithHousehold(request)
+	const { householdId } = await requireUserWithHousehold(request)
 	const { menuId } = params
 
 	const menu = await prisma.menu.findUnique({
@@ -117,8 +117,6 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 	})
 
 	return {
-		// A demo's Menus aren't shared (share.menus.$menuId.tsx).
-		isDemo: await isDemoUserId(userId),
 		menu: {
 			...menu,
 			sections: menu.sections.map((section) => ({
@@ -372,6 +370,8 @@ export default function MenuDetail({
 		setPlanning(false)
 		setPlanFormDismissed(true)
 	}
+	// A demo's Menus aren't shared (share.menus.$menuId.tsx).
+	const isDemo = useIsDemo()
 	const rootData = useRouteLoaderData('root') as
 		{ requestInfo?: { origin?: string } } | undefined
 	const origin = rootData?.requestInfo?.origin
@@ -379,7 +379,7 @@ export default function MenuDetail({
 	// copy the link behind an open sheet.
 	const shareInFlight = useRef(false)
 	async function handleShare() {
-		if (loaderData.isDemo) {
+		if (isDemo) {
 			toast.error(DEMO_BLOCKED_MESSAGE)
 			return
 		}

@@ -1,7 +1,12 @@
 import { type Locator, type Page } from '@playwright/test'
 import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { browserToday, expect, test } from '#tests/playwright-utils.ts'
+import {
+	browserToday,
+	expect,
+	openShopping,
+	test,
+} from '#tests/playwright-utils.ts'
 
 async function expectLocalPendingFeedback({
 	page,
@@ -495,6 +500,111 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 		.toEqual({ cleared: [], springOnions: true })
 })
 
+test('From Plan shows what a Meal already put on Shopping as on the list, with nothing to tick', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Chicken traybake',
+			userId: user.id,
+			householdId: user.householdId,
+			ingredients: {
+				create: [
+					{ name: 'chicken thighs', amount: '8', order: 0 },
+					{ name: 'broccoli', amount: '1', unit: 'head', order: 1 },
+					{ name: 'lemon', amount: '1', order: 2 },
+				],
+			},
+		},
+	})
+	const now = new Date()
+	const today = new Date(
+		Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
+	)
+	const meal = await prisma.meal.create({
+		data: {
+			mealPlan: {
+				create: {
+					householdId: user.householdId,
+					weekStart: getWeekStart(today),
+				},
+			},
+			date: today,
+			order: 0,
+			recipeItems: {
+				create: {
+					order: 0,
+					recipeId: recipe.id,
+					recipeTitle: recipe.title,
+					scaleMultiplier: 1,
+				},
+			},
+		},
+	})
+	const saved = () =>
+		prisma.mealShoppingContribution.findMany({
+			where: { mealId: meal.id },
+			orderBy: { canonicalName: 'asc' },
+			select: { canonicalName: true, item: { select: { name: true } } },
+		})
+
+	await openShopping(page)
+	const fromPlan = page.getByRole('button', { name: /^From Plan/ })
+	const picker = page.getByRole('dialog')
+	const addButton = picker.getByRole('button', { name: /^Add / })
+	const lineButton = (name: string) =>
+		picker.getByRole('button', { name: new RegExp(`^${name}`) })
+
+	// Leave broccoli for later and add the rest.
+	await fromPlan.click()
+	await lineButton('broccoli').click()
+	await expect(lineButton('broccoli')).toHaveAttribute('aria-pressed', 'false')
+	await addButton.click()
+	await expect(picker).toBeHidden()
+	await expect.poll(saved).toEqual([
+		{ canonicalName: 'chicken', item: { name: 'chicken thighs' } },
+		{ canonicalName: 'lemon', item: { name: 'lemon' } },
+	])
+
+	// The two added lines are on the list: a muted check, no button, and only
+	// broccoli is left to pick.
+	await fromPlan.click()
+	for (const name of ['chicken thighs', 'lemon']) {
+		await expect(
+			picker.getByText(new RegExp(`^${name} ·`)).locator('..'),
+		).toContainText('On the list')
+		await expect(lineButton(name)).toHaveCount(0)
+	}
+	await expect(lineButton('broccoli')).toHaveAttribute('aria-pressed', 'true')
+	const mealBox = picker.getByRole('button', {
+		name: /every line in Chicken traybake/,
+	})
+	await expect(mealBox).toHaveAttribute('aria-pressed', 'true')
+	await expect(addButton).toHaveText('Add 1 from 1 Meal')
+	await addButton.click()
+	await expect(picker).toBeHidden()
+	await expect.poll(saved).toHaveLength(3)
+
+	// With every line on the list, the Meal is done and there is nothing to add.
+	await fromPlan.click()
+	await expect(picker.getByText('On the list', { exact: true })).toHaveCount(3)
+	await expect(picker.getByText('All on the list')).toBeAttached()
+	await expect(
+		picker.getByRole('button', { name: /Chicken traybake/, pressed: true }),
+	).toHaveCount(0)
+	await expect(picker.getByRole('button', { name: /^Tick / })).toHaveCount(0)
+	await expect(addButton).toHaveText('Add to Next shop')
+	await expect(addButton).toBeDisabled()
+	expect(
+		await prisma.shoppingListItem.count({
+			where: { list: { householdId: user.householdId } },
+		}),
+	).toBe(3)
+})
+
 test('household Staples can be added together from the quiet Shopping picker', async ({
 	page,
 	login,
@@ -855,10 +965,12 @@ test('a comma decimal reads as one number on the Recipe, when scaled, and in the
 		])
 	await page.reload()
 
-	// Flour is already on the list, so the picker offers it unticked.
+	// Flour is on the list without this Meal's amount, so the picker offers
+	// it unticked and says why.
 	await page.getByRole('button', { name: /from plan/i }).click()
 	const flourLine = page.getByRole('button', { name: /^flour/i })
 	await expect(flourLine).toHaveAttribute('aria-pressed', 'false')
+	await expect(flourLine).toContainText('On the list, not this Meal’s amount')
 	await flourLine.click()
 	await expect(flourLine).toHaveAttribute('aria-pressed', 'true')
 	await page.getByRole('button', { name: /add 1 from 1 meal/i }).click()

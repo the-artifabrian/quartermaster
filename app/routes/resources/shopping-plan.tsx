@@ -47,10 +47,15 @@ function mealTitle({
  * Cooked Recipe items are left out, as From Plan always left them out;
  * headings and optional ingredients never reach demand at all. Lines the
  * household would normally skip — Staple matches, plain pantry basics, and
- * rows already on the list — still appear, unticked and with the reason,
+ * names already on the list — still appear, unticked and with the reason,
  * because only the household knows when the usual assumption is wrong. A
  * Staple is the whole of that first reason since #289: there is no Out state
  * that could make one needed on its own.
+ *
+ * A line whose amount this Meal already put on Shopping is different: it
+ * shows as on the list and can't be ticked, since adding it again would
+ * change nothing. That reads the Meal's contributions the way the Meal-add
+ * writer does, by Meal and stored canonical name, so the two always agree.
  */
 export async function loader({ request }: Route.LoaderArgs) {
 	const { householdId } = await requireUserWithHousehold(request)
@@ -86,12 +91,24 @@ export async function loader({ request }: Route.LoaderArgs) {
 	])
 
 	const meals = mealPlan?.meals ?? []
-	const demandByMeal = await loadMealShoppingDemand(prisma, {
-		mealIds: meals.map((meal) => meal.id),
-	})
+	const mealIds = meals.map((meal) => meal.id)
+	const [demandByMeal, contributions] = await Promise.all([
+		loadMealShoppingDemand(prisma, { mealIds }),
+		prisma.mealShoppingContribution.findMany({
+			where: { mealId: { in: mealIds } },
+			select: { mealId: true, canonicalName: true },
+		}),
+	])
 	const listedIdentities = new Set(
 		listedRows.map((row) => demandIdentity(row.name)),
 	)
+	const addedByMeal = new Map<string, Set<string>>()
+	for (const { mealId, canonicalName } of contributions) {
+		if (!mealId) continue
+		const added = addedByMeal.get(mealId) ?? new Set<string>()
+		added.add(canonicalName)
+		addedByMeal.set(mealId, added)
+	}
 
 	const days: PlanPickerDay[] = []
 	for (const meal of meals) {
@@ -134,6 +151,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 				unit: line.unit,
 				status: planPickerLineStatus({
 					canonicalName: line.canonicalName,
+					addedIdentities: addedByMeal.get(meal.id) ?? new Set(),
 					listedIdentities,
 					keptByAvailability,
 					// Explicit note Shopping text is deliberate, so the heuristic

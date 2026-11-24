@@ -16,6 +16,8 @@ import { addedToExistingMessage } from '#app/utils/meal-shopping-messages.ts'
 import { cn } from '#app/utils/misc.tsx'
 import {
 	defaultPickedLines,
+	mealPickState,
+	pickableLines,
 	toggleMealPicks,
 	type PlanPickerDay,
 	type PlanPickerLine,
@@ -81,7 +83,8 @@ function isPastDay(date: string, today: string) {
 
 const STATUS_NOTE: Record<PlanPickerLine['status'], string | null> = {
 	needed: null,
-	'on-list': 'Already on list',
+	added: 'On the list',
+	'name-on-list': 'On the list, not this Meal’s amount',
 	'on-hand': 'Usually on hand',
 }
 
@@ -167,9 +170,14 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 		choiceState.status === 'success'
 			? loadedToday(choiceState.choices.today)
 			: ''
+	// Only lines a tick can add count, so a line the Meal already has on the
+	// list never reaches the writer or the button's count.
 	const pickedMeals = days.flatMap((day) =>
 		day.meals.flatMap((meal) => {
-			const lines = [...(picks.get(meal.id) ?? [])]
+			const picked = picks.get(meal.id) ?? new Set<string>()
+			const lines = pickableLines(meal.lines)
+				.map((line) => line.canonicalName)
+				.filter((name) => picked.has(name))
 			return lines.length > 0 ? [{ mealId: meal.id, lines }] : []
 		}),
 	)
@@ -244,7 +252,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 		if (!week) return
 		setPresentation(opensAsSheet() ? 'sheet' : 'popover')
 		setOpen(true)
-		// Every open refetches: "Already on list" and the default ticks
+		// Every open refetches: "On the list" and the default ticks
 		// describe the list as it is now, and the previous open may have
 		// added to it.
 		void loadWeek(week.weekStart)
@@ -360,7 +368,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 					{days.map((day) => {
 						return day.meals.map((meal) => {
 							const picked = picks.get(meal.id) ?? new Set<string>()
-							const allPicked = picked.size === meal.lines.length
+							const pickState = mealPickState(meal.lines, picked)
 							const isExpanded = !collapsedMeals.has(meal.id)
 							const panelId = `plan-picker-${meal.id}`
 							// "4-recipe Meal" names nothing on its own; its Recipe
@@ -380,26 +388,38 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 									    lines scroll, and it carries the day so the calendar
 									    orientation scrolls with it. */}
 									<div className="bg-popover border-border/60 sticky top-0 z-10 flex items-center gap-3 border-b">
-										<button
-											type="button"
-											onClick={() => toggleMeal(meal.id, meal.lines)}
-											aria-pressed={
-												allPicked ? true : picked.size > 0 ? 'mixed' : false
-											}
-											aria-label={
-												allPicked
-													? `Untick every line in ${meal.title}`
-													: picked.size === 0
-														? `Tick ${meal.title}`
-														: `Tick every line in ${meal.title}`
-											}
-											className="flex min-h-11 shrink-0 items-center"
-										>
-											<TickBox
-												checked={allPicked}
-												partial={picked.size > 0 && !allPicked}
-											/>
-										</button>
+										{pickState === 'done' ? (
+											// Everything is on the list: nothing to tick, so no
+											// button. The lines below say so in words.
+											<span className="flex min-h-11 shrink-0 items-center">
+												<TickBox done />
+											</span>
+										) : (
+											<button
+												type="button"
+												onClick={() => toggleMeal(meal.id, meal.lines)}
+												aria-pressed={
+													pickState === 'all'
+														? true
+														: pickState === 'some'
+															? 'mixed'
+															: false
+												}
+												aria-label={
+													pickState === 'all'
+														? `Untick every line in ${meal.title}`
+														: pickState === 'none'
+															? `Tick ${meal.title}`
+															: `Tick every line in ${meal.title}`
+												}
+												className="flex min-h-11 shrink-0 items-center"
+											>
+												<TickBox
+													checked={pickState === 'all'}
+													partial={pickState === 'some'}
+												/>
+											</button>
+										)}
 										<button
 											type="button"
 											onClick={() => toggleExpanded(meal.id)}
@@ -428,6 +448,11 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 												className="text-muted-foreground shrink-0"
 											/>
 										</button>
+										{pickState === 'done' && (
+											// The muted check says it to the eye; this says it
+											// to a screen reader, folded or not.
+											<span className="sr-only">All on the list</span>
+										)}
 									</div>
 									{isExpanded && (
 										<div
@@ -435,9 +460,41 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 											className="border-border/60 ml-2.5 border-l pl-4"
 										>
 											{meal.lines.map((line) => {
-												const isPicked = picked.has(line.canonicalName)
 												const note = STATUS_NOTE[line.status]
 												const amount = lineAmount(line)
+												const text = (
+													<span className="min-w-0 flex-1">
+														<span className="block text-sm">
+															{line.name}
+															{amount && (
+																<span className="text-muted-foreground">
+																	{' '}
+																	· {amount}
+																</span>
+															)}
+														</span>
+														{note && (
+															<span className="text-muted-foreground block text-xs">
+																{note}
+															</span>
+														)}
+													</span>
+												)
+												// This Meal's amount is on the list already. A tick
+												// could add nothing, so it is a plain row whose note
+												// says where it stands, not a toggle.
+												if (line.status === 'added') {
+													return (
+														<div
+															key={line.canonicalName}
+															className="flex min-h-11 w-full items-center gap-3 py-1"
+														>
+															<TickBox done />
+															{text}
+														</div>
+													)
+												}
+												const isPicked = picked.has(line.canonicalName)
 												return (
 													<button
 														key={line.canonicalName}
@@ -449,22 +506,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 														className="flex min-h-11 w-full items-center gap-3 py-1 text-left"
 													>
 														<TickBox checked={isPicked} />
-														<span className="min-w-0 flex-1">
-															<span className="block text-sm">
-																{line.name}
-																{amount && (
-																	<span className="text-muted-foreground">
-																		{' '}
-																		· {amount}
-																	</span>
-																)}
-															</span>
-															{note && (
-																<span className="text-muted-foreground block text-xs">
-																	{note}
-																</span>
-															)}
-														</span>
+														{text}
 													</button>
 												)
 											})}
@@ -551,23 +593,32 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 	)
 }
 
+/**
+ * The picker's box. `done` is the muted check of something already on the
+ * list: it reads as finished rather than chosen, and nothing toggles it.
+ */
 function TickBox({
-	checked,
+	checked = false,
 	partial = false,
+	done = false,
 }: {
-	checked: boolean
+	checked?: boolean
 	partial?: boolean
+	done?: boolean
 }) {
 	return (
 		<span
+			aria-hidden
 			className={cn(
 				'flex size-5 shrink-0 items-center justify-center rounded border',
-				checked || partial
-					? 'border-primary bg-primary text-primary-foreground'
-					: 'border-border bg-background',
+				done
+					? 'border-muted-foreground/30 bg-muted text-muted-foreground'
+					: checked || partial
+						? 'border-primary bg-primary text-primary-foreground'
+						: 'border-border bg-background',
 			)}
 		>
-			{checked ? (
+			{checked || done ? (
 				<Icon name="check" size="xs" />
 			) : partial ? (
 				<span className="bg-primary-foreground h-0.5 w-2.5 rounded-full" />

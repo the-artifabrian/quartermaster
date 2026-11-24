@@ -542,6 +542,7 @@ export async function deepCopyRecipes(
 ) {
 	const recipes = await tx.recipe.findMany({
 		where: { userId: from.userId, householdId: from.householdId },
+		orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
 		include: {
 			ingredients: true,
 			instructions: true,
@@ -550,6 +551,10 @@ export async function deepCopyRecipes(
 		},
 	})
 	if (recipes.length === 0) return
+	// One statement would give every copy the same time. A millisecond apart,
+	// in the source's order, the Recipes list sorts them as it sorted the
+	// originals, as when each copy was written on its own.
+	const start = Date.now()
 	// Copies get their ids up front, so lines can point at the copy of their
 	// sub-Recipe as they are written.
 	const recipeIds = new Map(recipes.map((recipe) => [recipe.id, createId()]))
@@ -570,8 +575,10 @@ export async function deepCopyRecipes(
 	)
 
 	await tx.recipe.createMany({
-		data: recipes.map((recipe) => ({
+		data: recipes.map((recipe, index) => ({
 			id: recipeIds.get(recipe.id)!,
+			createdAt: new Date(start + index),
+			updatedAt: new Date(start + index),
 			title: recipe.title,
 			description: recipe.description,
 			activeTime: recipe.activeTime,

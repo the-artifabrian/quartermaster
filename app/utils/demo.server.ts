@@ -131,7 +131,7 @@ export type DemoTemplateSummary = {
 	status: 'current' | 'built'
 	userId: string
 	householdId: string
-	/** Photo files the content names that weren't there or weren't usable. */
+	/** Photo files the content names that weren't there. */
 	missingPhotos: string[]
 	/** Template owners left by builds that died partway, now deleted. */
 	abandoned: number
@@ -154,11 +154,12 @@ type Log = {
  * template's owner is deleted after the switch, through deleteAccount, which
  * keeps any photo a copy still shows.
  *
- * A missing photo file, or one the photo check refuses, is logged and leaves
- * that Recipe without a photo; the same bytes would be refused again. A photo
- * turned away only because the photo queue was busy fails the build instead,
- * so the next run tries again rather than storing a template that looks
- * current without it.
+ * A missing photo file is logged and leaves that Recipe without a photo; the
+ * file turning up changes the photo hash, so a later run picks it up. A photo
+ * the photo check refuses fails the build instead: the refusal can be
+ * passing (the photo queue was busy, a decode ran out of time), and a
+ * template stored without the photo would look current and never be retried.
+ * The next run tries again.
  *
  * deleteAccount works on the app's own client, so a build that has a
  * template or an abandoned build to delete must be given that client.
@@ -246,7 +247,7 @@ export async function ensureDemoTemplate(
 		status: 'built',
 		userId: built.userId,
 		householdId: built.householdId,
-		missingPhotos: [...missingPhotos, ...built.unusablePhotos],
+		missingPhotos,
 		abandoned,
 	}
 }
@@ -310,7 +311,6 @@ async function buildTemplate(
 			select: { id: true, title: true },
 		})
 		const recipeIds = new Map(recipes.map((r) => [r.title, r.id]))
-		const unusablePhotos: string[] = []
 		for (const recipe of content.recipes) {
 			if (!recipe.photo) continue
 			const bytes = photos.get(recipe.photo)
@@ -321,17 +321,10 @@ async function buildTemplate(
 				continue
 			}
 			const check = await checkRecipePhoto(new Blob([bytes]))
-			if (!check.ok && check.reason === 'busy') {
-				throw new Error(
-					`Demo template: the photo queue was busy for ${recipe.photo}; trying again next run`,
-				)
-			}
 			if (!check.ok) {
-				log.warn(
-					`Demo template: photo ${recipe.photo} can't be used (${check.reason}), so "${recipe.title}" has no photo`,
+				throw new Error(
+					`Demo template: photo ${recipe.photo} was refused (${check.reason}); trying again next run`,
 				)
-				unusablePhotos.push(recipe.photo)
-				continue
 			}
 			const recipeId = recipeIds.get(recipe.title)!
 			const objectKey = await uploadRecipeImage(userId, recipeId, check.photo)
@@ -339,7 +332,7 @@ async function buildTemplate(
 				data: { recipeId, objectKey, altText: recipe.photoAlt ?? null },
 			})
 		}
-		return { userId, householdId, unusablePhotos }
+		return { userId, householdId }
 	} catch (error) {
 		return cleanUpAfterFailure(userId, error, log)
 	}

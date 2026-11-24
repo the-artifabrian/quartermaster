@@ -12,9 +12,10 @@
  * - A missing photo file fails the whole build, or the Recipe is skipped
  *   instead of saved without a photo. When the file turns up later, nothing
  *   picks it up.
- * - A photo the check turns away for a passing reason (the photo queue was
- *   busy) leaves its Recipe without a photo, and the stored version says the
- *   template is current, so no later run tries again.
+ * - A photo the check turns away, which can be for a passing reason (the
+ *   photo queue was busy, a decode ran out of time), leaves its Recipe
+ *   without a photo, and the stored version says the template is current,
+ *   so no later run tries again.
  * - A change to what the template doesn't hold (the Plan, Shopping, the
  *   Menus) rebuilds it anyway, or blocks copies until it is rebuilt.
  * - Two builds at once leave two templates, or the losing build's user and
@@ -46,6 +47,8 @@
  *   of their own, or has a username or email a real signup could take.
  * - The copy misses Recipes, lines, steps, classification, Staples,
  *   favourites or photos, or its Recipes still belong to the template user.
+ * - The copied Recipes all get the same time, so the Recipes list (newest or
+ *   last changed first) shows them in a different order from the template.
  * - A sub-Recipe link in the copy points back into the template.
  * - The Menu is missing, or its cards point at the template's Recipes.
  * - The copy's Plan is in the template's week, or the wrong week on a Monday
@@ -472,27 +475,27 @@ test('a build that died partway is cleaned up by the next one, and one still run
 	).not.toBeNull()
 })
 
-test('a photo turned away because the photo queue was busy fails the build, and the next build has it', async () => {
-	await using _photos = await photos()
-	vi.mocked(checkRecipePhoto).mockResolvedValueOnce({
-		ok: false,
-		reason: 'busy',
-	})
+test.each(['busy', 'unusable'] as const)(
+	'a photo the check refuses (%s) fails the build, and the next build has it',
+	async (reason) => {
+		await using _photos = await photos()
+		vi.mocked(checkRecipePhoto).mockResolvedValueOnce({ ok: false, reason })
 
-	await expect(build()).rejects.toThrow(/busy/)
+		await expect(build()).rejects.toThrow(new RegExp(reason))
 
-	expect(await prisma.demoTemplate.count()).toBe(0)
-	expect(
-		await prisma.user.count({
-			where: { email: { endsWith: `@${DEMO_TEMPLATE_EMAIL_DOMAIN}` } },
-		}),
-	).toBe(0)
-	expect((await build()).status).toBe('built')
-	const { householdId } = await template()
-	expect(
-		await prisma.recipeImage.count({ where: { recipe: { householdId } } }),
-	).toBe(PICTURED.length)
-})
+		expect(await prisma.demoTemplate.count()).toBe(0)
+		expect(
+			await prisma.user.count({
+				where: { email: { endsWith: `@${DEMO_TEMPLATE_EMAIL_DOMAIN}` } },
+			}),
+		).toBe(0)
+		expect((await build()).status).toBe('built')
+		const { householdId } = await template()
+		expect(
+			await prisma.recipeImage.count({ where: { recipe: { householdId } } }),
+		).toBe(PICTURED.length)
+	},
+)
 
 test('a change to the Plan, Shopping or Menus keeps the template and still allows copies', async () => {
 	await using _photos = await photos()
@@ -704,6 +707,19 @@ test('the copy has the template’s library, owned by the visitor, sharing its p
 	expect(
 		copied.recipes.filter((recipe) => recipe.isFavorite).map((r) => r.title),
 	).toEqual(['Banana bread', 'Lemon chicken traybake', 'Red lentil soup'])
+	const listOrder = (householdId: string, by: 'createdAt' | 'updatedAt') =>
+		prisma.recipe
+			.findMany({
+				where: { householdId },
+				orderBy: { [by]: 'desc' },
+				select: { title: true },
+			})
+			.then((recipes) => recipes.map((recipe) => recipe.title))
+	for (const by of ['createdAt', 'updatedAt'] as const) {
+		expect(await listOrder(copy.householdId, by)).toEqual(
+			await listOrder(templateHouseholdId, by),
+		)
+	}
 	expect(
 		await prisma.recipe.count({
 			where: { householdId: copy.householdId, userId: { not: copy.userId } },
@@ -906,9 +922,10 @@ test('starts that wait too long for the database are refused, not thrown', async
 	)
 	expect(values.filter((r) => r.ok).length).toBeGreaterThan(0)
 	expect(values).toContainEqual({ ok: false, reason: 'unavailable' })
+	// A start refused after its user was made leaves that user for expiry.
 	expect(
 		await prisma.user.count({ where: { demoExpiresAt: { not: null } } }),
-	).toBe(values.filter((r) => r.ok).length)
+	).toBeGreaterThanOrEqual(values.filter((r) => r.ok).length)
 }, 30_000)
 
 test('a template rebuilt between making the visitor and copying the library gives unavailable, and expiry can sweep the visitor', async () => {

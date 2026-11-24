@@ -509,15 +509,31 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		},
 	],
 	plan: [
-		{ day: 0, label: 'dinner', recipes: ['Lemon chicken traybake'] },
+		{ day: 0, label: 'breakfast', recipes: ['Overnight oats'] },
+		{
+			day: 0,
+			label: 'dinner',
+			recipes: ['Lemon chicken traybake', 'Roast carrots with cumin'],
+		},
+		{ day: 1, label: 'lunch', recipes: ['Red lentil soup'] },
 		{ day: 1, label: 'dinner', recipes: ['Chickpea and spinach curry'] },
+		{ day: 2, label: 'breakfast', recipes: ['Overnight oats'] },
+		{ day: 2, label: 'lunch', text: 'Leftover curry' },
+		// Fried with the rice left over from Tuesday's curry.
 		{
 			day: 2,
 			label: 'dinner',
-			recipes: ['Tomato and basil spaghetti', 'Greek salad'],
+			recipes: ['Beef and broccoli stir-fry', 'Egg fried rice'],
 		},
+		{ day: 3, label: 'lunch', text: 'Soup from Tuesday' },
 		{ day: 3, label: 'dinner', recipes: ['Soy and ginger salmon'] },
-		{ day: 4, label: 'dinner', recipes: ['Black bean tacos'] },
+		// The taco night Menu's two Recipes.
+		{
+			day: 4,
+			label: 'dinner',
+			recipes: ['Black bean tacos', 'Greek salad'],
+		},
+		{ day: 5, label: 'lunch', recipes: ['Tomato and basil spaghetti'] },
 		{ day: 5, label: 'dinner', text: 'Leftovers' },
 		{ day: 6, label: 'breakfast', recipes: ['Mushroom omelette'] },
 		{ day: 6, label: 'dinner', recipes: ['Sausage and pepper traybake'] },

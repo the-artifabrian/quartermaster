@@ -53,6 +53,8 @@
  * - The Menu is missing, or its cards point at the template's Recipes.
  * - The copy's Plan is in the template's week, or the wrong week on a Monday
  *   or a Sunday.
+ * - A copy made on some weekday has Meals cooked that are still to come, or
+ *   misses ones already gone, or its Shopping lists nothing still to buy.
  * - Expiring the copy deletes the template's photos or rows.
  * - From Plan in the copy offers the Meals' lines as still to buy, or as on
  *   the list from somewhere else, when the copy's own Meals put them there.
@@ -844,12 +846,16 @@ test('a sub-Recipe link in the copy points at the copy of its Recipe', async () 
 })
 
 test.each([
-	['a Monday', '2026-11-23', 0],
-	// Leftovers on Saturday and every weekday Meal; Sunday's two are today.
-	['a Sunday', '2026-11-29', 6],
+	['Monday', '2026-11-23'],
+	['Tuesday', '2026-11-24'],
+	['Wednesday', '2026-11-25'],
+	['Thursday', '2026-11-26'],
+	['Friday', '2026-11-27'],
+	['Saturday', '2026-11-28'],
+	['Sunday', '2026-11-29'],
 ])(
-	'on %s the copy plans the visitor’s week, cooked before today',
-	async (_, today, cookedMeals) => {
+	'on a %s the copy plans the visitor’s week, cooked before today, with some still to buy',
+	async (_, today) => {
 		await using _photos = await photos()
 		await build()
 		const copy = await startCopy(today)
@@ -873,12 +879,26 @@ test.each([
 		])
 		const meals = plans[0]!.meals
 		expect(meals).toHaveLength(SAMPLE_HOUSEHOLD.plan.length)
-		const cooked = meals.filter((meal) =>
-			meal.genericText != null
-				? meal.completed
-				: meal.recipeItems.every((item) => item.cooked),
+		const cooked = meals.map((meal) => ({
+			date: serializeDate(meal.date),
+			cooked:
+				meal.genericText != null
+					? meal.completed
+					: meal.recipeItems.every((item) => item.cooked),
+		}))
+		expect(cooked).toEqual(
+			cooked.map(({ date }) => ({ date, cooked: date < today })),
 		)
-		expect(cooked).toHaveLength(cookedMeals)
+
+		const toBuy = await prisma.shoppingListItem.count({
+			where: {
+				list: { householdId: copy.householdId },
+				checked: false,
+				horizon: 'next',
+			},
+		})
+		expect(toBuy).toBeGreaterThanOrEqual(8)
+		expect(toBuy).toBeLessThanOrEqual(12)
 	},
 )
 

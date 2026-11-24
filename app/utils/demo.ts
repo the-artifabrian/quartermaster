@@ -31,10 +31,27 @@ export function isDemoUser(user: { demoExpiresAt: Date | string | null }) {
 }
 
 /**
- * Households with no demo user in them, as a Prisma filter. The public share
- * pages show only these: anyone with a link can open them, and a demo is
- * nobody's to publish.
+ * The demo template's owners have emails under this domain (demo.server.ts).
+ * `.invalid` is reserved, so no real address can be one.
+ */
+export const DEMO_TEMPLATE_EMAIL_DOMAIN = 'demo-template.invalid'
+
+/**
+ * Households with no demo user and no demo template owner in them, as a
+ * Prisma filter. The public share pages show only these: anyone with a link
+ * can open them, and a demo is nobody's to publish. The template is matched
+ * by its owner's email rather than the `DemoTemplate` row, so a template
+ * still being built, or one just replaced, is covered too.
  */
 export const NOT_A_DEMO_HOUSEHOLD = {
-	members: { none: { user: { demoExpiresAt: { not: null } } } },
+	members: {
+		none: {
+			user: {
+				OR: [
+					{ demoExpiresAt: { not: null } },
+					{ email: { endsWith: `@${DEMO_TEMPLATE_EMAIL_DOMAIN}` } },
+				],
+			},
+		},
+	},
 } satisfies Prisma.HouseholdWhereInput

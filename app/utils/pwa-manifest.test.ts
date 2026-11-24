@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 import { describe, expect, test } from 'vitest'
 import { launchThemes } from './pwa-launch.ts'
+import { SITE_DESCRIPTION } from './site-description.ts'
 
 type ManifestIcon = {
 	src: string
@@ -68,6 +69,13 @@ describe('PWA install metadata', () => {
 			)
 			expect(shortcut.url.startsWith(manifest.scope)).toBe(true)
 		}
+	})
+
+	// JSON can't import the constant, so this keeps the install sheet and the
+	// page description saying the same thing.
+	test('describes the app in the same words as the site', async () => {
+		const manifest = await readManifest()
+		expect(manifest.description).toBe(SITE_DESCRIPTION)
 	})
 
 	test('declares a separate safe-zone-aware maskable icon', async () => {

@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
+import { SITE_DESCRIPTION } from '#app/utils/site-description.ts'
 import { createUser, expect, test } from '#tests/playwright-utils.ts'
 
 /* eslint-disable playwright/no-raw-locators -- this test inspects document head metadata */
@@ -25,6 +26,44 @@ for (const pagePath of ['/', '/about', '/support', '/privacy', '/tos']) {
 		const image = await page.request.get(new URL(imageUrl!).pathname)
 		expect(image.ok()).toBe(true)
 		expect(image.headers()['content-type']).toBe('image/png')
+	})
+}
+
+// The homepage and any page that falls back to root's meta (here the 404
+// page) describe the site in the same words as the install sheet, and preview
+// with the full-size image.
+for (const pagePath of ['/', '/no-such-page']) {
+	test(`${pagePath} describes the site and previews at full size`, async ({
+		page,
+	}) => {
+		await page.goto(pagePath)
+
+		await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+			'content',
+			SITE_DESCRIPTION,
+		)
+		await expect(
+			page.locator('meta[property="og:description"]'),
+		).toHaveAttribute('content', SITE_DESCRIPTION)
+		await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+			'content',
+			'Quartermaster',
+		)
+
+		const imageUrl = new URL(
+			(await page
+				.locator('meta[property="og:image"]')
+				.getAttribute('content'))!,
+		)
+		const image = await page.request.get(imageUrl.pathname)
+		expect(image.ok()).toBe(true)
+		expect(image.headers()['content-type']).toBe('image/png')
+		// A PNG keeps its width and height in the IHDR chunk, at bytes 16 to 23.
+		const png = await image.body()
+		expect({
+			width: png.readUInt32BE(16),
+			height: png.readUInt32BE(20),
+		}).toEqual({ width: 1200, height: 630 })
 	})
 }
 
@@ -102,6 +141,15 @@ test('a shared Recipe link unfurls with its photo', async ({ page }) => {
 	try {
 		await page.goto(`/share/${recipe.id}`)
 		await expectPreviewImage(page)
+		// The share page's own title and description, not the site's.
+		await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+			'content',
+			'Roast carrots | Quartermaster',
+		)
+		await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+			'content',
+			'View recipe for Roast carrots',
+		)
 	} finally {
 		await recipe.removePhoto()
 	}

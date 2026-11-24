@@ -54,6 +54,7 @@ import { formBodyMiddleware } from './utils/form-body.server.ts'
 import { pipeHeaders } from './utils/headers.server.ts'
 import { getAppOrigin } from './utils/app-origin.server.ts'
 import { IMAGE_BREAKPOINTS } from './utils/image-route.ts'
+import { baseMetaTags } from './utils/meta.ts'
 import { cn, combineHeaders, getImgSrc } from './utils/misc.tsx'
 import { isNativeShell } from './utils/native-shell.server.ts'
 import { useNavDirection } from './utils/nav-direction.ts'
@@ -65,6 +66,7 @@ import {
 	PostHogPwaLifecycle,
 } from './utils/posthog-provider.tsx'
 import { iosStartupImages, launchThemes } from './utils/pwa-launch.ts'
+import { SITE_DESCRIPTION } from './utils/site-description.ts'
 import { getUserTier, type TierInfo } from './utils/subscription.server.ts'
 import { type Theme, getTheme } from './utils/theme.server.ts'
 import { makeTimings, time } from './utils/timing.server.ts'
@@ -113,27 +115,13 @@ export const links: Route.LinksFunction = () => {
 	].filter(Boolean)
 }
 
-export const meta: Route.MetaFunction = ({ loaderData }) => {
-	const origin = loaderData?.requestInfo.origin ?? ''
-	const description =
-		'Save Recipes, plan Meals, and keep Shopping in one place.'
-	return [
-		{ title: loaderData ? 'Quartermaster' : 'Error | Quartermaster' },
-		{ name: 'description', content: description },
-		{ property: 'og:site_name', content: 'Quartermaster' },
-		{ property: 'og:title', content: 'Quartermaster' },
-		{
-			property: 'og:description',
-			content: description,
-		},
-		{ property: 'og:image', content: `${origin}/og-image.png` },
-		{ property: 'og:image:width', content: '1200' },
-		{ property: 'og:image:height', content: '630' },
-		{ property: 'og:type', content: 'website' },
-		{ property: 'og:locale', content: 'en_US' },
-		{ name: 'twitter:card', content: 'summary_large_image' },
-	]
-}
+export const meta: Route.MetaFunction = ({ loaderData, matches }) => [
+	{ title: loaderData ? 'Quartermaster' : 'Error | Quartermaster' },
+	{ name: 'description', content: SITE_DESCRIPTION },
+	{ property: 'og:title', content: 'Quartermaster' },
+	{ property: 'og:description', content: SITE_DESCRIPTION },
+	...baseMetaTags(matches),
+]
 
 const DEFAULT_TIER_INFO: TierInfo = {
 	tier: 'free',

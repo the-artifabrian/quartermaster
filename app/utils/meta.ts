@@ -1,5 +1,5 @@
 /**
- * Shared meta tag helpers for marketing pages.
+ * Shared meta tag helpers for root and the marketing pages.
  *
  * A child route's `meta` completely replaces its parent's, so marketing pages
  * must re-include the base OG/Twitter tags from root.

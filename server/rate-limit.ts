@@ -2,7 +2,8 @@ export type RateLimitTier = 'none' | 'auth' | 'ai' | 'strong' | 'general'
 
 /**
  * Sign-in and sign-out, sign-up, codes, passkeys, Household invites, account
- * settings and admin: any method but GET.
+ * settings, admin, and starting or ending a demo (each start makes a user
+ * and copies a Household): any method but GET.
  */
 export const authPaths = [
 	'/login',
@@ -16,6 +17,7 @@ export const authPaths = [
 	'/household/join',
 	'/settings/profile',
 	'/admin',
+	'/demo',
 ]
 
 /** Routes that call a paid AI service on POST. */

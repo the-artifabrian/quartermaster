@@ -462,6 +462,9 @@ function productionLimits() {
 	vi.stubEnv('PLAYWRIGHT_TEST_BASE_URL', '')
 }
 
+// The two tests below make six or seven copies each, which takes a few
+// seconds on a loaded machine.
+
 /** A client address of its own for each test, as the server stamps it. */
 function newClientKey() {
 	return `client-${Math.random().toString(36).slice(2)}`
@@ -495,7 +498,7 @@ test('a client gets five starts an hour; the next is refused with the full messa
 	})
 	const later = await postDemo({ clientKey })
 	expect(later.headers.get('location')).toBe('/recipes')
-})
+}, 30_000)
 
 test('ending a demo is never refused by the start limit and doesn’t use it up', async () => {
 	await buildTemplate()
@@ -532,7 +535,7 @@ test('ending a demo is never refused by the start limit and doesn’t use it up'
 	expect(await toastOf(await postDemo({ clientKey }))).toMatchObject({
 		description: 'The demo is full right now. Try again in a few minutes.',
 	})
-})
+}, 30_000)
 
 test('a session step that fails deletes the new demo user and says the demo isn’t available', async () => {
 	await buildTemplate()

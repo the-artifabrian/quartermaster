@@ -1,8 +1,33 @@
+/**
+ * The From Plan picker's choices for a week.
+ *
+ * Failure list (which lines show as this Meal's amount on the list):
+ * - The Meal's own contribution and another Meal's contribution to a row
+ *   with the same name read the same, so the second Meal can't add its
+ *   share, or the first can add its share twice.
+ * - A typed row or a Recipe-detail row with the same name reads as this
+ *   Meal's amount.
+ * - A contribution whose row was deleted still counts, though the row and
+ *   the amount are gone.
+ * - A contribution on a checked row stops counting, so the Meal offers its
+ *   amount again as if it were never added.
+ * - A contribution left by a deleted Meal (no Meal any more) counts for
+ *   another Meal with the same line.
+ * - A Staple line the Meal did put on the list reads as usually on hand.
+ * - The loader keys a line differently from the writer (case, plurals), so
+ *   a line the Meal added reads as only sharing a name with a row.
+ * - A Meal scaled up (or its Recipe changed) after it was added shows the
+ *   new amount as on the list, though Shopping still has the old one.
+ * - A Meal's amount on an unchecked Later row reads as on the list, so it
+ *   can't be moved to Next shop from From Plan; or one on a checked Later
+ *   row (bought) reads as on Later.
+ */
 import { RouterContextProvider } from 'react-router'
 import { expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { addMealToShopping } from '#app/utils/shopping-adds.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
@@ -123,9 +148,265 @@ test('default ticks skip a Staple, a pantry line and a line already on the list'
 		olive: 'on-hand',
 		// The plain-basics heuristic, which the picker keeps for its defaults.
 		salt: 'on-hand',
-		// Already a row on the list.
-		feta: 'on-list',
+		// Already a row on the list, without this Meal's amount.
+		feta: 'name-on-list',
 	})
+})
+
+type Session = Awaited<ReturnType<typeof setupHousehold>>
+
+async function createRecipe(
+	session: Session,
+	title: string,
+	ingredients: Array<{ name: string; amount?: string; unit?: string }>,
+) {
+	return prisma.recipe.create({
+		data: {
+			title,
+			userId: session.userId,
+			householdId: session.householdId,
+			ingredients: {
+				create: ingredients.map((ingredient, order) => ({
+					...ingredient,
+					order,
+				})),
+			},
+		},
+	})
+}
+
+/** One Meal per Recipe, on the week's Monday, in order. */
+async function planWeek(
+	session: Session,
+	recipes: Array<{ id: string; title: string }>,
+) {
+	const weekStart = getWeekStart(new Date())
+	const plan = await prisma.mealPlan.create({
+		data: { householdId: session.householdId, weekStart },
+	})
+	const meals = []
+	for (const [order, recipe] of recipes.entries()) {
+		meals.push(
+			await prisma.meal.create({
+				data: {
+					mealPlanId: plan.id,
+					date: weekStart,
+					order,
+					recipeItems: {
+						create: {
+							order: 0,
+							recipeId: recipe.id,
+							recipeTitle: recipe.title,
+							scaleMultiplier: 1,
+						},
+					},
+				},
+			}),
+		)
+	}
+	const list = await ensureShoppingList(prisma, {
+		userId: session.userId,
+		householdId: session.householdId,
+	})
+	return { weekStart, meals, listId: list.id }
+}
+
+/** Add to Shopping for one Meal, through the app's own Meal-add path. */
+function addToShopping(session: Session, mealId: string, listId: string) {
+	return addMealToShopping(prisma, {
+		mealId,
+		householdId: session.householdId,
+		listId,
+		refresh: false,
+	})
+}
+
+/** Each Meal's line statuses, keyed by canonical name. */
+async function statuses(session: Session, weekStart: Date) {
+	const result = await loadWeek(session, weekStart)
+	return result.data.days
+		.flatMap((day) => day.meals)
+		.map((meal) =>
+			Object.fromEntries(
+				meal.lines.map((line) => [line.canonicalName, line.status]),
+			),
+		)
+}
+
+test('a line this Meal added is on the list; the same line from another Meal is not its amount', async () => {
+	const session = await setupHousehold('Two salads')
+	// Capitals and plurals on one side, the singular on the other: the
+	// loader has to key them the way the writer did.
+	const first = await createRecipe(session, 'Tomato salad', [
+		{ name: 'Red Onions', amount: '2' },
+		{ name: 'basil', amount: '1', unit: 'bunch' },
+	])
+	const second = await createRecipe(session, 'Tomato pasta', [
+		{ name: 'red onion', amount: '1' },
+		{ name: 'spaghetti', amount: '500', unit: 'g' },
+	])
+	const { weekStart, meals, listId } = await planWeek(session, [first, second])
+	await addToShopping(session, meals[0]!.id, listId)
+
+	expect(await statuses(session, weekStart)).toEqual([
+		{ 'red onion': 'added', basil: 'added' },
+		{ 'red onion': 'name-on-list', spaghetti: 'needed' },
+	])
+})
+
+test('a typed row and a Recipe-detail row with a line’s name are not the Meal’s amount', async () => {
+	const session = await setupHousehold('Typed rows')
+	const recipe = await createRecipe(session, 'Greek salad', [
+		{ name: 'feta', amount: '200', unit: 'g' },
+		{ name: 'cucumber', amount: '1' },
+		{ name: 'red onion', amount: '1' },
+	])
+	const { weekStart, listId } = await planWeek(session, [recipe])
+	await prisma.shoppingListItem.createMany({
+		data: [
+			{ listId, name: 'Feta', source: 'manual' },
+			{ listId, name: 'Cucumbers', quantity: '2', source: 'recipe' },
+		],
+	})
+
+	expect(await statuses(session, weekStart)).toEqual([
+		{ feta: 'name-on-list', cucumber: 'name-on-list', 'red onion': 'needed' },
+	])
+})
+
+test('a deleted row takes the Meal’s amount with it, and a checked row keeps it', async () => {
+	const session = await setupHousehold('Bought and deleted')
+	const recipe = await createRecipe(session, 'Greek salad', [
+		{ name: 'feta', amount: '200', unit: 'g' },
+		{ name: 'cucumber', amount: '1' },
+	])
+	const { weekStart, meals, listId } = await planWeek(session, [recipe])
+	await addToShopping(session, meals[0]!.id, listId)
+	await prisma.shoppingListItem.deleteMany({
+		where: { listId, name: 'cucumber' },
+	})
+	await prisma.shoppingListItem.updateMany({
+		where: { listId, name: 'feta' },
+		data: { checked: true },
+	})
+
+	expect(await statuses(session, weekStart)).toEqual([
+		{ feta: 'added', cucumber: 'needed' },
+	])
+})
+
+test('an amount left by a deleted Meal is not another Meal’s', async () => {
+	const session = await setupHousehold('Deleted Meal')
+	const gone = await createRecipe(session, 'Feta toast', [
+		{ name: 'feta', amount: '100', unit: 'g' },
+	])
+	const kept = await createRecipe(session, 'Greek salad', [
+		{ name: 'feta', amount: '200', unit: 'g' },
+	])
+	const { weekStart, meals, listId } = await planWeek(session, [gone, kept])
+	await addToShopping(session, meals[0]!.id, listId)
+	await prisma.meal.delete({ where: { id: meals[0]!.id } })
+	// The row stays, with an amount that no Meal owns now.
+	expect(
+		await prisma.mealShoppingContribution.findMany({
+			select: { mealId: true, canonicalName: true },
+		}),
+	).toEqual([{ mealId: null, canonicalName: 'feta' }])
+
+	expect(await statuses(session, weekStart)).toEqual([{ feta: 'name-on-list' }])
+})
+
+test('a Staple line the Meal put on the list is on the list, not usually on hand', async () => {
+	const session = await setupHousehold('Staples')
+	const recipe = await createRecipe(session, 'Puttanesca', [
+		{ name: 'olives', amount: '100', unit: 'g' },
+		{ name: 'capers', amount: '1', unit: 'tbsp' },
+	])
+	await prisma.householdIngredient.create({
+		data: {
+			householdId: session.householdId,
+			displayName: 'Capers',
+			canonicalKey: 'caper',
+			isStaple: true,
+		},
+	})
+	const { weekStart, meals, listId } = await planWeek(session, [recipe])
+	// Olives go on Shopping first, and become a Staple afterwards.
+	await addToShopping(session, meals[0]!.id, listId)
+	await prisma.householdIngredient.create({
+		data: {
+			householdId: session.householdId,
+			displayName: 'Olives',
+			canonicalKey: 'olive',
+			isStaple: true,
+		},
+	})
+
+	expect(await statuses(session, weekStart)).toEqual([
+		{ olive: 'added', caper: 'on-hand' },
+	])
+})
+
+test('a Meal’s amount on an unchecked Later row is on Later; a checked one is on the list', async () => {
+	const session = await setupHousehold('Later')
+	const recipe = await createRecipe(session, 'Lemon tart', [
+		{ name: 'lemons', amount: '3' },
+		{ name: 'butter', amount: '100', unit: 'g' },
+	])
+	const { weekStart, meals, listId } = await planWeek(session, [recipe])
+	await addToShopping(session, meals[0]!.id, listId)
+	await prisma.shoppingListItem.updateMany({
+		where: { listId },
+		data: { horizon: 'later' },
+	})
+	await prisma.shoppingListItem.updateMany({
+		where: { listId, name: 'butter' },
+		data: { checked: true },
+	})
+
+	expect(await statuses(session, weekStart)).toEqual([
+		{ lemon: 'later', butter: 'added' },
+	])
+})
+
+test('a Meal scaled after it was added shows the amount Shopping has, not the new one', async () => {
+	const session = await setupHousehold('Scaled')
+	const recipe = await createRecipe(session, 'Chicken traybake', [
+		{ name: 'chicken thighs', amount: '8' },
+		{ name: 'lemon', amount: '1' },
+	])
+	const { weekStart, meals, listId } = await planWeek(session, [recipe])
+	await addToShopping(session, meals[0]!.id, listId)
+	await prisma.mealRecipeItem.updateMany({
+		where: { mealId: meals[0]!.id },
+		data: { scaleMultiplier: 2 },
+	})
+
+	const result = await loadWeek(session, weekStart)
+
+	expect(
+		result.data.days[0]!.meals[0]!.lines.map(
+			({ name, quantity, status, contributed }) => ({
+				name,
+				quantity,
+				status,
+				contributed,
+			}),
+		),
+	).toEqual([
+		{
+			name: 'chicken thighs',
+			quantity: '16',
+			status: 'changed',
+			contributed: { quantity: '8', unit: null },
+		},
+		{
+			name: 'lemon',
+			quantity: '2',
+			status: 'changed',
+			contributed: { quantity: '1', unit: null },
+		},
+	])
 })
 
 test('an unsaved ingredient is needed, and cooked items are never offered', async () => {

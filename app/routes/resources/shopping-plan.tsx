@@ -14,6 +14,8 @@ import {
 } from '#app/utils/today.server.ts'
 import { loadMealShoppingDemand } from '#app/utils/meal-shopping.server.ts'
 import { isStapleIngredient } from '#app/utils/recipe-matching.server.ts'
+import { holdsSameAmount } from '#app/utils/shopping-contribution.server.ts'
+import { LATER } from '#app/utils/shopping-horizon.ts'
 import { demandIdentity } from '#app/utils/shopping-demand.server.ts'
 import {
 	annotateShoppingDemand,
@@ -47,10 +49,15 @@ function mealTitle({
  * Cooked Recipe items are left out, as From Plan always left them out;
  * headings and optional ingredients never reach demand at all. Lines the
  * household would normally skip — Staple matches, plain pantry basics, and
- * rows already on the list — still appear, unticked and with the reason,
+ * names already on the list — still appear, unticked and with the reason,
  * because only the household knows when the usual assumption is wrong. A
  * Staple is the whole of that first reason since #289: there is no Out state
  * that could make one needed on its own.
+ *
+ * A line whose amount this Meal already put on Shopping is different: it
+ * shows as on the list and can't be ticked, since adding it again would
+ * change nothing. That reads the Meal's contributions the way the Meal-add
+ * writer does, by Meal and stored canonical name, so the two always agree.
  */
 export async function loader({ request }: Route.LoaderArgs) {
 	const { householdId } = await requireUserWithHousehold(request)
@@ -86,12 +93,36 @@ export async function loader({ request }: Route.LoaderArgs) {
 	])
 
 	const meals = mealPlan?.meals ?? []
-	const demandByMeal = await loadMealShoppingDemand(prisma, {
-		mealIds: meals.map((meal) => meal.id),
-	})
+	const mealIds = meals.map((meal) => meal.id)
+	const [demandByMeal, contributions] = await Promise.all([
+		loadMealShoppingDemand(prisma, { mealIds }),
+		prisma.mealShoppingContribution.findMany({
+			where: { mealId: { in: mealIds } },
+			select: {
+				mealId: true,
+				canonicalName: true,
+				name: true,
+				quantity: true,
+				unit: true,
+				item: { select: { checked: true, horizon: true } },
+			},
+		}),
+	])
 	const listedIdentities = new Set(
 		listedRows.map((row) => demandIdentity(row.name)),
 	)
+	const contributedByMeal = new Map<
+		string,
+		Map<string, (typeof contributions)[number]>
+	>()
+	for (const contribution of contributions) {
+		if (!contribution.mealId) continue
+		const byIdentity =
+			contributedByMeal.get(contribution.mealId) ??
+			new Map<string, (typeof contributions)[number]>()
+		byIdentity.set(contribution.canonicalName, contribution)
+		contributedByMeal.set(contribution.mealId, byIdentity)
+	}
 
 	const days: PlanPickerDay[] = []
 	for (const meal of meals) {
@@ -127,13 +158,17 @@ export async function loader({ request }: Route.LoaderArgs) {
 			// Two Meals on one day can share a Recipe title; the familiar label
 			// is what tells them apart. Never repeated as its own title.
 			label: label === title ? null : label,
-			lines: lines.map((line) => ({
-				canonicalName: line.canonicalName,
-				name: line.name,
-				quantity: line.quantity,
-				unit: line.unit,
-				status: planPickerLineStatus({
+			lines: lines.map((line) => {
+				const contributed = contributedByMeal
+					.get(meal.id)
+					?.get(line.canonicalName)
+				const status = planPickerLineStatus({
 					canonicalName: line.canonicalName,
+					contribution: contributed && {
+						sameAmount: holdsSameAmount(contributed, line),
+						onLater:
+							!contributed.item.checked && contributed.item.horizon === LATER,
+					},
 					listedIdentities,
 					keptByAvailability,
 					// Explicit note Shopping text is deliberate, so the heuristic
@@ -141,8 +176,23 @@ export async function loader({ request }: Route.LoaderArgs) {
 					// card meant to buy some.
 					pantryStaple:
 						!line.fromNote && isStapleIngredient({ name: line.name }),
-				}),
-			})),
+				})
+				return {
+					canonicalName: line.canonicalName,
+					name: line.name,
+					quantity: line.quantity,
+					unit: line.unit,
+					status,
+					...(status === 'changed' && contributed
+						? {
+								contributed: {
+									quantity: contributed.quantity,
+									unit: contributed.unit,
+								},
+							}
+						: {}),
+				}
+			}),
 		})
 	}
 

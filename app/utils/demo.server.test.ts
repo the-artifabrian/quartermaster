@@ -54,6 +54,9 @@
  * - The copy's Plan is in the template's week, or the wrong week on a Monday
  *   or a Sunday.
  * - Expiring the copy deletes the template's photos or rows.
+ * - From Plan in the copy offers the Meals' lines as still to buy, or as on
+ *   the list from somewhere else, when the copy's own Meals put them there.
+ *   Or a Meal opens unticked instead of done, because of its Staple lines.
  * - A copy that fails after its user is made leaves the user for expiry, so
  *   it holds a live slot for two hours; or a clean-up that fails too turns
  *   the refusal into a thrown error.
@@ -75,8 +78,10 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { http, HttpResponse } from 'msw'
+import { RouterContextProvider } from 'react-router'
 import { expect, test, vi } from 'vitest'
 import { type PrismaClient } from '#app/generated/prisma/client.ts'
+import { loader as planPickerLoader } from '#app/routes/resources/shopping-plan.tsx'
 import type * as AccountDeletion from './account-deletion.server.ts'
 import type * as RecipePhoto from './recipe-photo.server.ts'
 import type * as Storage from './storage.server.ts'
@@ -92,6 +97,8 @@ import {
 	expireDemoUsers,
 } from './demo.server.ts'
 import { getWeekStart, parseDate, serializeDate } from './date.ts'
+import { demandIdentity } from './shopping-demand.server.ts'
+import { defaultPickedLines, mealPickState } from './shopping-plan-picker.ts'
 import {
 	SAMPLE_HOUSEHOLD,
 	type SampleHouseholdContent,
@@ -105,6 +112,7 @@ import {
 	createWalDatabase,
 	writeAfterFirstRead,
 } from '#tests/sqlite-concurrency.ts'
+import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import '#tests/setup/db-setup.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { server } from '#tests/setup/mocks-setup.ts'
@@ -892,6 +900,72 @@ test('a template built in another week gives a copy in the visitor’s week', as
 		'2026-11-23',
 	])
 })
+
+test.each([
+	['Monday', '2026-11-23'],
+	['Thursday', THURSDAY],
+])(
+	'From Plan in a copy started on a %s shows what each Meal put on Shopping as on the list',
+	async (_weekday, today) => {
+		await using _photos = await photos()
+		await build()
+		const copy = await startCopy(today)
+		const session = await prisma.session.create({
+			data: {
+				userId: copy.userId,
+				expirationDate: new Date(Date.now() + 60 * 60 * 1000),
+			},
+			select: { id: true },
+		})
+		const url = new URL(`${BASE_URL}/resources/shopping-plan`)
+		url.searchParams.set('weekStart', today)
+		const choices = await planPickerLoader({
+			request: new Request(url, {
+				headers: { cookie: await getSessionCookieHeader(session) },
+			}),
+			params: {},
+			context: new RouterContextProvider(),
+			pattern: '/resources/shopping-plan',
+			url,
+		})
+
+		// Every Meal in the copy went on Shopping, so each of its lines is on
+		// the list already. The exceptions are the Staples (olive oil, salt),
+		// which Add to Shopping leaves off and the picker offers as usually on
+		// hand. Meals cooked before today offer nothing and drop out.
+		const staples = await prisma.householdIngredient.findMany({
+			where: { householdId: copy.householdId, isStaple: true },
+			select: { displayName: true },
+		})
+		const stapleIdentities = new Set(
+			staples.map((staple) => demandIdentity(staple.displayName)),
+		)
+		const lines = choices.data.days.flatMap((day) =>
+			day.meals.flatMap((meal) =>
+				meal.lines.map((line) => [meal.title, line.canonicalName, line.status]),
+			),
+		)
+		expect(lines.length).toBeGreaterThan(0)
+		expect(lines).toEqual(
+			lines.map(([title, canonicalName]) => [
+				title,
+				canonicalName,
+				stapleIdentities.has(canonicalName!) ? 'on-hand' : 'added',
+			]),
+		)
+		expect(lines.filter(([, , status]) => status === 'added')).not.toHaveLength(
+			0,
+		)
+		// So every Meal opens done, Staple lines and all.
+		const meals = choices.data.days.flatMap((day) => day.meals)
+		expect(
+			meals.map((meal) => [
+				meal.title,
+				mealPickState(meal.lines, new Set(defaultPickedLines(meal.lines))),
+			]),
+		).toEqual(meals.map((meal) => [meal.title, 'done']))
+	},
+)
 
 test('expiring a copy leaves the template’s rows and photos as they were', async () => {
 	await using _photos = await photos()

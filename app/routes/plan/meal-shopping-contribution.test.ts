@@ -19,6 +19,16 @@
  * - Add to Shopping and Update Shopping from the Meal card carry the
  *   device's client id, so that device doesn't light its own Shopping dot.
  *
+ * From Plan lines a Meal already put on Shopping:
+ * - The picker and the writer key the Meal's amount differently, so the
+ *   picker shows a line as on the list that the writer would add, or the
+ *   other way round.
+ * - A request that names such a line anyway adds a row, a contribution or
+ *   an amount, or rewrites the row.
+ * - A line whose amount sits on a Later row can't be moved to Next shop
+ *   from From Plan, or picking it adds a second row instead of moving it,
+ *   or the answer doesn't say a row moved.
+ *
  * Row Edit and Remove generated amount (status codes the page acts on):
  * - A stale version answers 409 with the row as it is now, and saves nothing.
  * - A page that sends no version answers 400.
@@ -1163,9 +1173,15 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 		expect(result.shopping.alreadyContributedCount).toBe(1)
 		expect(await getShoppingRows(session.householdId)).toHaveLength(1)
 
-		// Ticking the same line again in From Plan must find it too.
+		// From Plan finds it under the same identity and shows it as on the
+		// list, with no box to tick.
 		const choices = await runPlanPickerLoader(session)
 		const line = choices.data.days[0]!.meals[0]!.lines[0]!
+		expect(line.status).toBe('added')
+
+		// A request that names it anyway changes nothing.
+		const rowsBefore = await getShoppingRows(session.householdId)
+		const contributionsBefore = await getContributions(session.householdId)
 		const repick = await runShoppingAction(session, {
 			intent: 'add-from-plan',
 			picks: JSON.stringify([{ mealId: meal.id, lines: [line.canonicalName] }]),
@@ -1173,9 +1189,54 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 		expect(repick).toMatchObject({
 			status: 'success',
 			createdRowCount: 0,
+			attachedCount: 0,
 			alreadyContributedCount: 1,
 		})
-		expect(await getShoppingRows(session.householdId)).toHaveLength(1)
+		expect(await getShoppingRows(session.householdId)).toEqual(rowsBefore)
+		expect(await getContributions(session.householdId)).toEqual(
+			contributionsBefore,
+		)
+	})
+
+	test('picking a line the Meal already has on a Later row moves that row to Next shop', async () => {
+		const session = await setupUser()
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Lemon tart',
+				userId: session.userId,
+				householdId: session.householdId,
+				ingredients: { create: [{ name: 'lemons', amount: '3', order: 0 }] },
+			},
+		})
+		const meal = await setupMeal(session.householdId, recipe)
+		await runPlanAction(session, {
+			intent: 'addMealToShopping',
+			mealId: meal.id,
+		})
+		await prisma.shoppingListItem.updateMany({
+			where: { list: { householdId: session.householdId } },
+			data: { horizon: 'later' },
+		})
+
+		const choices = await runPlanPickerLoader(session)
+		const line = choices.data.days[0]!.meals[0]!.lines[0]!
+		expect(line.status).toBe('later')
+		const moved = await runShoppingAction(session, {
+			intent: 'add-from-plan',
+			picks: JSON.stringify([{ mealId: meal.id, lines: [line.canonicalName] }]),
+		})
+
+		expect(moved).toMatchObject({
+			status: 'success',
+			createdRowCount: 0,
+			attachedCount: 0,
+			promotedRowCount: 1,
+		})
+		const rows = await getShoppingRows(session.householdId)
+		expect(rows.map((row) => [row.name, row.quantity, row.horizon])).toEqual([
+			['lemons', '3', 'next'],
+		])
+		expect(await getContributions(session.householdId)).toHaveLength(1)
 	})
 
 	test('a Meal in another household is not reachable', async () => {

@@ -65,9 +65,13 @@ reaches the app at once. The two sides meet in three places:
   things or pick safer defaults (Pro hidden, sessions always remembered); it
   never grants access.
 - **Messages.** The page talks to the shell through `WKScriptMessageHandler`s
-  named `haptic`, `theme`, `refresh` and `launch`; the shell talks back by
-  dispatching a `qm:refresh` event on pull to refresh and by injecting launch
-  timestamps and the screen's insets at document start. The Web side is
+  named `haptic`, `theme`, `refresh` and `launch`. The shell talks back with
+  events and document-start scripts. Pull to refresh dispatches `qm:refresh`. A
+  share from the app's Share Extension goes to the import page through
+  `ios/Quartermaster/Quartermaster/ShareIntent.swift`, which sets
+  `window.__qmShareImport` and dispatches `qm:share-import`, and
+  `takeShareImport` in `app/utils/shell-bridge.ts` reads it. Launch timestamps
+  and the screen's insets are set at document start. The Web side is
   `app/utils/shell-bridge.ts`, which checks that a handler exists before each
   call so the same code runs in Safari and the Home Screen install. The Swift
   side is `ios/Quartermaster/Quartermaster/ShellBridge.swift`.
@@ -412,6 +416,17 @@ ingredient it shares with an uncooked item. If its Recipe was deleted, no
 amount the Meal has on Shopping is withdrawn or lowered, though larger amounts
 and new lines still apply. The rule lives in `loadMealShoppingDemand`.
 
+From Plan opens a picker over a Plan week, and `planPickerLineStatus` in
+`app/utils/shopping-plan-picker.ts` decides how each line starts. When this
+Meal's amount sits on an unchecked Later row, the line starts unticked, and
+ticking it moves the row to Next shop. Otherwise a line whose amount this Meal
+already put on Shopping can't be ticked. It shows as on the list, or shows
+Shopping's amount when the Meal changed since. A name on the list from somewhere
+else starts unticked, and so does a Staple or a plain basic such as salt. Every
+other line starts ticked, unless its day is past. A Meal shows as done when
+nothing in it is ticked, at least one line is its own amount on the list, and
+the rest are that or usually on hand.
+
 Shopping checks submit an explicit state and the observed purchase version.
 SQLite triggers advance that version for row and Meal-contribution changes, so
 checking cannot silently cover demand added after the shopper saw it. One latest
@@ -427,9 +442,12 @@ answers 409 with the row’s current state when it moved.
 
 `HouseholdIngredient` is the household availability model, and the only one. A
 row has a stable canonical key plus `isStaple`; there is no per-Staple state
-(#289). Staples are a quick-add list of usual items: tapping one on the Staples
-screen, or picking it in Shopping's From Staples popover, puts it on Next shop
-through `resolveNextShopRestockTarget`.
+(#289). Staples are a quick-add list of usual items. Tapping Need on the Staples
+screen puts one on Next shop through `resolveNextShopRestockTarget`, which adds
+a row, moves a Later row up, or brings back a checked one. Shopping's From
+Staples picker posts the picked names to Shopping's `bulk-add` instead. It lets
+the person pick only Staples whose name isn't on the list, checked rows
+included, and adds them to Next shop.
 
 `annotateShoppingDemand` is the one seam that reads them, and it answers one
 question: does this demand line match a Staple? A match is dropped from
@@ -491,7 +509,8 @@ durable, correctable links later.
 ```text
 requireUserId(request)
     → requireUserWithHousehold(request)
-    → optional requireProTier(request)
+    → optional requireUserWithTier(request)
+      or requireProTierOrNativeShellNull(request)
 ```
 
 Authorization happens in loaders/actions, not only in the UI. Pro limits are
@@ -639,12 +658,16 @@ more than the one shared-CPU machine serves, that is 600,000 × 5 ÷ 33^8 ≈ 2.
 break. Keeping 5 codes live costs the owner 5 emails a window, 720 a day, which
 they would notice long before that.
 
-**Pro.** `app/utils/subscription.server.ts` is the source of truth:
-`getUserTier` reads the Stripe-backed `Subscription` row, `requireProTier`
-guards Pro-only loaders and actions (redirecting to `/upgrade`, or a 403 in the
-iOS shell per ADR 0001), `requireProTierOrNativeShellNull` does the same for
-resource routes a fetcher calls, and `requireUserWithTier` returns the tier
-without redirecting for pages that only show or hide Pro features. The client
+**Pro.** `app/utils/subscription.server.ts` is the source of truth.
+`getUserTier` reads the Stripe-backed `Subscription` row, and
+`requireUserWithTier` returns the tier with the user and Household. The two
+Pro-only resource routes, `resources/enhance-recipe` and `resources/transcribe`,
+guard with `requireProTierOrNativeShellNull`. Without Pro it redirects to
+`/upgrade`, or in the iOS shell returns null so the route answers with an error
+its caller shows in place (ADR 0001). Every other Pro check reads `isProActive`.
+AI import refuses with a 403 and applying an enhancement answers `requiresPro`.
+Pages show or hide Pro features with it, and live updates are gated there alone,
+since the household-events routes ask only for a Household member. The client
 reads the tier through the hooks in `app/utils/subscription.ts`. To find every
 place a user sees Pro, search rather than trust a list:
 
@@ -814,16 +837,17 @@ AI calls go through a small schema-validated Anthropic JSON boundary. Prompts
 and Zod schemas remain feature-local. Provider errors normalize to safe UI
 errors.
 
-An AI import (pasted text or screenshots, Pro only) runs the extraction once and
-saves what it read at once, like the other imports
-(`app/utils/import-recipe-save.server.ts`). There is no review step: the Recipe
-page says what was missing or shortened, and the cook edits it there. The pasted
-text, or the extraction itself for screenshots, is kept in `Recipe.rawText`.
-Because nothing is reviewed first, the prompt asks for a transcription and adds
-nothing the source doesn't give. Recipe enhancement returns a suggested
-description and time estimates that the user chooses whether to apply. Voice
-input sends audio to Groq Whisper, and the transcript to the fast model to split
-into items, with the rule-based parser as the fallback.
+Every import saves what it read at once and opens the new Recipe
+(`saveImportedRecipe` in `app/utils/import-recipe-save.server.ts`), and Pro adds
+AI reading of pasted text and screenshots. A notice with Edit and Undo shows
+only when a part was missing or shortened, or another Recipe has the same title.
+A link the Household already has saves nothing, and Import says "Already in your
+Recipes". The pasted text, or the AI's extraction for screenshots, is kept in
+`Recipe.rawText`. Since nothing is reviewed first, the AI prompt asks for a
+transcription and adds nothing the source doesn't give. Recipe enhancement
+suggests a description and time estimates the user may apply. Voice input sends
+audio to Groq Whisper, then the transcript to the fast model to split into
+items, falling back to the rule-based parser.
 
 Each paid feature has a daily limit per user: 10 AI imports, 10 enhancements and
 30 voice inputs, counted from the server's local midnight. `claimAiUsage` in
@@ -985,5 +1009,3 @@ a slow CI runner hits.
 `page.waitForFunction` does not await an async predicate: it resolves with the
 first result, even `false`. To wait on async page state such as Cache Storage,
 use `expect.poll(() => page.evaluate(async () => …))`.
-
-_Updated 23 November 2026._

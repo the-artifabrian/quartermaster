@@ -20,9 +20,10 @@ tool produces the web view. So we write the shell ourselves.
 - **Capacitor.** Actively maintained, but its supported mode bundles the web
   build into the app. Loading a remote URL is a live-reload convenience that its
   documentation marks "not intended for use in production". Its value is the
-  JavaScript-to-native bridge, and nothing in the Web app calls one. If the
-  shell ever needs several native bridges (haptics, keyboard insets, status bar
-  control), Capacitor becomes the better base.
+  JavaScript-to-native bridge, and the Web app needs only a few one-way string
+  messages, which WebKit's own message handlers carry. If the shell ever needs
+  native calls that answer the page, or many more of them, Capacitor becomes the
+  better base.
 - **PWABuilder iOS.** Generates exactly this wrapper from the web manifest, but
   the project is archived (last change June 2025). Its template,
   `khmyznikov/ios-pwa-wrap`, is useful reference code for the launch screen and
@@ -44,3 +45,24 @@ tool produces the web view. So we write the shell ourselves.
   embedded web views. Password and passkey login remain.
 - Android later can use a Trusted Web Activity, which Play accepts for PWAs
   without wrapper code.
+
+## Revisited
+
+The shell has grown from 1,245 to 2,314 lines of Swift in `ios/Quartermaster`,
+plus a 316-line check of the share code in `ios/checks`. About 880 of the new
+lines are share import. The Share Extension now hands a link or screenshots to
+the app through an App Group, and the app imports them at once. The other 190
+keep the launch screen up until the page has painted and set the screen's insets
+on the page before its first paint.
+
+The page calls the shell for haptics, the status bar colour and pull to refresh,
+as it did at 1,245 lines. It now also says when it has painted, so the shell can
+lift the launch screen, and the shell sets the insets on the page. The approach
+still holds. Those calls are four one-way string messages in one 173-line file
+(`ShellBridge.swift`), with the iOS README as the contract. The reason above is
+unchanged. The app loads a server-rendered site, which Capacitor's supported
+mode does not do, and the extension work is the same whichever tool makes the
+web view.
+
+Look again if the page needs a native call that answers back, such as a picker
+or a permission prompt, or if the bridge grows well past a handful of messages.

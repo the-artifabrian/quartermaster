@@ -117,9 +117,9 @@ export async function action({ request }: Route.ActionArgs) {
 		})
 		invariantResponse(staple, 'Staple not found', { status: 404 })
 
-		// The same resolution the Shopping page's Staples picker uses: a row
-		// already in Next shop is left alone, a Later one moves up, and a
-		// checked one comes back rather than arriving twice.
+		// Only Need uses this resolution; Shopping's From Staples picker posts
+		// bulk-add instead. A row already in Next shop is left alone, a Later
+		// one moves up, and a checked one comes back rather than arriving twice.
 		let shoppingEffect: NextShopRestockEffect
 		try {
 			shoppingEffect = await prisma.$transaction(async (tx) => {

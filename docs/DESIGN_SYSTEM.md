@@ -389,5 +389,3 @@ Start with the nearest existing surface and these defaults:
 
 If a new pattern needs a long explanation here, first ask whether it belongs in
 the component itself or whether the UI can be simpler.
-
-_Updated 18 November 2026._

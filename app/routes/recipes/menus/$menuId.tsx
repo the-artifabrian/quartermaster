@@ -37,7 +37,8 @@ import { PlanMenuSchema } from '#app/utils/meal-plan-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { planMenu } from '#app/utils/plan-menu.server.ts'
 import { servingInstantFromWallTime } from '#app/utils/serving-time.ts'
-import { DEMO_BLOCKED_MESSAGE, isDemoUser } from '#app/utils/demo.ts'
+import { isDemoUserId } from '#app/utils/demo-guard.server.ts'
+import { DEMO_BLOCKED_MESSAGE } from '#app/utils/demo.ts'
 import { browserShareFunctions, shareOrCopy } from '#app/utils/share-link.ts'
 import { type Route } from './+types/$menuId.ts'
 import { PushLink } from '#app/components/push-link.tsx'
@@ -114,14 +115,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 	invariantResponse(menu.householdId === householdId, 'Not authorized', {
 		status: 403,
 	})
-	const user = await prisma.user.findUnique({
-		where: { id: userId },
-		select: { demoExpiresAt: true },
-	})
 
 	return {
 		// A demo's Menus aren't shared (share.menus.$menuId.tsx).
-		isDemo: user ? isDemoUser(user) : false,
+		isDemo: await isDemoUserId(userId),
 		menu: {
 			...menu,
 			sections: menu.sections.map((section) => ({

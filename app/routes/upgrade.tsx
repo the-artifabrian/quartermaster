@@ -6,8 +6,7 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getAppOrigin } from '#app/utils/app-origin.server.ts'
 import { getUserId } from '#app/utils/auth.server.ts'
-import { prisma } from '#app/utils/db.server.ts'
-import { isDemoUser } from '#app/utils/demo.ts'
+import { isDemoUserId } from '#app/utils/demo-guard.server.ts'
 import { isNativeShell } from '#app/utils/native-shell.server.ts'
 import {
 	CHECKOUT_STARTED,
@@ -49,14 +48,6 @@ function throwNotFoundInNativeShell(request: Request) {
 	if (isNativeShell(request)) {
 		throw new Response('Not found', { status: 404 })
 	}
-}
-
-async function isDemoUserId(userId: string) {
-	const user = await prisma.user.findUnique({
-		where: { id: userId },
-		select: { demoExpiresAt: true },
-	})
-	return user ? isDemoUser(user) : false
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

@@ -131,6 +131,27 @@ async function refuse(request: Request) {
 	)
 }
 
+/** Whether the user is a demo user. One read. */
+export async function isDemoUserId(userId: string) {
+	const user = await prisma.user.findUnique({
+		where: { id: userId },
+		select: { demoExpiresAt: true },
+	})
+	return user ? isDemoUser(user) : false
+}
+
+/**
+ * The toast on a demo user's Recipe saved without the photo they picked.
+ * Photos aren't stored for the demo: the Recipe forms drop a demo user's
+ * file unread.
+ */
+export function demoPhotoDroppedHeaders() {
+	return createToastHeaders({
+		type: 'message',
+		description: 'Saved without the photo. Photos are turned off in the demo.',
+	})
+}
+
 /** Whether the signed-in user, if any, is a demo user. One read, by session. */
 async function isDemoSession(request: Request) {
 	const cookie = request.headers.get('cookie')

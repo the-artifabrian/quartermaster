@@ -70,7 +70,8 @@ import { formatRecipeForCopy } from '#app/utils/recipe-copy.ts'
 import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
 import { MAX_RECIPE_DESCRIPTION_LENGTH } from '#app/utils/recipe-validation.ts'
-import { DEMO_BLOCKED_MESSAGE, isDemoUser } from '#app/utils/demo.ts'
+import { isDemoUserId } from '#app/utils/demo-guard.server.ts'
+import { DEMO_BLOCKED_MESSAGE } from '#app/utils/demo.ts'
 import { browserShareFunctions, shareOrCopy } from '#app/utils/share-link.ts'
 import { haptic } from '#app/utils/shell-bridge.ts'
 import { addRecipeLineToShopping } from '#app/utils/shopping-adds.server.ts'
@@ -188,12 +189,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		status: 403,
 	})
 
-	const [tierInfo, user] = await Promise.all([
+	const [tierInfo, isDemo] = await Promise.all([
 		getUserTier(userId),
-		prisma.user.findUnique({
-			where: { id: userId },
-			select: { demoExpiresAt: true },
-		}),
+		isDemoUserId(userId),
 	])
 
 	// A just-imported Recipe's notice points at an older one with its title.
@@ -211,7 +209,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 		householdId,
 		isProActive: tierInfo.isProActive,
 		// A demo's Recipes aren't shared (share.$recipeId.tsx).
-		isDemo: user ? isDemoUser(user) : false,
+		isDemo,
 		sameTitle,
 		// Add to Plan's Today chip, the browser's day (see getRequestToday).
 		today: getRequestToday(request),

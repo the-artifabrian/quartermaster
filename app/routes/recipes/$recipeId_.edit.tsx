@@ -38,6 +38,10 @@ import {
 	resolveAfterDelete,
 } from '#app/utils/nav-back.ts'
 import { historyIndex } from '#app/utils/nav-direction.ts'
+import {
+	demoPhotoDroppedHeaders,
+	isDemoUserId,
+} from '#app/utils/demo-guard.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	recipeMetadataOptions,
@@ -178,6 +182,10 @@ export async function action({ request, params }: Route.ActionArgs) {
 	})
 
 	let imageFile: FileUpload | null = null
+	// Photos are off in the demo: a demo user's file is dropped unread, and
+	// the Recipe saves without it.
+	const demo = await isDemoUserId(userId)
+	let photoDropped = false
 
 	let formData: FormData
 	try {
@@ -186,6 +194,10 @@ export async function action({ request, params }: Route.ActionArgs) {
 			{ maxFileSize: MAX_RECIPE_IMAGE_SIZE },
 			async (file) => {
 				if (file.fieldName === 'image' && file.name) {
+					if (demo) {
+						photoDropped = true
+						return undefined
+					}
 					if (file.size > MAX_RECIPE_IMAGE_SIZE) {
 						return undefined
 					}
@@ -378,10 +390,13 @@ export async function action({ request, params }: Route.ActionArgs) {
 		}
 	}
 
+	const headers = photoDropped ? await demoPhotoDroppedHeaders() : undefined
 	if (clientLeaves(formData)) {
-		return data({ done: `/recipes/${recipeId}` } satisfies EditScreenDone)
+		return data({ done: `/recipes/${recipeId}` } satisfies EditScreenDone, {
+			headers,
+		})
 	}
-	return redirect(`/recipes/${recipeId}`)
+	return redirect(`/recipes/${recipeId}`, { headers })
 }
 
 export default function EditRecipe({ loaderData }: Route.ComponentProps) {

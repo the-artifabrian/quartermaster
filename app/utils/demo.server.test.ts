@@ -923,7 +923,12 @@ test('a template built in another week gives a copy in the visitor’s week', as
 
 test.each([
 	['Monday', '2026-11-23'],
+	['Tuesday', '2026-11-24'],
+	['Wednesday', '2026-11-25'],
 	['Thursday', THURSDAY],
+	['Friday', '2026-11-27'],
+	['Saturday', '2026-11-28'],
+	['Sunday', '2026-11-29'],
 ])(
 	'From Plan in a copy started on a %s shows what each Meal put on Shopping as on the list',
 	async (_weekday, today) => {

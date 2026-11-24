@@ -544,8 +544,9 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 			{ name: 'dish soap', horizon: 'next' },
 			{ name: 'kitchen roll', quantity: '2', horizon: 'later' },
 		],
-		// Bought for everything up to Saturday; Sunday's Meals are still to
-		// buy, so nothing left on the list is for a day already gone.
+		// Bought for everything up to Saturday. A row a Sunday Meal also needs
+		// stays unchecked, so every Meal row left on the list is wanted on
+		// Sunday, though its amount can include a day already gone.
 		boughtThroughDay: 5,
 	},
 }

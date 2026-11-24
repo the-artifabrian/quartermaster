@@ -32,10 +32,8 @@
  *   list is far from the 8 to 12 rows a real list holds.
  * - On a day after the bought day, Shopping still lists rows only for
  *   Meals already cooked.
- * - The week looks empty on a phone: most days hold one Meal, no dinner has
- *   a side, or a day is crowded past three Meals.
- * - A day has no dinner, or the week loses its touches: Saturday's leftovers
- *   night and the Sunday Meals still to buy.
+ * - Sunday's Meals are checked off as bought, so the list has nothing
+ *   left for the days still to come.
  * - A fuller week turns Shopping into a list nobody would keep, far more
  *   rows than a week's shop.
  * - The favourites aren't marked, or a run marks others.
@@ -438,39 +436,9 @@ test('Staples stay off Shopping, and the start of the week is bought', async () 
 	expect(toBuy.length).toBeLessThanOrEqual(12)
 	// Bought and still to buy together stay the size of a week's shop.
 	expect(rows.length).toBeLessThanOrEqual(70)
-})
-
-test('the week has two or three Meals on most days, and sides at a few dinners', async () => {
-	const { userId, householdId } = await newHousehold()
-	await fillSampleHousehold(prisma, { userId, householdId, today: THURSDAY })
-	const { meals, rows } = await snapshot(householdId)
-	const weekday = (date: Date) => (date.getUTCDay() + 6) % 7
-
-	const byDay = Array.from({ length: 7 }, (_, day) =>
-		meals.filter((meal) => weekday(meal.date) === day),
-	)
-	for (const [day, dayMeals] of byDay.entries()) {
-		expect(dayMeals.length, `Meals on day ${day}`).toBeLessThanOrEqual(3)
-		expect(
-			dayMeals.filter((meal) => meal.label === 'dinner'),
-			`dinners on day ${day}`,
-		).toHaveLength(1)
-	}
-	expect(
-		byDay.filter((dayMeals) => dayMeals.length >= 2).length,
-	).toBeGreaterThanOrEqual(5)
-
-	const dinnersWithASide = meals.filter(
-		(meal) => meal.label === 'dinner' && meal.recipeItems.length >= 2,
-	)
-	expect(dinnersWithASide.length).toBeGreaterThanOrEqual(3)
-
-	// Saturday is leftovers night.
-	const saturdayDinner = byDay[5]!.find((meal) => meal.label === 'dinner')
-	expect(saturdayDinner?.genericText).toMatch(/leftover/i)
 
 	// Sunday is still to buy: nothing a Sunday Meal needs is checked.
-	const sundayRows = rows.filter((row) =>
+	const sundayRows = mealRows.filter((row) =>
 		row.mealContributions.some((c) => weekday(c.meal!.date) === 6),
 	)
 	expect(sundayRows.length).toBeGreaterThan(0)

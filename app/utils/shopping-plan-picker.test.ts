@@ -16,6 +16,14 @@
  *   something.
  * - A stale pick of an added line (left from before the list changed)
  *   counts toward the Meal box.
+ * - A Meal whose other lines are only usually on hand (salt next to lines on
+ *   the list) reads as unticked instead of done.
+ * - Ticking such an on-hand line leaves the box reading done, so the pick is
+ *   hidden; unticking it doesn't bring done back.
+ * - A Meal whose lines are all usually on hand, with none on the list,
+ *   reads as done though nothing of it is on Shopping.
+ * - A Meal with a line still to buy, or a name on the list without its
+ *   amount, reads as done because the rest is on the list or on hand.
  */
 import { expect, test } from 'vitest'
 import {
@@ -101,4 +109,37 @@ test('the Meal box state counts only lines that can be picked', () => {
 	// A stale pick of an added line counts for nothing.
 	expect(mealPickState(lines, new Set(['lemon']))).toBe('none')
 	expect(mealPickState(lines, new Set(['lemon', 'chicken']))).toBe('some')
+})
+
+test('a Meal whose lines are on the list or usually on hand is done until one is ticked', () => {
+	const meal = [line('lemon', 'added'), line('salt', 'on-hand')]
+	expect(mealPickState(meal, new Set())).toBe('done')
+	expect(defaultPickedLines(meal)).toEqual([])
+	// The salt line can still be ticked on its own, and then the box counts it.
+	expect(mealPickState(meal, new Set(['salt']))).toBe('all')
+	expect(
+		mealPickState([...meal, line('pepper', 'on-hand')], new Set(['salt'])),
+	).toBe('some')
+	expect(mealPickState(meal, new Set())).toBe('done')
+})
+
+test('a Meal with nothing on the list, or something still to add, is never done', () => {
+	const onHand = [line('salt', 'on-hand'), line('pepper', 'on-hand')]
+	expect(mealPickState(onHand, new Set())).toBe('none')
+	expect(
+		mealPickState(
+			[line('lemon', 'added'), line('chicken', 'needed')],
+			new Set(),
+		),
+	).toBe('none')
+	expect(
+		mealPickState(
+			[
+				line('lemon', 'added'),
+				line('salt', 'on-hand'),
+				line('rice', 'name-on-list'),
+			],
+			new Set(),
+		),
+	).toBe('none')
 })

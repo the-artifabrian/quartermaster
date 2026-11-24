@@ -56,6 +56,7 @@
  * - Expiring the copy deletes the template's photos or rows.
  * - From Plan in the copy offers the Meals' lines as still to buy, or as on
  *   the list from somewhere else, when the copy's own Meals put them there.
+ *   Or a Meal opens unticked instead of done, because of its Staple lines.
  * - A copy that fails after its user is made leaves the user for expiry, so
  *   it holds a live slot for two hours; or a clean-up that fails too turns
  *   the refusal into a thrown error.
@@ -97,6 +98,7 @@ import {
 } from './demo.server.ts'
 import { getWeekStart, parseDate, serializeDate } from './date.ts'
 import { demandIdentity } from './shopping-demand.server.ts'
+import { defaultPickedLines, mealPickState } from './shopping-plan-picker.ts'
 import {
 	SAMPLE_HOUSEHOLD,
 	type SampleHouseholdContent,
@@ -954,6 +956,14 @@ test.each([
 		expect(lines.filter(([, , status]) => status === 'added')).not.toHaveLength(
 			0,
 		)
+		// So every Meal opens done, Staple lines and all.
+		const meals = choices.data.days.flatMap((day) => day.meals)
+		expect(
+			meals.map((meal) => [
+				meal.title,
+				mealPickState(meal.lines, new Set(defaultPickedLines(meal.lines))),
+			]),
+		).toEqual(meals.map((meal) => [meal.title, 'done']))
 	},
 )
 

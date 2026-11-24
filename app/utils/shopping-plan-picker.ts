@@ -90,18 +90,22 @@ export function pickableLines(lines: PlanPickerLine[]) {
 }
 
 /**
- * What the Meal box shows. `done` is a Meal whose lines are all on the list
- * already, so there is nothing to tick. Otherwise the box counts only the
- * lines a tick can add.
+ * What the Meal box shows. `done` is a Meal with nothing left to buy: some
+ * of its lines are on the list already, and the rest are usually on hand and
+ * not ticked. An on-hand line can still be ticked on its own, and the box
+ * then counts the lines a tick can add, as it does for any other Meal. A
+ * Meal with nothing on the list is never done, however much is on hand.
  */
 export function mealPickState(
 	lines: PlanPickerLine[],
 	picked: ReadonlySet<string>,
 ): 'done' | 'all' | 'some' | 'none' {
 	const pickable = pickableLines(lines)
-	if (pickable.length === 0) return 'done'
 	const count = pickable.filter((line) => picked.has(line.canonicalName)).length
-	if (count === 0) return 'none'
+	const nothingToBuy =
+		pickable.length < lines.length &&
+		pickable.every((line) => line.status === 'on-hand')
+	if (count === 0) return nothingToBuy ? 'done' : 'none'
 	return count === pickable.length ? 'all' : 'some'
 }
 

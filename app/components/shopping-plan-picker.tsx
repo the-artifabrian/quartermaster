@@ -389,8 +389,10 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 									    orientation scrolls with it. */}
 									<div className="bg-popover border-border/60 sticky top-0 z-10 flex items-center gap-3 border-b">
 										{pickState === 'done' ? (
-											// Everything is on the list: nothing to tick, so no
-											// button. The lines below say so in words.
+											// Nothing left to buy, so no button: a tap that ticked
+											// the salt would make the done check mean "add salt".
+											// An on-hand line can still be ticked on its own, and
+											// the box comes back while it is.
 											<span className="flex min-h-11 shrink-0 items-center">
 												<TickBox done />
 											</span>
@@ -451,7 +453,9 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 										{pickState === 'done' && (
 											// The muted check says it to the eye; this says it
 											// to a screen reader, folded or not.
-											<span className="sr-only">All on the list</span>
+											<span className="sr-only">
+												Everything to buy is on the list
+											</span>
 										)}
 									</div>
 									{isExpanded && (

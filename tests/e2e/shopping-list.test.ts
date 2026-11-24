@@ -500,7 +500,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 		.toEqual({ cleared: [], springOnions: true })
 })
 
-test('From Plan shows what a Meal already put on Shopping as on the list, with nothing to tick', async ({
+test('From Plan shows what a Meal already put on Shopping as on the list, and the Meal as done', async ({
 	page,
 	login,
 }) => {
@@ -516,6 +516,8 @@ test('From Plan shows what a Meal already put on Shopping as on the list, with n
 					{ name: 'chicken thighs', amount: '8', order: 0 },
 					{ name: 'broccoli', amount: '1', unit: 'head', order: 1 },
 					{ name: 'lemon', amount: '1', order: 2 },
+					// Usually on hand, so it never goes on with the rest.
+					{ name: 'salt', order: 3 },
 				],
 			},
 		},
@@ -569,8 +571,8 @@ test('From Plan shows what a Meal already put on Shopping as on the list, with n
 		{ canonicalName: 'lemon', item: { name: 'lemon' } },
 	])
 
-	// The two added lines are on the list: a muted check, no button, and only
-	// broccoli is left to pick.
+	// The two added lines are on the list: a muted check, no button. Broccoli
+	// is ticked and salt isn't, so the Meal is part picked.
 	await fromPlan.click()
 	for (const name of ['chicken thighs', 'lemon']) {
 		await expect(
@@ -582,21 +584,34 @@ test('From Plan shows what a Meal already put on Shopping as on the list, with n
 	const mealBox = picker.getByRole('button', {
 		name: /every line in Chicken traybake/,
 	})
-	await expect(mealBox).toHaveAttribute('aria-pressed', 'true')
+	await expect(mealBox).toHaveAttribute('aria-pressed', 'mixed')
 	await expect(addButton).toHaveText('Add 1 from 1 Meal')
 	await addButton.click()
 	await expect(picker).toBeHidden()
 	await expect.poll(saved).toHaveLength(3)
 
-	// With every line on the list, the Meal is done and there is nothing to add.
+	// With every line on the list but salt, which is usually on hand, the
+	// Meal is done and there is nothing to add.
 	await fromPlan.click()
+	const mealBoxes = picker.getByRole('button', {
+		name: /tick .*Chicken traybake/i,
+	})
 	await expect(picker.getByText('On the list', { exact: true })).toHaveCount(3)
-	await expect(picker.getByText('All on the list')).toBeAttached()
 	await expect(
-		picker.getByRole('button', { name: /Chicken traybake/, pressed: true }),
-	).toHaveCount(0)
-	await expect(picker.getByRole('button', { name: /^Tick / })).toHaveCount(0)
+		picker.getByText('Everything to buy is on the list'),
+	).toBeAttached()
+	await expect(mealBoxes).toHaveCount(0)
 	await expect(addButton).toHaveText('Add to Next shop')
+	await expect(addButton).toBeDisabled()
+
+	// Salt can still be ticked on its own. The Meal box comes back while it
+	// is, and the Meal is done again once it isn't.
+	await lineButton('salt').click()
+	await expect(lineButton('salt')).toHaveAttribute('aria-pressed', 'true')
+	await expect(mealBoxes).toHaveAttribute('aria-pressed', 'true')
+	await expect(addButton).toHaveText('Add 1 from 1 Meal')
+	await lineButton('salt').click()
+	await expect(mealBoxes).toHaveCount(0)
 	await expect(addButton).toBeDisabled()
 	expect(
 		await prisma.shoppingListItem.count({

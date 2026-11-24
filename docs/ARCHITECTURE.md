@@ -505,7 +505,8 @@ durable, correctable links later.
 ```text
 requireUserId(request)
     → requireUserWithHousehold(request)
-    → optional requireProTier(request)
+    → optional requireUserWithTier(request)
+      or requireProTierOrNativeShellNull(request)
 ```
 
 Authorization happens in loaders/actions, not only in the UI. Pro limits are
@@ -653,14 +654,17 @@ more than the one shared-CPU machine serves, that is 600,000 × 5 ÷ 33^8 ≈ 2.
 break. Keeping 5 codes live costs the owner 5 emails a window, 720 a day, which
 they would notice long before that.
 
-**Pro.** `app/utils/subscription.server.ts` is the source of truth:
-`getUserTier` reads the Stripe-backed `Subscription` row, `requireProTier`
-guards Pro-only loaders and actions (redirecting to `/upgrade`, or a 403 in the
-iOS shell per ADR 0001), `requireProTierOrNativeShellNull` does the same for
-resource routes a fetcher calls, and `requireUserWithTier` returns the tier
-without redirecting for pages that only show or hide Pro features. The client
-reads the tier through the hooks in `app/utils/subscription.ts`. To find every
-place a user sees Pro, search rather than trust a list:
+**Pro.** `app/utils/subscription.server.ts` is the source of truth.
+`getUserTier` reads the Stripe-backed `Subscription` row, and
+`requireUserWithTier` returns the tier with the user and Household. The two
+Pro-only resource routes, `resources/enhance-recipe` and `resources/transcribe`,
+guard with `requireProTierOrNativeShellNull`. Without Pro it redirects to
+`/upgrade`, or in the iOS shell returns null so the route answers with an error
+its caller shows in place (ADR 0001). Every other route reads `isProActive` and
+decides for itself. AI import refuses with a 403, applying an enhancement
+answers `requiresPro`, and pages show or hide Pro features. The client reads the
+tier through the hooks in `app/utils/subscription.ts`. To find every place a
+user sees Pro, search rather than trust a list:
 
 ```sh
 grep -rlw Pro app --include='*.tsx'

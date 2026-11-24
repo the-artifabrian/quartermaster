@@ -441,9 +441,9 @@ row has a stable canonical key plus `isStaple`; there is no per-Staple state
 (#289). Staples are a quick-add list of usual items. Tapping Need on the Staples
 screen puts one on Next shop through `resolveNextShopRestockTarget`, which adds
 a row, moves a Later row up, or brings back a checked one. Shopping's From
-Staples picker posts the picked names to Shopping's `bulk-add` instead. It
-offers only Staples whose name isn't on the list, checked rows included, and
-adds them to Next shop.
+Staples picker posts the picked names to Shopping's `bulk-add` instead. It lets
+the person pick only Staples whose name isn't on the list, checked rows
+included, and adds them to Next shop.
 
 `annotateShoppingDemand` is the one seam that reads them, and it answers one
 question: does this demand line match a Staple? A match is dropped from
@@ -830,19 +830,16 @@ errors.
 
 Every import saves what it read at once and opens the new Recipe
 (`saveImportedRecipe` in `app/utils/import-recipe-save.server.ts`). Pro adds AI
-reading of pasted text and screenshots. Text too long for a field is moved or
-cut to fit. The Recipe page shows a notice with Edit and Undo only when
-something needs a look: a part the import couldn't find or had to shorten, or
-another Recipe with the same title. Undo deletes the Recipe and goes back to
-Import. An import with no ingredient and no step saves nothing. A link the
-Household already has saves nothing either, and Import says "Already in your
-Recipes" with a link to it. The pasted text, or the AI's extraction for
-screenshots, is kept in `Recipe.rawText`. Since nothing is reviewed first, the
-AI prompt asks for a transcription and adds nothing the source doesn't give.
-Recipe enhancement returns a suggested description and time estimates that the
-user chooses whether to apply. Voice input sends audio to Groq Whisper, and the
-transcript to the fast model to split into items, with the rule-based parser as
-the fallback.
+reading of pasted text and screenshots. The Recipe page shows a notice with Edit
+and Undo only when a part was missing or shortened, or another Recipe has the
+same title. Undo deletes the Recipe. A link the Household already has saves
+nothing, and Import says "Already in your Recipes". The pasted text, or the AI's
+extraction for screenshots, is kept in `Recipe.rawText`. Since nothing is
+reviewed first, the AI prompt asks for a transcription and adds nothing the
+source doesn't give. Recipe enhancement returns a suggested description and time
+estimates that the user chooses whether to apply. Voice input sends audio to
+Groq Whisper, and the transcript to the fast model to split into items, with the
+rule-based parser as the fallback.
 
 Each paid feature has a daily limit per user: 10 AI imports, 10 enhancements and
 30 voice inputs, counted from the server's local midnight. `claimAiUsage` in

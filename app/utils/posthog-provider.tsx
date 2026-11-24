@@ -48,6 +48,8 @@ export type AnalyticsClient = {
 	/** Super properties every later event carries, kept across reloads. */
 	register: (properties: AnalyticsProperties) => void
 	unregister: (property: string) => void
+	/** reset(), but only when this super property is set. */
+	resetIfRegistered: (property: string) => void
 	reset: () => void
 	getFeatureFlag: (key: string) => string | boolean | undefined
 }
@@ -60,6 +62,7 @@ const noopClient: AnalyticsClient = {
 	registerForSession: () => undefined,
 	register: () => undefined,
 	unregister: () => undefined,
+	resetIfRegistered: () => undefined,
 	reset: () => undefined,
 	getFeatureFlag: () => undefined,
 }
@@ -112,6 +115,8 @@ function createClientBridge(enabled: boolean): ClientBridge {
 				run((client) => client.registerForSession(properties)),
 			register: (properties) => run((client) => client.register(properties)),
 			unregister: (property) => run((client) => client.unregister(property)),
+			resetIfRegistered: (property) =>
+				run((client) => client.resetIfRegistered(property)),
 			reset: () => run((client) => client.reset()),
 			getFeatureFlag: (key) => delegate?.getFeatureFlag(key),
 		},
@@ -343,11 +348,17 @@ export function PostHogIdentify({
 
 		// Before identify, so the identify event and the first pageview carry
 		// it. The SDK keeps super properties in storage, so a browser that
-		// ran a demo before this page loaded still has the flag: it is
-		// removed once for anyone who isn't a demo user.
+		// ran a demo before this page loaded still has the flag. A real user
+		// loses it. A load with nobody signed in starts afresh instead: the
+		// SDK is still identified as the demo person, whose demo ended
+		// outside the page (expired, or the browser closed), and anonymous
+		// events would go on being filed under them.
 		if (demo !== prevIsDemoRef.current) {
 			if (demo) posthog.register({ [DEMO_PROPERTY]: true })
-			else posthog.unregister(DEMO_PROPERTY)
+			else if (currentUserId) posthog.unregister(DEMO_PROPERTY)
+			else if (!prevUserIdRef.current) {
+				posthog.resetIfRegistered(DEMO_PROPERTY)
+			}
 		}
 
 		if (currentUserId && currentUserId !== prevUserIdRef.current) {

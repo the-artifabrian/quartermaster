@@ -11,6 +11,10 @@
 //   with no in-page sign-out to reset it. The persisted super property goes
 //   on being sent unless it is removed.
 // - Signing out of a demo in the page keeps the flag for the next person.
+// - A demo ends outside the page (it expired, or the browser closed) and the
+//   next load is signed out: the SDK is still identified as the demo person,
+//   so anonymous events are filed under them, now without the flag. A
+//   visitor who never ran a demo must keep their anonymous id.
 import { act, render, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
@@ -56,6 +60,7 @@ function makeClient(): AnalyticsClient {
 		registerForSession: vi.fn(),
 		register: vi.fn(),
 		unregister: vi.fn(),
+		resetIfRegistered: vi.fn(),
 		reset: vi.fn(),
 		getFeatureFlag: vi.fn(),
 	}
@@ -509,7 +514,7 @@ test('a real user gets no is_demo at all, and loses one an earlier demo left', a
 	)
 })
 
-test('a signed-out visitor loses an is_demo an earlier demo left', async () => {
+test('a signed-out load after a demo starts afresh, before its first pageview', async () => {
 	using _environment = setupAnalyticsEnvironment()
 	const { client } = await loadIdentified(
 		<>
@@ -519,7 +524,13 @@ test('a signed-out visitor loses an is_demo an earlier demo left', async () => {
 	)
 
 	expect(client.register).not.toHaveBeenCalled()
-	expect(client.unregister).toHaveBeenCalledWith('is_demo')
+	// Resets only a browser whose stored super properties say it was a demo
+	// (posthog.client.ts), so other visitors keep their anonymous id.
+	expect(client.resetIfRegistered).toHaveBeenCalledWith('is_demo')
+	expect(client.reset).not.toHaveBeenCalled()
+	expect(
+		vi.mocked(client.resetIfRegistered).mock.invocationCallOrder[0],
+	).toBeLessThan(vi.mocked(client.capture).mock.invocationCallOrder[0]!)
 })
 
 test('signing out of a demo clears the flag', async () => {
@@ -550,5 +561,6 @@ test('signing out of a demo clears the flag', async () => {
 
 	// reset() clears the SDK's super properties along with the identity.
 	expect(client.reset).toHaveBeenCalledTimes(1)
+	expect(client.resetIfRegistered).not.toHaveBeenCalled()
 	expect(client.register).toHaveBeenCalledTimes(1)
 })

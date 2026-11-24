@@ -12,6 +12,7 @@ const posthog = vi.hoisted(() => ({
 	register_for_session: vi.fn(),
 	register: vi.fn(),
 	unregister: vi.fn(),
+	get_property: vi.fn(),
 	reset: vi.fn(),
 	getFeatureFlag: vi.fn(),
 }))
@@ -300,4 +301,22 @@ test('replays mask every input type, hidden ones included', () => {
 	]) {
 		expect(recording.maskInputOptions?.[type], type).toBe(true)
 	}
+})
+
+test('resetIfRegistered resets only a browser that has the super property', () => {
+	vi.clearAllMocks()
+	posthog.__loaded = true
+	const client = initializePostHog({
+		apiKey: 'phc_test',
+		host: 'https://analytics.example.com',
+	})
+
+	posthog.get_property.mockReturnValueOnce(undefined)
+	client.resetIfRegistered('is_demo')
+	expect(posthog.get_property).toHaveBeenCalledWith('is_demo')
+	expect(posthog.reset).not.toHaveBeenCalled()
+
+	posthog.get_property.mockReturnValueOnce(true)
+	client.resetIfRegistered('is_demo')
+	expect(posthog.reset).toHaveBeenCalledTimes(1)
 })

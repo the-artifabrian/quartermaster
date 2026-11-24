@@ -4,7 +4,6 @@ import { data, Link, redirect } from 'react-router'
 import { TryDemoButton } from '#app/components/demo.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
-import { formatDuration } from '#app/utils/format-duration.ts'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
 import { baseMetaTags } from '#app/utils/meta.ts'
 import { cn } from '#app/utils/misc.tsx'
@@ -327,7 +326,8 @@ function MealMenu() {
 type PlanItem = { dish: string; multiplier?: number; done?: boolean }
 type PlanMealEntry = {
 	label: string
-	minutes: number
+	/** When it is served, as the Plan shows it. */
+	time: string
 	guests?: number
 	items: PlanItem[]
 	/** Render the Meal's action menu open, as after tapping its dots. */
@@ -346,7 +346,7 @@ const thisWeek: PlanDay[] = [
 		date: 21,
 		meal: {
 			label: 'Dinner',
-			minutes: 20,
+			time: '7:00 PM',
 			items: [{ dish: 'Pasta al limone', done: true }],
 		},
 	},
@@ -356,7 +356,7 @@ const thisWeek: PlanDay[] = [
 		today: true,
 		meal: {
 			label: 'Dinner',
-			minutes: 25,
+			time: '7:00 PM',
 			items: [{ dish: 'Miso-glazed salmon' }],
 		},
 	},
@@ -365,29 +365,37 @@ const thisWeek: PlanDay[] = [
 		date: 23,
 		meal: {
 			label: 'Dinner',
-			minutes: 30,
+			time: '6:30 PM',
 			items: [{ dish: 'Black bean tacos' }],
 		},
 	},
 	{
 		day: 'Thursday',
 		date: 24,
-		meal: { label: 'Dinner', minutes: 45, items: [{ dish: 'Chicken tikka' }] },
+		meal: {
+			label: 'Dinner',
+			time: '7:30 PM',
+			items: [{ dish: 'Chicken tikka' }],
+		},
 	},
 	{
 		day: 'Friday',
 		date: 25,
-		meal: { label: 'Dinner', minutes: 35, items: [{ dish: 'Shakshuka' }] },
+		meal: { label: 'Dinner', time: '7:00 PM', items: [{ dish: 'Shakshuka' }] },
 	},
 	{
 		day: 'Saturday',
 		date: 26,
-		meal: { label: 'Dinner', minutes: 40, items: [{ dish: 'Ramen' }] },
+		meal: { label: 'Dinner', time: '7:00 PM', items: [{ dish: 'Ramen' }] },
 	},
 	{
 		day: 'Sunday',
 		date: 27,
-		meal: { label: 'Dinner', minutes: 90, items: [{ dish: 'Roast chicken' }] },
+		meal: {
+			label: 'Dinner',
+			time: '6:00 PM',
+			items: [{ dish: 'Roast chicken' }],
+		},
 	},
 ]
 
@@ -402,7 +410,7 @@ const nextWeek: PlanDay[] = [
 		date: 28,
 		meal: {
 			label: 'Dinner',
-			minutes: 105,
+			time: '7:30 PM',
 			guests: 6,
 			items: [
 				{ dish: 'Roast chicken', multiplier: 2 },
@@ -416,7 +424,7 @@ const nextWeek: PlanDay[] = [
 		date: 29,
 		meal: {
 			label: 'Dinner',
-			minutes: 30,
+			time: '6:30 PM',
 			menuOpen: true,
 			items: [{ dish: 'Black bean tacos' }],
 		},
@@ -426,7 +434,7 @@ const nextWeek: PlanDay[] = [
 		date: 30,
 		meal: {
 			label: 'Dinner',
-			minutes: 45,
+			time: '7:00 PM',
 			items: [{ dish: 'Chicken tikka' }],
 		},
 	},
@@ -434,12 +442,12 @@ const nextWeek: PlanDay[] = [
 	{
 		day: 'Friday',
 		date: 2,
-		meal: { label: 'Dinner', minutes: 35, items: [{ dish: 'Shakshuka' }] },
+		meal: { label: 'Dinner', time: '7:00 PM', items: [{ dish: 'Shakshuka' }] },
 	},
 	{
 		day: 'Saturday',
 		date: 3,
-		meal: { label: 'Lunch', minutes: 40, items: [{ dish: 'Ramen' }] },
+		meal: { label: 'Lunch', time: '12:30 PM', items: [{ dish: 'Ramen' }] },
 	},
 	{ day: 'Sunday', date: 4 },
 ]
@@ -509,7 +517,7 @@ function PlanAgenda({
 										<span>{row.meal.label}</span>
 										<span className="inline-flex items-center gap-0.5 normal-case">
 											<Icon name="clock" className="size-3" />
-											{formatDuration(row.meal.minutes)}
+											{row.meal.time}
 										</span>
 										{row.meal.guests ? (
 											<span className="normal-case">

@@ -5,6 +5,7 @@ import { prisma } from './db.server.ts'
 import { menuTitleKey } from './menu-validation.ts'
 import { ensureRecipeMetadataValues } from './recipe-metadata.server.ts'
 import { deleteRecipeImageUnlessShared } from './recipe-image.server.ts'
+import { isDemoUserId } from './demo-guard.server.ts'
 import { NOT_A_DEMO_HOUSEHOLD } from './demo.ts'
 import { copyRecipeImage } from './storage.server.ts'
 import { writeTransaction } from './write-transaction.server.ts'
@@ -131,17 +132,23 @@ export async function saveSharedMenu({
 		),
 	)
 	const imageKeys = new Map<string, string>()
+	// A demo user's copies store no files: they show the source's photos, as
+	// demo copies show the template's. The refcount keeps a photo while any
+	// Recipe shows it, and the clean-up below goes through it too.
+	const sharesSourcePhotos = await isDemoUserId(userId)
 	let committed = false
 	try {
 		for (const recipe of recipes) {
 			if (recipe.image)
 				imageKeys.set(
 					recipe.id,
-					await copyRecipeImage(
-						recipe.image.objectKey,
-						userId,
-						recipeIds.get(recipe.id)!,
-					),
+					sharesSourcePhotos
+						? recipe.image.objectKey
+						: await copyRecipeImage(
+								recipe.image.objectKey,
+								userId,
+								recipeIds.get(recipe.id)!,
+							),
 				)
 		}
 		const result = await writeTransaction(prisma, async (tx) => {

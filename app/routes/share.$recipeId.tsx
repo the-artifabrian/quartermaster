@@ -4,6 +4,7 @@ import { redirect } from 'react-router'
 import { SharedRecipeView } from '#app/components/shared-recipe.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { isDemoUserId } from '#app/utils/demo-guard.server.ts'
 import { NOT_A_DEMO_HOUSEHOLD } from '#app/utils/demo.ts'
 import { getShareImageUrl } from '#app/utils/image-route.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
@@ -137,10 +138,15 @@ export async function action({ params, request }: Route.ActionArgs) {
 	}
 
 	// The copy gets its own bytes under the recipient's key, as Menu sharing
-	// does, so the source editing or deleting its picture never touches it.
+	// does, so the source editing or deleting its picture never touches it. A
+	// demo user's copy stores no file: it shows the source's, as demo copies
+	// show the template's, and the refcount keeps it while either shows it.
 	const newRecipeId = createId()
+	const sharesSourcePhoto = await isDemoUserId(userId)
 	const imageObjectKey = recipe.image
-		? await copyRecipeImage(recipe.image.objectKey, userId, newRecipeId)
+		? sharesSourcePhoto
+			? recipe.image.objectKey
+			: await copyRecipeImage(recipe.image.objectKey, userId, newRecipeId)
 		: null
 	let newRecipe: { id: string }
 	try {
@@ -190,7 +196,9 @@ export async function action({ params, request }: Route.ActionArgs) {
 		})
 	} catch (error) {
 		// The staged copy belongs only to this attempt.
-		if (imageObjectKey) await deleteRecipeImage(imageObjectKey).catch(() => {})
+		if (imageObjectKey && !sharesSourcePhoto) {
+			await deleteRecipeImage(imageObjectKey).catch(() => {})
+		}
 		// A concurrent save of the same Recipe won the unique key.
 		if (isUniqueConstraintError(error)) {
 			const saved = await findSavedRecipe(householdId, recipe.id)

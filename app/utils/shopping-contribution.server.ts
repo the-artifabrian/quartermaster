@@ -129,6 +129,22 @@ export async function reconcileMealShoppingContributionsInTransaction(
 }
 
 /**
+ * Whether a Meal's contribution still holds this demand line's amount. It is
+ * the test Update Shopping uses to decide what changed, and the From Plan
+ * picker uses it to tell an amount on the list from one that has moved on.
+ */
+export function holdsSameAmount(
+	contribution: { name: string; quantity: string | null; unit: string | null },
+	line: { name: string; quantity: string | null; unit: string | null },
+) {
+	return (
+		contribution.name === line.name &&
+		contribution.quantity === line.quantity &&
+		contribution.unit === line.unit
+	)
+}
+
+/**
  * Whether `next` is plainly more than `previous`: the same unit and two
  * amounts that read as numbers. Anything that can't be compared counts as
  * not larger.
@@ -338,11 +354,7 @@ export async function replaceMealShoppingContributionsInTransaction(
 		if (keepIdentities.has(contribution.canonicalName)) continue
 		const line = freshByCanonical.get(contribution.canonicalName)
 		const row = rowById.get(contribution.itemId)
-		const changed =
-			!line ||
-			contribution.name !== line.name ||
-			contribution.quantity !== line.quantity ||
-			contribution.unit !== line.unit
+		const changed = !line || !holdsSameAmount(contribution, line)
 		if (neverLower && changed && !(line && isLarger(line, contribution))) {
 			continue
 		}

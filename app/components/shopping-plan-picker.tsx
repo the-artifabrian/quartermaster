@@ -16,6 +16,8 @@ import { addedToExistingMessage } from '#app/utils/meal-shopping-messages.ts'
 import { cn } from '#app/utils/misc.tsx'
 import {
 	defaultPickedLines,
+	mealPickState,
+	pickableLines,
 	toggleMealPicks,
 	type PlanPickerDay,
 	type PlanPickerLine,
@@ -45,6 +47,8 @@ type AddFromPlanResponse = {
 	createdRowCount: number
 	attachedCount: number
 	alreadyContributedCount: number
+	/** Later rows moved to Next shop. */
+	promotedRowCount: number
 }
 
 /** Ticked lines, keyed by Meal — the set the writer receives. */
@@ -70,8 +74,13 @@ function isWeekChoices(value: unknown): value is WeekChoices {
 	)
 }
 
-function lineAmount(line: PlanPickerLine) {
+function lineAmount(line: { quantity: string | null; unit: string | null }) {
 	return [line.quantity, line.unit].filter(Boolean).join(' ')
+}
+
+/** The id of a Meal's own button, the one that folds its lines. */
+function mealButtonId(mealId: string) {
+	return `plan-picker-${mealId}-meal`
 }
 
 /** A `yyyy-MM-dd` day before the user's today, the same today Plan uses. */
@@ -81,8 +90,20 @@ function isPastDay(date: string, today: string) {
 
 const STATUS_NOTE: Record<PlanPickerLine['status'], string | null> = {
 	needed: null,
-	'on-list': 'Already on list',
+	added: 'On the list',
+	changed: 'On the list',
+	later: 'On Later',
+	'name-on-list': 'On the list, not this Meal’s amount',
 	'on-hand': 'Usually on hand',
+}
+
+/** The line's note. A `changed` line says what Shopping has, "8 on the list". */
+function lineNote(line: PlanPickerLine) {
+	if (line.status === 'changed' && line.contributed) {
+		const listed = lineAmount(line.contributed)
+		if (listed) return `${listed} on the list`
+	}
+	return STATUS_NOTE[line.status]
 }
 
 /**
@@ -162,14 +183,27 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 
 	useEffect(() => () => choiceRequest.current?.abort(), [])
 
+	const focusMealAfterRender = useRef<string>(null)
+	useEffect(() => {
+		const mealId = focusMealAfterRender.current
+		if (!mealId) return
+		focusMealAfterRender.current = null
+		document.getElementById(mealButtonId(mealId))?.focus()
+	})
+
 	const days = choiceState.status === 'success' ? choiceState.choices.days : []
 	const today =
 		choiceState.status === 'success'
 			? loadedToday(choiceState.choices.today)
 			: ''
+	// Only lines a tick can add count, so a line the Meal already has on the
+	// list never reaches the writer or the button's count.
 	const pickedMeals = days.flatMap((day) =>
 		day.meals.flatMap((meal) => {
-			const lines = [...(picks.get(meal.id) ?? [])]
+			const picked = picks.get(meal.id) ?? new Set<string>()
+			const lines = pickableLines(meal.lines)
+				.map((line) => line.canonicalName)
+				.filter((name) => picked.has(name))
 			return lines.length > 0 ? [{ mealId: meal.id, lines }] : []
 		}),
 	)
@@ -184,8 +218,12 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 			fetcher.state === 'idle' &&
 			fetcher.data?.status === 'success'
 		) {
-			const { createdRowCount, attachedCount, alreadyContributedCount } =
-				fetcher.data
+			const {
+				createdRowCount,
+				attachedCount,
+				alreadyContributedCount,
+				promotedRowCount,
+			} = fetcher.data
 			if (createdRowCount > 0) {
 				toast.success(
 					`Added ${createdRowCount} item${createdRowCount === 1 ? '' : 's'} to Next shop`,
@@ -193,6 +231,10 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 			} else if (attachedCount > 0) {
 				// The amounts joined rows already there, which now show more.
 				toast.success(addedToExistingMessage(attachedCount))
+			} else if (promotedRowCount > 0) {
+				toast.success(
+					`Moved ${promotedRowCount} item${promotedRowCount === 1 ? '' : 's'} to Next shop`,
+				)
 			} else if (alreadyContributedCount > 0) {
 				toast.info('Everything picked is already on your list')
 			} else {
@@ -215,14 +257,13 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 	}
 
 	function toggleMeal(mealId: string, lines: PlanPickerLine[]) {
-		setPicks((current) => {
-			const next = new Map(current)
-			next.set(
-				mealId,
-				toggleMealPicks(lines, next.get(mealId) ?? new Set<string>()),
-			)
-			return next
-		})
+		const nextPicks = toggleMealPicks(lines, picks.get(mealId) ?? new Set())
+		// A done Meal has no box, so the one just pressed is about to go.
+		// Focus moves to the Meal's own button instead of the page.
+		if (mealPickState(lines, nextPicks) === 'done') {
+			focusMealAfterRender.current = mealId
+		}
+		setPicks((current) => new Map(current).set(mealId, nextPicks))
 	}
 
 	function toggleExpanded(mealId: string) {
@@ -244,7 +285,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 		if (!week) return
 		setPresentation(opensAsSheet() ? 'sheet' : 'popover')
 		setOpen(true)
-		// Every open refetches: "Already on list" and the default ticks
+		// Every open refetches: "On the list" and the default ticks
 		// describe the list as it is now, and the previous open may have
 		// added to it.
 		void loadWeek(week.weekStart)
@@ -360,7 +401,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 					{days.map((day) => {
 						return day.meals.map((meal) => {
 							const picked = picks.get(meal.id) ?? new Set<string>()
-							const allPicked = picked.size === meal.lines.length
+							const pickState = mealPickState(meal.lines, picked)
 							const isExpanded = !collapsedMeals.has(meal.id)
 							const panelId = `plan-picker-${meal.id}`
 							// "4-recipe Meal" names nothing on its own; its Recipe
@@ -380,31 +421,56 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 									    lines scroll, and it carries the day so the calendar
 									    orientation scrolls with it. */}
 									<div className="bg-popover border-border/60 sticky top-0 z-10 flex items-center gap-3 border-b">
-										<button
-											type="button"
-											onClick={() => toggleMeal(meal.id, meal.lines)}
-											aria-pressed={
-												allPicked ? true : picked.size > 0 ? 'mixed' : false
-											}
-											aria-label={
-												allPicked
-													? `Untick every line in ${meal.title}`
-													: picked.size === 0
-														? `Tick ${meal.title}`
-														: `Tick every line in ${meal.title}`
-											}
-											className="flex min-h-11 shrink-0 items-center"
-										>
-											<TickBox
-												checked={allPicked}
-												partial={picked.size > 0 && !allPicked}
+										{pickState === 'done' ? (
+											// Nothing left to buy, so no button: a tap that ticked
+											// the salt would make the done check mean "add salt".
+											// An on-hand line can still be ticked on its own, and
+											// the box comes back while it is.
+											<span className="flex min-h-11 shrink-0 items-center">
+												<TickBox done />
+											</span>
+										) : pickState === 'unpickable' ? (
+											// Nothing to tick, but an amount on the list is out
+											// of date, so it isn't done either: no box at all.
+											<span
+												aria-hidden
+												className="flex min-h-11 w-5 shrink-0"
 											/>
-										</button>
+										) : (
+											<button
+												type="button"
+												onClick={() => toggleMeal(meal.id, meal.lines)}
+												aria-pressed={
+													pickState === 'all'
+														? true
+														: pickState === 'some'
+															? 'mixed'
+															: false
+												}
+												aria-label={
+													pickState === 'all'
+														? `Untick every line in ${meal.title}`
+														: pickState === 'none'
+															? `Tick ${meal.title}`
+															: `Tick every line in ${meal.title}`
+												}
+												className="flex min-h-11 shrink-0 items-center"
+											>
+												<TickBox
+													checked={pickState === 'all'}
+													partial={pickState === 'some'}
+												/>
+											</button>
+										)}
 										<button
 											type="button"
+											id={mealButtonId(meal.id)}
 											onClick={() => toggleExpanded(meal.id)}
 											aria-expanded={isExpanded}
 											aria-controls={panelId}
+											aria-describedby={
+												pickState === 'done' ? `${panelId}-done` : undefined
+											}
 											className="flex min-h-11 min-w-0 flex-1 items-center gap-2 py-1 text-left"
 										>
 											<span className="min-w-0 flex-1">
@@ -428,6 +494,14 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 												className="text-muted-foreground shrink-0"
 											/>
 										</button>
+										{pickState === 'done' && (
+											// The muted check says it to the eye; this says it
+											// to a screen reader, folded or not, and describes
+											// the Meal's button for someone tabbing to it.
+											<span id={`${panelId}-done`} className="sr-only">
+												Everything to buy is on the list
+											</span>
+										)}
 									</div>
 									{isExpanded && (
 										<div
@@ -435,9 +509,50 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 											className="border-border/60 ml-2.5 border-l pl-4"
 										>
 											{meal.lines.map((line) => {
-												const isPicked = picked.has(line.canonicalName)
-												const note = STATUS_NOTE[line.status]
+												const note = lineNote(line)
 												const amount = lineAmount(line)
+												const text = (
+													<span className="min-w-0 flex-1">
+														<span className="block text-sm">
+															{line.name}
+															{amount && (
+																<span className="text-muted-foreground">
+																	{' '}
+																	· {amount}
+																</span>
+															)}
+														</span>
+														{note && (
+															<span className="text-muted-foreground block text-xs">
+																{note}
+															</span>
+														)}
+													</span>
+												)
+												// This Meal's amount is on the list already. A tick
+												// could add nothing, so it is a plain row whose note
+												// says where it stands, not a toggle.
+												// A changed line is the same, without the done check:
+												// its note says what Shopping has instead.
+												if (
+													line.status === 'added' ||
+													line.status === 'changed'
+												) {
+													return (
+														<div
+															key={line.canonicalName}
+															className="flex min-h-11 w-full items-center gap-3 py-1"
+														>
+															{line.status === 'added' ? (
+																<TickBox done />
+															) : (
+																<span aria-hidden className="size-5 shrink-0" />
+															)}
+															{text}
+														</div>
+													)
+												}
+												const isPicked = picked.has(line.canonicalName)
 												return (
 													<button
 														key={line.canonicalName}
@@ -449,22 +564,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 														className="flex min-h-11 w-full items-center gap-3 py-1 text-left"
 													>
 														<TickBox checked={isPicked} />
-														<span className="min-w-0 flex-1">
-															<span className="block text-sm">
-																{line.name}
-																{amount && (
-																	<span className="text-muted-foreground">
-																		{' '}
-																		· {amount}
-																	</span>
-																)}
-															</span>
-															{note && (
-																<span className="text-muted-foreground block text-xs">
-																	{note}
-																</span>
-															)}
-														</span>
+														{text}
 													</button>
 												)
 											})}
@@ -551,23 +651,32 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 	)
 }
 
+/**
+ * The picker's box. `done` is the muted check of something already on the
+ * list: it reads as finished rather than chosen, and nothing toggles it.
+ */
 function TickBox({
-	checked,
+	checked = false,
 	partial = false,
+	done = false,
 }: {
-	checked: boolean
+	checked?: boolean
 	partial?: boolean
+	done?: boolean
 }) {
 	return (
 		<span
+			aria-hidden
 			className={cn(
 				'flex size-5 shrink-0 items-center justify-center rounded border',
-				checked || partial
-					? 'border-primary bg-primary text-primary-foreground'
-					: 'border-border bg-background',
+				done
+					? 'border-muted-foreground/30 bg-muted text-muted-foreground'
+					: checked || partial
+						? 'border-primary bg-primary text-primary-foreground'
+						: 'border-border bg-background',
 			)}
 		>
-			{checked ? (
+			{checked || done ? (
 				<Icon name="check" size="xs" />
 			) : partial ? (
 				<span className="bg-primary-foreground h-0.5 w-2.5 rounded-full" />

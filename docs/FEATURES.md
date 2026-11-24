@@ -98,8 +98,10 @@ plan into Shopping.
 ### Shopping
 
 - Pick Meals and lines from a Plan week in the From Plan picker, or add one Meal
-  explicitly from its Plan card. Staple matches, plain pantry basics, lines
-  already on the list, and days that have passed arrive unticked.
+  explicitly from its Plan card. Staple matches, plain pantry basics, things
+  already on the list from somewhere else, and days that have passed arrive
+  unticked. A line the Meal already put on Shopping shows as on the list and
+  can't be ticked, unless it's on Later, when ticking moves it to Next shop.
 - Combine compatible quantities across Recipes and Menu note lines while leaving
   unresolved or incompatible amounts visible.
 - Omit lines matching a household Staple; include everything else.

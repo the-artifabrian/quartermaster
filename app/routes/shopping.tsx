@@ -261,6 +261,7 @@ export async function action({ request }: Route.ActionArgs) {
 			createdRowCount,
 			attachedCount,
 			alreadyContributedCount,
+			promotedRowCount,
 		}
 	}
 

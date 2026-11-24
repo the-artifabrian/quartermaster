@@ -38,9 +38,9 @@ export type SampleRecipe = {
 	notes?: string
 	isFavorite?: boolean
 	/**
-	 * A file in the demo photo directory (see demo.server.ts). The dev seed
-	 * and the demo template upload it; a missing file leaves the Recipe
-	 * without a photo.
+	 * A file in the demo photo directory (see demo.server.ts). Only the demo
+	 * template uploads it; the dev seed's own sample Household has no photos.
+	 * A missing file leaves the template's Recipe without one.
 	 */
 	photo?: string
 	/** What the photo shows. The page falls back to the title without it. */

@@ -1,3 +1,10 @@
+// Failure list for the demo template step:
+// - A failed build stops boot, or skips the prune and image-cache steps.
+// - A failed build is never retried, so the demo stays unavailable until the
+//   next deploy.
+// - The step's result isn't logged, so a build that keeps missing photos
+//   goes unnoticed.
+// - Demo AI uses from before today aren't pruned, or today's are.
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'

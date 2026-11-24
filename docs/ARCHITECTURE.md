@@ -181,7 +181,6 @@ Most user data belongs to a Household, not an individual User.
 User
 ├── auth: Password, Session, Passkey, Verification, EmailCode
 ├── access: Role, Subscription
-├── DemoTemplate (one row: the demo's template Household)
 └── HouseholdMember → Household
     ├── Recipe → Ingredient, Instruction, RecipeImage
     ├── RecipeMetadataValue (Cuisine, Season, Course)

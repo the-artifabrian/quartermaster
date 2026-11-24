@@ -465,7 +465,20 @@ test('forty starts at once make exactly as many copies as the cap allows', async
 test('a write from another process between the count and the create waits for the copy to commit', async () => {
 	await using database = await createWalDatabase()
 	const { db: wal, url } = database
-	await ensureDemoTemplate(wal, { photoDir, log, content: SMALL })
+	const built = await ensureDemoTemplate(wal, {
+		photoDir,
+		log,
+		content: SMALL,
+	})
+	// Its photos aren't under a user of the shared test database.
+	await using _uploads = {
+		async [Symbol.asyncDispose]() {
+			await fs.rm(path.join(UPLOADS_DIR, 'users', built.userId), {
+				recursive: true,
+				force: true,
+			})
+		},
+	}
 	const later = new Date(NOW.getTime() + 60_000)
 	for (let i = 0; i < DEMO_LIVE_LIMIT - 1; i++) {
 		await wal.user.create({

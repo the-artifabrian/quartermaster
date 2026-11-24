@@ -17,7 +17,9 @@ for (const pagePath of ['/', '/about', '/support', '/privacy', '/tos']) {
 		const ogImage = page.locator('meta[property="og:image"]')
 		await expect(ogImage).toHaveCount(1)
 		const imageUrl = await ogImage.getAttribute('content')
-		expect(imageUrl).toMatch(/^https?:\/\/.+\/og-image\.png$/)
+		// The build fingerprints the image, so a new one gets a new URL and
+		// sites that cache previews by URL fetch it again.
+		expect(imageUrl).toMatch(/^https?:\/\/.+\/assets\/og-image-[\w-]+\.png$/)
 		await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
 			'content',
 			'summary_large_image',

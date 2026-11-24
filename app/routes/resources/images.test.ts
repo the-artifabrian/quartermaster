@@ -156,7 +156,7 @@ async function uploadedPhoto(name: string) {
 
 test.each([
 	['a non-image file in public', '/site.webmanifest'],
-	['an image in public', '/og-image.png'],
+	['an image in public', '/favicons/android-chrome-192x192.png'],
 	['another site', 'https://example.com/photo.png'],
 	['a path that climbs out of public', `/../tests/fixtures/images/${PHOTO}`],
 ])('refuses a src naming %s', async (_, src) => {

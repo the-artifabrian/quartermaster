@@ -50,3 +50,10 @@ test('writes each tag once', () => {
 	)
 	expect(new Set(keys).size).toBe(keys.length)
 })
+
+test('uses the fingerprinted image, not the old file in public', () => {
+	const tags = baseMetaTags(rootWith({ requestInfo: { origin } }))
+	const image = content(tags, 'og:image')
+	expect(image && 'content' in image && image.content).toContain('og-image')
+	expect(image).not.toMatchObject({ content: `${origin}/og-image.png` })
+})

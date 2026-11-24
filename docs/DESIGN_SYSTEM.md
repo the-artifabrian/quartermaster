@@ -35,6 +35,11 @@ it. `app/root.tsx` preloads the Young Serif and DM Sans latin files. Caveat is
 declared (`fonts.css`, and `--font-handwritten` in `app/styles/tailwind.css`),
 but no page uses it.
 
+Headings balance their lines (`text-wrap: balance` in
+`app/styles/tailwind.css`). Long reading text, such as a Recipe's description,
+steps and notes, uses `text-pretty` so a paragraph doesn't end on a single word.
+Browsers without it wrap as usual.
+
 Useful sizes:
 
 | Use                   | Size             |
@@ -392,5 +397,3 @@ Start with the nearest existing surface and these defaults:
 
 If a new pattern needs a long explanation here, first ask whether it belongs in
 the component itself or whether the UI can be simpler.
-
-_Updated 18 November 2026._

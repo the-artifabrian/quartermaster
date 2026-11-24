@@ -4,7 +4,6 @@ import { data, Link, redirect } from 'react-router'
 import { TryDemoButton } from '#app/components/demo.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
-import { formatDuration } from '#app/utils/format-duration.ts'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
 import { baseMetaTags } from '#app/utils/meta.ts'
 import { cn } from '#app/utils/misc.tsx'
@@ -110,8 +109,8 @@ function Hero() {
 					What are we making this week?
 				</h1>
 				<p className="text-cream/80 mt-7 max-w-[30rem] text-lg leading-[1.55] sm:text-xl">
-					Keep the Recipes you cook and plan a few Meals for the week.
-					Quartermaster generates Shopping from the Plan, minus what you already
+					Keep the Recipes you cook and plan a few Meals for the week. Then
+					Shopping fills in from the Meals you pick, minus what you already
 					have.
 				</p>
 				<div className="mt-9 flex flex-wrap items-center gap-x-5 gap-y-4">
@@ -137,7 +136,7 @@ function Hero() {
 			</div>
 
 			<div className="mt-10 lg:mt-0">
-				<PlanAgenda days={thisWeek} menus={false} />
+				<PlanAgenda days={thisWeek} controls={false} />
 			</div>
 		</section>
 	)
@@ -296,21 +295,13 @@ function DoneCircle({ done }: { done: boolean }) {
 	)
 }
 
-/** The Meal action menu from the real Plan, opening below its trigger. */
+/** The Meal action menu from the real Plan, opening below its trigger. A
+ *  Meal alone on its day has no Move earlier or Move later. */
 function MealMenu() {
 	const item = 'flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm'
 	const separator = 'bg-espresso-line/70 my-1 h-px'
 	return (
 		<div className="border-espresso-line bg-espresso-raised shadow-warm-md absolute top-8 right-0 z-20 w-56 rounded-lg border p-1 text-left normal-case">
-			<div className={item}>
-				<Icon name="arrow-up" size="sm" />
-				Move earlier
-			</div>
-			<div className={item}>
-				<Icon name="arrow-down" size="sm" />
-				Move later
-			</div>
-			<div className={separator} />
 			<div className={item}>
 				<Icon name="check" size="sm" />
 				Mark cooked
@@ -326,7 +317,7 @@ function MealMenu() {
 			<div className={separator} />
 			<div className={item}>
 				<Icon name="trash" size="sm" />
-				Delete meal
+				Delete
 			</div>
 		</div>
 	)
@@ -335,7 +326,8 @@ function MealMenu() {
 type PlanItem = { dish: string; multiplier?: number; done?: boolean }
 type PlanMealEntry = {
 	label: string
-	minutes: number
+	/** When it is served, as the Plan shows it. */
+	time: string
 	guests?: number
 	items: PlanItem[]
 	/** Render the Meal's action menu open, as after tapping its dots. */
@@ -354,7 +346,7 @@ const thisWeek: PlanDay[] = [
 		date: 21,
 		meal: {
 			label: 'Dinner',
-			minutes: 20,
+			time: '7:00 PM',
 			items: [{ dish: 'Pasta al limone', done: true }],
 		},
 	},
@@ -364,7 +356,7 @@ const thisWeek: PlanDay[] = [
 		today: true,
 		meal: {
 			label: 'Dinner',
-			minutes: 25,
+			time: '7:00 PM',
 			items: [{ dish: 'Miso-glazed salmon' }],
 		},
 	},
@@ -373,35 +365,44 @@ const thisWeek: PlanDay[] = [
 		date: 23,
 		meal: {
 			label: 'Dinner',
-			minutes: 30,
+			time: '6:30 PM',
 			items: [{ dish: 'Black bean tacos' }],
 		},
 	},
 	{
 		day: 'Thursday',
 		date: 24,
-		meal: { label: 'Dinner', minutes: 45, items: [{ dish: 'Chicken tikka' }] },
+		meal: {
+			label: 'Dinner',
+			time: '7:30 PM',
+			items: [{ dish: 'Chicken tikka' }],
+		},
 	},
 	{
 		day: 'Friday',
 		date: 25,
-		meal: { label: 'Dinner', minutes: 35, items: [{ dish: 'Shakshuka' }] },
+		meal: { label: 'Dinner', time: '7:00 PM', items: [{ dish: 'Shakshuka' }] },
 	},
 	{
 		day: 'Saturday',
 		date: 26,
-		meal: { label: 'Dinner', minutes: 40, items: [{ dish: 'Ramen' }] },
+		meal: { label: 'Dinner', time: '7:00 PM', items: [{ dish: 'Ramen' }] },
 	},
 	{
 		day: 'Sunday',
 		date: 27,
-		meal: { label: 'Dinner', minutes: 90, items: [{ dish: 'Roast chicken' }] },
+		meal: {
+			label: 'Dinner',
+			time: '6:00 PM',
+			items: [{ dish: 'Roast chicken' }],
+		},
 	},
 ]
 
-/** Next week, half planned: a three-dish Meal, a doubled recipe, open days.
+/** Next week, half planned: a three-dish Meal with its roast doubled for
+ *  guests, open days.
  *  The Meal with guests is first so the 600px crop shows it whole at every
- *  width; the open menu hangs from Tuesday so all six items sit above the
+ *  width; the open menu hangs from Tuesday so all its items sit above the
  *  crop and its fade. */
 const nextWeek: PlanDay[] = [
 	{
@@ -409,10 +410,10 @@ const nextWeek: PlanDay[] = [
 		date: 28,
 		meal: {
 			label: 'Dinner',
-			minutes: 105,
+			time: '7:30 PM',
 			guests: 6,
 			items: [
-				{ dish: 'Roast chicken' },
+				{ dish: 'Roast chicken', multiplier: 2 },
 				{ dish: 'Focaccia' },
 				{ dish: 'Green salad' },
 			],
@@ -423,7 +424,7 @@ const nextWeek: PlanDay[] = [
 		date: 29,
 		meal: {
 			label: 'Dinner',
-			minutes: 30,
+			time: '6:30 PM',
 			menuOpen: true,
 			items: [{ dish: 'Black bean tacos' }],
 		},
@@ -433,20 +434,20 @@ const nextWeek: PlanDay[] = [
 		date: 30,
 		meal: {
 			label: 'Dinner',
-			minutes: 45,
-			items: [{ dish: 'Chicken tikka', multiplier: 2 }],
+			time: '7:00 PM',
+			items: [{ dish: 'Chicken tikka' }],
 		},
 	},
 	{ day: 'Thursday', date: 1 },
 	{
 		day: 'Friday',
 		date: 2,
-		meal: { label: 'Dinner', minutes: 35, items: [{ dish: 'Shakshuka' }] },
+		meal: { label: 'Dinner', time: '7:00 PM', items: [{ dish: 'Shakshuka' }] },
 	},
 	{
 		day: 'Saturday',
 		date: 3,
-		meal: { label: 'Lunch', minutes: 40, items: [{ dish: 'Ramen' }] },
+		meal: { label: 'Lunch', time: '12:30 PM', items: [{ dish: 'Ramen' }] },
 	},
 	{ day: 'Sunday', date: 4 },
 ]
@@ -455,12 +456,13 @@ const nextWeek: PlanDay[] = [
 function PlanAgenda({
 	days,
 	framed = true,
-	menus = true,
+	controls = true,
 }: {
 	days: PlanDay[]
 	framed?: boolean
-	/** Render each Meal's ⋯ trigger. Off in the hero, where it is only chrome. */
-	menus?: boolean
+	/** Render each Meal's ⋯ trigger and each Recipe's scale field. Off in the
+	 *  hero, where they are only chrome. */
+	controls?: boolean
 }) {
 	return (
 		<div
@@ -515,7 +517,7 @@ function PlanAgenda({
 										<span>{row.meal.label}</span>
 										<span className="inline-flex items-center gap-0.5 normal-case">
 											<Icon name="clock" className="size-3" />
-											{formatDuration(row.meal.minutes)}
+											{row.meal.time}
 										</span>
 										{row.meal.guests ? (
 											<span className="normal-case">
@@ -523,7 +525,7 @@ function PlanAgenda({
 											</span>
 										) : null}
 									</div>
-									{menus ? (
+									{controls ? (
 										<span
 											className={cn(
 												'flex size-6 shrink-0 items-center justify-center rounded',
@@ -543,29 +545,34 @@ function PlanAgenda({
 											<span className="flex h-5 items-center">
 												<DoneCircle done={Boolean(item.done)} />
 											</span>
-											<div className="min-w-0">
-												<p
+											<p
+												className={cn(
+													'min-w-0 flex-1 font-serif text-[15px] leading-snug',
+													item.done && 'text-cream-muted line-through',
+												)}
+											>
+												{item.dish}
+											</p>
+											{/* The scale field trails every Recipe; 1× is the usual
+											    and reads muted. */}
+											{controls ? (
+												<span
 													className={cn(
-														'font-serif text-[15px] leading-snug',
-														item.done && 'text-cream-muted line-through',
+														'bg-espresso-raised/70 -my-1 inline-flex h-7 min-w-11 shrink-0 items-center justify-center rounded-md px-2 text-xs tabular-nums',
+														!item.multiplier && 'text-cream-muted',
 													)}
 												>
-													{item.dish}
-												</p>
-												{item.multiplier ? (
-													<span className="border-espresso-line/80 mt-1 inline-flex h-7 w-16 items-center justify-center rounded-md border px-1.5 text-xs tabular-nums">
-														{item.multiplier}×
-													</span>
-												) : null}
-											</div>
+													{item.multiplier ?? 1}×
+												</span>
+											) : null}
 										</div>
 									))}
 								</div>
 							</>
 						) : (
-							<div className="flex min-h-12 items-center gap-3 text-sm">
+							<div className="flex flex-col items-start pt-2 text-sm">
 								<span className="text-cream-muted">Nothing planned</span>
-								<span className="text-sage inline-flex items-center gap-1 text-xs font-semibold">
+								<span className="text-sage inline-flex min-h-9 items-center gap-1 text-xs font-semibold">
 									<Icon name="plus" className="size-3" />
 									Add Meal
 								</span>
@@ -584,13 +591,16 @@ function PlanScreen() {
 			<div className="px-5 py-4 sm:px-6">
 				{/* The week row is the calendar's own title row; the section
 				    heading already says which page this is. */}
-				<div className="mx-auto flex max-w-2xl items-center justify-between">
-					<span className="text-cream-muted flex size-9 items-center justify-center rounded-full">
-						<Icon name="arrow-left" size="sm" />
+				<div className="flex items-center gap-2">
+					<span className="-ml-2.5 flex size-9 items-center justify-center rounded-full">
+						<Icon name="chevron-left" size="md" />
 					</span>
-					<p className="font-serif text-lg">Sep 28 – Oct 4</p>
-					<span className="text-cream-muted flex size-9 items-center justify-center rounded-full">
-						<Icon name="arrow-right" size="sm" />
+					<div className="text-center">
+						<p className="font-serif text-lg">Sep 28 – Oct 4</p>
+						<p className="text-sage text-sm font-medium">This Week</p>
+					</div>
+					<span className="flex size-9 items-center justify-center rounded-full">
+						<Icon name="chevron-right" size="md" />
 					</span>
 				</div>
 				<div className="mt-4">
@@ -627,7 +637,6 @@ function RecipesScreen() {
 				<h3 className="font-serif text-[2rem] leading-[1.15] tracking-[-0.02em]">
 					Miso-glazed salmon
 				</h3>
-				<div className="bg-espresso-line/70 mt-3 mb-2 h-px max-w-xs" />
 				<div className="text-cream-muted mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
 					<span className="inline-flex items-center gap-1">
 						<Icon name="timer" size="sm" className="opacity-70" />
@@ -637,7 +646,6 @@ function RecipesScreen() {
 						<Icon name="clock" size="sm" className="opacity-70" />
 						Total: 25 min
 					</span>
-					<span>Makes 4 servings</span>
 				</div>
 				<p className="text-cream-muted mt-5 text-base leading-relaxed">
 					Sweet-salty glaze, broiled until the edges catch. Rice and something
@@ -645,7 +653,14 @@ function RecipesScreen() {
 				</p>
 				<div className="text-cream-muted mt-4 flex items-center gap-1">
 					{(
-						['heart-filled', 'calendar', 'pencil-1', 'copy', 'share'] as const
+						[
+							'heart-filled',
+							'calendar',
+							'pencil-1',
+							'copy',
+							'share',
+							'dots-horizontal',
+						] as const
 					).map((name) => (
 						<span
 							key={name}
@@ -672,7 +687,7 @@ function RecipesScreen() {
 							</span>
 						</div>
 						<p className="text-cream-muted mt-1 text-xs">
-							Makes 8 servings · 2× the original
+							Makes 8 servings · original: 4
 						</p>
 						<ul className="mt-3 space-y-1 leading-[1.7]">
 							{ingredients.map((item) => (
@@ -706,6 +721,12 @@ function RecipesScreen() {
 											</span>
 										) : null}
 									</span>
+									{/* Add to Shopping, on the rows not yet checked off. */}
+									{item.checked ? null : (
+										<span className="text-cream-muted/70 flex size-6 shrink-0 items-center justify-center">
+											<Icon name="cart" className="size-4" />
+										</span>
+									)}
 								</li>
 							))}
 						</ul>
@@ -716,9 +737,9 @@ function RecipesScreen() {
 							{steps.map((step, index) => (
 								<li
 									key={step}
-									className="border-espresso-line/50 flex gap-4 border-b px-1 py-3 last:border-b-0"
+									className="border-espresso-line/50 flex gap-3 border-b py-3 last:border-b-0"
 								>
-									<span className="text-cream-muted flex size-8 shrink-0 items-center justify-center font-serif text-xl leading-none">
+									<span className="text-cream-muted flex h-8 w-6 shrink-0 items-center justify-center font-serif text-xl leading-none">
 										{index + 1}
 									</span>
 									<p className="pt-0.5 text-[15px] leading-[1.75]">{step}</p>
@@ -752,19 +773,19 @@ function StaplesScreen() {
 	return (
 		<AppScreen label="The Staples page: 33 usual items, two already on Next shop">
 			<div className="px-5 py-5 sm:px-6">
-				<h3 className="font-serif text-2xl">Staples</h3>
+				<div className="flex items-center justify-between gap-3">
+					<h3 className="font-serif text-2xl">Staples</h3>
+					<span className="bg-sage text-sage-foreground flex size-11 shrink-0 items-center justify-center rounded-full">
+						<Icon name="plus" size="sm" />
+					</span>
+				</div>
 				<p className="text-cream-muted mt-1 text-sm">
 					Things you usually have. Add one to put it on Next shop.
 				</p>
-				<div className="mt-4 flex gap-2">
-					<div className="border-espresso-line/60 bg-espresso-raised/50 text-cream-muted flex h-11 flex-1 items-center gap-2 rounded-lg border px-3 text-sm">
-						<Icon name="magnifying-glass" size="sm" />
-						Search
-					</div>
-					<span className="bg-sage text-sage-foreground inline-flex h-11 items-center gap-2 rounded-lg px-4 text-sm font-medium">
-						<Icon name="plus" size="sm" />
-						Add
-					</span>
+				{/* Search shows from 12 Staples. */}
+				<div className="border-espresso-line/60 bg-espresso-raised/50 text-cream-muted mt-4 flex h-11 items-center gap-2 rounded-lg border px-3 text-sm sm:max-w-md">
+					<Icon name="magnifying-glass" size="sm" />
+					Search
 				</div>
 
 				<div className="border-espresso-line/60 divide-espresso-line/60 mt-5 divide-y border-t">
@@ -774,13 +795,13 @@ function StaplesScreen() {
 								{staple.name}
 							</span>
 							{staple.onList ? (
-								<span className="text-cream-muted inline-flex h-9 items-center gap-1.5 px-3 text-sm">
+								<span className="text-cream-muted inline-flex h-9 min-w-24 items-center justify-center gap-1.5 px-3 text-sm">
 									<Icon name="check" size="sm" />
 									On list
 								</span>
 							) : (
-								<span className="border-espresso-line/70 bg-espresso-raised inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium">
-									Add
+								<span className="border-espresso-line/70 bg-espresso-raised inline-flex h-9 min-w-24 items-center justify-center rounded-md border px-3 text-sm font-medium">
+									Need
 								</span>
 							)}
 							<span className="text-cream-muted flex size-8 items-center justify-center">
@@ -857,10 +878,10 @@ function ShoppingScreen() {
 							({checked}/{shoppingNext.length})
 						</span>
 					</h3>
-					<div className="flex items-center gap-2 sm:ml-auto">
+					<div className="flex items-center gap-2">
 						<span className="border-espresso-line/70 inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium">
-							<Icon name="plus" size="sm" />
-							Staples
+							<Icon name="file-text" size="sm" />
+							From Staples
 						</span>
 						<span className="border-espresso-line/70 inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium">
 							<Icon name="calendar" size="sm" />
@@ -875,11 +896,14 @@ function ShoppingScreen() {
 						<ShoppingRow key={item.name} {...item} />
 					))}
 				</div>
-				<div className="border-espresso-line/60 mt-6 border-t pt-3">
+				<p className="text-cream-muted flex min-h-11 items-center justify-center pt-1 text-sm underline underline-offset-2">
+					Clear checked
+				</p>
+				{/* Later starts folded. */}
+				<div className="border-espresso-line/60 mt-8 flex min-h-11 items-center gap-2 border-t pt-3">
 					<p className="font-serif text-lg">Later</p>
-					<div className="divide-espresso-line/60 divide-y">
-						<ShoppingRow name="Sesame oil" amount="small bottle" />
-					</div>
+					<span className="text-cream-muted text-sm tabular-nums">(1)</span>
+					<Icon name="chevron-down" size="sm" className="text-cream-muted" />
 				</div>
 			</div>
 		</AppScreen>

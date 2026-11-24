@@ -53,6 +53,16 @@ export default function AboutRoute() {
 					It's built for people who actually cook at home, not food bloggers or
 					professional chefs. Just anyone who'd rather eat than plan.
 				</p>
+				<p>
+					The code is open source, and you can{' '}
+					<a
+						href="https://github.com/the-artifabrian/quartermaster"
+						className="text-foreground underline underline-offset-2"
+					>
+						read it on GitHub
+					</a>
+					.
+				</p>
 			</div>
 
 			<h2 className="mt-10 font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">

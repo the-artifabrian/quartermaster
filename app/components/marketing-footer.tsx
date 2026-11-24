@@ -4,7 +4,10 @@ export function MarketingFooter() {
 	return (
 		<footer className="border-border bg-background border-t">
 			<div className="container-landing py-8 text-center">
-				<nav className="text-muted-foreground flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
+				<nav
+					aria-label="Footer"
+					className="text-muted-foreground flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm"
+				>
 					<Link to="/about" className="hover:text-foreground">
 						About
 					</Link>
@@ -17,6 +20,12 @@ export function MarketingFooter() {
 					<Link to="/tos" className="hover:text-foreground">
 						Terms
 					</Link>
+					<a
+						href="https://github.com/the-artifabrian/quartermaster"
+						className="hover:text-foreground"
+					>
+						Source on GitHub
+					</a>
 				</nav>
 			</div>
 		</footer>

@@ -151,14 +151,18 @@ export async function isDemoUserId(userId: string) {
 }
 
 /**
- * The toast on a demo user's Recipe saved without the photo they picked.
- * Photos aren't stored for the demo: the Recipe forms drop a demo user's
- * file without checking or storing it.
+ * What a demo user's Recipe save says when it left out the photo they
+ * picked. Photos aren't stored for the demo: the Recipe forms drop a demo
+ * user's file without checking or storing it. A hydrated form shows it as it
+ * leaves (EditScreenDone's `notice`); a redirect carries it in a toast.
  */
+export const DEMO_PHOTO_DROPPED_MESSAGE =
+	'Saved without the photo. Photos are turned off in the demo.'
+
 export function demoPhotoDroppedHeaders() {
 	return createToastHeaders({
 		type: 'message',
-		description: 'Saved without the photo. Photos are turned off in the demo.',
+		description: DEMO_PHOTO_DROPPED_MESSAGE,
 	})
 }
 

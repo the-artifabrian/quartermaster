@@ -39,6 +39,7 @@ import {
 } from '#app/utils/nav-back.ts'
 import { historyIndex } from '#app/utils/nav-direction.ts'
 import {
+	DEMO_PHOTO_DROPPED_MESSAGE,
 	demoPhotoDroppedHeaders,
 	isDemoUserId,
 } from '#app/utils/demo-guard.server.ts'
@@ -390,13 +391,15 @@ export async function action({ request, params }: Route.ActionArgs) {
 		}
 	}
 
-	const headers = photoDropped ? await demoPhotoDroppedHeaders() : undefined
 	if (clientLeaves(formData)) {
-		return data({ done: `/recipes/${recipeId}` } satisfies EditScreenDone, {
-			headers,
-		})
+		return data({
+			done: `/recipes/${recipeId}`,
+			...(photoDropped ? { notice: DEMO_PHOTO_DROPPED_MESSAGE } : {}),
+		} satisfies EditScreenDone)
 	}
-	return redirect(`/recipes/${recipeId}`, { headers })
+	return redirect(`/recipes/${recipeId}`, {
+		headers: photoDropped ? await demoPhotoDroppedHeaders() : undefined,
+	})
 }
 
 export default function EditRecipe({ loaderData }: Route.ComponentProps) {

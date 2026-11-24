@@ -11,8 +11,13 @@ export function clientLeaves(formData: FormData) {
 	return formData.get(CLIENT_LEAVES_FIELD) === '1'
 }
 
-/** What an action answers a hydrated edit screen once it is done. */
-export type EditScreenDone = { done: string }
+/**
+ * What an action answers a hydrated edit screen once it is done. `notice` is
+ * a message the screen shows as it leaves. It can't go in a toast cookie:
+ * leaving cancels the root reload that would read the cookie, so on a slow
+ * load the toast is lost.
+ */
+export type EditScreenDone = { done: string; notice?: string }
 
 export function isEditScreenDone(value: unknown): value is EditScreenDone {
 	return (

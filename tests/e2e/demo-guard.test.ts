@@ -167,10 +167,14 @@ demoTest(
 		await page.getByRole('button', { name: 'Save', exact: true }).click()
 
 		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+		// Styled as the same notice is after a redirect (a server toast), as
+		// a description with no title.
 		await expect(
-			page.getByText(
-				'Saved without the photo. Photos are turned off in the demo.',
-			),
+			page
+				.locator('[data-sonner-toast] [data-description]')
+				.getByText(
+					'Saved without the photo. Photos are turned off in the demo.',
+				),
 		).toBeVisible()
 		expect(
 			await prisma.recipeImage.findUnique({

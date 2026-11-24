@@ -276,8 +276,9 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 		// The server has the Save.
 		haptic('success')
 		// Shown here rather than from a toast cookie: leaving cancels the root
-		// reload that would read one.
-		if (notice) toast.message(notice)
+		// reload that would read one. Styled as a server toast is (toaster.tsx),
+		// since a redirect shows the same notice that way.
+		if (notice) toast.message(undefined, { description: notice })
 		leave(
 			resolveAfterSave({ idx: historyIndex(), log: getHistoryLog(), to: done }),
 		)

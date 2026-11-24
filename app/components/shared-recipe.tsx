@@ -161,7 +161,7 @@ export function SharedRecipeView({
 				</div>
 				{/* Description */}
 				{recipe.description && (
-					<p className="text-muted-foreground mt-5 text-base leading-relaxed">
+					<p className="text-muted-foreground mt-5 text-base leading-relaxed text-pretty">
 						{recipe.description}
 					</p>
 				)}

@@ -1,15 +1,26 @@
 import { type Page } from '@playwright/test'
+import sharp from 'sharp'
 import { sessionKey } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { deleteDemoUser, expireDemoUsers } from '#app/utils/demo.server.ts'
+import { DEMO_AI_USES_PER_DAY, DEMO_BLOCKED_MESSAGE } from '#app/utils/demo.ts'
 import { SAMPLE_HOUSEHOLD } from '#app/utils/sample-household-data.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { SEEDED_DEMO_AI_USE, withDemoAiUses } from '#tests/e2e-lock.ts'
+import { expect, hydrated, test } from '#tests/playwright-utils.ts'
 
 /**
  * The demo: a visitor gets a user of their own with a copy of the sample
  * Household, which ends after a couple of hours. The e2e database has a demo
  * template (scripts/e2e.sh builds one).
+ *
+ * Failure list:
+ * - A demo started from the homepage's "Try the demo" isn't held back by the
+ *   guard, which other tests only meet with users made by createDemoCopy:
+ *   renaming the Household goes through, or is refused without a word.
+ * - With the AI uses all demo users share in a day used up, an AI import
+ *   still calls the AI, counts a use or saves a Recipe, or says nothing, or
+ *   gives the per-user message instead.
  */
 
 /**
@@ -130,4 +141,90 @@ test('a demo opens on the sample Recipes and this week’s Plan, and ends signed
 	})
 	expect(await prisma.user.count({ where: { id: visitor.id } })).toBe(0)
 	expect(await prisma.household.count({ where: { id: householdId } })).toBe(0)
+})
+
+test('a demo started from the homepage can’t rename its Household, and says so', async ({
+	page,
+}) => {
+	await page.goto('/')
+	await hydrated(page.getByRole('button', { name: 'Try the demo' }))
+	await page.getByRole('button', { name: 'Try the demo' }).click()
+	await expect(page).toHaveURL(/\/recipes/)
+	const userId = await signedInUserId(page)
+	expect(userId).not.toBeNull()
+	demoUserIds.push(userId!)
+	const { householdId, household } =
+		await prisma.householdMember.findFirstOrThrow({
+			where: { userId: userId! },
+			select: { householdId: true, household: { select: { name: true } } },
+		})
+
+	await page.goto('/settings/profile/household')
+	await hydrated(page.getByRole('button', { name: 'Rename', exact: true }))
+	await page.getByLabel('Household name').fill('Renamed in the demo')
+	await page.getByRole('button', { name: 'Rename', exact: true }).click()
+
+	await expect(page.getByText(DEMO_BLOCKED_MESSAGE)).toBeVisible()
+	await expect(page).toHaveURL('/settings/profile/household')
+	expect(
+		await prisma.household.findUniqueOrThrow({
+			where: { id: householdId },
+			select: { name: true },
+		}),
+	).toEqual(household)
+})
+
+test('once the demo’s shared AI uses for the day are gone, an AI import says so and calls nothing', async ({
+	page,
+}) => {
+	// Waits for other tests that use the shared count (e2e-lock.ts).
+	test.slow()
+	const visitor = await startDemo(page, demoUserIds)
+	const householdId = visitor.householdMembers[0]!.householdId
+	const screenshot = await sharp({
+		create: { width: 60, height: 40, channels: 3, background: '#f4efe6' },
+	})
+		.png()
+		.toBuffer()
+
+	await withDemoAiUses(async () => {
+		// A full day's worth, whatever other demo users used today.
+		const seeded = await prisma.demoAiUsage.createManyAndReturn({
+			data: Array.from({ length: DEMO_AI_USES_PER_DAY }, () => ({
+				type: SEEDED_DEMO_AI_USE,
+			})),
+			select: { id: true },
+		})
+		const recipesBefore = await prisma.recipe.count({ where: { householdId } })
+		try {
+			await page.goto('/recipes/import')
+			await expect(page.locator('html')).toHaveAttribute('data-hydrated')
+			await page.getByRole('tab', { name: 'From Image', exact: true }).click()
+			await page.getByLabel('Upload screenshots (up to 5)').setInputFiles({
+				name: 'recipe.png',
+				mimeType: 'image/png',
+				buffer: screenshot,
+			})
+			await page.getByRole('button', { name: 'Extract with AI' }).click()
+
+			await expect(
+				page.getByText(
+					"The demo's AI is used up for today. Try again tomorrow, or sign up.",
+				),
+			).toBeVisible()
+			await expect(page).toHaveURL(/\/recipes\/import/)
+			// The use is refused before the AI is asked: nothing counted, nothing
+			// saved.
+			expect(
+				await prisma.usageEvent.count({ where: { userId: visitor.id } }),
+			).toBe(0)
+			expect(await prisma.recipe.count({ where: { householdId } })).toBe(
+				recipesBefore,
+			)
+		} finally {
+			await prisma.demoAiUsage.deleteMany({
+				where: { id: { in: seeded.map((row) => row.id) } },
+			})
+		}
+	})
 })

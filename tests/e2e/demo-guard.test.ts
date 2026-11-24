@@ -9,6 +9,7 @@ import { serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { createDemoCopy } from '#app/utils/demo.server.ts'
 import { DEMO_BLOCKED_MESSAGE } from '#app/utils/demo.ts'
+import { withDemoAiUses } from '#tests/e2e-lock.ts'
 import { browserToday, expect, test } from '#tests/playwright-utils.ts'
 
 const demoTest = test.extend<{
@@ -94,6 +95,9 @@ demoTest(
 demoTest(
 	'after three AI imports the import screen says what the demo allows',
 	async ({ page, demo }) => {
+		// Waits for other tests that use the demo's shared AI count
+		// (e2e-lock.ts), which a test fills to its cap.
+		demoTest.slow()
 		// Two of the demo's three imports are already spent.
 		await prisma.usageEvent.createMany({
 			data: [0, 1].map(() => ({
@@ -119,16 +123,18 @@ demoTest(
 			await page.getByRole('button', { name: 'Extract with AI' }).click()
 		}
 
-		await extract()
-		await expect(page).toHaveURL(/\/recipes\/(?!import)[^/?]+/)
+		await withDemoAiUses(async () => {
+			await extract()
+			await expect(page).toHaveURL(/\/recipes\/(?!import)[^/?]+/)
 
-		await extract()
-		await expect(
-			page.getByText(
-				'The demo allows 3 AI imports. Sign up to keep importing.',
-			),
-		).toBeVisible()
-		await expect(page).toHaveURL(/\/recipes\/import/)
+			await extract()
+			await expect(
+				page.getByText(
+					'The demo allows 3 AI imports. Sign up to keep importing.',
+				),
+			).toBeVisible()
+			await expect(page).toHaveURL(/\/recipes\/import/)
+		})
 		expect(
 			await prisma.usageEvent.count({
 				where: { userId: demo.userId, type: 'recipe_extract_llm_call' },

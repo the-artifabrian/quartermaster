@@ -59,6 +59,20 @@ export async function sendEmail({
 	| { html: string; text: string; react?: never }
 	| { react: ReactElement; html?: never; text?: never }
 )) {
+	// `.invalid` is reserved and no mail reaches it. Demo users have such
+	// addresses, so a send to one stops here instead of failing at the
+	// provider and being reported as an outage.
+	if (/\.invalid$/i.test(options.to.trim())) {
+		return {
+			status: 'error',
+			error: {
+				name: 'EmailUndeliverable',
+				message: 'This address can’t receive email.',
+				statusCode: 422,
+			},
+		} as const
+	}
+
 	const from = 'hello@useqm.app'
 
 	const email = {

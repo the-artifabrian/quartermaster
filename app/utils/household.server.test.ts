@@ -1294,3 +1294,32 @@ describe('Recipe classification household moves', () => {
 		])
 	})
 })
+
+// Failure list for invites and the demo, the direction the demo guard can't
+// see because the person joining is a real user:
+// - an invite into a demo user's Household (none can be made through the
+//   app, but one could be left in the data) shows on the join page and lets
+//   a real user in. It must read as invalid, and the joiner stays where they
+//   were.
+describe('an invite into a demo Household', () => {
+	test('reads as invalid and nobody joins', async () => {
+		const demo = await setupUser()
+		await prisma.user.update({
+			where: { id: demo.id },
+			data: { demoExpiresAt: new Date(Date.now() + 3_600_000) },
+		})
+		const invite = await createHouseholdInvite(demo.householdId, demo.id)
+		const joiner = await setupUser()
+
+		expect(await getInviteByToken(invite.token)).toBeNull()
+		await expect(acceptInvite(invite.token, joiner.id)).rejects.toThrow(
+			'Invalid or expired invite',
+		)
+		expect(
+			await prisma.householdMember.findMany({
+				where: { userId: joiner.id },
+				select: { householdId: true },
+			}),
+		).toEqual([{ householdId: joiner.householdId }])
+	})
+})

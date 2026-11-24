@@ -5,7 +5,11 @@ import { createId } from '@paralleldrive/cuid2'
 import { type Prisma, type PrismaClient } from '#app/generated/prisma/client.ts'
 import { deleteAccount } from './account-deletion.server.ts'
 import { createOwnHousehold } from './auth.server.ts'
-import { DEMO_LIFETIME_MS, DEMO_LIVE_LIMIT } from './demo.ts'
+import {
+	DEMO_LIFETIME_MS,
+	DEMO_LIVE_LIMIT,
+	DEMO_TEMPLATE_EMAIL_DOMAIN,
+} from './demo.ts'
 import { deepCopyRecipes } from './household.server.ts'
 import { checkRecipePhoto } from './recipe-photo.server.ts'
 import {
@@ -41,11 +45,11 @@ import { writeTransaction } from './write-transaction.server.ts'
 const TEMPLATE_ID = 'current'
 
 /**
- * Owners of templates have emails here, and visitors under DEMO_EMAIL_DOMAIN.
- * `.invalid` is reserved, so no real address can be one, and no code can
- * reach one to sign in by email.
+ * Visitors have emails here, and owners of templates under
+ * DEMO_TEMPLATE_EMAIL_DOMAIN (demo.ts). `.invalid` is reserved, so no real
+ * address can be one, and no code can reach one to sign in by email.
  */
-export const DEMO_TEMPLATE_EMAIL_DOMAIN = 'demo-template.invalid'
+export { DEMO_TEMPLATE_EMAIL_DOMAIN }
 export const DEMO_EMAIL_DOMAIN = 'demo.invalid'
 
 /**

@@ -5,6 +5,8 @@ import { prisma } from './db.server.ts'
 import { menuTitleKey } from './menu-validation.ts'
 import { ensureRecipeMetadataValues } from './recipe-metadata.server.ts'
 import { deleteRecipeImageUnlessShared } from './recipe-image.server.ts'
+import { isDemoUserId } from './demo-guard.server.ts'
+import { NOT_A_DEMO_HOUSEHOLD } from './demo.ts'
 import { copyRecipeImage } from './storage.server.ts'
 import { writeTransaction } from './write-transaction.server.ts'
 
@@ -75,8 +77,9 @@ export async function saveSharedMenu({
 	// Read one consistent source revision, including recoverable source text
 	// server-side only. Personal Recipe notes are never copied.
 	const menu = await prisma.$transaction((tx) =>
-		tx.menu.findUnique({
-			where: { id: menuId },
+		// A demo's Menu isn't shared, so it reads as missing here too.
+		tx.menu.findFirst({
+			where: { id: menuId, household: NOT_A_DEMO_HOUSEHOLD },
 			include: {
 				sections: {
 					orderBy: { order: 'asc' },
@@ -129,17 +132,23 @@ export async function saveSharedMenu({
 		),
 	)
 	const imageKeys = new Map<string, string>()
+	// A demo user's copies store no files: they show the source's photos, as
+	// demo copies show the template's. The refcount keeps a photo while any
+	// Recipe shows it, and the clean-up below goes through it too.
+	const sharesSourcePhotos = await isDemoUserId(userId)
 	let committed = false
 	try {
 		for (const recipe of recipes) {
 			if (recipe.image)
 				imageKeys.set(
 					recipe.id,
-					await copyRecipeImage(
-						recipe.image.objectKey,
-						userId,
-						recipeIds.get(recipe.id)!,
-					),
+					sharesSourcePhotos
+						? recipe.image.objectKey
+						: await copyRecipeImage(
+								recipe.image.objectKey,
+								userId,
+								recipeIds.get(recipe.id)!,
+							),
 				)
 		}
 		const result = await writeTransaction(prisma, async (tx) => {

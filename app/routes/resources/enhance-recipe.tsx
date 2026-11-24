@@ -1,6 +1,7 @@
 import { data } from 'react-router'
 import { z } from 'zod'
 import {
+	aiUsageLimitsFor,
 	aiUsageRefusal,
 	claimAiUsage,
 } from '#app/utils/ai-rate-limit.server.ts'
@@ -13,8 +14,6 @@ import {
 } from '#app/utils/recipe-enhance-llm.server.ts'
 import { requireProTierOrNativeShellNull } from '#app/utils/subscription.server.ts'
 import { type Route } from './+types/enhance-recipe.ts'
-
-const DAILY_LIMIT = 10
 
 const EnhanceRequestSchema = z.object({
 	recipeId: z.string().min(1),
@@ -81,13 +80,13 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 
 	// Claimed only once the Recipe is found, so a bad id spends nothing.
-	const usage = await claimAiUsage(userId, 'recipe_enhance_llm_call', {
-		perUser: DAILY_LIMIT,
-	})
+	const limits = await aiUsageLimitsFor(userId, 'recipe_enhance_llm_call')
+	const usage = await claimAiUsage(userId, 'recipe_enhance_llm_call', limits)
 	if (!usage.allowed) {
 		const refusal = aiUsageRefusal(usage.reason, {
-			limit: DAILY_LIMIT,
+			limits,
 			uses: 'suggestion requests',
+			keepGoing: 'keep getting suggestions',
 			unavailable: "Couldn't get suggestions just now.",
 		})
 		return data(

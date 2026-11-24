@@ -1,6 +1,7 @@
 import { parseFormData, type FileUpload } from '@mjackson/form-data-parser'
 import { data } from 'react-router'
 import {
+	aiUsageLimitsFor,
 	aiUsageRefusal,
 	claimAiUsage,
 } from '#app/utils/ai-rate-limit.server.ts'
@@ -18,12 +19,6 @@ const ACCEPTED_AUDIO_TYPES = [
 	'audio/mpeg',
 	'audio/ogg',
 ]
-
-// Each use is one Whisper clip plus one small Haiku call, a fraction of a
-// cent. Thirty covers a big weekly shop said one item at a time, retries
-// included, so nobody using the app for real should hit it. It caps what one
-// account can spend in a day, and every new signup gets a Pro trial.
-const DAILY_LIMIT = 30
 
 export async function action({ request }: Route.ActionArgs) {
 	const proTier = await requireProTierOrNativeShellNull(request)
@@ -71,13 +66,17 @@ export async function action({ request }: Route.ActionArgs) {
 		)
 	}
 
-	const usage = await claimAiUsage(proTier.userId, 'voice_transcribe_call', {
-		perUser: DAILY_LIMIT,
-	})
+	const limits = await aiUsageLimitsFor(proTier.userId, 'voice_transcribe_call')
+	const usage = await claimAiUsage(
+		proTier.userId,
+		'voice_transcribe_call',
+		limits,
+	)
 	if (!usage.allowed) {
 		const refusal = aiUsageRefusal(usage.reason, {
-			limit: DAILY_LIMIT,
+			limits,
 			uses: 'voice entries',
+			keepGoing: 'keep adding by voice',
 			unavailable: "Couldn't start voice input just now.",
 		})
 		return data(

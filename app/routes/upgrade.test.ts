@@ -8,6 +8,13 @@
 // - Stripe isn't configured (no price id set): refused without calling Stripe
 // - nobody is signed in: sent to log in, and Stripe is never asked
 // - the upgrade page itself no longer hands the price id to the browser
+//
+// Failure list for coming back from checkout (`/upgrade?session_id=…`):
+// - a paid checkout session that names another user changes the signed-in
+//   user's subscription, or that other user's. Neither may change
+// - a demo user comes back with a paid checkout session in their name: the
+//   demo's subscription must stay as it is, without asking Stripe
+// - a real user back from their own paid checkout is still made Pro
 import { RouterContextProvider } from 'react-router'
 import type Stripe from 'stripe'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -153,4 +160,107 @@ test('the upgrade page does not hand the price id to the browser', async () => {
 	expect(data).not.toBeInstanceOf(Response)
 	expect((data as { stripeConfigured: boolean }).stripeConfigured).toBe(true)
 	expect(JSON.stringify(data)).not.toContain(SERVER_PRICE)
+})
+
+async function returnFromCheckout(
+	session: { id: string },
+	checkoutSession: Partial<Stripe.Checkout.Session>,
+) {
+	const stripe = getStripeClient()!
+	const retrieved: string[] = []
+	vi.spyOn(stripe.checkout.sessions, 'retrieve').mockImplementation((async (
+		id: string,
+	) => {
+		retrieved.push(id)
+		return { id, ...checkoutSession }
+	}) as never)
+	vi.spyOn(stripe.subscriptions, 'retrieve').mockImplementation((async () => ({
+		items: { data: [{ price: { id: SERVER_PRICE }, current_period_end: 2e9 }] },
+	})) as never)
+	const url = new URL(`${BASE_URL}/upgrade?session_id=cs_test_return`)
+	await loader({
+		request: new Request(url, {
+			headers: { cookie: await getSessionCookieHeader(session) },
+		}),
+		params: {},
+		context: new RouterContextProvider(),
+		pattern: '/upgrade',
+		url,
+	}).catch((error: unknown) => error)
+	return retrieved
+}
+
+async function subscriptionOf(userId: string) {
+	return prisma.subscription.findUnique({
+		where: { userId },
+		select: { tier: true, stripeCustomerId: true },
+	})
+}
+
+test("a paid checkout that names another user changes no one's subscription", async () => {
+	const session = await signedIn()
+	const { userId } = await prisma.session.findUniqueOrThrow({
+		where: { id: session.id },
+		select: { userId: true },
+	})
+	const other = await prisma.user.create({ data: createUser() })
+
+	await returnFromCheckout(session, {
+		payment_status: 'paid',
+		client_reference_id: other.id,
+		customer: 'cus_return',
+		subscription: 'sub_return',
+	})
+
+	expect(await subscriptionOf(userId)).toBeNull()
+	expect(await subscriptionOf(other.id)).toBeNull()
+})
+
+test("a demo user's paid checkout leaves the demo's subscription as it is", async () => {
+	const demo = await prisma.session.create({
+		data: {
+			expirationDate: getSessionExpirationDate(),
+			user: {
+				create: {
+					...createUser(),
+					demoExpiresAt: new Date(Date.now() + 3_600_000),
+					subscription: { create: { tier: 'pro' } },
+				},
+			},
+		},
+		select: { id: true, userId: true },
+	})
+
+	const retrieved = await returnFromCheckout(demo, {
+		payment_status: 'paid',
+		client_reference_id: demo.userId,
+		customer: 'cus_demo_return',
+		subscription: 'sub_demo_return',
+	})
+
+	expect(retrieved).toEqual([])
+	expect(await subscriptionOf(demo.userId)).toEqual({
+		tier: 'pro',
+		stripeCustomerId: null,
+	})
+})
+
+test('a real user back from their own paid checkout is made Pro', async () => {
+	const session = await signedIn()
+	const { userId } = await prisma.session.findUniqueOrThrow({
+		where: { id: session.id },
+		select: { userId: true },
+	})
+
+	await returnFromCheckout(session, {
+		payment_status: 'paid',
+		client_reference_id: userId,
+		customer: 'cus_real_return',
+		subscription: 'sub_real_return',
+	})
+
+	expect(await subscriptionOf(userId)).toEqual({
+		tier: 'pro',
+		stripeCustomerId: 'cus_real_return',
+	})
 })

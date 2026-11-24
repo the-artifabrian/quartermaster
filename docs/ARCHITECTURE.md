@@ -223,9 +223,27 @@ The Plan, Shopping and Menus are made on each copy from the running code's
 content. A start that can't get a transaction in time is refused as
 unavailable. Copies share the template's photo keys, so the refcount keeps a
 photo until no Recipe shows it. `DemoAiUsage` counts AI uses across all demo
-users and isn't tied to a user, so it outlives them. The entry route, expiry,
-the guard on what a demo user can change, and the AI caps come in later parts
-of #440.
+users and isn't tied to a user, so it outlives them.
+
+A root middleware in `app/utils/demo-guard.server.ts` refuses a demo user's
+POST (or any method but GET and HEAD) to a route on its blocked list, keyed on
+the route pattern, before the action runs: email, username and name, password,
+passkeys, two-factor, every Household action and joining by invite, restoring a
+JSON backup, Stripe checkout and the billing portal, and admin. A form goes
+back to its page with a toast that says it's turned off in the demo; a JSON
+caller gets a 403 with the same message. Every other route with an action is on
+an allowed list with its reason, and a test fails on a route that is on
+neither. Inside allowed routes, a demo user's Recipe photo is dropped without
+being checked or stored, with a toast; a Recipe they save from a share page
+points at the source's photo instead of storing a copy; Recipes and Menus in a
+Household with a demo user or the template's owner are not found on the public
+share pages; an invite into a demo Household reads as invalid; and no email
+goes to an `.invalid` address. The Upgrade page's return from checkout leaves a
+demo user's subscription alone. `aiUsageLimitsFor` gives the three AI call
+sites their caps: a demo user gets three uses of each feature, and each use
+also takes one of the uses all demo users share in a day, counted in
+`DemoAiUsage` in the same write transaction. The entry route and expiry come in
+later parts of #440.
 
 New household data must be authorized by household membership, included in
 export/import when durable, and handled in sole-member household moves.

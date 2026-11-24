@@ -1,12 +1,58 @@
 import { type Prisma, type PrismaClient } from '#app/generated/prisma/client.ts'
 import { prisma } from './db.server.ts'
+import {
+	DEMO_AI_USES_PER_DAY,
+	DEMO_AI_USES_PER_FEATURE,
+	isDemoUser,
+} from './demo.ts'
 import { writeTransaction } from './write-transaction.server.ts'
 
 /**
- * A usage type's daily caps. `perUser` limits one user. An options object, so
- * a cap of another kind can join it without changing callers.
+ * A usage type's daily caps. `perUser` limits one user. `demoPerDay` is set
+ * only for a demo user: the uses all demo users share in a day, counted in
+ * `DemoAiUsage`. An options object, so a cap of another kind can join it
+ * without changing callers.
  */
-export type AiUsageLimits = { perUser: number }
+export type AiUsageLimits = { perUser: number; demoPerDay?: number }
+
+/** The paid AI features, by the usage type each records. */
+export type AiFeature =
+	| 'recipe_extract_llm_call'
+	| 'recipe_enhance_llm_call'
+	| 'voice_transcribe_call'
+
+/** Each feature's daily cap for a real user. */
+const DAILY_LIMITS: Record<AiFeature, number> = {
+	recipe_extract_llm_call: 10,
+	recipe_enhance_llm_call: 10,
+	// Each use is one Whisper clip plus one small Haiku call, a fraction of a
+	// cent. Thirty covers a big weekly shop said one item at a time, retries
+	// included, so nobody using the app for real should hit it. It caps what
+	// one account can spend in a day, and every new signup gets a Pro trial.
+	voice_transcribe_call: 30,
+}
+
+/**
+ * A user's caps on one feature: a real user's own, or for a demo user the
+ * demo's few uses and the shared daily cap.
+ */
+export async function aiUsageLimitsFor(
+	userId: string,
+	feature: AiFeature,
+	db: PrismaClient = prisma,
+): Promise<AiUsageLimits> {
+	const user = await db.user.findUnique({
+		where: { id: userId },
+		select: { demoExpiresAt: true },
+	})
+	if (user && isDemoUser(user)) {
+		return {
+			perUser: DEMO_AI_USES_PER_FEATURE,
+			demoPerDay: DEMO_AI_USES_PER_DAY,
+		}
+	}
+	return { perUser: DAILY_LIMITS[feature] }
+}
 
 export type AiUsageClaim =
 	| {
@@ -18,7 +64,7 @@ export type AiUsageClaim =
 			 */
 			refund: () => Promise<void>
 	  }
-	| { allowed: false; reason: 'per-user' | 'unavailable' }
+	| { allowed: false; reason: 'per-user' | 'demo-day' | 'unavailable' }
 
 /**
  * When today's uses began: local midnight on the server. The daily prune in
@@ -31,7 +77,8 @@ export function startOfUsageDay(now = new Date()) {
 }
 
 type Recorded =
-	{ allowed: true; id: string } | { allowed: false; reason: 'per-user' }
+	| { allowed: true; id: string; demoId: string | null }
+	| { allowed: false; reason: 'per-user' | 'demo-day' }
 
 async function countAndRecord(
 	tx: Prisma.TransactionClient,
@@ -39,16 +86,33 @@ async function countAndRecord(
 	type: string,
 	limits: AiUsageLimits,
 ): Promise<Recorded> {
+	const since = startOfUsageDay()
 	const used = await tx.usageEvent.count({
-		where: { userId, type, createdAt: { gte: startOfUsageDay() } },
+		where: { userId, type, createdAt: { gte: since } },
 	})
 	if (used >= limits.perUser) return { allowed: false, reason: 'per-user' }
+
+	// A demo use takes a shared slot too. The rows aren't tied to the user,
+	// so a demo user removed at expiry still counts until the day is over.
+	let demoId: string | null = null
+	if (limits.demoPerDay != null) {
+		const demoUsed = await tx.demoAiUsage.count({
+			where: { createdAt: { gte: since } },
+		})
+		if (demoUsed >= limits.demoPerDay) {
+			return { allowed: false, reason: 'demo-day' }
+		}
+		;({ id: demoId } = await tx.demoAiUsage.create({
+			data: { type },
+			select: { id: true },
+		}))
+	}
 
 	const { id } = await tx.usageEvent.create({
 		data: { type, userId },
 		select: { id: true },
 	})
-	return { allowed: true, id }
+	return { allowed: true, id, demoId }
 }
 
 /**
@@ -56,8 +120,9 @@ async function countAndRecord(
  *
  * The count and the insert run in one transaction that holds the write lock
  * from the start, so parallel requests queue instead of all counting the same
- * total and all passing. A claim that cannot be recorded is refused, because
- * letting it through would make a busy database an unlimited slot.
+ * total and all passing. For a demo user the shared demo count and its row
+ * are in the same transaction. A claim that cannot be recorded is refused,
+ * because letting it through would make a busy database an unlimited slot.
  */
 export async function claimAiUsage(
 	userId: string,
@@ -76,7 +141,7 @@ export async function claimAiUsage(
 	}
 	if (!recorded.allowed) return recorded
 
-	const { id } = recorded
+	const { id, demoId } = recorded
 	let refunded = false
 	return {
 		allowed: true,
@@ -84,7 +149,12 @@ export async function claimAiUsage(
 			if (refunded) return
 			refunded = true
 			try {
-				await db.usageEvent.deleteMany({ where: { id } })
+				await db.$transaction([
+					db.usageEvent.deleteMany({ where: { id } }),
+					...(demoId
+						? [db.demoAiUsage.deleteMany({ where: { id: demoId } })]
+						: []),
+				])
 			} catch (error) {
 				console.error('Failed to refund AI usage event:', error)
 			}
@@ -94,22 +164,41 @@ export async function claimAiUsage(
 
 /**
  * What to tell a user whose claim was refused, and the status to answer with.
- * `uses` names the feature's uses in the plural, as in "10 AI imports".
- * `unavailable` says what couldn't start, as in "Couldn't start the import
- * just now."
+ * `limits` is what the claim was made with. `uses` names the feature's uses
+ * in the plural, as in "10 AI imports", and `keepGoing` what a demo user
+ * would sign up to go on doing, as in "keep importing". `unavailable` says
+ * what couldn't start, as in "Couldn't start the import just now."
  */
 export function aiUsageRefusal(
 	reason: Extract<AiUsageClaim, { allowed: false }>['reason'],
 	{
-		limit,
+		limits,
 		uses,
+		keepGoing,
 		unavailable,
-	}: { limit: number; uses: string; unavailable: string },
+	}: {
+		limits: AiUsageLimits
+		uses: string
+		keepGoing: string
+		unavailable: string
+	},
 ): { error: string; status: 429 | 503 } {
 	switch (reason) {
 		case 'per-user':
+			if (limits.demoPerDay != null) {
+				return {
+					error: `The demo allows ${limits.perUser} ${uses}. Sign up to ${keepGoing}.`,
+					status: 429,
+				}
+			}
 			return {
-				error: `You've used today's ${limit} ${uses}. Try again tomorrow.`,
+				error: `You've used today's ${limits.perUser} ${uses}. Try again tomorrow.`,
+				status: 429,
+			}
+		case 'demo-day':
+			return {
+				error:
+					"The demo's AI is used up for today. Try again tomorrow, or sign up.",
 				status: 429,
 			}
 		case 'unavailable':

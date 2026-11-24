@@ -6,6 +6,7 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getAppOrigin } from '#app/utils/app-origin.server.ts'
 import { getUserId } from '#app/utils/auth.server.ts'
+import { isDemoUserId } from '#app/utils/demo-guard.server.ts'
 import { isNativeShell } from '#app/utils/native-shell.server.ts'
 import {
 	CHECKOUT_STARTED,
@@ -67,10 +68,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 		tierInfo = await getUserTier(userId)
 	}
 
-	// Handle Stripe checkout success redirect
+	// Handle Stripe checkout success redirect. A demo user's subscription is
+	// the demo's, so their return from checkout changes nothing.
 	const url = new URL(request.url)
 	const sessionId = url.searchParams.get('session_id')
-	if (sessionId && userId) {
+	if (sessionId && userId && !(await isDemoUserId(userId))) {
 		const stripe = getStripeClient()
 		if (stripe) {
 			try {

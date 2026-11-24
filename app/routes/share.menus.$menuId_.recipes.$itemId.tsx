@@ -2,6 +2,7 @@ import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { SharedRecipeView } from '#app/components/shared-recipe.tsx'
 import { prisma } from '#app/utils/db.server.ts'
+import { NOT_A_DEMO_HOUSEHOLD } from '#app/utils/demo.ts'
 import { sharedRecipeSelect } from '#app/utils/share-menu.server.ts'
 import { type Route } from './+types/share.menus.$menuId_.recipes.$itemId.ts'
 
@@ -15,7 +16,10 @@ export async function loader({ params }: Route.LoaderArgs) {
 		where: {
 			id: params.itemId,
 			kind: 'recipe',
-			section: { menuId: params.menuId },
+			section: {
+				menuId: params.menuId,
+				menu: { household: NOT_A_DEMO_HOUSEHOLD },
+			},
 		},
 		select: {
 			note: true,

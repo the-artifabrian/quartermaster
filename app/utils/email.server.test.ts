@@ -202,3 +202,23 @@ test('a failed send logs the recipient domain, not the address', async () => {
 	expect(logged).not.toContain('sam@')
 	expect(logged).toContain('example.com')
 })
+
+// Demo users have addresses under `.invalid` (demo.server.ts), a domain no
+// mail can reach. A send to one, from any flow, must never reach the provider
+// or be reported as a delivery failure, and must come back as an error result
+// the caller already handles rather than a throw.
+test('a send to an .invalid address never reaches the provider', async () => {
+	let requests = 0
+	server.use(
+		http.post(RESEND_URL, () => {
+			requests++
+			return HttpResponse.json({ id: 'sent' })
+		}),
+	)
+
+	const result = await sendEmail({ ...message, to: 'guest@demo.invalid' })
+
+	expect(result.status).toBe('error')
+	expect(requests).toBe(0)
+	expect(consoleError).not.toHaveBeenCalled()
+})

@@ -17,6 +17,10 @@ import {
 	type EditScreenDone,
 	isEditScreenDone,
 } from '#app/utils/edit-screen.ts'
+import {
+	demoPhotoDroppedHeaders,
+	isDemoUserId,
+} from '#app/utils/demo-guard.server.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import {
 	recipeMetadataOptions,
@@ -74,6 +78,10 @@ export async function action({ request }: Route.ActionArgs) {
 	const { userId, householdId } = await requireUserWithHousehold(request)
 
 	let imageFile: FileUpload | null = null
+	// Photos are off in the demo: a demo user's file is dropped without being
+	// checked or stored, and the Recipe saves without it.
+	const demo = await isDemoUserId(userId)
+	let photoDropped = false
 
 	let formData: FormData
 	try {
@@ -82,6 +90,10 @@ export async function action({ request }: Route.ActionArgs) {
 			{ maxFileSize: MAX_RECIPE_IMAGE_SIZE },
 			async (file) => {
 				if (file.fieldName === 'image' && file.name) {
+					if (demo) {
+						photoDropped = true
+						return undefined
+					}
 					if (file.size > MAX_RECIPE_IMAGE_SIZE) {
 						return undefined
 					}
@@ -230,10 +242,13 @@ export async function action({ request }: Route.ActionArgs) {
 	// The new Recipe takes the form's place: going back from it goes to the
 	// page before the form. A hydrated form leaves by itself, sliding back as
 	// an edit screen does (edit-screen.tsx).
+	const headers = photoDropped ? await demoPhotoDroppedHeaders() : undefined
 	if (clientLeaves(formData)) {
-		return data({ done: `/recipes/${recipe.id}` } satisfies EditScreenDone)
+		return data({ done: `/recipes/${recipe.id}` } satisfies EditScreenDone, {
+			headers,
+		})
 	}
-	return replace(`/recipes/${recipe.id}`)
+	return replace(`/recipes/${recipe.id}`, { headers })
 }
 
 export default function NewRecipe({ loaderData }: Route.ComponentProps) {

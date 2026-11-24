@@ -16,7 +16,7 @@
 //   so anonymous events are filed under them, now without the flag. A
 //   visitor who never ran a demo must keep their anonymous id.
 import { act, render, waitFor } from '@testing-library/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import { expect, test, vi } from 'vitest'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
@@ -535,10 +535,12 @@ test('a signed-out load after a demo starts afresh, before its first pageview', 
 
 test('signing out of a demo clears the flag', async () => {
 	using _environment = setupAnalyticsEnvironment()
-	let signOut = () => {}
+	const session = { signOut: () => {} }
 	function Session() {
 		const [signedIn, setSignedIn] = useState(true)
-		signOut = () => setSignedIn(false)
+		useEffect(() => {
+			session.signOut = () => setSignedIn(false)
+		}, [])
 		return (
 			<PostHogIdentify
 				user={
@@ -557,7 +559,7 @@ test('signing out of a demo clears the flag', async () => {
 	)
 	expect(client.register).toHaveBeenCalledWith({ is_demo: true })
 
-	act(() => signOut())
+	act(() => session.signOut())
 
 	// reset() clears the SDK's super properties along with the identity.
 	expect(client.reset).toHaveBeenCalledTimes(1)

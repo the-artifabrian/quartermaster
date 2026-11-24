@@ -527,13 +527,21 @@ async function deleteSource(
 	)
 }
 
-test('a source Recipe deleted while a demo user saves it leaves the copy no missing photo', async () => {
+/** The Recipes a Household holds, with their photo rows. */
+function recipesIn(householdId: string) {
+	return prisma.recipe.findMany({
+		where: { householdId },
+		select: { title: true, image: { select: { objectKey: true } } },
+	})
+}
+
+test('a demo Save of a Recipe deleted while it saves copies it without the photo', async () => {
 	await using source = await sharedWithPhoto()
 	const demo = await household({ demo: true })
 	source.owners.push(demo.userId)
 	between.saveReadSource = () => deleteSource(source)
 
-	await statusOf(async () =>
+	const status = await statusOf(async () =>
 		saveRecipe(
 			await args(
 				`/share/${source.recipeId}`,
@@ -545,16 +553,19 @@ test('a source Recipe deleted while a demo user saves it leaves the copy no miss
 
 	expect(between.saveReadSource).toBeNull()
 	expect(await prisma.recipe.count({ where: { id: source.recipeId } })).toBe(0)
-	expect(await missingPhotos(demo.householdId)).toEqual([])
+	expect(status).toBe(302)
+	expect(await recipesIn(demo.householdId)).toEqual([
+		{ title: 'Lemon chickpeas', image: null },
+	])
 })
 
-test('a source Recipe deleted while a demo user saves its Menu leaves the copy no missing photo', async () => {
+test('a demo Save of a Menu whose Recipe is deleted while it saves copies it without the photo', async () => {
 	await using source = await sharedWithPhoto()
 	const demo = await household({ demo: true })
 	source.owners.push(demo.userId)
 	between.saveReadSource = () => deleteSource(source)
 
-	await statusOf(async () =>
+	const status = await statusOf(async () =>
 		saveMenu(
 			await args(
 				`/share/menus/${source.menuId}`,
@@ -566,10 +577,16 @@ test('a source Recipe deleted while a demo user saves its Menu leaves the copy n
 
 	expect(between.saveReadSource).toBeNull()
 	expect(await prisma.recipe.count({ where: { id: source.recipeId } })).toBe(0)
-	expect(await missingPhotos(demo.householdId)).toEqual([])
+	expect(status).toBe(302)
+	expect(
+		await prisma.menu.count({ where: { householdId: demo.householdId } }),
+	).toBe(1)
+	expect(await recipesIn(demo.householdId)).toEqual([
+		{ title: 'Lemon chickpeas', image: null },
+	])
 })
 
-test('a source photo replaced while a demo user saves the Recipe leaves the copy no missing photo', async () => {
+test('a demo Save of a Recipe whose photo is replaced while it saves shows the new photo', async () => {
 	await using source = await sharedWithPhoto()
 	const demo = await household({ demo: true })
 	source.owners.push(demo.userId)
@@ -603,16 +620,19 @@ test('a source photo replaced while a demo user saves the Recipe leaves the copy
 
 	expect(between.saveReadSource).toBeNull()
 	expect(await exists(source.key)).toBe(false)
-	expect(await savedPhotoKeys(demo.householdId)).toHaveLength(1)
+	expect(await savedPhotoKeys(demo.householdId)).toEqual(
+		await savedPhotoKeys(source.owner.householdId),
+	)
 	expect(await missingPhotos(demo.householdId)).toEqual([])
 })
 
-test("a demo user's Save while the source's delete removes its photo leaves the copy no missing photo", async () => {
+test("a demo Save while the source's delete removes its photo finds the Recipe gone", async () => {
 	await using source = await sharedWithPhoto()
 	const demo = await household({ demo: true })
 	source.owners.push(demo.userId)
-	between.photoFileDeleted = () =>
-		statusOf(async () =>
+	let status: number | undefined
+	between.photoFileDeleted = async () => {
+		status = await statusOf(async () =>
 			saveRecipe(
 				await args(
 					`/share/${source.recipeId}`,
@@ -621,9 +641,11 @@ test("a demo user's Save while the source's delete removes its photo leaves the 
 				),
 			),
 		)
+	}
 
 	await deleteSource(source)
 
 	expect(between.photoFileDeleted).toBeNull()
-	expect(await missingPhotos(demo.householdId)).toEqual([])
+	expect(status).toBe(404)
+	expect(await recipesIn(demo.householdId)).toEqual([])
 })

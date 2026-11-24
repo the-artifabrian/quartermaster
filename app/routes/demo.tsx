@@ -25,9 +25,9 @@ import { type Route } from './+types/demo.ts'
  * signed out, since /signup sends signed-in users away.
  *
  * Starts have a limit per client of their own (demo-start-limit.server.ts),
- * which ends never touch. Its refusal reads like a full demo, which to the
- * visitor it is. The route is on the strong rate limit tier, so starts
- * don't use up the client's sign-in attempts.
+ * which ends never touch. Its refusal says so, since unlike a full demo it
+ * can last up to an hour. The route is on the strong rate limit tier, so
+ * starts don't use up the client's sign-in attempts.
  */
 
 /** Where a demo starts, as after any sign-in. */
@@ -74,7 +74,7 @@ export async function action({ request }: Route.ActionArgs) {
 	if (userId) return redirect(APP_HOME)
 
 	// Counted before the copy, so refusals count too. Ends never do.
-	if (!takeDemoStart(request)) return refuse(redirectTo, 'full')
+	if (!takeDemoStart(request)) return refuse(redirectTo, 'start-limit')
 
 	let copy: Awaited<ReturnType<typeof createDemoCopy>>
 	try {
@@ -99,14 +99,17 @@ export async function action({ request }: Route.ActionArgs) {
 	return redirect(APP_HOME, { headers })
 }
 
+const REFUSALS = {
+	full: 'The demo is full right now. Try again in a few minutes.',
+	'start-limit': 'You’ve started the demo a few times. Try again in an hour.',
+	unavailable: 'The demo isn’t available right now.',
+}
+
 /** Back to the page the visitor came from, with why there's no demo. */
-function refuse(redirectTo: string, reason: 'full' | 'unavailable') {
+function refuse(redirectTo: string, reason: keyof typeof REFUSALS) {
 	return redirectWithToast(redirectTo, {
 		type: 'error',
-		description:
-			reason === 'full'
-				? 'The demo is full right now. Try again in a few minutes.'
-				: 'The demo isn’t available right now.',
+		description: REFUSALS[reason],
 	})
 }
 

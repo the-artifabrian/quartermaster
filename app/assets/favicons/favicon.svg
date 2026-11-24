@@ -1,17 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" fill="none" viewBox="0 0 512 512">
   <style>
-    .bg { fill: #52a868; }
+    /* Sage, the app's primary colour (light theme). */
+    .bg { fill: #48724e; }
     .card { fill: #ffffff; }
-    .accent { fill: #52a868; }
-    .accent-stroke { stroke: #52a868; }
+    .accent { fill: #48724e; }
+    .accent-stroke { stroke: #48724e; }
+    /* Dark tabs: the dark theme's lighter sage, with a dark card so the card
+       still stands out from the tile. */
     @media (prefers-color-scheme: dark) {
-      .bg { fill: #3d8a50; }
-      .card { fill: #ffffff; }
-      .accent { fill: #3d8a50; }
-      .accent-stroke { stroke: #3d8a50; }
+      .bg { fill: #8cb393; }
+      .card { fill: #1a1816; }
+      .accent { fill: #8cb393; }
+      .accent-stroke { stroke: #8cb393; }
     }
   </style>
-  <!-- Green background -->
+  <!-- Sage background -->
   <rect class="bg" width="512" height="512" rx="80"/>
   <!-- White card -->
   <rect class="card" x="106" y="96" width="280" height="360" rx="20"/>

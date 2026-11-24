@@ -13,11 +13,14 @@
  * The output is fingerprinted by the build, so a new image gets a new URL and
  * link previews pick it up.
  */
+import { fileURLToPath } from 'node:url'
 import { chromium } from '@playwright/test'
 import sharp from 'sharp'
 
 const origin = process.argv[2] ?? 'http://localhost:3000'
-const output = 'app/assets/og-image.png'
+const output = fileURLToPath(
+	new URL('../app/assets/og-image.png', import.meta.url),
+)
 const [width, height] = [1200, 630]
 // Wide enough for the two-column hero with the headline on three lines.
 const layoutWidth = 1280
@@ -33,24 +36,34 @@ try {
 	})
 	await page.goto(origin)
 	await page.evaluate(async () => {
+		const changed = (what: string) =>
+			new Error(`The homepage ${what} has changed; update this script.`)
 		const heading = document.querySelector('h1')
 		const hero = heading?.closest('section')
 		const header = document.querySelector('header')
-		if (!heading?.parentElement || !hero || !header) {
-			throw new Error('The homepage hero has changed; update this script.')
-		}
+		if (!heading?.parentElement || !hero || !header) throw changed('hero')
+		// The agenda is the hero's framed Plan, drawn as one image.
+		const agenda = hero.querySelector<HTMLElement>(
+			':scope > div > [role="img"]',
+		)
+		if (!agenda) throw changed('Plan agenda')
+		const logIn = header.querySelectorAll<HTMLElement>('a[href^="/login"]')
+		if (logIn.length === 0) throw changed('header Log in link')
+
 		for (const el of heading.parentElement.children) {
 			if (el !== heading) (el as HTMLElement).style.display = 'none'
 		}
-		for (const link of header.querySelectorAll('a[href^="/login"]')) {
-			;(link as HTMLElement).style.visibility = 'hidden'
-		}
+		for (const link of logIn) link.style.visibility = 'hidden'
 		heading.style.fontSize = '80px'
 		heading.parentElement.style.alignSelf = 'center'
 		// Centre the agenda in the space under the header.
-		const agenda = hero.lastElementChild as HTMLElement
 		const room = window.innerHeight - header.getBoundingClientRect().height
-		const pad = Math.max(0, (room - agenda.getBoundingClientRect().height) / 2)
+		const pad = (room - agenda.getBoundingClientRect().height) / 2
+		if (pad <= 0) {
+			throw new Error(
+				'The Plan agenda is taller than the image; show fewer days or widen layoutWidth.',
+			)
+		}
 		hero.style.paddingTop = `${pad}px`
 		hero.style.paddingBottom = `${pad}px`
 		hero.style.alignItems = 'center'

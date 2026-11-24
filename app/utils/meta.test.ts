@@ -3,10 +3,10 @@
 //   LinkedIn and iMessage ignore a relative one) with its width and height.
 // - Without an origin (root's loader threw, so root renders its error page),
 //   the image tags must be left out, not written as a relative URL.
-// - Root and the marketing pages both spread these tags after their own
-//   title and description, so no tag may appear twice.
-// - The image URL must be the build's fingerprinted file, so a new image gets
-//   a new URL and link previews stop showing the old one.
+// - Root and the marketing pages spread these tags after their own title and
+//   description, so the helper must not list any tag twice itself.
+// - The image must not be the old file in public. (That the URL carries the
+//   build's fingerprint is checked in tests/e2e/link-preview.test.ts.)
 import { expect, test } from 'vitest'
 import { baseMetaTags } from './meta.ts'
 
@@ -21,7 +21,7 @@ function content(tags: ReturnType<typeof baseMetaTags>, key: string) {
 	)
 }
 
-test('points og:image at an absolute URL on the request origin', () => {
+test('points og:image at an absolute URL on the origin from root', () => {
 	const tags = baseMetaTags(rootWith({ requestInfo: { origin } }))
 	const image = content(tags, 'og:image')
 	expect(image && 'content' in image && image.content).toMatch(
@@ -43,7 +43,7 @@ test('leaves the image tags out when there is no origin', () => {
 	}
 })
 
-test('writes each tag once', () => {
+test('lists each of its own tags once', () => {
 	const tags = baseMetaTags(rootWith({ requestInfo: { origin } }))
 	const keys = tags.map((tag) =>
 		'property' in tag ? tag.property : 'name' in tag ? tag.name : 'title',
@@ -51,7 +51,7 @@ test('writes each tag once', () => {
 	expect(new Set(keys).size).toBe(keys.length)
 })
 
-test('uses the fingerprinted image, not the old file in public', () => {
+test('no longer points at the old og-image.png in public', () => {
 	const tags = baseMetaTags(rootWith({ requestInfo: { origin } }))
 	const image = content(tags, 'og:image')
 	expect(image && 'content' in image && image.content).toContain('og-image')

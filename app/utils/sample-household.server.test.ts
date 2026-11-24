@@ -32,6 +32,10 @@
  *   list is far from the 8 to 12 rows a real list holds.
  * - On a day after the bought day, Shopping still lists rows only for
  *   Meals already cooked.
+ * - Sunday's Meals are checked off as bought, so the list has nothing
+ *   left for the days still to come.
+ * - A fuller week turns Shopping into a list nobody would keep, far more
+ *   rows than a week's shop.
  * - The favourites aren't marked, or a run marks others.
  * - The Menu is missing, saved twice on a second run, names a Recipe outside
  *   the Household, loses its note card's Shopping lines, or isn't a shape the
@@ -430,6 +434,15 @@ test('Staples stay off Shopping, and the start of the week is bought', async () 
 	const toBuy = rows.filter((row) => !row.checked && row.horizon === 'next')
 	expect(toBuy.length).toBeGreaterThanOrEqual(8)
 	expect(toBuy.length).toBeLessThanOrEqual(12)
+	// Bought and still to buy together stay the size of a week's shop.
+	expect(rows.length).toBeLessThanOrEqual(70)
+
+	// Sunday is still to buy: nothing a Sunday Meal needs is checked.
+	const sundayRows = mealRows.filter((row) =>
+		row.mealContributions.some((c) => weekday(c.meal!.date) === 6),
+	)
+	expect(sundayRows.length).toBeGreaterThan(0)
+	expect(sundayRows.filter((row) => row.checked)).toEqual([])
 })
 
 test('three Recipes are favourites, and the Menu is saved once in a shape the builder loads', async () => {

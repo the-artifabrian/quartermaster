@@ -1,13 +1,11 @@
 import { type MiddlewareFunction, replace } from 'react-router'
 import { sessionKey } from './auth.server.ts'
 import { prisma } from './db.server.ts'
-import { isDemoUser } from './demo.ts'
+import { DEMO_BLOCKED_MESSAGE, isDemoUser } from './demo.ts'
 import { authSessionStorage } from './session.server.ts'
 import { createToastHeaders } from './toast.server.ts'
 
-/** What a demo user sees when they try something the demo turns off. */
-export const DEMO_BLOCKED_MESSAGE =
-	"That's turned off in the demo. Sign up to use it with your own account."
+export { DEMO_BLOCKED_MESSAGE }
 
 /**
  * Routes a demo user can't change anything through, by route pattern as

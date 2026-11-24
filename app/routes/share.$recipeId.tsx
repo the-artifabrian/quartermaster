@@ -4,6 +4,7 @@ import { redirect } from 'react-router'
 import { SharedRecipeView } from '#app/components/shared-recipe.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { NOT_A_DEMO_HOUSEHOLD } from '#app/utils/demo.ts'
 import { getShareImageUrl } from '#app/utils/image-route.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { isUniqueConstraintError } from '#app/utils/menu-validation.ts'
@@ -85,9 +86,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 	const { recipeId } = params
 	const userId = await getUserId(request)
 
-	// A Recipe whose Household is gone isn't anyone's to share.
+	// A Recipe whose Household is gone isn't anyone's to share, and a demo's
+	// isn't shared at all.
 	const recipe = await prisma.recipe.findFirst({
-		where: { id: recipeId, householdId: { not: null } },
+		where: { id: recipeId, household: { is: NOT_A_DEMO_HOUSEHOLD } },
 		select: sharedRecipeSelect,
 	})
 
@@ -116,7 +118,7 @@ export async function action({ params, request }: Route.ActionArgs) {
 	const { recipeId } = params
 
 	const recipe = await prisma.recipe.findFirst({
-		where: { id: recipeId, householdId: { not: null } },
+		where: { id: recipeId, household: { is: NOT_A_DEMO_HOUSEHOLD } },
 		include: {
 			ingredients: true,
 			instructions: true,

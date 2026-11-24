@@ -5,6 +5,7 @@ import { prisma } from './db.server.ts'
 import { menuTitleKey } from './menu-validation.ts'
 import { ensureRecipeMetadataValues } from './recipe-metadata.server.ts'
 import { deleteRecipeImageUnlessShared } from './recipe-image.server.ts'
+import { NOT_A_DEMO_HOUSEHOLD } from './demo.ts'
 import { copyRecipeImage } from './storage.server.ts'
 import { writeTransaction } from './write-transaction.server.ts'
 
@@ -75,8 +76,9 @@ export async function saveSharedMenu({
 	// Read one consistent source revision, including recoverable source text
 	// server-side only. Personal Recipe notes are never copied.
 	const menu = await prisma.$transaction((tx) =>
-		tx.menu.findUnique({
-			where: { id: menuId },
+		// A demo's Menu isn't shared, so it reads as missing here too.
+		tx.menu.findFirst({
+			where: { id: menuId, household: NOT_A_DEMO_HOUSEHOLD },
 			include: {
 				sections: {
 					orderBy: { order: 'asc' },

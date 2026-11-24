@@ -6,6 +6,7 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import { NOT_A_DEMO_HOUSEHOLD } from '#app/utils/demo.ts'
 import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { findSavedMenu, saveSharedMenu } from '#app/utils/share-menu.server.ts'
 import { type Route } from './+types/share.menus.$menuId.ts'
@@ -23,8 +24,9 @@ export const meta: Route.MetaFunction = ({ loaderData }) => [
 ]
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-	const menu = await prisma.menu.findUnique({
-		where: { id: params.menuId },
+	// A demo's Menu isn't shared, and answers as a missing one does.
+	const menu = await prisma.menu.findFirst({
+		where: { id: params.menuId, household: NOT_A_DEMO_HOUSEHOLD },
 		select: {
 			id: true,
 			title: true,

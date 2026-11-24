@@ -298,8 +298,8 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					<OnboardingNudge
 						nudgeId="generate-shopping-list"
 						icon="cart"
-						title="Generate Shopping"
-						description="Head to Shopping when you're ready. It changes only when you generate or refresh it."
+						title="Shop for these Meals"
+						description="On Shopping, open From Plan and pick the Meals you're buying for."
 						ctaText="Go to Shopping"
 						ctaHref="/shopping"
 						className="mt-4"

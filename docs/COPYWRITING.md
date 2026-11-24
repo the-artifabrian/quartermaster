@@ -89,7 +89,7 @@ Instead of:
 
 Write:
 
-> Generate Shopping from this week’s Meals.
+> Pick the Meals you’re shopping for.
 
 Instead of:
 

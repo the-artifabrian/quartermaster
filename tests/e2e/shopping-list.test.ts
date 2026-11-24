@@ -594,7 +594,11 @@ test('From Plan shows what a Meal already put on Shopping as on the list, and th
 	await expect(addButton).toHaveText('Add 1 from 1 Meal')
 	await addButton.click()
 	await expect(picker).toBeHidden()
-	await expect.poll(saved).toHaveLength(3)
+	await expect.poll(saved).toEqual([
+		{ canonicalName: 'broccoli', item: { name: 'broccoli' } },
+		{ canonicalName: 'chicken', item: { name: 'chicken thighs' } },
+		{ canonicalName: 'lemon', item: { name: 'lemon' } },
+	])
 
 	// With every line on the list but salt, which is usually on hand, the
 	// Meal is done and there is nothing to add.

@@ -623,6 +623,7 @@ test('forty starts at once never make more copies than the cap allows, and each 
 				today: THURSDAY,
 				now: NOW,
 				content: SMALL,
+				log,
 			}),
 		),
 	)

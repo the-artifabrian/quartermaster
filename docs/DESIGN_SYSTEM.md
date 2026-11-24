@@ -61,12 +61,17 @@ The light palette is aged paper, ink, cedar, sage, copper, and clay:
 | foreground       | `#2D2926` | primary text                       |
 | muted foreground | `#6F6358` | secondary text                     |
 | border           | `#DED6CA` | hairlines                          |
-| primary          | `#4E7A54` | actions and links                  |
+| primary          | `#48724E` | actions and links                  |
 | accent           | `#C4956A` | structural “now” markers           |
-| destructive      | `#B85C4A` | errors and destructive actions     |
+| destructive      | `#B85C4A` | destructive actions, error notices |
+| field error      | `#A85040` | field error text and invalid input |
+
+The field error color (`--foreground-destructive` and `--input-invalid`) is a
+shade darker than the red button so 14px error text clears 4.5:1 on cream.
 
 Dark mode uses warm charcoal, smoke, parchment, light sage, and light copper.
-The exact semantic tokens live in `app/styles/tailwind.css`.
+Red buttons there take dark text, as sage buttons do. The exact semantic tokens
+live in `app/styles/tailwind.css`.
 
 Raw copper does not meet contrast for small text on cream. Use it for dots,
 edges, and fills; use `--copper-text` when copper text is necessary.

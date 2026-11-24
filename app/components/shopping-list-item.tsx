@@ -419,14 +419,14 @@ export function ShoppingListItemCard({
 									'text-base',
 									optimisticChecked
 										? 'text-muted-foreground/50 decoration-muted-foreground/60 line-through decoration-2'
-										: isVoiceAdded && 'text-amber-500/80',
+										: isVoiceAdded && 'text-copper-text',
 								)}
 							>
 								{item.name}
 								{isVoiceAdded && !optimisticChecked && (
 									<Icon
 										name="microphone"
-										className="ml-1.5 inline size-4 align-middle text-amber-500/80"
+										className="text-copper-text ml-1.5 inline size-4 align-middle"
 									/>
 								)}
 							</p>

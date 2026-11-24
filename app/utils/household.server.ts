@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2'
 import { type Prisma, type PrismaClient } from '#app/generated/prisma/client.ts'
 import { createOwnHousehold, requireUserId } from './auth.server.ts'
 import { prisma } from './db.server.ts'
+import { NOT_A_DEMO_HOUSEHOLD } from './demo.ts'
 import {
 	deleteDissolvedPhotos,
 	removeMembership,
@@ -96,8 +97,10 @@ export async function getInviteByToken(
 	token: string,
 	db: Pick<Prisma.TransactionClient, 'householdInvite'> = prisma,
 ) {
-	const invite = await db.householdInvite.findUnique({
-		where: { token },
+	// A demo's Household takes nobody in, so an invite into one reads as
+	// invalid.
+	const invite = await db.householdInvite.findFirst({
+		where: { token, household: NOT_A_DEMO_HOUSEHOLD },
 		select: {
 			id: true,
 			token: true,

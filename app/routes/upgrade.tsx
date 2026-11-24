@@ -299,16 +299,10 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 						))}
 					</ul>
 					<div className="mt-6">
-						{isDemo ? (
-							<Button variant="outline" className="w-full" disabled>
-								Current Plan
-							</Button>
-						) : (
-							<ProButton
-								tierInfo={tierInfo}
-								stripeConfigured={stripeConfigured}
-							/>
-						)}
+						<ProButton
+							tierInfo={tierInfo}
+							stripeConfigured={stripeConfigured}
+						/>
 					</div>
 				</div>
 			</div>
@@ -334,8 +328,8 @@ function DemoProNote() {
 		<div className="bg-card border-border mx-auto mb-8 max-w-2xl rounded-lg border p-6">
 			<h2 className="text-lg font-semibold">Pro in the demo</h2>
 			<p className="text-muted-foreground mt-2 text-sm">
-				The demo runs on Pro, so there&apos;s no checkout here. Quartermaster is
-				my portfolio project, and Pro is here to show Stripe Checkout and its
+				The demo runs on Pro, so there&apos;s no checkout. Quartermaster is my
+				portfolio project, and Pro is here to show Stripe Checkout and its
 				webhooks working end to end.
 			</p>
 			<div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">

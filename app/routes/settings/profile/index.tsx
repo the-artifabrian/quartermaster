@@ -185,7 +185,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 			{/* Account */}
 			{isDemo ? (
 				<p className="text-muted-foreground px-1 text-sm">
-					Account, Household and import settings are off in the demo.
+					Account, Household and backup restore are off in the demo.
 				</p>
 			) : (
 				<SettingsSection label="Account">

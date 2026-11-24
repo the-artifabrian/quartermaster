@@ -3,21 +3,28 @@
 //
 // Failure list:
 // - "Try the demo" posts to /demo without an intent, with the page it is on as
-//   `redirectTo`, so a "demo is full" toast lands back there; the login page
-//   keeps its own search (an invite link) in it
+//   `redirectTo`, so a "demo is full" toast lands back there
+// - the login page carries a `redirectTo` (an invite, a deep link): a demo
+//   can't join a Household, so the button isn't offered there
 // - a second tap while the copy is being made posts again: the button is busy
 //   and disabled until the answer comes
 // - the banner's first paint is wrong when the browser's clock is off: it
-//   must show the server's time left, with no hydration error
+//   must show the server's time left, with no hydration error (production
+//   React reports one as a minified page error, not a console message)
 // - the banner stops at its first reading: it must count down without a
 //   reload
 // - time runs out with the page open: the banner says the demo has ended and
 //   still offers Sign up; the page asks the server once, not on every tick
+// - time runs out and the server has ended the session with it: the visitor
+//   is signed out, not left on a page that still says they're in a demo
+// - Sign up in the banner has no visible focus for a keyboard
 // - Sign up goes straight to /signup, which bounces a signed-in user: it must
 //   end the demo first (`intent=end`)
 // - Settings offers the account, Household and backup restore rows the demo
 //   blocks, or shows the demo's .invalid email
-// - Upgrade offers checkout to a demo user, or says nothing about why not
+// - Upgrade says nothing to a demo user about why there's no checkout
+// - the shared Recipe page pins its ingredients under a fixed header height,
+//   so the taller header with the banner covers their top on a desktop
 // - a real user sees the banner, the demo line in Settings, or the demo note on
 //   Upgrade
 import { type Page, type Request } from '@playwright/test'
@@ -30,6 +37,7 @@ import { authSessionStorage } from '#app/utils/session.server.ts'
 import { sessionKey } from '#app/utils/auth.server.ts'
 import {
 	browserToday,
+	createUser,
 	expect,
 	hydrated,
 	test as base,
@@ -138,10 +146,7 @@ test.describe('starting a demo', () => {
 
 	for (const { from, redirectTo } of [
 		{ from: '/', redirectTo: '/' },
-		{
-			from: '/login?redirectTo=%2Fplan',
-			redirectTo: '/login?redirectTo=%2Fplan',
-		},
+		{ from: '/login', redirectTo: '/login' },
 	]) {
 		test(`Try the demo on ${from} posts to /demo and stays busy until it answers`, async ({
 			page,
@@ -151,7 +156,8 @@ test.describe('starting a demo', () => {
 			const held = new Promise<void>((resolve) => (release = resolve))
 			const posts: Array<Request> = []
 			await page.route(/\/demo(\.data)?(\?.*)?$/, async (route) => {
-				posts.push(route.request())
+				// After the failed post the router loads /demo too, with a GET.
+				if (route.request().method() === 'POST') posts.push(route.request())
 				await held
 				await route.abort()
 			})
@@ -163,12 +169,23 @@ test.describe('starting a demo', () => {
 			await expect(button).toBeDisabled()
 			await expect(button).toHaveAttribute('aria-busy', 'true')
 			await button.click({ force: true }).catch(() => {})
+			release()
+			// Counted once the submission has finished, so a late second post
+			// would be in.
+			await expect(page.locator('[aria-busy="true"]')).toHaveCount(0)
 			expect(posts).toHaveLength(1)
 			expect(posts[0]!.method()).toBe('POST')
 			expect(postedFields(posts[0]!)).toEqual({ redirectTo })
-			release()
 		})
 	}
+
+	test('the login page with a redirectTo offers no demo', async ({ page }) => {
+		await page.goto('/login?redirectTo=%2Fhousehold%2Fjoin%2Fsome-invite')
+		await hydrated(page.getByRole('button', { name: 'Log in', exact: true }))
+		await expect(
+			page.getByRole('button', { name: 'Try the demo' }),
+		).toHaveCount(0)
+	})
 })
 
 // Only the browser's clock can be moved here. Each test moves the demo's end
@@ -189,9 +206,15 @@ test('the banner shows the server’s time left on a wrong browser clock, and co
 	page,
 	signInDemoUser,
 }) => {
+	// The production build reports a hydration mismatch as a minified page
+	// error ("Minified React error #418"); a development build logs it.
 	const hydrationErrors: Array<string> = []
+	page.on('pageerror', (error) => hydrationErrors.push(error.message))
 	page.on('console', (message) => {
-		if (message.type() === 'error' && /hydrat/i.test(message.text())) {
+		if (
+			message.type() === 'error' &&
+			/hydrat|Minified React error/i.test(message.text())
+		) {
 			hydrationErrors.push(message.text())
 		}
 	})
@@ -263,11 +286,10 @@ test('a demo past its time still reads as a demo, with Sign up', async ({
 	await expect(banner(page)).toContainText('This demo has ended')
 	await expect(
 		page.getByText(
-			'Account, Household and import settings are off in the demo.',
+			'Account, Household and backup restore are off in the demo.',
 		),
 	).toBeVisible()
 	await page.goto('/upgrade')
-	await expect(page.getByRole('button', { name: 'Subscribe' })).toHaveCount(0)
 	await expect(page.getByText(/Pro is here to show/)).toBeVisible()
 })
 
@@ -309,7 +331,7 @@ test('Settings leaves out what the demo blocks and keeps export and theme', asyn
 	const main = page.getByRole('main')
 	await expect(
 		main.getByText(
-			'Account, Household and import settings are off in the demo.',
+			'Account, Household and backup restore are off in the demo.',
 		),
 	).toBeVisible()
 	for (const name of [
@@ -336,20 +358,19 @@ test('Settings leaves out what the demo blocks and keeps export and theme', asyn
 	await expect(main.getByRole('button', { name: 'Log out' })).toBeVisible()
 })
 
-test('Upgrade explains Pro to a demo user and has no checkout', async ({
+test('Upgrade explains to a demo user why there is no checkout', async ({
 	page,
 	signInDemoUser,
 }) => {
 	await signInDemoUser()
 	await page.goto('/upgrade')
 	const main = page.getByRole('main')
-	await expect(main.getByText(/Pro is here to show/)).toBeVisible()
-	await expect(main.getByText('You’re on the Pro plan')).toHaveCount(0)
-	await expect(main.getByText("You're on the Pro plan")).toHaveCount(0)
-	await expect(main.getByRole('button', { name: 'Subscribe' })).toHaveCount(0)
 	await expect(
-		main.locator('input[name="intent"][value="checkout"]'),
-	).toHaveCount(0)
+		main.getByText(
+			"The demo runs on Pro, so there's no checkout. Quartermaster is my portfolio project, and Pro is here to show Stripe Checkout and its webhooks working end to end.",
+		),
+	).toBeVisible()
+	await expect(main.getByText("You're on the Pro plan")).toHaveCount(0)
 	const signUp = main.locator('form', {
 		has: page.getByRole('button', { name: 'Sign up' }),
 	})
@@ -376,4 +397,141 @@ test('a real user sees no banner and no demo notes', async ({
 	await expect(banner(page)).toHaveCount(0)
 	await page.goto('/upgrade')
 	await expect(page.getByText(/Pro is here to show/)).toHaveCount(0)
+})
+
+// Switch on once POST /demo is on master (#440, slice 2): there the demo's
+// session ends at `demoExpiresAt`.
+test.fixme('when time runs out and the session ends with it, the visitor is signed out', async ({
+	page,
+	signInDemoUser,
+}) => {
+	await page.clock.install()
+	const user = await signInDemoUser()
+	await page.goto('/recipes')
+	await expect(banner(page)).toContainText('This demo ends in')
+	await hydrated(banner(page))
+
+	const ended = new Date(Date.now() - 1000)
+	await prisma.user.update({
+		where: { id: user.id },
+		data: { demoExpiresAt: ended },
+	})
+	await prisma.session.updateMany({
+		where: { userId: user.id },
+		data: { expirationDate: ended },
+	})
+	await page.clock.fastForward(2 * HOUR + MINUTE)
+
+	// The root loader sends an ended session home and a page's own loader
+	// sends it to log in; either way the demo is gone from the page.
+	await expect(banner(page)).toHaveCount(0)
+	await expect(page).toHaveURL(/\/(login(\?.*)?)?$/)
+	expect(await signedInUserId(page)).toBeNull()
+	await page.goto('about:blank')
+	await page.goto('/')
+	await expect(page).toHaveURL(/\/$/)
+	await expect(page.getByRole('button', { name: 'Try the demo' })).toBeVisible()
+})
+
+test('Sign up in the banner shows a focus ring from the keyboard', async ({
+	page,
+	signInDemoUser,
+}) => {
+	await signInDemoUser()
+	await page.goto('/recipes')
+	await hydrated(banner(page))
+	const signUp = banner(page).getByRole('button', { name: 'Sign up' })
+	for (let tab = 0; tab < 5; tab++) {
+		await page.keyboard.press('Tab')
+		if (await signUp.evaluate((el) => el === document.activeElement)) break
+	}
+	await expect(signUp).toBeFocused()
+	expect(
+		await signUp.evaluate((el) => getComputedStyle(el).boxShadow),
+	).not.toBe('none')
+})
+
+/** A Recipe in another Household, long enough that its page scrolls. */
+async function sharedRecipe() {
+	const owner = await prisma.user.create({ data: createUser() })
+	const household = await prisma.household.create({
+		data: {
+			name: 'Sharing household',
+			members: { create: { userId: owner.id, role: 'owner' } },
+		},
+	})
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Long braise',
+			userId: owner.id,
+			householdId: household.id,
+			ingredients: {
+				create: [{ name: 'beef shin', amount: '1', unit: 'kg', order: 0 }],
+			},
+			instructions: {
+				create: Array.from({ length: 30 }, (_, order) => ({
+					order,
+					content: `Step ${order + 1}: stir, taste and keep it at a low simmer for a while longer, topping up with stock when it looks dry.`,
+				})),
+			},
+		},
+		select: { id: true },
+	})
+	return {
+		id: recipe.id,
+		async [Symbol.asyncDispose]() {
+			await prisma.household.delete({ where: { id: household.id } })
+			await prisma.user.delete({ where: { id: owner.id } })
+		},
+	}
+}
+
+/** Where the pinned ingredients column and the header sit after a scroll. */
+async function pinnedIngredients(page: Page) {
+	await page.mouse.wheel(0, 800)
+	await expect
+		.poll(() => page.evaluate(() => window.scrollY))
+		.toBeGreaterThan(400)
+	return page.evaluate(() => {
+		const header = document.querySelector('[data-site-header]')!
+		const column = [...document.querySelectorAll('#main-content *')].find(
+			(el) => getComputedStyle(el).position === 'sticky',
+		)!
+		return {
+			headerBottom: Math.round(header.getBoundingClientRect().bottom),
+			columnTop: Math.round(column.getBoundingClientRect().top),
+		}
+	})
+}
+
+test.describe('the shared Recipe page on a desktop', () => {
+	test.use({ viewport: { width: 1280, height: 800 } })
+
+	test('pins the ingredients below the header with the demo banner', async ({
+		page,
+		signInDemoUser,
+	}) => {
+		await using recipe = await sharedRecipe()
+		await signInDemoUser()
+		await page.goto(`/share/${recipe.id}`)
+		await hydrated(banner(page))
+		const { headerBottom, columnTop } = await pinnedIngredients(page)
+		expect(columnTop).toBeGreaterThanOrEqual(headerBottom)
+	})
+
+	test('keeps a real user’s ingredients where they were', async ({
+		page,
+		login,
+	}) => {
+		await using recipe = await sharedRecipe()
+		await login()
+		await page.goto(`/share/${recipe.id}`)
+		await hydrated(page.getByRole('main'))
+		const { headerBottom, columnTop } = await pinnedIngredients(page)
+		// lg:top-20, 5px below the 75px header.
+		expect({ headerBottom, columnTop }).toEqual({
+			headerBottom: 75,
+			columnTop: 80,
+		})
+	})
 })

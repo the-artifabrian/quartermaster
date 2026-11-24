@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
 	Form,
 	useNavigation,
@@ -88,6 +88,27 @@ function useRevalidateAtEnd(
 }
 
 /**
+ * Puts the banner's height in `--demo-banner-h` on <html>, for what pins
+ * itself under a header that has no nav bar to measure (the shared Recipe
+ * page). Unset without a banner, so real users keep their offsets.
+ */
+function useBannerHeight(ref: React.RefObject<HTMLElement | null>) {
+	useEffect(() => {
+		const banner = ref.current
+		if (!banner) return
+		const root = document.documentElement
+		const observer = new ResizeObserver(() => {
+			root.style.setProperty('--demo-banner-h', `${banner.offsetHeight}px`)
+		})
+		observer.observe(banner, { box: 'border-box' })
+		return () => {
+			observer.disconnect()
+			root.style.removeProperty('--demo-banner-h')
+		}
+	}, [ref])
+}
+
+/**
  * The thin bar a demo visitor sees at the top of every app page. It sits
  * inside the site header, so it is pinned with a pushed page's nav bar, the
  * nav bar's measured bottom (toasts, scroll padding) includes it, and in the
@@ -110,8 +131,11 @@ function DemoBannerBar({
 	const label = demoTimeLeftLabel(msLeft)
 	const iso = demoTimeLeftIso(msLeft)
 	useRevalidateAtEnd(label === null, data, msLeftAtLoad)
+	const ref = useRef<HTMLElement>(null)
+	useBannerHeight(ref)
 	return (
 		<section
+			ref={ref}
 			aria-label="Demo"
 			data-demo-banner=""
 			className="bg-muted text-foreground border-border/50 border-b text-sm print:hidden"
@@ -132,7 +156,7 @@ function DemoBannerBar({
 							type="submit"
 							disabled={pending}
 							aria-busy={pending || undefined}
-							className="text-primary desktop:min-h-9 min-h-11 rounded-md px-3 font-semibold underline-offset-4 hover:underline disabled:opacity-60"
+							className="text-primary desktop:min-h-9 ring-ring ring-offset-background min-h-11 rounded-md px-3 font-semibold underline-offset-4 outline-hidden hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-60"
 						>
 							Sign up
 						</button>
@@ -193,8 +217,7 @@ export function TryDemoButton({
 				type="hidden"
 				name="redirectTo"
 				value={redirectTo}
-				// The login page's search can hold an invite link; kept out of
-				// session replays, as the login form's own field is.
+				// Kept out of session replays, as every redirectTo field is.
 				className="ph-no-capture"
 			/>
 			<StatusButton

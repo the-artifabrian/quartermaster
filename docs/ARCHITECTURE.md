@@ -65,13 +65,16 @@ reaches the app at once. The two sides meet in three places:
   things or pick safer defaults (Pro hidden, sessions always remembered); it
   never grants access.
 - **Messages.** The page talks to the shell through `WKScriptMessageHandler`s
-  named `haptic`, `theme`, `refresh` and `launch`; the shell talks back by
-  dispatching a `qm:refresh` event on pull to refresh, by handing a share from
-  its Share Extension to the import page with a `qm:share-import` event, and by
-  injecting launch timestamps and the screen's insets at document start. The Web
-  side is `app/utils/shell-bridge.ts`, which checks that a handler exists before
-  each call so the same code runs in Safari and the Home Screen install. The
-  Swift side is `ios/Quartermaster/Quartermaster/ShellBridge.swift`.
+  named `haptic`, `theme`, `refresh` and `launch`. The shell talks back with
+  events and document-start scripts. Pull to refresh dispatches `qm:refresh`. A
+  share from the app's Share Extension goes to the import page through
+  `ios/Quartermaster/Quartermaster/ShareIntent.swift`, which sets
+  `window.__qmShareImport` and dispatches `qm:share-import`, and
+  `takeShareImport` in `app/utils/shell-bridge.ts` reads it. Launch timestamps
+  and the screen's insets are set at document start. The Web side is
+  `app/utils/shell-bridge.ts`, which checks that a handler exists before each
+  call so the same code runs in Safari and the Home Screen install. The Swift
+  side is `ios/Quartermaster/Quartermaster/ShellBridge.swift`.
 - **Contract.** The "Shell bridge" section of [the iOS README](../ios/README.md)
   is the contract: message names, bodies and what the shell does with each.
   Change it there first, then both sides. Shell behaviour reaches users only
@@ -414,14 +417,15 @@ amount the Meal has on Shopping is withdrawn or lowered, though larger amounts
 and new lines still apply. The rule lives in `loadMealShoppingDemand`.
 
 From Plan opens a picker over a Plan week, and `planPickerLineStatus` in
-`app/utils/shopping-plan-picker.ts` decides how each line starts. A line whose
-amount this Meal already put on Shopping can't be ticked. It shows as on the
-list, or shows Shopping's amount when the Meal changed since. A Meal amount on
-an unchecked Later row starts unticked, and ticking it moves the row to Next
-shop. A name on the list from somewhere else, a Staple, or a plain basic such as
-salt starts unticked too. Every other line starts ticked, unless its day is
-past. A Meal shows as done when nothing in it is ticked, at least one line is
-its own amount on the list, and the rest are that or usually on hand.
+`app/utils/shopping-plan-picker.ts` decides how each line starts. When this
+Meal's amount sits on an unchecked Later row, the line starts unticked, and
+ticking it moves the row to Next shop. Otherwise a line whose amount this Meal
+already put on Shopping can't be ticked. It shows as on the list, or shows
+Shopping's amount when the Meal changed since. A name on the list from somewhere
+else starts unticked, and so does a Staple or a plain basic such as salt. Every
+other line starts ticked, unless its day is past. A Meal shows as done when
+nothing in it is ticked, at least one line is its own amount on the list, and
+the rest are that or usually on hand.
 
 Shopping checks submit an explicit state and the observed purchase version.
 SQLite triggers advance that version for row and Meal-contribution changes, so
@@ -660,11 +664,12 @@ they would notice long before that.
 Pro-only resource routes, `resources/enhance-recipe` and `resources/transcribe`,
 guard with `requireProTierOrNativeShellNull`. Without Pro it redirects to
 `/upgrade`, or in the iOS shell returns null so the route answers with an error
-its caller shows in place (ADR 0001). Every other route reads `isProActive` and
-decides for itself. AI import refuses with a 403, applying an enhancement
-answers `requiresPro`, and pages show or hide Pro features. The client reads the
-tier through the hooks in `app/utils/subscription.ts`. To find every place a
-user sees Pro, search rather than trust a list:
+its caller shows in place (ADR 0001). Every other Pro check reads `isProActive`.
+AI import refuses with a 403 and applying an enhancement answers `requiresPro`.
+Pages show or hide Pro features with it, and live updates are gated there alone,
+since the household-events routes ask only for a Household member. The client
+reads the tier through the hooks in `app/utils/subscription.ts`. To find every
+place a user sees Pro, search rather than trust a list:
 
 ```sh
 grep -rlw Pro app --include='*.tsx'
@@ -833,17 +838,16 @@ and Zod schemas remain feature-local. Provider errors normalize to safe UI
 errors.
 
 Every import saves what it read at once and opens the new Recipe
-(`saveImportedRecipe` in `app/utils/import-recipe-save.server.ts`). Pro adds AI
-reading of pasted text and screenshots. The Recipe page shows a notice with Edit
-and Undo only when a part was missing or shortened, or another Recipe has the
-same title. Undo deletes the Recipe. A link the Household already has saves
-nothing, and Import says "Already in your Recipes". The pasted text, or the AI's
-extraction for screenshots, is kept in `Recipe.rawText`. Since nothing is
-reviewed first, the AI prompt asks for a transcription and adds nothing the
-source doesn't give. Recipe enhancement returns a suggested description and time
-estimates that the user chooses whether to apply. Voice input sends audio to
-Groq Whisper, and the transcript to the fast model to split into items, with the
-rule-based parser as the fallback.
+(`saveImportedRecipe` in `app/utils/import-recipe-save.server.ts`), and Pro adds
+AI reading of pasted text and screenshots. A notice with Edit and Undo shows
+only when a part was missing or shortened, or another Recipe has the same title.
+A link the Household already has saves nothing, and Import says "Already in your
+Recipes". The pasted text, or the AI's extraction for screenshots, is kept in
+`Recipe.rawText`. Since nothing is reviewed first, the AI prompt asks for a
+transcription and adds nothing the source doesn't give. Recipe enhancement
+suggests a description and time estimates the user may apply. Voice input sends
+audio to Groq Whisper, then the transcript to the fast model to split into
+items, falling back to the rule-based parser.
 
 Each paid feature has a daily limit per user: 10 AI imports, 10 enhancements and
 30 voice inputs, counted from the server's local midnight. `claimAiUsage` in

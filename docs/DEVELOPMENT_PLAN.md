@@ -25,9 +25,10 @@ return. Their unused observation tickets (#128 and #130) are closed.
 The current work is a portfolio review, done in waves with one GitHub issue per
 wave. [#441](https://github.com/the-artifabrian/quartermaster/issues/441) makes
 the README, link preview and homepage show the project.
-[#442](https://github.com/the-artifabrian/quartermaster/issues/442), structural
-work on the code and tests, comes next. The open issue list on GitHub is the
-source of truth for what remains.
+[#442](https://github.com/the-artifabrian/quartermaster/issues/442) comes next.
+It splits the largest modules, restructures the tests, and hardens backups and
+accessibility. The open issue list on GitHub is the source of truth for what
+remains.
 
 The iOS app is a small Swift shell around the Web app
 ([ADR 0002](./adr/0002-small-native-shell.md)), distributed through TestFlight

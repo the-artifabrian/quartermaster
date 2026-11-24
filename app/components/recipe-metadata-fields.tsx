@@ -204,7 +204,7 @@ export function RecipeMetadataFields({
 							)}
 						</div>
 						{adding === dimension && error && (
-							<p className="text-destructive text-sm" role="alert">
+							<p className="text-foreground-destructive text-sm" role="alert">
 								{error}
 							</p>
 						)}

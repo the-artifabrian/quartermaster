@@ -35,7 +35,7 @@ export function ErrorList({
 			className="flex flex-col gap-1 outline-none"
 		>
 			{errorsToRender.map((e) => (
-				<li key={e} className="text-foreground-destructive text-xs">
+				<li key={e} className="text-foreground-destructive text-sm">
 					{e}
 				</li>
 			))}
@@ -198,7 +198,7 @@ export function OTPField({
 				{flexible ? null : <InputOTPSeparator />}
 				<InputOTPGroup className={groupClass}>{slots(half)}</InputOTPGroup>
 			</InputOTP>
-			<div className="min-h-[32px] px-4 pt-1 pb-3">
+			<div className="min-h-[36px] px-4 pt-1 pb-3">
 				{errorId ? <ErrorList id={errorId} errors={errors} /> : null}
 			</div>
 		</div>

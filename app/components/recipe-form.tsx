@@ -352,7 +352,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 			/>
 			{/* Form-level errors */}
 			{form.errors && form.errors.length > 0 && (
-				<div className="border-destructive bg-destructive/10 rounded-lg border p-4">
+				<div className="border-destructive bg-destructive/5 rounded-lg border p-4">
 					<ErrorList errors={form.errors} id={form.errorId} focusable />
 				</div>
 			)}

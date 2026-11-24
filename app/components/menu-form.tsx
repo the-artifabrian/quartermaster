@@ -247,7 +247,7 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 			/>
 			{/* Form-level errors */}
 			{form.errors && form.errors.length > 0 && (
-				<div className="border-destructive bg-destructive/10 rounded-lg border p-4">
+				<div className="border-destructive bg-destructive/5 rounded-lg border p-4">
 					<ErrorList errors={form.errors} id={form.errorId} focusable />
 				</div>
 			)}
@@ -759,7 +759,7 @@ function MenuItemRow({
 						{title}
 					</p>
 					{missing ? (
-						<p className="text-destructive mt-0.5 text-xs">
+						<p className="text-foreground-destructive mt-0.5 text-xs">
 							No longer in your recipe library
 						</p>
 					) : null}

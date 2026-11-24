@@ -188,7 +188,7 @@ export default function TwoFactorRoute({
 							/>
 						</div>
 
-						<div className="min-h-[32px] px-4 pt-1 pb-3">
+						<div className="min-h-[36px] px-4 pt-1 pb-3">
 							<ErrorList id={form.errorId} errors={form.errors} />
 						</div>
 

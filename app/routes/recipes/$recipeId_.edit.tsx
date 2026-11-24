@@ -452,7 +452,7 @@ function DeleteRecipe({ recipeId }: { recipeId: string }) {
 			<Button
 				type="button"
 				variant="outline"
-				className="text-destructive hover:text-destructive"
+				className="text-foreground-destructive hover:text-foreground-destructive"
 				onClick={() => setConfirming(true)}
 			>
 				<Icon name="trash" size="sm">

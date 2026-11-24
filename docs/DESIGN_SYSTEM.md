@@ -59,19 +59,27 @@ for arm’s-length reading.
 
 The light palette is aged paper, ink, cedar, sage, copper, and clay:
 
-| Token            | Value     | Use                                |
-| ---------------- | --------- | ---------------------------------- |
-| background       | `#F6F1EB` | cream canvas                       |
-| card             | `#FDFAF6` | overlays and limited tile surfaces |
-| foreground       | `#2D2926` | primary text                       |
-| muted foreground | `#6F6358` | secondary text                     |
-| border           | `#DED6CA` | hairlines                          |
-| primary          | `#4E7A54` | actions and links                  |
-| accent           | `#C4956A` | structural “now” markers           |
-| destructive      | `#B85C4A` | errors and destructive actions     |
+| Token                             | Value     | Use                                |
+| --------------------------------- | --------- | ---------------------------------- |
+| background                        | `#F6F1EB` | cream canvas                       |
+| card                              | `#FDFAF6` | overlays and limited tile surfaces |
+| foreground                        | `#2D2926` | primary text                       |
+| muted foreground                  | `#6F6358` | secondary text                     |
+| border                            | `#DED6CA` | hairlines                          |
+| primary                           | `#48724E` | actions and links                  |
+| accent                            | `#C4956A` | structural “now” markers           |
+| destructive                       | `#B85C4A` | red button fills                   |
+| foreground-destructive (red text) | `#A85040` | errors, Delete labels, bad input   |
+
+Red text on the page (`text-foreground-destructive`, and `--input-invalid` for
+an invalid field's border) is a shade darker than the red button fill so small
+text clears 4.5:1 on cream and card. A boxed error sits on the faint
+`bg-destructive/5` tint, where it still clears 4.5:1; a stronger tint does not.
+`text-destructive` is the fill color, so keep it off text.
 
 Dark mode uses warm charcoal, smoke, parchment, light sage, and light copper.
-The exact semantic tokens live in `app/styles/tailwind.css`.
+Red buttons there take dark text, as sage buttons do. The exact semantic tokens
+live in `app/styles/tailwind.css`.
 
 Raw copper does not meet contrast for small text on cream. Use it for dots,
 edges, and fills; use `--copper-text` when copper text is necessary.

@@ -197,7 +197,10 @@ function EnhanceSuggestions({
 					</div>
 
 					{hasInvalidTimeSelection && (
-						<p className="text-destructive mt-3 text-sm" role="alert">
+						<p
+							className="text-foreground-destructive mt-3 text-sm"
+							role="alert"
+						>
 							Total time must be at least active time.
 						</p>
 					)}

@@ -2433,10 +2433,14 @@ export default function ImportData() {
 						</label>
 
 						{fileError && (
-							<p className="text-destructive mt-3 text-sm">{fileError}</p>
+							<p className="text-foreground-destructive mt-3 text-sm">
+								{fileError}
+							</p>
 						)}
 						{serverError && !results && (
-							<p className="text-destructive mt-3 text-sm">{serverError}</p>
+							<p className="text-foreground-destructive mt-3 text-sm">
+								{serverError}
+							</p>
 						)}
 
 						<p className="text-muted-foreground mt-4 text-xs">
@@ -2565,7 +2569,7 @@ function ResultRow({
 					<span className="text-muted-foreground">{skipped} skipped</span>
 				)}
 				{errored > 0 && (
-					<span className="text-destructive">{errored} failed</span>
+					<span className="text-foreground-destructive">{errored} failed</span>
 				)}
 				{created === 0 && skipped === 0 && errored === 0 && (
 					<span className="text-muted-foreground">none</span>

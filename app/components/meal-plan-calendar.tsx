@@ -283,7 +283,10 @@ function AddMealControl({
 							Adding Menu…
 						</p>
 					) : menuError ? (
-						<p role="alert" className="text-destructive mt-2 text-xs">
+						<p
+							role="alert"
+							className="text-foreground-destructive mt-2 text-sm"
+						>
 							{menuError}
 						</p>
 					) : null}

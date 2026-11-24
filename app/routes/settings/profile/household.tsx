@@ -316,7 +316,7 @@ function MemberRow({
 						onClick={() => setConfirming(true)}
 						variant="outline"
 						size="sm"
-						className="text-destructive hover:text-destructive"
+						className="text-foreground-destructive hover:text-foreground-destructive"
 						status={fetcher.state !== 'idle' ? 'pending' : 'idle'}
 					>
 						Remove
@@ -526,7 +526,7 @@ function LeaveHousehold() {
 					type="button"
 					onClick={() => setConfirming(true)}
 					variant="outline"
-					className="text-destructive hover:text-destructive"
+					className="text-foreground-destructive hover:text-foreground-destructive"
 					status={fetcher.state !== 'idle' ? 'pending' : 'idle'}
 				>
 					<Icon name="exit">Leave household</Icon>

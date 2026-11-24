@@ -125,7 +125,7 @@ const DropdownMenuItem = ({
 		className={cn(
 			'focus:bg-muted focus:text-foreground relative flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm outline-hidden transition-colors select-none data-disabled:pointer-events-none data-disabled:opacity-50 pointer-coarse:min-h-11',
 			variant === 'destructive' &&
-				'text-destructive focus:bg-destructive/10 focus:text-destructive',
+				'text-foreground-destructive focus:bg-destructive/10 focus:text-foreground-destructive',
 			inset && 'pl-8',
 			className,
 		)}

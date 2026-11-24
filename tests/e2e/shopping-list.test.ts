@@ -448,7 +448,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	).toBeVisible()
 	// Delete is red from the start and deletes at once, with Undo.
 	const deleteFoil = page.getByRole('menuitem', { name: 'Delete', exact: true })
-	await expect(deleteFoil).toHaveCSS('color', 'rgb(184, 92, 74)')
+	await expect(deleteFoil).toHaveCSS('color', 'rgb(168, 80, 64)')
 	await deleteFoil.click()
 	await expect(foil).toBeHidden()
 	await expect

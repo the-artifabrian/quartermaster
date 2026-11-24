@@ -240,7 +240,7 @@ function ItemRow({
 					size="sm"
 					variant="ghost"
 					className={cn(
-						'text-destructive hover:text-destructive p-0',
+						'text-foreground-destructive hover:text-foreground-destructive p-0',
 						TRAILING_ICON_SLOT,
 					)}
 					aria-label={`Remove ${item.recipeTitle} from this meal`}

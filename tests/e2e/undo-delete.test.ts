@@ -523,7 +523,7 @@ test('a deleted Meal is deleted at once and collapses; Undo puts it back; the da
 	await soup.click()
 	const deleteMeal = page.getByRole('menuitem', { name: 'Delete', exact: true })
 	// Red from the start: no arming.
-	await expect(deleteMeal).toHaveCSS('color', 'rgb(184, 92, 74)')
+	await expect(deleteMeal).toHaveCSS('color', 'rgb(168, 80, 64)')
 	await recordCollapses(page)
 	await deleteMeal.click()
 	await expect(soup).toBeHidden()
@@ -737,7 +737,7 @@ test.describe('with a mouse', () => {
 
 		const remove = page.getByRole('button', { name: 'Delete Salt' })
 		// Red from the start: no arming.
-		await expect(remove).toHaveCSS('color', 'rgb(184, 92, 74)')
+		await expect(remove).toHaveCSS('color', 'rgb(168, 80, 64)')
 		await recordCollapses(page)
 		await remove.click()
 		await expect(remove).toBeHidden()

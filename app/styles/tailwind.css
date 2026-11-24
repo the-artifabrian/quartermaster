@@ -23,7 +23,7 @@
 	--popover: #fdfaf6;
 	--popover-foreground: #2d2926;
 
-	--primary: #4e7a54;
+	--primary: #48724e;
 	--primary-foreground: #fdfaf6;
 
 	--secondary: #e8e0d4;
@@ -41,14 +41,14 @@
 
 	--border: #ded6ca;
 	--input: #ded6ca;
-	--input-invalid: #b85c4a;
+	--input-invalid: #a85040;
 
 	--destructive: #b85c4a;
 	--destructive-foreground: #fdfaf6;
 	/* prefixed with foreground because it should look good on the background */
-	--foreground-destructive: #b85c4a;
+	--foreground-destructive: #a85040;
 
-	--ring: #4e7a54;
+	--ring: #48724e;
 
 	--shadow-warm: 0 1px 2px oklch(25% 0.02 60 / 0.06);
 	--shadow-warm-md:
@@ -126,7 +126,7 @@
 	--input-invalid: #d07a68;
 
 	--destructive: #d07a68;
-	--destructive-foreground: #e2dbd1;
+	--destructive-foreground: #1a1816;
 	/* prefixed with foreground because it should look good on the background */
 	--foreground-destructive: #d07a68;
 

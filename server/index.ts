@@ -7,11 +7,14 @@ import rateLimit from 'express-rate-limit'
 import getPort, { portNumbers } from 'get-port'
 import { checkAnthropicModels } from '#app/utils/anthropic-model-check.server.ts'
 import {
+	CLIENT_KEY_HEADER,
 	EDGE_SECRET_HEADER,
 	clientAddressKey,
 	edgeMismatchWarning,
 	warnIfEdgeSecretMissing,
 } from '#app/utils/client-address.server.ts'
+import { stampClientKey } from '#app/utils/demo-start-limit.server.ts'
+import { rateLimitMultiple } from '#app/utils/rate-limit-scale.server.ts'
 import { compressionMiddleware } from './compression.ts'
 import { httpsRedirect } from './https-redirect.ts'
 import { servePrecompressed } from './precompressed.ts'
@@ -104,8 +107,7 @@ app.use(requestLog())
 // When running tests or running in development, we want to effectively disable
 // rate limiting because playwright tests are very fast and we don't want to
 // have to wait for the rate limit to reset between tests.
-const maxMultiple =
-	!IS_PROD || process.env.PLAYWRIGHT_TEST_BASE_URL ? 10_000 : 1
+const maxMultiple = rateLimitMultiple()
 warnIfEdgeSecretMissing({ isProduction: IS_PROD })
 const onEdgeMismatch = edgeMismatchWarning()
 const rateLimitDefault = {
@@ -116,9 +118,18 @@ const rateLimitDefault = {
 	// clientAddressKey runs every address through ipKeyGenerator, which this
 	// check can't see from the keyGenerator's source.
 	validate: { trustProxy: false, keyGeneratorIpFallback: false },
-	// req.ip comes from X-Forwarded-For, which the client can write, so the key
-	// comes from the proxy headers instead.
+	// The key the middleware below stamped on the request.
 	keyGenerator: (req: express.Request) =>
+		String(req.headers[CLIENT_KEY_HEADER]),
+}
+
+// Every request gets its client key once, for the limits here and for the
+// app's own (demo starts). req.ip comes from X-Forwarded-For, which the
+// client can write, so the key comes from the proxy headers instead. Any
+// value the client sent under the header is replaced.
+app.use((req, _res, next) => {
+	stampClientKey(
+		req,
 		clientAddressKey({
 			flyClientIp: req.get('fly-client-ip'),
 			cfConnectingIp: req.get('cf-connecting-ip'),
@@ -127,7 +138,9 @@ const rateLimitDefault = {
 			ip: req.ip ?? req.socket?.remoteAddress,
 			onEdgeMismatch,
 		}),
-}
+	)
+	next()
+})
 
 const rateLimits = {
 	auth: rateLimit({

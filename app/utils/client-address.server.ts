@@ -12,6 +12,13 @@ import { getAppOrigin, hostName } from './app-origin.server.ts'
 export const EDGE_SECRET_HEADER = 'x-qm-edge'
 
 /**
+ * The header server/index.ts puts each request's client key under (see
+ * clientAddressKey) before the app sees it, so a route can keep a limit of
+ * its own. Any value the client sent is replaced.
+ */
+export const CLIENT_KEY_HEADER = 'x-qm-client-key'
+
+/**
  * The one bucket for requests whose proxy address can't be read. Fly always
  * sets fly-client-ip to a single address, so this should stay empty.
  */

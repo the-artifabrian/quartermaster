@@ -10,14 +10,12 @@ import {
 	type ActionFunctionArgs,
 	type HandleDocumentRequestFunction,
 } from 'react-router'
-import { runInBackground } from './utils/background.server.ts'
 import { getEnv, init } from './utils/env.server.ts'
 import { setDefaultDynamicCacheControl } from './utils/headers.server.ts'
 import { getInstanceInfo } from './utils/litefs.server.ts'
 import { NonceProvider } from './utils/nonce-provider.ts'
 import { getPostHogAssetHost, getPostHogHost } from './utils/posthog-config.ts'
-import { redactUrl } from './utils/redact-url.ts'
-import { serializeError } from './utils/serialize-error.server.ts'
+import { reportServerError } from './utils/report-server-error.server.ts'
 import { makeTimings } from './utils/timing.server.ts'
 
 export const streamTimeout = 5000
@@ -179,20 +177,5 @@ export function handleError(
 		return
 	}
 
-	if (error instanceof Error) {
-		console.error(styleText('red', String(error.stack)))
-	} else {
-		console.error(error)
-	}
-
-	runInBackground(
-		import('./utils/posthog.server.ts').then(({ captureServerEvent }) => {
-			captureServerEvent('server', 'server_error', {
-				error: serializeError(error),
-				stack: error instanceof Error ? error.stack : undefined,
-				url: redactUrl(request.url),
-			})
-		}),
-		'reporting a server error',
-	)
+	reportServerError(error, request)
 }

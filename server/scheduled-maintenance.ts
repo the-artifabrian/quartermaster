@@ -142,8 +142,9 @@ export function startScheduledMaintenance({
 		if (running) return
 		running = true
 		try {
-			// Before the template, whose build can be slow: an expired demo
-			// user holds a live slot until this deletes it.
+			// Before the template, whose build can be slow, so expired demo
+			// users' rows and photos go promptly. (They stopped counting
+			// toward the live cap when their time ran out.)
 			await step('demo expiry', async () => {
 				const result = await expireDemos({
 					onFailure: (userId, error) => {

@@ -17,8 +17,10 @@ import {
 
 // Failure list: what could leave a sensitive route on a loose limit.
 //
-// 1. Sign-in, sign-up, code and passkey submissions, and demo starts, get
-//    the auth tier, including the router's `.data` form of the same URL.
+// 1. Sign-in, sign-up, code and passkey submissions get the auth tier,
+//    including the router's `.data` form of the same URL.
+// 1a. Demo starts don't use up the sign-in bucket: the route has its own
+//    limit on starts (demo-start-limit.server.ts), and ends are cheap.
 // 2. The router matches paths case-insensitively, decoded and with dot
 //    segments resolved, so /LOGIN, /%6Cogin, //login, /x/../login,
 //    /x/%2e%2e/login and /\login get the same tier as /login.
@@ -54,9 +56,6 @@ describe('rate limit tier', () => {
 		'/settings/profile/two-factor/verify',
 		'/settings/profile/password',
 		'/admin/users',
-		// Each start makes a user and copies a Household.
-		'/demo',
-		'/demo.data',
 	])('POST %s is on the auth tier', (p) => {
 		expect(rateLimitTier('POST', p)).toBe('auth')
 	})
@@ -89,6 +88,13 @@ describe('rate limit tier', () => {
 	])('POST %s is on the AI tier', (p) => {
 		expect(rateLimitTier('POST', p)).toBe('ai')
 	})
+
+	test.each(['/demo', '/demo.data'])(
+		'POST %s is on the strong tier, not the sign-in bucket',
+		(p) => {
+			expect(rateLimitTier('POST', p)).toBe('strong')
+		},
+	)
 
 	test('POST to other routes is on the strong tier', () => {
 		expect(rateLimitTier('POST', '/recipes/abc123')).toBe('strong')

@@ -8,10 +8,12 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { createDemoCopy, endDemoUser } from '#app/utils/demo.server.ts'
 import { isDemoUser } from '#app/utils/demo.ts'
+import { takeDemoStart } from '#app/utils/demo-start-limit.server.ts'
 import { DEMO_STARTED } from '#app/utils/posthog-events.ts'
 import { captureServerEvent } from '#app/utils/posthog.server.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { getRequestToday } from '#app/utils/today.server.ts'
+import { reportServerError } from '#app/utils/report-server-error.server.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
 import { type Route } from './+types/demo.ts'
@@ -21,6 +23,11 @@ import { type Route } from './+types/demo.ts'
  * (see createDemoCopy). The demo banner's "Sign up" posts `intent=end` with
  * `redirectTo=/signup`: the demo user goes at once, and the browser arrives
  * signed out, since /signup sends signed-in users away.
+ *
+ * Starts have a limit per client of their own (demo-start-limit.server.ts),
+ * which ends never touch. Its refusal reads like a full demo, which to the
+ * visitor it is. The route is on the strong rate limit tier, so starts
+ * don't use up the client's sign-in attempts.
  */
 
 /** Where a demo starts, as after any sign-in. */
@@ -50,6 +57,12 @@ export async function action({ request }: Route.ActionArgs) {
 			if (user && !isDemoUser(user)) return redirect(redirectTo)
 			await endDemoUser(userId)
 		}
+		// Deleting the user takes its sessions with it. When the delete
+		// failed (and expiry is left to do it), the session row still goes,
+		// so a kept copy of the cookie can't sign in.
+		await prisma.session
+			.deleteMany({ where: { id: browserSession.id } })
+			.catch(() => {})
 		// The cookie goes even when its session was already dead, or
 		// /signup would send the visitor home to clear it.
 		return redirect(redirectTo, {
@@ -60,20 +73,41 @@ export async function action({ request }: Route.ActionArgs) {
 
 	if (userId) return redirect(APP_HOME)
 
-	const copy = await createDemoCopy(prisma, {
-		today: getRequestToday(request),
-	})
-	if (!copy.ok) {
-		return redirectWithToast(redirectTo, {
-			type: 'error',
-			description:
-				copy.reason === 'full'
-					? 'The demo is full right now. Try again in a few minutes.'
-					: 'The demo isn’t available right now.',
-		})
+	// Counted before the copy, so refusals count too. Ends never do.
+	if (!takeDemoStart(request)) return refuse(redirectTo, 'full')
+
+	let copy: Awaited<ReturnType<typeof createDemoCopy>>
+	try {
+		copy = await createDemoCopy(prisma, { today: getRequestToday(request) })
+	} catch (error) {
+		reportServerError(error, request)
+		return refuse(redirectTo, 'unavailable')
+	}
+	if (!copy.ok) return refuse(redirectTo, copy.reason)
+
+	let headers: Headers
+	try {
+		headers = await startDemoSession(request, copy)
+	} catch (error) {
+		reportServerError(error, request)
+		// createDemoCopy committed the user; it mustn't hold a live slot
+		// for a demo nobody got.
+		await endDemoUser(copy.userId)
+		return refuse(redirectTo, 'unavailable')
 	}
 	captureServerEvent(copy.userId, DEMO_STARTED)
-	return redirect(APP_HOME, { headers: await startDemoSession(request, copy) })
+	return redirect(APP_HOME, { headers })
+}
+
+/** Back to the page the visitor came from, with why there's no demo. */
+function refuse(redirectTo: string, reason: 'full' | 'unavailable') {
+	return redirectWithToast(redirectTo, {
+		type: 'error',
+		description:
+			reason === 'full'
+				? 'The demo is full right now. Try again in a few minutes.'
+				: 'The demo isn’t available right now.',
+	})
 }
 
 /**
@@ -85,14 +119,10 @@ export async function action({ request }: Route.ActionArgs) {
  */
 async function startDemoSession(
 	request: Request,
-	{ userId }: { userId: string },
+	{ userId, demoExpiresAt }: { userId: string; demoExpiresAt: Date },
 ) {
-	const user = await prisma.user.findUniqueOrThrow({
-		where: { id: userId },
-		select: { demoExpiresAt: true },
-	})
 	const session = await prisma.session.create({
-		data: { userId, expirationDate: user.demoExpiresAt! },
+		data: { userId, expirationDate: demoExpiresAt },
 		select: { id: true },
 	})
 	// A fresh cookie: commitSession keeps any `expires` an earlier

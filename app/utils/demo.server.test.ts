@@ -63,7 +63,12 @@
  * - A demo user whose time ran out exactly now stays.
  * - One user that can't be deleted stops the rest from going.
  * - A demo user something else deleted first (Log Out, another process)
- *   counts as a failure.
+ *   counts as a failure; or a not-found error while the user is still there
+ *   is taken as "already gone", so a failed delete goes unreported.
+ * - Deleting a demo user by id deletes a real user or the template's owner
+ *   when handed one.
+ * - The copy doesn't say when the demo ends, so the session has to read the
+ *   user again to match it.
  * - Expiring a copy deletes the template's photos.
  */
 import fs from 'node:fs/promises'
@@ -82,6 +87,7 @@ import { DEMO_LIFETIME_MS, DEMO_LIVE_LIMIT } from './demo.ts'
 import {
 	createDemoCopy,
 	DEMO_TEMPLATE_EMAIL_DOMAIN,
+	deleteDemoUser,
 	ensureDemoTemplate,
 	expireDemoUsers,
 } from './demo.server.ts'
@@ -1159,4 +1165,47 @@ test('expiring copies leaves the template’s photos in place', async () => {
 	for (const image of images) {
 		expect(await stored(image.objectKey)).toBe(true)
 	}
+})
+
+test('deleting a demo user by id leaves a real user and the template’s owner alone', async () => {
+	await using _photos = await photos()
+	await build({ content: SMALL })
+	const { userId: templateOwner } = await template()
+	const real = await prisma.user.create({
+		data: createUser(),
+		select: { id: true },
+	})
+	const before = await rowCounts()
+	vi.mocked(deleteAccount).mockClear()
+
+	await expect(deleteDemoUser(real.id)).resolves.toBe(false)
+	await expect(deleteDemoUser(templateOwner)).resolves.toBe(false)
+
+	expect(deleteAccount).not.toHaveBeenCalled()
+	expect(await rowCounts()).toEqual(before)
+})
+
+test('a not-found error while the demo user is still there is thrown, not taken as already gone', async () => {
+	const visitor = await liveDemoUser(new Date(NOW.getTime() - 1))
+	const notFound = Object.assign(new Error('No record was found'), {
+		code: 'P2025',
+	})
+	vi.mocked(deleteAccount).mockRejectedValueOnce(notFound)
+
+	await expect(deleteDemoUser(visitor.id)).rejects.toBe(notFound)
+	expect(await prisma.user.count({ where: { id: visitor.id } })).toBe(1)
+})
+
+test('a copy says when the demo ends', async () => {
+	await using _photos = await photos()
+	await build({ content: SMALL })
+
+	const copy = await startCopy(THURSDAY, SMALL)
+
+	const user = await prisma.user.findUniqueOrThrow({
+		where: { id: copy.userId },
+		select: { demoExpiresAt: true },
+	})
+	expect(copy.demoExpiresAt).toEqual(user.demoExpiresAt)
+	expect(copy.demoExpiresAt).toEqual(new Date(NOW.getTime() + DEMO_LIFETIME_MS))
 })

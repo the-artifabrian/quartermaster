@@ -1,6 +1,6 @@
 // Failure list for the demo expiry step:
-// - Expiry waits behind a slow template build, so expired demo users keep
-//   their live slots for the length of the build.
+// - Expiry waits behind a slow template build, so expired demo users' rows
+//   and photos stay for the length of the build.
 // - One demo user that can't be deleted stops the rest from being deleted,
 //   or its failure goes unlogged and unreported.
 // - The step's counts aren't logged.

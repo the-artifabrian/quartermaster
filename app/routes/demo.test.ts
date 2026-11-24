@@ -20,6 +20,14 @@
  * - A 2FA sign-in left pending on the browser carries over into the demo.
  * - The sample week is the server's week, not the visitor's, near midnight
  *   on a Sunday.
+ * - One client with no cookie starts demo after demo and fills the cap on
+ *   its own; the refusal is a bare 429 page rather than the full message;
+ *   one client's starts refuse another's.
+ * - The session step fails after the copy committed: the visitor gets a
+ *   500 page, the user holds a live slot for two hours, and
+ *   `demo_started` is counted for a demo nobody got.
+ * - The copy throws something unexpected: a 500 page, or the error goes
+ *   unlogged and unreported.
  * End (`intent=end`)
  * - A demo user's account stays, so it keeps a live slot, or their cookies
  *   stay, so /signup bounces them.
@@ -27,10 +35,14 @@
  * - An absolute or `//` `redirectTo` sends the browser to another site.
  * - A browser holding a dead session's cookie keeps it, so /signup, which
  *   ends dead sessions by sending them home, bounces the visitor to `/`.
+ * - The start limit refuses an end, or ends use up the client's starts.
+ * - Deleting the demo user fails and the session row stays, so a kept copy
+ *   of the cookie still signs in.
  * Other
  * - A GET starts or ends anything.
  * - Log Out leaves a demo user's account until the sweep, or deletes a real
- *   user's account, or a delete that fails keeps the session alive.
+ *   user's account, or a delete that fails keeps the session alive, or a
+ *   database read that fails leaves the cookies in place.
  */
 import fs from 'node:fs/promises'
 import os from 'node:os'
@@ -43,7 +55,13 @@ import type * as AccountDeletion from '#app/utils/account-deletion.server.ts'
 import { deleteAccount } from '#app/utils/account-deletion.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { DEMO_LIFETIME_MS, DEMO_LIVE_LIMIT } from '#app/utils/demo.ts'
-import { ensureDemoTemplate } from '#app/utils/demo.server.ts'
+import type * as DemoServer from '#app/utils/demo.server.ts'
+import { createDemoCopy, ensureDemoTemplate } from '#app/utils/demo.server.ts'
+import { CLIENT_KEY_HEADER } from '#app/utils/client-address.server.ts'
+import { DEMO_STARTED } from '#app/utils/posthog-events.ts'
+import type * as PostHog from '#app/utils/posthog.server.ts'
+import { captureServerEvent } from '#app/utils/posthog.server.ts'
+import { reportServerError } from '#app/utils/report-server-error.server.ts'
 import { authSessionStorage } from '#app/utils/session.server.ts'
 import { getToast } from '#app/utils/toast.server.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
@@ -63,6 +81,17 @@ vi.mock('#app/utils/account-deletion.server.ts', async (importOriginal) => {
 	const real = await importOriginal<typeof AccountDeletion>()
 	return { ...real, deleteAccount: vi.fn(real.deleteAccount) }
 })
+vi.mock('#app/utils/demo.server.ts', async (importOriginal) => {
+	const real = await importOriginal<typeof DemoServer>()
+	return { ...real, createDemoCopy: vi.fn(real.createDemoCopy) }
+})
+vi.mock('#app/utils/posthog.server.ts', async (importOriginal) => {
+	const real = await importOriginal<typeof PostHog>()
+	return { ...real, captureServerEvent: vi.fn() }
+})
+vi.mock('#app/utils/report-server-error.server.ts', () => ({
+	reportServerError: vi.fn(),
+}))
 
 const SAFARI_UA =
 	'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
@@ -81,7 +110,12 @@ afterAll(async () => {
 
 afterEach(() => {
 	vi.useRealTimers()
+	vi.unstubAllEnvs()
+	vi.restoreAllMocks()
 	vi.mocked(deleteAccount).mockClear()
+	vi.mocked(createDemoCopy).mockClear()
+	vi.mocked(captureServerEvent).mockClear()
+	vi.mocked(reportServerError).mockClear()
 })
 
 /**
@@ -102,14 +136,18 @@ function request(
 		body,
 		cookie,
 		userAgent = SAFARI_UA,
+		clientKey,
 	}: {
 		body?: Record<string, string>
 		cookie?: string
 		userAgent?: string
+		/** The client address the server would stamp on the request. */
+		clientKey?: string
 	} = {},
 ) {
 	const headers = new Headers({ 'User-Agent': userAgent })
 	if (cookie) headers.set('Cookie', cookie)
+	if (clientKey) headers.set(CLIENT_KEY_HEADER, clientKey)
 	return new Request(
 		`${BASE_URL}${urlPath}`,
 		method === 'POST'
@@ -418,6 +456,122 @@ test('the sample week is the visitor’s week, from their timezone', async () =>
 	)
 })
 
+/** Limits as production has them: Vitest runs with them relaxed. */
+function productionLimits() {
+	vi.stubEnv('NODE_ENV', 'production')
+	vi.stubEnv('PLAYWRIGHT_TEST_BASE_URL', '')
+}
+
+/** A client address of its own for each test, as the server stamps it. */
+function newClientKey() {
+	return `client-${Math.random().toString(36).slice(2)}`
+}
+
+test('a client gets five starts an hour; the next is refused with the full message', async () => {
+	await buildTemplate()
+	productionLimits()
+	const clientKey = newClientKey()
+
+	for (let i = 0; i < 5; i++) {
+		const started = await postDemo({ clientKey })
+		expect(started.headers.get('location')).toBe('/recipes')
+	}
+	const refused = await postDemo({ clientKey, body: { redirectTo: '/login' } })
+
+	expect(refused.status).toBe(302)
+	expect(refused.headers.get('location')).toBe('/login')
+	expect(await toastOf(refused)).toMatchObject({
+		description: 'The demo is full right now. Try again in a few minutes.',
+	})
+	expect(cookieNamed(refused, 'en_session')).toBeUndefined()
+	expect(await demoUsers()).toHaveLength(5)
+	// Another client still gets one.
+	const other = await postDemo({ clientKey: newClientKey() })
+	expect(other.headers.get('location')).toBe('/recipes')
+	// And this one does again after the hour.
+	vi.useFakeTimers({
+		toFake: ['Date'],
+		now: Date.now() + 60 * 60 * 1000 + 1000,
+	})
+	const later = await postDemo({ clientKey })
+	expect(later.headers.get('location')).toBe('/recipes')
+})
+
+test('ending a demo is never refused by the start limit and doesn’t use it up', async () => {
+	await buildTemplate()
+	productionLimits()
+	const clientKey = newClientKey()
+	const first = await startDemo({ clientKey })
+	const end = (cookie?: string) =>
+		respond(() =>
+			action(
+				routeArgs(
+					request('POST', '/demo', {
+						cookie,
+						clientKey,
+						body: { intent: 'end', redirectTo: '/signup' },
+					}),
+				),
+			),
+		)
+
+	const endedFirst = await end(first.cookie)
+	const plainEnds = []
+	for (let i = 0; i < 10; i++) plainEnds.push(await end())
+
+	expect(endedFirst.headers.get('location')).toBe('/signup')
+	expect(await prisma.user.count({ where: { id: first.userId } })).toBe(0)
+	expect(plainEnds.map((r) => r.headers.get('location'))).toEqual(
+		Array(10).fill('/signup'),
+	)
+	// Four of the five starts are left.
+	for (let i = 0; i < 4; i++) {
+		const started = await postDemo({ clientKey })
+		expect(started.headers.get('location')).toBe('/recipes')
+	}
+	expect(await toastOf(await postDemo({ clientKey }))).toMatchObject({
+		description: 'The demo is full right now. Try again in a few minutes.',
+	})
+})
+
+test('a session step that fails deletes the new demo user and says the demo isn’t available', async () => {
+	await buildTemplate()
+	const failure = new Error('disk I/O error')
+	vi.spyOn(prisma.session, 'create').mockRejectedValueOnce(failure)
+
+	const response = await postDemo({ body: { redirectTo: '/login' } })
+
+	expect(response.headers.get('location')).toBe('/login')
+	expect(await toastOf(response)).toMatchObject({
+		description: 'The demo isn’t available right now.',
+	})
+	expect(cookieNamed(response, 'en_session')).toBeUndefined()
+	expect(await demoUsers()).toEqual([])
+	expect(captureServerEvent).not.toHaveBeenCalled()
+	expect(reportServerError).toHaveBeenCalledWith(failure, expect.any(Request))
+})
+
+test('demo_started is counted once the session exists', async () => {
+	await buildTemplate()
+
+	const { userId } = await startDemo()
+
+	expect(captureServerEvent).toHaveBeenCalledWith(userId, DEMO_STARTED)
+})
+
+test('an unexpected copy error says the demo isn’t available, and is reported', async () => {
+	const failure = new Error('disk I/O error')
+	vi.mocked(createDemoCopy).mockRejectedValueOnce(failure)
+
+	const response = await postDemo()
+
+	expect(response.headers.get('location')).toBe('/')
+	expect(await toastOf(response)).toMatchObject({
+		description: 'The demo isn’t available right now.',
+	})
+	expect(reportServerError).toHaveBeenCalledWith(failure, expect.any(Request))
+})
+
 // End
 
 test('ending a demo deletes the demo user, ends the cookies and goes where asked', async () => {
@@ -505,6 +659,30 @@ test('ending a demo that already ran out clears the dead cookie, so Sign up open
 	expect(ended(response, 'en_session')).toBe(true)
 })
 
+test('ending a demo whose delete fails still ends its session', async () => {
+	await buildTemplate()
+	const { userId, cookie } = await startDemo()
+	vi.mocked(deleteAccount).mockRejectedValueOnce(new Error('database busy'))
+	consoleError.mockImplementation(() => {})
+
+	const response = await respond(() =>
+		action(
+			routeArgs(
+				request('POST', '/demo', {
+					cookie,
+					body: { intent: 'end', redirectTo: '/signup' },
+				}),
+			),
+		),
+	)
+
+	expect(ended(response, 'en_session')).toBe(true)
+	// Left for expiry.
+	expect(await prisma.user.count({ where: { id: userId } })).toBe(1)
+	// A kept copy of the cookie no longer signs in.
+	expect(await prisma.session.count({ where: { userId } })).toBe(0)
+})
+
 // Other
 
 test('a GET to /demo goes home and starts nothing', async () => {
@@ -557,4 +735,18 @@ test('Log Out still ends the session when deleting the demo user fails', async (
 	// The sweep deletes it when its time is up.
 	expect(await prisma.user.count({ where: { id: userId } })).toBe(1)
 	expect(consoleError).toHaveBeenCalled()
+})
+
+test('Log Out clears the cookies even when the database can’t be read', async () => {
+	const { cookie } = await realUser()
+	vi.spyOn(prisma.session, 'findUnique').mockRejectedValueOnce(
+		new Error('database busy'),
+	)
+	consoleError.mockImplementation(() => {})
+
+	const response = await respond(() =>
+		logoutAction(routeArgs(request('POST', '/logout', { cookie }), '/logout')),
+	)
+
+	expect(ended(response, 'en_session')).toBe(true)
 })

@@ -364,7 +364,7 @@ async function deleteAbandonedTemplates(
 }
 
 export type DemoCopyResult =
-	| { ok: true; userId: string; householdId: string }
+	| { ok: true; userId: string; householdId: string; demoExpiresAt: Date }
 	| { ok: false; reason: 'full' | 'unavailable' }
 
 /** Prisma's error for a transaction that couldn't begin, or ran too long. */
@@ -479,13 +479,14 @@ function startDemoUser(
 			})
 			if (live >= DEMO_LIVE_LIMIT) return { ok: false, reason: 'full' }
 
+			const demoExpiresAt = new Date(now.getTime() + DEMO_LIFETIME_MS)
 			const user = await tx.user.create({
 				data: {
 					// The hyphen keeps it out of signup's reach, as the template's.
 					username: `demo-${id}`,
 					email: `${id}@${DEMO_EMAIL_DOMAIN}`,
 					name: 'Guest',
-					demoExpiresAt: new Date(now.getTime() + DEMO_LIFETIME_MS),
+					demoExpiresAt,
 					roles: {
 						connectOrCreate: {
 							where: { name: 'user' },
@@ -499,7 +500,12 @@ function startDemoUser(
 				select: { id: true, name: true, username: true },
 			})
 			const household = await createOwnHousehold(tx, user)
-			return { ok: true, userId: user.id, householdId: household.id }
+			return {
+				ok: true,
+				userId: user.id,
+				householdId: household.id,
+				demoExpiresAt,
+			}
 		},
 		COPY_TRANSACTION,
 	)
@@ -586,7 +592,8 @@ function isRecordNotFound(error: unknown) {
  * its time is up. Returns whether this call deleted it: false for a real
  * user or the template's owner (no `demoExpiresAt`), which it never
  * touches, and for a user something else already deleted (Log Out and
- * expiry at once, or a double submit).
+ * expiry at once, or a double submit). A not-found error while the user is
+ * still there is thrown.
  */
 export async function deleteDemoUser(userId: string) {
 	const user = await prisma.user.findUnique({
@@ -598,7 +605,17 @@ export async function deleteDemoUser(userId: string) {
 		await deleteAccount(userId)
 		return true
 	} catch (error) {
-		if (isRecordNotFound(error)) return false
+		// Gone already, unless the user is still there and the not-found
+		// was about something else.
+		if (
+			isRecordNotFound(error) &&
+			!(await prisma.user.findUnique({
+				where: { id: userId },
+				select: { id: true },
+			}))
+		) {
+			return false
+		}
 		throw error
 	}
 }

@@ -15,7 +15,8 @@ import {
 	RESTORE_LIMITS,
 	RESTORE_MAX_FILE_BYTES,
 } from './+export-format.ts'
-import { action, RESTORE_JSON_LIMITS } from './import.tsx'
+import { action } from './import.tsx'
+import { RESTORE_JSON_LIMITS } from './restore-file.server.ts'
 import '#tests/setup/db-setup.ts'
 
 const posthog = vi.hoisted(() => ({

@@ -24,6 +24,10 @@
  *   scale or combine with the same ingredient elsewhere.
  * - A Staple's ingredient still lands on Shopping, because the Staples were
  *   saved after the Meals were added.
+ * - A sample Staple matches no ingredient in the sample Recipes, so it hides
+ *   nothing and the cupboard basics (sugar, cornflour) stay on Shopping.
+ * - A sample Staple is written in another case than the Staples the app adds
+ *   itself, so Need puts "Rice" on a list of lowercase rows.
  * - The wrong rows are checked, or a check is made before the Meal amounts
  *   it should cover arrive.
  * - Shopping doesn't read as a week part-way through: a row only Meals up
@@ -398,6 +402,28 @@ test('Staples stay off Shopping, and the start of the week is bought', async () 
 	expect(rows.filter((row) => stapleIds.has(demandIdentity(row.name)))).toEqual(
 		[],
 	)
+
+	// Each Staple is something a sample Recipe uses, so each one keeps a line
+	// off Shopping. Written in lowercase, like the suggestions the Staples page
+	// offers and the Recipe lines they match.
+	const ingredientIds = new Set(
+		(
+			await prisma.ingredient.findMany({
+				where: { recipe: { householdId }, isHeading: false },
+				select: { name: true },
+			})
+		).map((ingredient) => demandIdentity(ingredient.name)),
+	)
+	expect(
+		SAMPLE_HOUSEHOLD.staples.filter(
+			(staple) => !ingredientIds.has(demandIdentity(staple)),
+		),
+	).toEqual([])
+	expect(
+		SAMPLE_HOUSEHOLD.staples.filter(
+			(staple) => staple !== staple.toLowerCase(),
+		),
+	).toEqual([])
 
 	// Monday is 0. A Meal row is bought when every Meal it feeds is on
 	// boughtThroughDay or before.

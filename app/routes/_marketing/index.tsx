@@ -825,15 +825,15 @@ function StaplesScreen() {
 }
 
 const shoppingNext = [
-	{ name: 'Salmon fillets', amount: '4 fillets' },
-	{ name: 'Limes', amount: '3' },
-	{ name: 'White miso', amount: '1 tub' },
-	{ name: 'Black beans', amount: '2 cans' },
-	{ name: 'Corn tortillas', amount: '12' },
-	{ name: 'Feta', amount: '200 g' },
-	{ name: 'Whole chicken', amount: '1 · about 1.8 kg' },
-	{ name: 'Spaghetti', amount: '500 g', checked: true },
-	{ name: 'Parmesan', amount: '1 wedge', checked: true },
+	{ name: 'salmon fillets', amount: '4 fillets' },
+	{ name: 'limes', amount: '3' },
+	{ name: 'white miso', amount: '1 tub' },
+	{ name: 'black beans', amount: '2 cans' },
+	{ name: 'corn tortillas', amount: '12' },
+	{ name: 'feta', amount: '200 g' },
+	{ name: 'whole chicken', amount: '1 · about 1.8 kg' },
+	{ name: 'spaghetti', amount: '500 g', checked: true },
+	{ name: 'parmesan', amount: '1 wedge', checked: true },
 ]
 
 function ShoppingRow({

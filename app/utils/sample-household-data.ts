@@ -489,7 +489,28 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 			],
 		},
 	],
-	staples: ['Olive oil', 'Salt', 'Black pepper', 'Soy sauce', 'Rice'],
+	// The cupboard basics the Recipes use, so Shopping isn't asking for a
+	// teaspoon of sugar. Lowercase, like the Staples the app suggests.
+	staples: [
+		'olive oil',
+		'vegetable oil',
+		'sesame oil',
+		'salt',
+		'black pepper',
+		'sugar',
+		'plain flour',
+		'cornflour',
+		'honey',
+		'soy sauce',
+		'rice',
+		'dried oregano',
+		'ground cumin',
+		'smoked paprika',
+		'chilli flakes',
+		'balsamic vinegar',
+		'red wine vinegar',
+		'vegetable stock',
+	],
 	menus: [
 		{
 			title: 'Friday taco night',

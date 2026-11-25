@@ -167,7 +167,9 @@ order. The steps before `bun run start` run on the primary only
   when there is a migration to apply, so restarts after a migration (or after
   one that failed partway, which blocks later ones) don't push it out of the 3
   the volume keeps. If the check can't read the migration state, it dumps
-  anyway.
+  anyway. Before running `prisma migrate resolve --rolled-back` on a failed
+  migration, copy the clean dump off the volume, because each resolve makes the
+  next boot dump the half-migrated database.
 - **Journal dance.** Prisma's schema engine opens SQLite with
   `locking_mode=EXCLUSIVE` (prisma-engines#4675), which LiteFS rejects on a WAL
   database (litefs#425), so any migration would crash-loop the boot. Exclusive

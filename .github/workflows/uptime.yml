@@ -1,12 +1,14 @@
 name: 🩺 uptime check
 
-# Requests the production healthcheck and fails when it doesn't answer 200, so
-# GitHub emails the repo owner. Fly's own health checks only stop routing
-# traffic to a sick machine, and they tell nobody.
+# Requests the production healthcheck and fails when it doesn't answer 200.
+# GitHub emails a failed scheduled run to whoever last changed the cron line
+# below. Fly's own health checks only stop routing traffic to a sick machine,
+# and they tell nobody.
 #
 # GitHub starts scheduled runs late when its queue is busy, sometimes by more
-# than the 15 minute interval, so an outage shows up within half an hour or so
-# rather than on the minute. A long outage sends an email for every failed run.
+# than the 15 minute interval, and can skip a run altogether. Expect to hear
+# about an outage half an hour or more after it starts. A long outage sends an
+# email for every failed run.
 #
 # GitHub turns off scheduled workflows in a public repository after 60 days
 # with no commits. This job stops then, and so do the daily backup in

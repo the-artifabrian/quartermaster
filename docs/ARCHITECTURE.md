@@ -481,13 +481,16 @@ unticked defaults only; it never removes a line on its own.
 ## Ingredient parsing and identity
 
 `parseIngredient()` in `app/utils/ingredient-parser.ts` extracts amount, unit,
-name, and notes from loose Recipe text. `normalizeIngredientName()` removes safe
-modifiers, normalizes plurals, and protects compounds such as “rice vinegar” and
-protein cuts. It lives in `app/utils/recipe-matching.server.ts` with
-`getCanonicalIngredientName`, the plain-basics heuristic and the check for
-optional lines (`isOptionalIngredient`). Shopping combines demand lines by their
-canonical name (a fixed synonym list maps cilantro and coriander to one key) and
-unit family, never by a fuzzy match.
+name, and notes from loose Recipe text. The unit words it knows, and what each
+measure is called for conversion, live in `app/utils/units.ts`, which the
+Shopping quick-add and voice parsers and unit conversion read too.
+`normalizeIngredientName()` removes safe modifiers, normalizes plurals, and
+protects compounds such as “rice vinegar” and protein cuts. It lives in
+`app/utils/recipe-matching.server.ts` with `getCanonicalIngredientName`, the
+plain-basics heuristic and the check for optional lines
+(`isOptionalIngredient`). Shopping combines demand lines by their canonical name
+(a fixed synonym list maps cilantro and coriander to one key) and unit family,
+never by a fuzzy match.
 
 Amounts are saved as written, and `parseAmount()` in `app/utils/fractions.ts` is
 the one place that gives them a number. Anything that scales, sums, converts or

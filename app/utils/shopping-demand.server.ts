@@ -12,12 +12,8 @@ import {
 } from './recipe-matching.server.ts'
 import { guessCategory } from './shopping-list-validation.ts'
 import { keepsOwnAmount } from './shopping-row-source.ts'
-import {
-	normalizeUnit,
-	getUnitFamily,
-	convertAndSum,
-	isCountUnit,
-} from './unit-conversion.ts'
+import { getUnitFamily, convertAndSum, isCountUnit } from './unit-conversion.ts'
+import { normalizeUnit } from './units.ts'
 
 /**
  * Turns what a Meal needs into Shopping demand. Recipe ingredient batches

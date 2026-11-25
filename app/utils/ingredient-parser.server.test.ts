@@ -850,3 +850,53 @@ describe('parseISODuration', () => {
 		expect(parseISODuration('PT')).toBeUndefined()
 	})
 })
+
+describe('unit words the Shopping parsers already knew', () => {
+	test('"2 tins chickpeas" counts tins, as "2 cans chickpeas" counts cans', () => {
+		expect(parseIngredient('2 tins chickpeas')).toMatchObject({
+			amount: '2',
+			unit: 'tins',
+			name: 'chickpeas',
+		})
+		expect(parseIngredient('2 cans chickpeas')).toMatchObject({
+			amount: '2',
+			unit: 'cans',
+			name: 'chickpeas',
+		})
+	})
+
+	test('a sized tin keeps its size in the notes', () => {
+		expect(parseIngredient('1 (400 g) tin chickpeas')).toMatchObject({
+			amount: '1',
+			unit: 'tin',
+			name: 'chickpeas',
+			notes: '400 g',
+		})
+	})
+
+	test.each([
+		['1 bag spinach', 'bag', 'spinach'],
+		['2 bars dark chocolate', 'bars', 'dark chocolate'],
+		['1 carton cream', 'carton', 'cream'],
+		['1 case sparkling water', 'case', 'sparkling water'],
+		['1 container yogurt', 'container', 'yogurt'],
+		['1 dozen eggs', 'dozen', 'eggs'],
+		['1 each red and green pepper', 'each', 'red and green pepper'],
+		['1 loaf sourdough', 'loaf', 'sourdough'],
+		['2 loaves bread', 'loaves', 'bread'],
+		['2 packs tortillas', 'packs', 'tortillas'],
+		['1 roll puff pastry', 'roll', 'puff pastry'],
+		['1 tub ricotta', 'tub', 'ricotta'],
+		['1 tube tomato paste', 'tube', 'tomato paste'],
+	])('"%s" reads %s as the unit', (line, unit, name) => {
+		expect(parseIngredient(line)).toMatchObject({ unit, name })
+	})
+
+	test('a unit word alone after the amount stays the name', () => {
+		expect(parseIngredient('8 rolls')).toMatchObject({
+			amount: '8',
+			name: 'rolls',
+		})
+		expect(parseIngredient('8 rolls')?.unit).toBeUndefined()
+	})
+})

@@ -1,61 +1,12 @@
 import { parseAmount } from './fractions.ts'
 import { CONTAINER_START } from './ingredient-parser.ts'
+import { normalizeUnit, SHOPPING_UNIT_PATTERN } from './units.ts'
 
 export type ParsedItem = {
 	name: string
 	quantity: string
 	unit: string
 }
-
-const UNITS = [
-	'pounds?',
-	'lbs?',
-	'ounces?',
-	'oz',
-	'cups?',
-	'gallons?',
-	'liters?',
-	'litres?',
-	'kilograms?',
-	'kg',
-	'grams?',
-	'g',
-	'bunch(?:es)?',
-	'bags?',
-	'box(?:es)?',
-	'cans?',
-	'bottles?',
-	'packs?',
-	'packages?',
-	'dozens?',
-	'each',
-	'tablespoons?',
-	'tbsp',
-	'teaspoons?',
-	'tsp',
-	'ml',
-	'pieces?',
-	'slices?',
-	'loaf|loaves',
-	'heads?',
-	'cloves?',
-	'stalks?',
-	'sprigs?',
-	'jars?',
-	'cartons?',
-	'containers?',
-	'sticks?',
-	'cases?',
-	'pints?',
-	'quarts?',
-	'tins?',
-	'tubes?',
-	'rolls?',
-	'tubs?',
-	'bars?',
-]
-
-const UNIT_PATTERN = UNITS.join('|')
 
 const WORD_NUMBERS: Record<string, string> = {
 	a: '1',
@@ -93,39 +44,6 @@ const COMPOUND_NUMBERS: [RegExp, string][] = [
 
 // "<word-number> hundred" → multiply (e.g. "three hundred" → "300")
 const WORD_HUNDRED_PATTERN = /^(\S+)\s+hundred\b/i
-
-const UNIT_ALIASES: Record<string, string> = {
-	pound: 'lb',
-	pounds: 'lb',
-	lb: 'lb',
-	lbs: 'lb',
-	ounce: 'oz',
-	ounces: 'oz',
-	kilogram: 'kg',
-	kilograms: 'kg',
-	gram: 'g',
-	grams: 'g',
-	liter: 'l',
-	liters: 'l',
-	litre: 'l',
-	litres: 'l',
-	cup: 'cup',
-	cups: 'cup',
-	tablespoon: 'tbsp',
-	tablespoons: 'tbsp',
-	teaspoon: 'tsp',
-	teaspoons: 'tsp',
-	pint: 'pint',
-	pints: 'pint',
-	quart: 'quart',
-	quarts: 'quart',
-	gallon: 'gallon',
-	gallons: 'gallon',
-}
-
-function normalizeUnit(unit: string): string {
-	return UNIT_ALIASES[unit.toLowerCase()] ?? unit
-}
 
 /**
  * The text without the given characters at its end. A loop rather than a
@@ -229,7 +147,7 @@ const QTY_OR_PACK = `(${NUMBER}\\s*[x×]\\s*${NUMBER}|${QTY.slice(1, -1)})`
 
 // Match: "<number> <unit> [of] <name>" or "<number> <name>"
 const QTY_UNIT_NAME = new RegExp(
-	`^${QTY_OR_PACK}\\s+(${UNIT_PATTERN})\\s+(?:of\\s+)?(.+)$`,
+	`^${QTY_OR_PACK}\\s+(${SHOPPING_UNIT_PATTERN})\\s+(?:of\\s+)?(.+)$`,
 	'i',
 )
 const QTY_NAME = new RegExp(`^${QTY}\\s+(.+)$`)
@@ -240,7 +158,7 @@ const QTY_NAME = new RegExp(`^${QTY}\\s+(.+)$`)
 // a size ("2 400 gram cans") is common.
 const SPACED_QTY = `(\\d{1,3}(?:[ \\u00A0\\u202F]\\d{3})+(?:[.,]\\d+)?)`
 const SPACED_QTY_UNIT_NAME = new RegExp(
-	`^${SPACED_QTY}\\s+(${UNIT_PATTERN})\\s+(?:of\\s+)?(.+)$`,
+	`^${SPACED_QTY}\\s+(${SHOPPING_UNIT_PATTERN})\\s+(?:of\\s+)?(.+)$`,
 	'i',
 )
 const SPACED_QTY_NAME = new RegExp(`^${SPACED_QTY}\\s+(.+)$`)

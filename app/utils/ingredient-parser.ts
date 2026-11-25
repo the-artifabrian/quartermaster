@@ -5,6 +5,7 @@ import {
 	MAX_INGREDIENT_NOTES_LENGTH,
 	MAX_INGREDIENT_UNIT_LENGTH,
 } from './recipe-validation.ts'
+import { UNIT_WORDS } from './units.ts'
 
 /**
  * The longest ingredient line the parser reads, after links are reduced to
@@ -93,95 +94,10 @@ function beforeToTaste(text: string): string | null {
 	return LINE_BREAK.test(before) ? null : before
 }
 
-// Common cooking units - only these should be treated as units
-export const COMMON_UNITS = new Set([
-	'g',
-	'gram',
-	'grams',
-	'kg',
-	'kilogram',
-	'kilograms',
-	'kgs',
-	'mg',
-	'milligram',
-	'milligrams',
-	'oz',
-	'ounce',
-	'ounces',
-	'ozs',
-	'lb',
-	'lbs',
-	'pound',
-	'pounds',
-	'ml',
-	'mls',
-	'milliliter',
-	'milliliters',
-	'millilitre',
-	'millilitres',
-	'l',
-	'liter',
-	'liters',
-	'litre',
-	'litres',
-	'gallon',
-	'gallons',
-	'gal',
-	'quart',
-	'quarts',
-	'qt',
-	'qts',
-	'pint',
-	'pints',
-	'pt',
-	'pts',
-	'cup',
-	'cups',
-	'tablespoon',
-	'tablespoons',
-	'tbsp',
-	'tbsps',
-	'tsp',
-	'tsps',
-	'teaspoon',
-	'teaspoons',
-	'can',
-	'cans',
-	'jar',
-	'jars',
-	'bottle',
-	'bottles',
-	'package',
-	'packages',
-	'box',
-	'boxes',
-	'slice',
-	'slices',
-	'piece',
-	'pieces',
-	'half',
-	'halves',
-	'clove',
-	'cloves',
-	'bunch',
-	'bunches',
-	'head',
-	'heads',
-	'stalk',
-	'stalks',
-	'sprig',
-	'sprigs',
-	'stick',
-	'sticks',
-	'pinch',
-	'dash',
-	'handful',
-])
-
 // Helpers for period-tolerant unit matching (e.g. "tbsp." → "tbsp")
 function isUnit(word: string): boolean {
 	const normalized = word.replace(/\.$/, '').toLowerCase()
-	return COMMON_UNITS.has(normalized)
+	return UNIT_WORDS.has(normalized)
 }
 
 function stripUnitPeriod(word: string): string {

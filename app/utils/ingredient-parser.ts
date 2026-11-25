@@ -5,7 +5,7 @@ import {
 	MAX_INGREDIENT_NOTES_LENGTH,
 	MAX_INGREDIENT_UNIT_LENGTH,
 } from './recipe-validation.ts'
-import { namesAThing, UNIT_WORDS } from './units.ts'
+import { canBeTheFood, namesAThing, UNIT_WORDS } from './units.ts'
 
 /**
  * The longest ingredient line the parser reads, after links are reduced to
@@ -104,18 +104,23 @@ function stripUnitPeriod(word: string): string {
 	return word.replace(/\.$/, '')
 }
 
-// What can follow a unit word without naming what it measures: nothing, a
-// comma, a bracket on its own, or a phrase starting "for", "to", "or" or
-// "and". "4 rolls for serving" counts rolls, so "rolls" stays the name.
-const NO_NAME_AFTER_UNIT = /^(?:$|,|\([^)]*\)$|(?:for|to|or|and)\b)/i
+// Nothing, or only notes after a comma, leaves a unit word with no name to
+// measure, so the word is the name ("2 bags , frozen" is bags).
+const NOTHING_AFTER_UNIT = /^(?:$|,)/
+// A unit word that can be the food ("4 rolls for serving") is also the name
+// when a bracket on its own, or a phrase starting "for", "to", "or" or "and",
+// follows it. A measure keeps its unit there: "1 tsp to taste" is tsp.
+const NO_FOOD_AFTER_UNIT = /^(?:\([^)]*\)$|(?:for|to|or|and)\b)/i
 
 /** Whether `word` is the unit of a line whose name is `rest`. */
 function readsAsUnit(word: string, rest: string): boolean {
 	const after = rest.trim()
+	const unit = stripUnitPeriod(word)
 	return (
 		isUnit(word) &&
-		!NO_NAME_AFTER_UNIT.test(after) &&
-		!namesAThing(stripUnitPeriod(word), after)
+		!NOTHING_AFTER_UNIT.test(after) &&
+		!(canBeTheFood(unit) && NO_FOOD_AFTER_UNIT.test(after)) &&
+		!namesAThing(unit, after)
 	)
 }
 

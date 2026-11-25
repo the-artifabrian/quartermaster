@@ -116,6 +116,25 @@ export function normalizeUnit(unit: string): string {
  */
 const NAMES_LED_BY_A_UNIT = /^(?:pack\s+choi|loaf\s+(?:tins?|pans?))\b/i
 
+/**
+ * Unit words that also name something bought on its own: "4 rolls" are
+ * rolls. When nothing after one of these is the food ("4 rolls for
+ * serving"), the word is the food. A measure such as "tsp" never is.
+ */
+const FOOD_UNIT_WORDS = new Set([
+	'roll',
+	'rolls',
+	'loaf',
+	'loaves',
+	'bar',
+	'bars',
+])
+
+/** Whether a unit word can be the food itself, as "rolls" can. */
+export function canBeTheFood(unitWord: string): boolean {
+	return FOOD_UNIT_WORDS.has(unitWord.toLowerCase())
+}
+
 /** Whether `unitWord` followed by `rest` names a thing, as "pack choi" does. */
 export function namesAThing(unitWord: string, rest: string): boolean {
 	return NAMES_LED_BY_A_UNIT.test(`${unitWord} ${rest}`)

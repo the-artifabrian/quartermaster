@@ -963,7 +963,6 @@ describe('unit words the Shopping parsers already knew', () => {
 	test.each([
 		['1 loaf (400 g)', 'loaf', '400 g'],
 		['6 rolls (brioche)', 'rolls', 'brioche'],
-		['2 cups (sifted)', 'cups', 'sifted'],
 	])(
 		'"%s" with only a bracket after the unit names the unit',
 		(line, name, notes) => {
@@ -974,9 +973,41 @@ describe('unit words the Shopping parsers already knew', () => {
 	)
 
 	test('a comma straight after the unit word starts the notes', () => {
-		const parsed = parseIngredient('2 bags , frozen')
-		expect(parsed).toMatchObject({ name: 'bags', notes: 'frozen' })
-		expect(parsed?.unit).toBeUndefined()
+		for (const [line, name] of [
+			['4 rolls , warmed', 'rolls'],
+			['2 bags , frozen', 'bags'],
+		]) {
+			const parsed = parseIngredient(line!)
+			expect(parsed).toMatchObject({ name, notes: line!.split(', ')[1] })
+			expect(parsed?.unit).toBeUndefined()
+		}
+	})
+
+	test('a measure keeps its unit when only "to taste" follows', () => {
+		expect(parseIngredient('1 tsp to taste')).toMatchObject({
+			amount: '1',
+			unit: 'tsp',
+			name: 'to taste',
+		})
+	})
+
+	test('a measure keeps its unit when only a bracket follows', () => {
+		expect(parseIngredient('2 cups (sifted)')).toMatchObject({
+			amount: '2',
+			unit: 'cups',
+			name: '(sifted)',
+		})
+	})
+
+	test('a measure keeps its unit before "for" or "or"', () => {
+		expect(parseIngredient('1 tbsp for frying')).toMatchObject({
+			unit: 'tbsp',
+			name: 'for frying',
+		})
+		expect(parseIngredient('2 cans or 1 jar')).toMatchObject({
+			unit: 'cans',
+			name: 'or 1 jar',
+		})
 	})
 
 	test('a bracket followed by a name still leaves the unit', () => {

@@ -403,3 +403,31 @@ test.describe('in a browser', () => {
 		await expect(page.locator('[data-status-bar-backdrop]')).toHaveCount(0)
 	})
 })
+
+test.describe('in the iOS app on a phone', () => {
+	test.use({
+		viewport: { width: 390, height: 844 },
+		hasTouch: true,
+		userAgent: SHELL_UA,
+	})
+
+	test('the header is opaque, so the page never shows through it', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		await page.goto('/plan')
+		const header = page.locator('[data-site-header]')
+		await expect(header).toHaveCount(1)
+		const background = await header.evaluate(
+			(node) => getComputedStyle(node).backgroundColor,
+		)
+		// Every colour syntax writes transparency as a fourth value: rgba(…, a)
+		// or "/ a" in the newer ones. An opaque colour has none, or 1.
+		const alpha =
+			/\/\s*([\d.]+%?)\s*\)$/.exec(background)?.[1] ??
+			/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/.exec(background)?.[1] ??
+			'1'
+		expect({ background, alpha }).toEqual({ background, alpha: '1' })
+	})
+})

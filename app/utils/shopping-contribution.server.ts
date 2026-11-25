@@ -14,13 +14,12 @@ import { writeTransaction } from './write-transaction.server.ts'
 type Tx = Prisma.TransactionClient
 
 /**
- * Transactional contribution reconciliation — the second internal seam that
- * consumes buildShoppingDemand output (#108). It records one current-state
- * MealShoppingContribution per (Meal, canonical demand identity) between the
- * source Meal and the displayed Shopping row its demand feeds. NOT an event
- * ledger: re-adding is idempotent, no history accumulates. Manual Shopping
- * rows stay durable manual rows — a matching row is only pointed at, never
- * rewritten. replaceMealShoppingContributions handles an explicit update.
+ * Writes buildShoppingDemand output to Shopping, in the caller's
+ * transaction. It keeps one MealShoppingContribution per (Meal, canonical
+ * demand identity), linking the source Meal to the Shopping row its demand
+ * feeds. It records what the Meal adds now: re-adding is idempotent and no
+ * history builds up. A matching manual row is only pointed at, never
+ * rewritten. replaceMealShoppingContributions handles Update.
  */
 export function reconcileMealShoppingContributions(
 	db: PrismaClient,
@@ -43,7 +42,7 @@ type ReconcileMealShoppingContributionsResult = {
 	createdRowCount: number
 	/** Demand recorded against an already-displayed row (no visual change). */
 	attachedCount: number
-	/** Demand this Meal had already contributed — left untouched. */
+	/** Demand this Meal had already contributed, left untouched. */
 	alreadyContributedCount: number
 	/** Unchecked Later rows promoted in place for this generated demand. */
 	promotedRowCount: number
@@ -98,7 +97,7 @@ export async function reconcileMealShoppingContributionsInTransaction(
 
 		const contributed = contributionByCanonical.get(line.canonicalName)
 		if (contributed) {
-			// Current-state record already exists — this is not a refresh (#110).
+			// The record already exists. An add doesn't refresh it; Update does.
 			await promote(itemById.get(contributed.itemId))
 			alreadyContributedCount++
 			continue
@@ -107,9 +106,9 @@ export async function reconcileMealShoppingContributionsInTransaction(
 		const existingRow = targetByCanonical.get(line.canonicalName)
 		if (existingRow) {
 			await promote(existingRow)
-			// A compatible row is already displayed (manual or generated) —
-			// record provenance against it without creating a visual
-			// duplicate or rewriting the row.
+			// A compatible row is already on the list (manual or generated).
+			// Link the Meal to it without adding a second row or rewriting
+			// this one.
 			await tx.mealShoppingContribution.create({
 				data: contributionData(mealId, line, existingRow.id),
 			})
@@ -226,8 +225,8 @@ async function createMealRow(
  * Replace one Meal's current contribution with freshly built demand. Existing
  * unchecked display rows are reused; rows created for demand that no longer
  * exists disappear only when no manual or other-Meal component still needs
- * them. Newly introduced groups start unchecked even when the ordinary
- * initial-add availability seam would have pre-checked them.
+ * them. New groups start unchecked even when a first add's Staples check
+ * would have pre-checked them.
  *
  * A checked row is a purchase, so Update leaves it alone. Whether this
  * Meal's demand on it grew, shrank or went away, the row and the share stay
@@ -336,7 +335,8 @@ export async function replaceMealShoppingContributionsInTransaction(
 	const skippedChecked = new Map<string, string>()
 
 	// New demand reuses only an outstanding row (Next shop first, a Later
-	// row moves up) or gets its own row, the #226 rule for every Meal add.
+	// row moves up) or gets its own row, so a checked purchase never grows.
+	// Every Meal add follows this rule; PR #271 has the reasoning.
 	async function placeNewDemand(line: ShoppingDemandLine) {
 		const existingRow = rowByCanonical.get(line.canonicalName)
 		if (existingRow) {

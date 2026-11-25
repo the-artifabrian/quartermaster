@@ -125,7 +125,6 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="flex flex-col gap-6">
-			{/* Profile Banner */}
 			{isDemo ? (
 				<div className="bg-muted/40 flex items-center gap-4 rounded-lg p-4">
 					{avatar}
@@ -152,7 +151,6 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 				</PushLink>
 			)}
 
-			{/* General */}
 			<SettingsSection label="General">
 				{isDemo ? null : (
 					<SettingsRow to="household" icon="home" label="Household" />
@@ -182,7 +180,6 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 				</SettingsRow>
 			</SettingsSection>
 
-			{/* Account */}
 			{isDemo ? (
 				<p className="text-muted-foreground px-1 text-sm">
 					Account, Household and backup restore are off in the demo.
@@ -206,7 +203,6 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 				</SettingsSection>
 			)}
 
-			{/* Data */}
 			<SettingsSection label="Data">
 				{isDemo ? null : (
 					<SettingsRow to="import" icon="update" label="Import data" />
@@ -225,7 +221,6 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 				/>
 			</SettingsSection>
 
-			{/* Log out */}
 			<SettingsSection>
 				<Form action="/logout" method="POST">
 					<button
@@ -259,7 +254,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 
 function KeepAwakeSwitch() {
 	// Device-local preference (localStorage), read after mount to avoid an SSR
-	// mismatch — same pattern as the recipe page's Metric toggle.
+	// mismatch, like the recipe page's Metric toggle.
 	const [enabled, setEnabled] = useState(true)
 	const [hydrated, setHydrated] = useState(false)
 	useEffect(() => {

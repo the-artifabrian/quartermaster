@@ -11,7 +11,7 @@ import {
 import { type Route } from './+types/stripe-webhook.ts'
 
 /**
- * Stripe webhook endpoint. No session auth — uses Stripe signature verification.
+ * Stripe webhook endpoint. No session auth: it checks Stripe's signature.
  * Returns a retryable error when a verified event cannot be processed.
  */
 export async function action({ request }: Route.ActionArgs) {
@@ -88,7 +88,7 @@ export async function action({ request }: Route.ActionArgs) {
 				break
 			}
 			default: {
-				// Unhandled event type — ignore
+				// Unhandled event type: ignore
 			}
 		}
 	} catch (err) {

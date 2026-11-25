@@ -17,8 +17,8 @@ import {
  * the pre-migration step in `other/litefs.yml`; restoring is documented in
  * `docs/RESTORE.md`.
  *
- * LiteFS has no S3 backup of its own — the `backup:` stanza people remember is
- * LiteFS Cloud, which no longer exists — so this takes the route Fly's own
+ * LiteFS has no S3 backup of its own (the `backup:` stanza people remember was
+ * LiteFS Cloud, which has shut down), so this takes the route Fly's own
  * LiteFS docs recommend: a periodic consistent snapshot pushed to object
  * storage. The bucket is the one already used for recipe images.
  */
@@ -61,8 +61,8 @@ export function buildBackupKey({
 }
 
 /**
- * `VACUUM INTO` reads the source under an ordinary read transaction — no write
- * lock, no checkpoint, nothing LiteFS has to replicate — and writes a compact,
+ * `VACUUM INTO` reads the source under an ordinary read transaction (no write
+ * lock, no checkpoint, nothing LiteFS has to replicate) and writes a compact,
  * internally consistent copy. `.backup` would do as well; this one also drops
  * free pages.
  *

@@ -126,8 +126,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 			sections: menu.sections.map((section) => ({
 				...section,
 				items: section.items.map((item) => {
-					// A reference that no longer resolves to a household Recipe reads
-					// as a clearly missing card with its frozen identity.
+					// A reference that doesn't resolve to a household Recipe reads as
+					// a clearly missing card with its frozen identity.
 					const recipe =
 						item.recipe && item.recipe.householdId === householdId
 							? {
@@ -156,11 +156,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 
 /**
- * Add to Plan (#107): copy this Menu into ONE stable Meal snapshot — section
- * order, Recipe/note cards, display identity, multipliers, display notes, and
- * note Shopping lines all frozen by value. Later Menu edits never mutate the
- * Meal; sourceMenuId + the Menu's updatedAt are retained as the revision a
- * future explicit Update-from-Menu action (not shipped here) can compare.
+ * Add to Plan: copy this Menu into ONE stable Meal snapshot, with section
+ * order, Recipe and note cards, display identity, multipliers, display notes,
+ * and note Shopping lines all frozen by value. Later Menu edits never change
+ * the Meal. The Meal records sourceMenuId and the Menu's updatedAt.
  */
 export async function action({ request, params }: Route.ActionArgs) {
 	const { householdId } = await requireUserWithHousehold(request)
@@ -179,8 +178,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 	}
 	const { date, label, time, timeZone, guestCount } = submission.value
 
-	// Serving time is one UTC instant plus its originating IANA zone, computed
-	// from the Meal's semantic date (#98). Guest count travels as context only.
+	// Serving time is one UTC instant plus the IANA zone it was set in,
+	// computed from the Meal's semantic date. Guest count is context only.
 	const servingAt =
 		time != null ? servingInstantFromWallTime(date, time, timeZone!) : null
 	const result = await planMenu(prisma, {
@@ -207,9 +206,9 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 /**
- * The Add to Plan panel (#107): date plus optional label, serving time, and
- * guest count. Guest count is prefilled from the Menu's default as context —
- * it never scales quantities; multipliers copy unchanged.
+ * The Add to Plan panel: date plus optional label, serving time, and guest
+ * count. Guest count is prefilled from the Menu's default as context. It
+ * never scales quantities, and multipliers copy unchanged.
  */
 function AddToPlanPanel({
 	defaultDate,
@@ -227,11 +226,11 @@ function AddToPlanPanel({
 	inSheet?: boolean
 }) {
 	// The instant is named by wall time plus the browser's IANA zone; the zone
-	// travels in a hidden input so the server can store the pair (#98).
+	// travels in a hidden input so the server can store the pair.
 	const [timeZone] = useState(
 		() => Intl.DateTimeFormat().resolvedOptions().timeZone,
 	)
-	// Full-page POST with no server-side dedupe — a double-click would plan
+	// Full-page POST with no server-side dedupe. A double-click would plan
 	// the Menu twice, so the submit locks while the navigation is in flight.
 	const navigation = useNavigation()
 	const submitting = navigation.state !== 'idle'
@@ -353,7 +352,7 @@ export default function MenuDetail({
 	const [planInSheet, setPlanInSheet] = useState(false)
 	const planResult =
 		actionData != null && 'result' in actionData ? actionData.result : undefined
-	// A failed full-page POST re-renders with actionData — keep the panel open
+	// A failed full-page POST re-renders with actionData. Keep the panel open
 	// so its errors are visible, until the user cancels.
 	const showPlanPanel = planning || (planResult != null && !planFormDismissed)
 	const planErrors = planResult?.error

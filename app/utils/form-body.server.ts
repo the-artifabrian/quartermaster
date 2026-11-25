@@ -24,7 +24,7 @@ function unreadableForm(error: unknown, contentType: string | null) {
 /**
  * request.formData() throws when the body can't be read as a form: no body at
  * all, a content type that isn't a form's, or a broken multipart body. Actions
- * read their form that way, so each of those requests used to answer 500 and
+ * read their form that way, so each of those requests would answer 500 and
  * land in the error reports. This makes the read throw a 400 Response instead,
  * on the request and on any copy of it, so those actions need no check of
  * their own. Uploads parse multipart themselves; see rethrowUnreadableUpload.

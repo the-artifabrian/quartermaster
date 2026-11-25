@@ -3,10 +3,9 @@ import { type PrismaClient } from '#app/generated/prisma/client.ts'
 import { type SnapshotSectionSeed } from '#app/utils/menu-snapshot.ts'
 
 /**
- * Meal write seam for the planner (#105). Meal and MealRecipeItem are the
- * only Plan representation since #106 contracted the legacy fixed-slot
- * MealPlanEntry rows and their dual-write mirrors; #107 added the frozen
- * Menu-snapshot children (MealSection, MealNoteItem, MealShoppingLine).
+ * Meal writes for the planner, the Menu's Add to Plan and the restore. A Meal
+ * holds ordered MealRecipeItems and, when it came from a Menu, the frozen
+ * snapshot rows (MealSection, MealNoteItem, MealShoppingLine).
  */
 
 async function nextMealOrder(db: PrismaClient, mealPlanId: string, date: Date) {
@@ -26,11 +25,11 @@ export type MealItemSeed = {
 }
 
 /**
- * Create one Meal with ordered Recipe items and, for Menu snapshots (#107),
+ * Create one Meal with ordered Recipe items and, for Menu snapshots,
  * frozen sections whose Recipe and note cards share one order sequence. The
  * caller has already authorized the plan and the Recipes for the household.
- * `order` places the Meal within its day explicitly (import restores stored
- * order); when absent the Meal appends after the day's existing Meals.
+ * `order` places the Meal within its day (a restore passes the stored
+ * order). When absent the Meal appends after the day's existing Meals.
  */
 export async function createMealWithItems(
 	db: PrismaClient,
@@ -68,8 +67,8 @@ export async function createMealWithItems(
 	const order = explicitOrder ?? (await nextMealOrder(db, mealPlanId, date))
 
 	// Everything (ids included) is computed up front so the write is one short
-	// batch transaction — long-held interactive transactions starve SQLite's
-	// single writer under concurrent planning.
+	// batch transaction. A long interactive transaction would hold SQLite's
+	// single writer while two people plan at once.
 	const sectionSeeds = sections.map((section) => ({
 		...section,
 		id: createId(),
@@ -156,13 +155,12 @@ export async function createMealWithItems(
 }
 
 /**
- * The one-Recipe fast path. Idempotent on (plan, day, label, Recipe) — the
- * same dedupe the legacy unique constraint gave slot assignment — so
+ * The one-Recipe fast path. Idempotent on (plan, day, label, Recipe), so
  * double-taps and repeat submissions do not stack duplicate Meals.
  *
  * Returns the Meal that now holds the Recipe together with the multiplier it
  * actually carries: a match keeps its own multiplier, so the caller can say
- * what is planned instead of implying the requested scale was applied (#236).
+ * what is planned instead of implying the requested scale was applied.
  */
 export async function createRecipeMeal(
 	db: PrismaClient,
@@ -244,7 +242,7 @@ export async function addRecipeToMeal(
 	if (duplicate) return { created: false as const }
 
 	// Later additions to a snapshot Meal append unsectioned, after the frozen
-	// sections — order sequences within the unsectioned group (#107).
+	// sections, and `order` counts within the unsectioned group.
 	const max = await db.mealRecipeItem.aggregate({
 		_max: { order: true },
 		where: { mealId: meal.id, sectionId: null },
@@ -270,8 +268,8 @@ export async function setItemCooked(
 
 /**
  * Meal-level completion. A Recipe Meal's completion is derived from its items,
- * so "mark Meal cooked" explicitly updates all items (#98); a text-only Meal
- * owns one completed flag instead.
+ * so marking the Meal cooked updates every item. A text-only Meal has its own
+ * completed flag instead.
  */
 export async function setMealCooked(
 	db: PrismaClient,
@@ -313,8 +311,8 @@ export async function setItemMultiplier(
 }
 
 /**
- * Move a Meal one step within its day. Explicit manual order is authoritative
- * (#98) — label and serving time never reorder anything. Rewrites the whole
+ * Move a Meal one step within its day. The order the user set is the only
+ * order; label and serving time never reorder anything. Rewrites the whole
  * day 0..n so gaps and ties repair themselves.
  */
 export async function moveMealInDay(

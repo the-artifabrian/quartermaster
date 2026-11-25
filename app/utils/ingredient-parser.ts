@@ -239,7 +239,7 @@ function stripOrphanedParens(text: string): string {
 /**
  * Determine if a word is an ingredient descriptor that should stay in the name
  * rather than being treated as the start of prep notes after a comma.
- * e.g., "boneless, skinless chicken breasts" — "skinless" is a descriptor.
+ * e.g., in "boneless, skinless chicken breasts", "skinless" is a descriptor.
  */
 function isIngredientDescriptor(word: string): boolean {
 	const w = word.toLowerCase()
@@ -316,7 +316,7 @@ function trailingParenthetical(
 /**
  * True when an ingredient list is written in all-caps house style (older
  * sites, OCR'd text, shouty emails). When the whole list shouts, caps carry
- * no heading signal and the all-caps heuristic must be disabled — otherwise
+ * no heading signal and the all-caps heuristic must be disabled. Otherwise
  * "SALT" and "OLIVE OIL" import as section headings instead of ingredients.
  */
 export function isAllCapsHouseStyle(lines: string[]): boolean {
@@ -334,7 +334,7 @@ export function isAllCapsHouseStyle(lines: string[]): boolean {
  * digit or fraction is assumed to carry an amount and is never a heading.
  *
  * Pass `allCapsIsHeading: false` (see isAllCapsHouseStyle) to disable the
- * all-caps heuristic; the explicit "For the …" and trailing-colon signals
+ * all-caps heuristic; the "For the …" and trailing-colon signals
  * still apply.
  */
 export function detectIngredientHeading(
@@ -353,12 +353,12 @@ export function detectIngredientHeading(
 		if (name) return name[0]!.toUpperCase() + name.slice(1)
 	}
 
-	// "Topping:" — trailing colon with no amount
+	// "Topping:": trailing colon with no amount
 	if (/^[^:]{2,}:$/.test(trimmed)) {
 		return trimmed.slice(0, -1).trim()
 	}
 
-	// "PIE DOUGH" — short all-caps line. Needs ≥3 letters (stray "XL"
+	// "PIE DOUGH": short all-caps line. Needs ≥3 letters (stray "XL"
 	// shouldn't trigger) and ≤3 words (an all-caps site writing
 	// "SALT AND PEPPER TO TASTE" is still an ingredient).
 	if (

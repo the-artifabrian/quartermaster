@@ -1,8 +1,8 @@
 /**
- * The Plan picker's line vocabulary (#288). From Plan no longer generates a
- * whole week in one shot: it opens a picker over the week's Meals, and the
- * household ticks what it actually wants to buy. These statuses are the only
- * reason a line arrives unticked — everything else is ticked for fewest taps.
+ * The Plan picker's line vocabulary. From Plan opens a picker over the
+ * week's Meals, and the household ticks what it actually wants to buy. These
+ * statuses are the only reason a line arrives unticked. Everything else is
+ * ticked, for the fewest taps.
  */
 export type PlanPickerLineStatus =
 	/** Nothing says otherwise: ticked by default. */
@@ -43,7 +43,7 @@ export type PlanPickerLineStatus =
 	| 'on-hand'
 
 export type PlanPickerLine = {
-	/** Demand identity — what the tick set and the writer key on. */
+	/** Demand identity: what the tick set and the writer key on. */
 	canonicalName: string
 	name: string
 	quantity: string | null
@@ -92,7 +92,7 @@ export function planPickerLineStatus({
 	contribution?: { sameAmount: boolean; onLater: boolean }
 	/** Demand identities of every row currently on the Shopping list. */
 	listedIdentities: ReadonlySet<string>
-	/** Demand identities the availability seam kept for this Meal. */
+	/** Demand identities the Staples check kept for this Meal. */
 	keptByAvailability: ReadonlySet<string>
 	/** The ingredient heuristic recognises this as a plain pantry basic. */
 	pantryStaple: boolean

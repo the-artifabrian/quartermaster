@@ -67,7 +67,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Small-caps section label — the one sanctioned grouping device for flat
+ * Small-caps section label, the one grouping device allowed on flat
  * surfaces (ingredient groups, settings groups, form sections).
  */
 export const sectionLabelClass =

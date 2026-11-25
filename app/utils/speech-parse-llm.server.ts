@@ -42,7 +42,7 @@ const SpeechItemsSchema: z.ZodType<ParsedItem[]> = z
 /**
  * The shape the provider constrains the response to. Every property is
  * required, so a quantity or unit the transcript never gave arrives as an
- * empty string rather than a missing key — which is what the Zod schema above
+ * empty string rather than a missing key, which is what the Zod schema above
  * already normalizes absent values to. The canonical unit list stays in the
  * prompt, and the item cap stays in that schema; structured outputs can state
  * neither.

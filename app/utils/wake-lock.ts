@@ -46,7 +46,7 @@ async function sync() {
 					sentinel = next
 				} catch {
 					// Request denied (battery saver, permissions policy). Give up for
-					// now — the next claim or visibility change retries.
+					// now; the next claim or visibility change retries.
 					break
 				}
 			} else if (!want && sentinel) {
@@ -99,9 +99,9 @@ export function resetWakeLockForTests() {
 const KEEP_AWAKE_KEY = 'qm-keep-awake'
 
 /**
- * "Keep screen awake while reading recipes" preference. Defaults to on — the
- * counter context is the app's reason for being; opting out is for
- * battery-anxious days.
+ * "Keep screen awake while reading recipes" preference. Defaults to on,
+ * because the app is mostly read at the counter while cooking. Opting out is
+ * for battery-anxious days.
  */
 export function getKeepAwakePreference(): boolean {
 	try {
@@ -115,6 +115,6 @@ export function setKeepAwakePreference(value: boolean) {
 	try {
 		localStorage.setItem(KEEP_AWAKE_KEY, String(value))
 	} catch {
-		// storage unavailable — the toggle just won't persist
+		// Storage unavailable, so the toggle just won't persist
 	}
 }

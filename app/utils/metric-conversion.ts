@@ -22,7 +22,7 @@ export type MetricResult = {
 /** Units that stay as-is (same in metric/imperial practice) */
 const SKIP_UNITS = new Set(['tsp', 'tbsp'])
 
-/** ml per US cup — matches the density table's gramsPerCup baseline */
+/** ml per US cup, matching the density table's gramsPerCup baseline */
 const ML_PER_CUP = 240
 
 /** Volume unit → ml conversion factors */
@@ -50,14 +50,14 @@ export function convertToMetric(
 	if (SKIP_UNITS.has(normalized)) return null
 	if (isMetricUnit(normalized)) return null
 
-	// Volume units — convert to weight via density, fall back to ml
+	// Volume units: convert to weight via density, fall back to ml
 	const volumeResult = convertVolume(amount, normalized, ingredientName)
 	if (volumeResult) return volumeResult
 
-	// Weight units — direct conversion
+	// Weight units: direct conversion
 	if (normalized === 'oz') {
 		// "oz" is ambiguous: weight ounces for solids, fluid ounces for liquids.
-		// Use density table to disambiguate — known liquids get volume→weight.
+		// The density table tells them apart: known liquids get volume→weight.
 		const density = getDensity(ingredientName)
 		if (density?.isLiquid) {
 			const totalMl = amount * 29.57 // fl oz → ml
@@ -71,7 +71,7 @@ export function convertToMetric(
 		return scaleUpMetric(amount * 453.6, 'g')
 	}
 
-	// Unknown unit — no conversion
+	// Unknown unit: no conversion
 	return null
 }
 
@@ -96,7 +96,7 @@ function convertVolume(
 		return scaleUpMetric(totalMl * gramsPerMl, 'g')
 	}
 
-	// Unknown ingredient — fall back to volume
+	// Unknown ingredient: fall back to volume
 	return { ...scaleUpMetric(totalMl, 'ml'), approximate: true }
 }
 

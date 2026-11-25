@@ -102,8 +102,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 		householdId,
 	})
 	// Each row ships with a display quantity grouped from its current Meal
-	// contributions (#109) — computed here, never written back: manual rows
-	// and contributions both keep their stored identities.
+	// contributions. It is computed here and never written back, so manual
+	// rows and contributions both keep their stored values.
 	const rowsWithContributions = await prisma.shoppingListItem.findMany({
 		where: { listId: ensuredShoppingList.id },
 		orderBy: [{ checked: 'asc' }],
@@ -139,8 +139,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const nextWeek = getNextWeek(currentWeek)
 
 	// A week counts as planned when one of its Meals can contribute Shopping
-	// demand — a Recipe item or a note card's Shopping lines. Text-only Meals
-	// have no Shopping behavior, so a week of only "Leftovers" has nothing to
+	// demand: a Recipe item or a note card's Shopping lines. Text-only Meals
+	// put nothing on Shopping, so a week of only "Leftovers" has nothing to
 	// offer the picker.
 	const mealPlans = await prisma.mealPlan.findMany({
 		where: {
@@ -199,9 +199,9 @@ export async function action({ request }: Route.ActionArgs) {
 		householdId,
 	})
 
-	// From Plan (#288): the household picks Meals and lines in the picker, and
-	// each ticked Meal writes through the same Meal-add path as adding that
-	// Meal from Plan (#225/#226). There is no week-wide rebuild: a second pick
+	// From Plan: the household picks Meals and lines in the picker, and each
+	// ticked Meal writes through the same Meal-add path as adding that Meal
+	// from Plan. There is no week-wide rebuild: a second pick
 	// of the same Meal records nothing new, and an untouched line stays off.
 	if (intent === 'add-from-plan') {
 		const rawPicks = formData.get('picks')
@@ -277,7 +277,7 @@ export async function action({ request }: Route.ActionArgs) {
 		const horizon = parseShoppingHorizon(formData.get('horizon'))
 
 		// "2 lemons" typed into the bare input becomes qty 2 + "lemons".
-		// Only when no explicit quantity came along — the Qty & unit fields win.
+		// Only when no quantity came along: the Qty & unit fields win.
 		// Parsing happens before the duplicate/inventory checks so "2 lemons"
 		// matches an existing "lemons" row.
 		let { name, quantity, unit } = submission.value
@@ -512,13 +512,13 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 		const items = parsedItems.data
 
-		// Ordinary note Shopping lines through the demand module (#108): trims
-		// and normalizes each line's identity while preserving the free text.
+		// Ordinary note Shopping lines go through buildShoppingDemand, which
+		// trims and normalizes each line's identity and keeps the free text.
 		const demandLines = buildShoppingDemand({ noteLines: items })
 		const horizon = parseShoppingHorizon(formData.get('horizon'))
 
 		// Dedup against all existing items and within the batch. Unchecked
-		// cross-section matches are returned as explicit move offers.
+		// cross-section matches come back as offers to move the row.
 		const existingItems = await prisma.shoppingListItem.findMany({
 			where: { listId: shoppingList.id },
 			orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
@@ -572,8 +572,8 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 	}
 
-	// An intent this page no longer sends, such as an old tab's delete or Clear
-	// checked from before Undo (they go to resources/undo-delete now). It saves
+	// An intent this page doesn't send, such as delete or Clear checked from a
+	// tab opened before Undo (those go to resources/undo-delete). It saves
 	// nothing, and the status says so; a 200 would read as done.
 	return data({ status: 'error' as const }, { status: 400 })
 }
@@ -688,7 +688,7 @@ function usePendingShoppingItems(listId: string): DisplayShoppingItem[] {
 					)
 				}
 			} catch {
-				// Ignore malformed bulk payloads — the server rejects them too.
+				// Ignore malformed bulk payloads. The server rejects them too.
 			}
 		}
 	}
@@ -1063,7 +1063,6 @@ export default function ShoppingListRoute({
 					))}
 				</div>
 			)}
-			{/* Page Header */}
 			<div>
 				<div className="container-narrow py-4">
 					<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -1111,9 +1110,8 @@ export default function ShoppingListRoute({
 						/>
 					)}
 
-				{/* Quick Add — desktop only, FAB replaces this on mobile */}
+				{/* Desktop only. The FAB replaces this on a phone. */}
 				<div className="border-border/30 mb-2 hidden border-b md:block">
-					{/* Warning banner */}
 					{showWarning && (
 						<WarningBanner
 							actionData={warningData}
@@ -1236,7 +1234,6 @@ export default function ShoppingListRoute({
 					</quickAddFetcher.Form>
 				</div>
 
-				{/* Search — only shown with 15+ items */}
 				{totalItems >= 15 && (
 					<div className="relative mt-2">
 						<Icon
@@ -1373,7 +1370,6 @@ export default function ShoppingListRoute({
 				</section>
 			</div>
 
-			{/* Mobile FAB + quick-add popover */}
 			<MobileFabAdd
 				open={fabOpen}
 				onOpenChange={setFabOpen}

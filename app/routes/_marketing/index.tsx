@@ -108,10 +108,6 @@ export default function Index() {
 	)
 }
 
-// ---------------------------------------------------------------------------
-// Hero
-// ---------------------------------------------------------------------------
-
 function Hero({ today }: { today: string }) {
 	// The iOS app shows no copy about Pro or its trial (ADR 0001).
 	const isNativeShell = useIsNativeShell()
@@ -182,10 +178,6 @@ function PrimaryCta({ className }: { className?: string }) {
 	)
 }
 
-// ---------------------------------------------------------------------------
-// Feature bands
-// ---------------------------------------------------------------------------
-
 function FeatureBand({
 	index,
 	id,
@@ -251,10 +243,7 @@ function FeatureBand({
 	)
 }
 
-// ---------------------------------------------------------------------------
-// Closing CTA — the only centered block on the page
-// ---------------------------------------------------------------------------
-
+// The only centered block on the page.
 function ClosingCta() {
 	// The iOS app shows no copy about Pro or its trial (ADR 0001).
 	const isNativeShell = useIsNativeShell()
@@ -275,11 +264,9 @@ function ClosingCta() {
 	)
 }
 
-// ---------------------------------------------------------------------------
 // Static app screens. The real Plan/Shopping/Staples components submit through
 // fetchers and load choices on demand, so they can't render outside their
 // routes; these mirror their markup and dimensions at 1:1.
-// ---------------------------------------------------------------------------
 
 /** The page body only: the section heading already names the tab, so the
  *  app's nav bar would be repeated chrome in every frame. */

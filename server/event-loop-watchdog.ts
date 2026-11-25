@@ -5,15 +5,16 @@ import { Worker } from 'node:worker_threads'
 //
 // On 2026-09-11 CPU-bound work on the request path pinned the main thread in a
 // loop that allocated nothing and made no syscalls. Memory, swap and disk
-// stayed healthy, so the memory watchdog never breached — and it could not have
+// stayed healthy, so the memory watchdog never breached. It could not have
 // acted anyway, because it samples from a `setInterval` on the very event loop
 // that was wedged. Fly's health checks noticed within seconds but checks only
 // stop routing, so the box sat at 503 for ninety minutes.
 //
 // A blocked event loop can only be observed from outside that loop. The main
-// thread bumps a counter in a SharedArrayBuffer on a timer; a worker *thread* —
-// its own OS thread, its own event loop, unaffected by the main thread
-// spinning — watches that counter. When it stops advancing for long enough, the
+// thread bumps a counter in a SharedArrayBuffer on a timer, and a worker
+// *thread* watches that counter. The worker has its own OS thread and its own
+// event loop, so the main thread spinning doesn't stop it. When the counter
+// stops advancing for long enough, the
 // worker kills the whole process (same PID) and Fly's `on-failure` restart
 // policy reboots us: a blip instead of a multi-hour outage.
 //
@@ -24,14 +25,14 @@ import { Worker } from 'node:worker_threads'
 // between two observations", which no clock adjustment can fake.
 //
 // Not a graceful exit, by design. The main thread is wedged, so nothing that
-// has to run there — a shutdown handler, a PostHog flush — can complete. The
+// has to run there (a shutdown handler, a PostHog flush) can complete. The
 // worker logs the diagnosis to stdout (Fly captures it) and then SIGKILLs.
 
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 1_000
 const DEFAULT_CHECK_INTERVAL_MS = 5_000
 // A block this long is never legitimate work. The two synchronous pauses this
-// app takes on purpose — a forced `Bun.gc(true)` every 5 minutes and SSR of a
-// large recipe — are sub-second, and Fly's HTTP check has already failed at ~7s
+// app takes on purpose (a forced `Bun.gc(true)` every 5 minutes and SSR of a
+// large recipe) are sub-second, and Fly's HTTP check has already failed at ~7s
 // and stopped routing long before we get here. Generous enough that a slow
 // render on a throttled shared CPU can never trip it.
 const DEFAULT_STALL_THRESHOLD_MS = 60_000
@@ -110,7 +111,7 @@ export function checksFor(config: EventLoopWatchdogConfig) {
 }
 
 /**
- * Pure decision step, so the policy is testable without threads — the worker
+ * Pure decision step, so the policy is testable without threads. The worker
  * is a thin loop around this. Returns the next state plus a reason when the
  * loop has been blocked long enough to act on.
  */
@@ -140,8 +141,8 @@ export function evaluateHeartbeat(
  * Starts the heartbeat and the observing worker.
  *
  * Returns null when disabled (`EVENT_LOOP_WATCHDOG_CHECK_MS=0`, or the
- * explicit kill switch `EVENT_LOOP_WATCHDOG_ENABLED=false`) or when the worker
- * cannot start — a watchdog that fails to boot must never take the server down
+ * kill switch `EVENT_LOOP_WATCHDOG_ENABLED=false`) or when the worker
+ * cannot start. A watchdog that fails to boot must never take the server down
  * with it. Both switches exist on purpose: the first matches the contract of
  * the sibling watchdogs, the second is something you can find and set in a
  * hurry when the thing that SIGKILLs production is the thing misbehaving.
@@ -166,7 +167,7 @@ export function startEventLoopWatchdog({
 
 	// 4 bytes: a single counter, bumped by the main thread and read by the
 	// worker. Atomics because the two threads race on it by construction.
-	// Int32 wraparound is irrelevant — only *change* is ever tested.
+	// Int32 wraparound doesn't matter, since only *change* is ever tested.
 	const sharedBuffer = new SharedArrayBuffer(4)
 	const heartbeat = new Int32Array(sharedBuffer)
 

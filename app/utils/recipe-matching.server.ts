@@ -1,8 +1,8 @@
 import { type Ingredient } from '#app/generated/prisma/client.ts'
 
 /**
- * Common staple ingredients that are assumed to be available
- * These won't count against recipe matching percentage
+ * Pantry basics most kitchens already have. The Plan picker offers a line
+ * that matches one unticked.
  */
 const STAPLE_INGREDIENTS = new Set([
 	'water',
@@ -106,13 +106,13 @@ export const INGREDIENT_SYNONYMS: Record<string, string[]> = {
 		'sunflower oil',
 		'peanut oil',
 	],
-	// Soy sauces — "dark soy sauce" and "light soy sauce" are protected compounds
+	// Soy sauces: "dark soy sauce" and "light soy sauce" are protected compounds
 	// (dark/light preserved), so they normalize to themselves, not "soy sauce".
 	// tamari/shoyu are synonyms for generic "soy sauce" only.
 	'soy sauce': ['tamari', 'shoyu'],
 	tamari: ['soy sauce', 'shoyu'],
 	shoyu: ['soy sauce', 'tamari'],
-	// Proteins — bare "chicken" matches common cuts via synonyms.
+	// Proteins: bare "chicken" matches common cuts via synonyms.
 	// Specific cuts do NOT match each other (breast ≠ thigh ≠ back).
 	// Core-word matching is blocked for proteins via CUT_SENSITIVE_WORDS.
 	chicken: ['chicken breast', 'chicken thigh'],
@@ -123,10 +123,10 @@ export const INGREDIENT_SYNONYMS: Record<string, string[]> = {
 	pecorino: ['parmesan', 'parmigiano reggiano', 'grana padano'],
 	'parmigiano reggiano': ['parmesan', 'pecorino', 'grana padano'],
 	'grana padano': ['parmesan', 'pecorino', 'parmigiano reggiano'],
-	// Yogurt — "greek yogurt" normalizes to "yogurt" via modifier stripping
+	// Yogurt: "greek yogurt" normalizes to "yogurt" via modifier stripping
 	yogurt: ['greek yogurt'],
 	'greek yogurt': ['yogurt'],
-	// Sugars — "powdered sugar" and "confectioners sugar" normalize to "sugar"
+	// Sugars: "powdered sugar" and "confectioners sugar" normalize to "sugar"
 	// via modifier stripping; "icing sugar" stays as "icing sugar"
 	sugar: ['icing sugar'],
 	'icing sugar': ['sugar'],
@@ -146,10 +146,10 @@ export const INGREDIENT_SYNONYMS: Record<string, string[]> = {
 	bean: ['string bean', 'french bean'],
 	'string bean': ['bean', 'french bean'],
 	'french bean': ['bean', 'string bean'],
-	// Alliums — "small onion" normalizes to "onion" via modifier stripping
+	// Alliums: "small onion" normalizes to "onion" via modifier stripping
 	shallot: ['onion'],
 	// Don't add onion→shallot since that would make any onion match shallot
-	// Count-unit variants — "garlic cloves" normalizes to "garlic clove"
+	// Count-unit variants: "garlic cloves" normalizes to "garlic clove"
 	'garlic clove': ['garlic'],
 	garlic: ['garlic clove'],
 	'celery stalk': ['celery'],
@@ -158,7 +158,7 @@ export const INGREDIENT_SYNONYMS: Record<string, string[]> = {
 
 /**
  * Compound ingredients where color/type modifiers are part of the identity.
- * These are checked BEFORE modifier stripping — if the pre-stripped name
+ * These are checked BEFORE modifier stripping: if the pre-stripped name
  * matches, modifiers are left intact.
  */
 const PROTECTED_COMPOUNDS = new Set([
@@ -186,7 +186,7 @@ const PROTECTED_COMPOUNDS = new Set([
 	'brown rice',
 	'brown butter',
 	'brown lentil',
-	// Ground proteins — "ground" changes the product category, not just preparation
+	// Ground proteins: "ground" changes the product category, not just preparation
 	'ground chicken',
 	'ground beef',
 	'ground pork',
@@ -324,14 +324,14 @@ for (const compound of PROTECTED_COMPOUNDS) {
 	}
 }
 
-// Normalization cache — ingredient names repeat heavily across recipes.
+// Normalization cache, since ingredient names repeat heavily across recipes.
 // Bounded with FIFO eviction (same idiom as the event dedup set in
 // household-event-source.client.tsx): the key is an arbitrary user-supplied
 // ingredient name, so an unbounded cache ratchets for the life of the server
 // process. The 512MB production box has already lost two rounds to slow heap
 // growth (see server/memory-watchdog.ts), and a cache keyed on user text is
 // exactly that shape. The working set is one household's ingredient
-// vocabulary — a few hundred names — so this ceiling never evicts in practice.
+// vocabulary (a few hundred names), so this ceiling never evicts in practice.
 const NORMALIZATION_CACHE_MAX = 5000
 const normalizationCache = new Map<string, string>()
 
@@ -346,7 +346,8 @@ function cacheNormalization(name: string, normalized: string): string {
 }
 
 /**
- * Normalize ingredient name for fuzzy matching
+ * Normalize an ingredient name so spellings of one ingredient compare equal,
+ * for Shopping demand identity and the pantry-basics check:
  * - Converts to lowercase
  * - Trims whitespace
  * - Removes parenthetical notes
@@ -377,8 +378,8 @@ export function normalizeIngredientName(name: string): string {
 
 	// Handle "or" alternatives: "plain flour or all purpose flour" → "plain flour"
 	// Take the first option before "or", BUT skip when the first part is only
-	// modifiers/numbers (e.g. "large or 2 medium yellow onions" — the "or" is
-	// a quantity alternative, not an ingredient alternative).
+	// modifiers/numbers (e.g. "large or 2 medium yellow onions", where the
+	// "or" is a quantity alternative, not an ingredient alternative).
 	let hasQuantityOr = false
 	if (normalized.includes(' or ')) {
 		const firstPart = normalized.split(' or ')[0]!.trim()
@@ -410,7 +411,7 @@ export function normalizeIngredientName(name: string): string {
 	for (const variant of variants) {
 		for (const compound of PROTECTED_COMPOUNDS) {
 			if (variant === compound || variant.endsWith(' ' + compound)) {
-				// The compound's words include modifiers — protect them
+				// The compound's words include modifiers, so protect them
 				const mods = PROTECTED_COMPOUND_MODIFIERS.get(compound)
 				if (mods) {
 					for (const mod of mods) {
@@ -441,7 +442,6 @@ export function normalizeIngredientName(name: string): string {
 	// Clean up extra spaces
 	normalized = normalized.replace(/\s+/g, ' ').trim()
 
-	// Better pluralization
 	// Handle common irregular plurals
 	const irregularPlurals: Record<string, string> = {
 		tomatoes: 'tomato',
@@ -500,12 +500,12 @@ export function getCanonicalIngredientName(name: string): string {
 		}
 	}
 
-	// Sort alphabetically and return the first — gives a stable canonical key
+	// Sort alphabetically and return the first, for a stable canonical key
 	return [...equivalents].sort()[0]!
 }
 
 /**
- * Check if an ingredient is a common staple that should be ignored in matching
+ * Check if an ingredient is a pantry basic (see STAPLE_INGREDIENTS)
  */
 export function isStapleIngredient(
 	ingredient: Pick<Ingredient, 'name'>,

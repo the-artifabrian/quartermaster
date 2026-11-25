@@ -150,7 +150,7 @@ const COMMON_FRACTIONS: Array<{ value: number; display: string }> = [
  * Format a number as a human-readable amount.
  * Snaps to nearest common fraction (1/8, 1/4, 1/3, 1/2, 2/3, 3/4).
  * Returns mixed numbers for values > 1 (e.g., "1 1/2").
- * Metric units (g, kg, ml, l) are kept as decimals — "0.4 g", not "3/8 g".
+ * Metric units (g, kg, ml, l) are kept as decimals: "0.4 g", not "3/8 g".
  *
  * This is the EXACT policy: author-written and scaled amounts keep their
  * precision. Approximate density conversions use roundMetricAmount in
@@ -206,8 +206,9 @@ function snapToCommonFraction(
 
 /**
  * A range amount like "1-2", "2 to 3", or "1½–2". Ranges are honest input:
- * they scale end by end but never sum, so every caller asks this first
- * (#109, #384). parseAmount reads no range as a number.
+ * they scale end by end but never sum, so every caller asks this first.
+ * parseAmount reads no range as a number. PR #394 shows what happened when a
+ * caller didn't: "1-2 cloves garlic" reached Shopping as "1".
  */
 const RANGE_AMOUNT =
 	/^\s*(\d[\d\s.,/½⅓⅔¼¾⅛⅜⅝⅞]*?|[½⅓⅔¼¾⅛⅜⅝⅞])\s*([-–—~]|to)\s*(\d[\d\s.,/½⅓⅔¼¾⅛⅜⅝⅞]*|[½⅓⅔¼¾⅛⅜⅝⅞])\s*$/i
@@ -266,7 +267,7 @@ export type KitchenAmount = {
 	/**
 	 * True when the display was numerically rounded away from the exact scaled
 	 * value (callers prefix ≈). Fraction translations ("generous 1/2") stay
-	 * false — the qualifier word already carries the approximation.
+	 * false, since the qualifier word already carries the approximation.
 	 */
 	approximate: boolean
 	/**
@@ -314,7 +315,7 @@ function isKgOrLiter(unit: string): boolean {
  * Scale an ingredient amount for *display while cooking*: rounds to
  * quantities a kitchen can actually measure (312.5 g → ≈310 g, 5/8 tsp →
  * "generous 1/2" tsp). Author-written amounts (ratio 1) keep their exact
- * precision — kitchen rounding only smooths what scaling itself invented.
+ * precision. Kitchen rounding only smooths what scaling itself invented.
  * Shopping-list quantities keep using scaleAmount (exact policy).
  */
 export function scaleAmountKitchen(

@@ -15,7 +15,7 @@ type DensityEntry = {
 }
 
 const DENSITY_DATA: DensityEntry[] = [
-	// --- Liquids ---
+	// Liquids
 	{
 		keys: ['water'],
 		gramsPerCup: 240,
@@ -150,7 +150,7 @@ const DENSITY_DATA: DensityEntry[] = [
 		isLiquid: true,
 	},
 
-	// --- Flours & Starches ---
+	// Flours & Starches
 	{
 		keys: ['flour', 'all purpose flour', 'ap flour', 'plain flour'],
 		gramsPerCup: 120,
@@ -192,7 +192,7 @@ const DENSITY_DATA: DensityEntry[] = [
 		gramsPerCup: 120,
 	},
 
-	// --- Sugars ---
+	// Sugars
 	{
 		keys: ['sugar', 'granulated sugar', 'white sugar', 'caster sugar'],
 		gramsPerCup: 200,
@@ -211,7 +211,7 @@ const DENSITY_DATA: DensityEntry[] = [
 		gramsPerCup: 120,
 	},
 
-	// --- Fats ---
+	// Fats
 	{
 		keys: ['butter'],
 		gramsPerCup: 227,
@@ -229,7 +229,7 @@ const DENSITY_DATA: DensityEntry[] = [
 		gramsPerCup: 258,
 	},
 
-	// --- Grains & Pasta ---
+	// Grains & Pasta
 	{
 		keys: ['rice', 'white rice', 'long grain rice', 'basmati rice'],
 		gramsPerCup: 185,
@@ -255,7 +255,7 @@ const DENSITY_DATA: DensityEntry[] = [
 		gramsPerCup: 108,
 	},
 
-	// --- Nuts & Seeds ---
+	// Nuts & Seeds
 	{
 		keys: ['almond', 'sliced almond', 'slivered almond'],
 		gramsPerCup: 143,
@@ -293,7 +293,7 @@ const DENSITY_DATA: DensityEntry[] = [
 		gramsPerCup: 93,
 	},
 
-	// --- Dairy & Cheese ---
+	// Dairy & Cheese
 	{
 		keys: ['parmesan', 'parmigiano', 'grated parmesan'],
 		gramsPerCup: 100,
@@ -311,7 +311,7 @@ const DENSITY_DATA: DensityEntry[] = [
 		gramsPerCup: 246,
 	},
 
-	// --- Dried Fruit ---
+	// Dried Fruit
 	{
 		keys: ['raisin'],
 		gramsPerCup: 145,
@@ -329,7 +329,7 @@ const DENSITY_DATA: DensityEntry[] = [
 		gramsPerCup: 85,
 	},
 
-	// --- Other ---
+	// Other
 	{
 		keys: ['tomato paste'],
 		gramsPerCup: 262,

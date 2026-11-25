@@ -63,8 +63,8 @@ export const LINE_NAME_REQUIRED_MESSAGE = 'Name this line, or remove it'
 
 /**
  * An ordinary Shopping line on a note card: required name, optional free-text
- * quantity and unit — structured enough to aggregate later (#108) while
- * unresolved wording stays usable.
+ * quantity and unit. Shopping sums the amount with other lines when it
+ * parses, and shows the wording as written when it doesn't.
  */
 export const MenuShoppingLineSchema = z.object({
 	name: z
@@ -84,10 +84,10 @@ export const MenuShoppingLineSchema = z.object({
 })
 
 /**
- * One card in the builder — a Recipe card or a note card, discriminated by
+ * One card in the builder: a Recipe card or a note card, discriminated by
  * `kind` the way stored MenuItems are. One schema (with per-kind refinement)
  * rather than a union keeps conform's field metadata simple; `kind` defaults
- * to 'recipe' so pre-#102 submissions parse unchanged.
+ * to 'recipe' so a submission without it parses as a Recipe card.
  */
 const MenuBuilderItemSchema = z
 	.object({
@@ -145,7 +145,7 @@ const MenuBuilderSectionSchema = z.object({
 	/**
 	 * Optional on every section: a blank name IS the headingless unnamed
 	 * section, so naming and un-naming happen in place rather than through a
-	 * privileged durable row.
+	 * special stored row.
 	 */
 	name: MenuSectionNameSchema.optional().transform((value) =>
 		value === '' ? undefined : value,
@@ -168,7 +168,7 @@ export const MenuBuilderSchema = MenuSchema.extend({
 					message: 'A Menu can hold at most 100 Recipes and notes',
 				})
 			}
-			// Two headingless blocks would read as one — the first blank name
+			// Two headingless blocks would read as one. The first blank name
 			// is the unnamed section, any further blank needs a name.
 			const unnamedIndexes = sections.flatMap((section, index) =>
 				section.name == null ? [index] : [],
@@ -184,7 +184,7 @@ export const MenuBuilderSchema = MenuSchema.extend({
 		.optional(),
 })
 
-/** The builder form's pre-parse shape — what conform renders and submits. */
+/** The builder form's pre-parse shape: what conform renders and submits. */
 export type MenuBuilderInput = z.input<typeof MenuBuilderSchema>
 export type MenuSectionInput = NonNullable<MenuBuilderInput['sections']>[number]
 export type MenuItemInput = NonNullable<MenuSectionInput['items']>[number]
@@ -201,7 +201,7 @@ export function formatScaleMultiplier(value: number) {
 }
 
 /**
- * True for Prisma's unique-constraint error (P2002) — the shape both menu
+ * True for Prisma's unique-constraint error (P2002), the shape both menu
  * actions catch to turn a `householdId`+`titleKey` collision into a friendly
  * field error instead of a 500.
  */

@@ -16,7 +16,7 @@ let switchMounted = false
 
 /**
  * List-local switch between the Recipes and Menus libraries. Both live in the
- * global Recipes destination — this is a pair of route links, not a tab
+ * global Recipes destination, so this is a pair of route links, not a tab
  * system.
  */
 export function LibrarySwitch({ active }: { active: Library }) {

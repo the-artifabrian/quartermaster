@@ -2,7 +2,7 @@ import { useFetcher } from 'react-router'
 import { householdIngredientKey } from '#app/utils/household-ingredient.ts'
 import { Chip } from './ui/chip.tsx'
 
-/** Things most households keep; the first Staples are a tap each (#351). */
+/** Things most households keep; the first Staples are a tap each. */
 export const SUGGESTED_STAPLES = [
 	'salt',
 	'pepper',

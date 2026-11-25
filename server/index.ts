@@ -40,12 +40,11 @@ app.use(httpsRedirect())
 
 // SSR requests grow the JSC heap ~1KB each and Bun never collects it on a
 // mostly-idle box, so traffic can creep the process into swap over weeks.
-// Explicit periodic GC keeps the heap bounded for every request path.
-// BUN_GC_INTERVAL_MS=0
-// disables it; any other unusable value falls back to the default rather than
-// silently disabling the mitigation — and must never reach setInterval, which
-// clamps fractional or >2^31-1 inputs to ~1ms (a synchronous full GC that
-// often would peg the CPU).
+// A forced GC on a timer keeps the heap bounded for every request path.
+// BUN_GC_INTERVAL_MS=0 disables it. Any other unusable value falls back to
+// the default rather than silently turning it off, and must never reach
+// setInterval, which clamps fractional or >2^31-1 inputs to ~1ms (a
+// synchronous full GC that often would peg the CPU).
 const bunGc = (globalThis as { Bun?: { gc?: (force: boolean) => void } }).Bun
 	?.gc
 const GC_INTERVAL_DEFAULT_MS = 5 * 60 * 1000
@@ -66,14 +65,14 @@ if (typeof bunGc === 'function' && gcIntervalMs > 0) {
 }
 
 // Periodic GC bounds collectable heap growth; the watchdog handles what GC
-// can't — rooted leaks and external pressure — by restarting the machine
+// can't (rooted leaks and external pressure) by restarting the machine
 // before the box starts thrashing (Fly restarts on non-zero exit; policy
 // pinned in fly.toml). Prod-only: a low-memory Linux dev box should never
 // have its dev server killed.
 if (IS_PROD) {
 	startMemoryWatchdog({ gc: bunGc })
 	// The memory watchdog samples from a timer on the main event loop, so it is
-	// blind to a wedged loop — the 2026-09-11 outage, where CPU-bound work in a
+	// blind to a wedged loop: the 2026-09-11 outage, where CPU-bound work in a
 	// request handler blocked every subsequent request for ninety minutes while
 	// memory stayed healthy. This one observes from a worker thread.
 	startEventLoopWatchdog()
@@ -186,8 +185,8 @@ if (IS_DEV) {
 		}),
 	)
 	app.use(viteDevServer.middlewares)
-	// Vite's middleware should serve public/ files, but as a fallback
-	// explicitly serve favicons so the webmanifest icons resolve correctly.
+	// Vite's middleware should serve public/ files, but as a fallback serve
+	// favicons here too, so the webmanifest icons resolve.
 	app.use('/favicons', express.static('public/favicons'))
 	// An image Vite didn't serve is missing: answer 404 without running the app.
 	app.get([/^\/img\/.*/], (_req, res) => {

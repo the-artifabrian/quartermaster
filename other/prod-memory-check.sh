@@ -32,7 +32,7 @@ query_mb() {
 }
 
 # An empty result after retries is itself an alert: app gone, metrics broken,
-# or the token expired — all states where this monitor is blind and must say so.
+# or the token expired. In each of those this monitor is blind and must say so.
 avail_mb=$(query_mb "fly_instance_memory_mem_available{app=\"$APP\"}") || {
 	echo "::error::No mem_available datapoint for $APP after 3 tries — app down, metrics broken, or FLY_METRICS_TOKEN expired"
 	exit 1

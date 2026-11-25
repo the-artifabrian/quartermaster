@@ -3,7 +3,7 @@ import { parseDate } from '#app/utils/date.ts'
 import { ScaleMultiplierSchema } from '#app/utils/menu-validation.ts'
 import { isValidTimeZone } from '#app/utils/serving-time.ts'
 
-/** The familiar labels a Meal can carry. Optional everywhere (#98): a Meal
+/** The familiar labels a Meal can carry. Optional everywhere: a Meal
  * without one renders compact and unlabeled. */
 export const MealLabelSchema = z.enum(['breakfast', 'lunch', 'dinner', 'snack'])
 
@@ -48,7 +48,7 @@ export const AddTextMealSchema = z.object({
 		}),
 })
 
-// Real clock times only — Date.UTC would silently roll "39:99" over
+// Real clock times only. Date.UTC would silently roll "39:99" over
 // into later days, storing a servingAt off the Meal's semantic date.
 const ServingTimeSchema = z
 	.string()
@@ -91,9 +91,9 @@ export const MealDetailsSchema = z
 	)
 
 /**
- * Add to Plan from Menu detail (#107): a date plus optional label, serving
- * time, and guest count. Guest count is planning context only — the snapshot
- * copies the Menu's multipliers unchanged regardless of it.
+ * Add to Plan from Menu detail: a date plus optional label, serving time,
+ * and guest count. Guest count is planning context only. The snapshot copies
+ * the Menu's multipliers unchanged whatever it says.
  */
 export const PlanMenuSchema = z
 	.object({

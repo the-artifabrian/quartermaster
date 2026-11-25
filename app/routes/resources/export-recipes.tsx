@@ -52,7 +52,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	})
 
 	// Export-local reference keys, as in the full export: an ingredient's
-	// sub-Recipe link names the linked Recipe's ref, never a database id (#311).
+	// sub-Recipe link names the linked Recipe's ref, never a database id.
 	const recipeRefById = new Map(
 		recipes.map((recipe, index) => [recipe.id, `r${index + 1}`]),
 	)

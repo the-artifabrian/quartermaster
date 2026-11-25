@@ -43,7 +43,7 @@ export async function requireUserWithHousehold(request: Request) {
 
 		return { userId, householdId: household.id, role: 'owner' }
 	} catch {
-		// Another concurrent request likely created the household — re-query
+		// Another concurrent request likely created the household, so re-query
 		const retryMember = await prisma.householdMember.findFirstOrThrow({
 			where: { userId },
 			select: { householdId: true, role: true },
@@ -220,12 +220,12 @@ export async function acceptInvite(
 				})
 				targetIngredientKeys.add(ingredient.canonicalKey)
 			}
-			// Week plans move whole (#106): a non-colliding week just changes
-			// household; a colliding week re-parents its Meals into the target
-			// plan, appended after each day's existing Meals — like import does —
-			// so nothing is merged away and no cooked state or multiplier is
+			// Week plans move whole: a non-colliding week just changes household;
+			// a colliding week re-parents its Meals into the target plan, appended
+			// after each day's existing Meals (as a restore does), so nothing is
+			// merged away and no cooked state or multiplier is
 			// second-guessed. Week matching happens in JS because raw SQL equality
-			// on `weekStart` is unsound across the column's two storage eras
+			// on `weekStart` is unsound across the column's two storage formats
 			// (INTEGER epoch-ms vs TEXT ISO); Prisma reads both correctly.
 			const [sourcePlans, targetPlans] = await Promise.all([
 				tx.mealPlan.findMany({

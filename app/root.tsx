@@ -143,7 +143,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 		desc: 'getUserId in root',
 	})
 
-	// These lookups are independent of each other — run them concurrently.
+	// These lookups are independent of each other, so run them concurrently.
 	// This loader runs on every forced revalidation, so its latency is
 	// navigation latency. getUserId has already logged out an expired session,
 	// so the refresh only ever extends a live one.
@@ -242,7 +242,7 @@ export async function loader({ request }: Route.LoaderArgs) {
  *   useRevalidator), and successful form submissions.
  *
  * Skip when:
- * - Search params change on the same page (filters, pagination) — root data
+ * - Search params change on the same page (filters, pagination): root data
  *   doesn't depend on them.
  * - The router says so: a link that opts out, and after a failed (4xx)
  *   action, so a validation error doesn't re-run the root queries.
@@ -265,10 +265,10 @@ export function shouldRevalidate({
 	// tap that interrupts it is a navigation and follows the rules below.
 	if (isTabRetry() && currentUrl.href === nextUrl.href) return false
 
-	// A toast is waiting — never skip, whatever shape the navigation takes.
+	// A toast is waiting: never skip, whatever shape the navigation takes.
 	if (hasPendingToastCookie()) return true
 
-	// Search params changed on the same page (filters, pagination) — root data
+	// Search params changed on the same page (filters, pagination). Root data
 	// doesn't depend on them, so skip even though the router defaults to true.
 	// A pending toast can't be stranded here: it would have hit the marker
 	// check above.

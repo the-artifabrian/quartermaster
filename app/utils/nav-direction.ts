@@ -116,6 +116,7 @@ function trackViewTransitions() {
 		const transition = start(update)
 		activeTransition = transition
 		void transition.finished
+			// Rejects only when the update callback fails; clean up either way.
 			.catch(() => {})
 			.then(() => {
 				if (activeTransition !== transition) return

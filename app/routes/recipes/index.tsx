@@ -56,11 +56,11 @@ type SortOption = (typeof SORT_OPTIONS)[number]['value']
 export async function loader({ request }: Route.LoaderArgs) {
 	const { householdId } = await requireUserWithHousehold(request)
 	const url = new URL(request.url)
-	// Trim so a whitespace-only query counts as "no search" — otherwise it is
+	// Trim so a whitespace-only query counts as "no search". Otherwise it is
 	// truthy for hasFilters/UI but produces no filter terms.
 	const search = url.searchParams.get('search')?.trim() ?? ''
-	// Unknown values (e.g. removed sorts like 'most-cooked' in stale bookmarks
-	// or PWA-restored URLs) count as "no explicit sort".
+	// Unknown values (e.g. a sort like 'most-cooked' from an old bookmark or a
+	// restored URL) count as no sort.
 	const rawSort = url.searchParams.get('sort')
 	const explicitSort = SORT_OPTIONS.some((o) => o.value === rawSort)
 		? (rawSort as SortOption)
@@ -427,13 +427,12 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
-			{/* Page Header */}
 			<div>
 				<TitleRow className="container-grid py-3 md:py-4">
 					<h1 className="font-serif text-2xl font-normal">
 						Recipes{' '}
 						<span className="text-muted-foreground text-base font-normal">
-							{/* While searching/filtering, the count says what you see (B2) */}
+							{/* While searching or filtering, the count says what you see. */}
 							{hasFilters && displayRecipes.length !== totalRecipeCount
 								? `(${displayRecipes.length} of ${totalRecipeCount})`
 								: `(${totalRecipeCount})`}
@@ -476,9 +475,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 			<div className="container-grid py-4">
 				<LibrarySwitch active="recipes" />
 
-				{/* Search & Filters */}
 				<div className="mb-3 space-y-1.5">
-					{/* Search bar + mobile filter toggle */}
 					<div className="flex items-center gap-2">
 						<div className="relative flex-1">
 							<Icon
@@ -522,7 +519,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						</button>
 					</div>
 
-					{/* Filter controls — collapsible on mobile, always visible on desktop */}
 					<div
 						className={cn(
 							'flex-wrap items-center gap-1.5 md:flex',
@@ -624,7 +620,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 
 				<GettingStartedChecklist onboarding={onboarding} />
 
-				{/* Recipe Grid */}
 				{displayRecipes.length > 0 ? (
 					<RecipeCardGrid>
 						{displayRecipes.map((recipe) => (

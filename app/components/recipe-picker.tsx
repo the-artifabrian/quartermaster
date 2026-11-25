@@ -27,7 +27,7 @@ export type RecipePickerRecipe = {
 
 type RecipePickerProps = {
 	recipes: RecipePickerRecipe[]
-	/** Recipes already on the menu — hidden so a Recipe appears only once. */
+	/** Recipes already on the menu, hidden so a Recipe appears only once. */
 	excludeRecipeIds?: string[]
 	/** Called with the chosen Recipe; the picker closes itself afterwards. */
 	onPick: (recipe: RecipePickerRecipe) => void
@@ -38,7 +38,7 @@ type RecipePickerProps = {
 /**
  * Callback-based household Recipe picker for the Menu builder: an efficient
  * popover on desktop, a touch-friendly bottom sheet on phone. Deliberately not
- * coupled to Plan — it only reports the picked Recipe to its caller.
+ * coupled to Plan: it only reports the picked Recipe to its caller.
  */
 export function RecipePicker({
 	recipes,

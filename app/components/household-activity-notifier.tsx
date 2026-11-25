@@ -8,8 +8,8 @@ import {
 import { subscribeToHouseholdEvents } from '#app/utils/household-event-source.client.tsx'
 import { useOptionalUser } from '#app/utils/user.ts'
 
-// Events that land together — a catch-up poll on resume returns up to 50, and
-// a reconnect replays the gap — are collected over this window and toasted as
+// Events that land together (a catch-up poll on resume returns up to 50, and
+// a reconnect replays the gap) are collected over this window and toasted as
 // one batch, so a resume can't drip 50 toasts over the content.
 const BATCH_WINDOW_MS = 300
 

@@ -21,7 +21,6 @@ import { cn } from '#app/utils/misc.tsx'
 import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
 
 import { type SharedRecipe } from '#app/utils/share-menu.server.ts'
-// --- Main component ---
 
 export function SharedRecipeView({
 	loaderData,
@@ -60,7 +59,7 @@ export function SharedRecipeView({
 	function updateScaleMultiplier(scaleMultiplier: number) {
 		setSearchParams(
 			(prev) => {
-				// Drop retired quantity parameters whenever an interaction writes the
+				// Drop the old `servings` parameter whenever an interaction writes the
 				// canonical multiplier URL.
 				prev.delete('servings')
 				if (scaleMultiplier === 1 && !menuContext) {
@@ -131,7 +130,6 @@ export function SharedRecipeView({
 					</Link>
 				</p>
 
-				{/* Title + Image layout */}
 				<div className="flex flex-col md:flex-row md:items-start md:gap-8">
 					<div className="min-w-0 flex-1">
 						<h1 className="font-serif text-[2rem] leading-[1.15] font-normal tracking-[-0.02em]">
@@ -147,7 +145,6 @@ export function SharedRecipeView({
 						/>
 					</div>
 
-					{/* Image: full-bleed above the title on mobile, side column on desktop */}
 					{recipe.image && (
 						<div className="order-first -mx-4 mb-5 shrink-0 sm:-mx-8 md:order-none md:mx-0 md:mb-0 md:w-[45%] lg:w-100">
 							<Img
@@ -159,16 +156,13 @@ export function SharedRecipeView({
 						</div>
 					)}
 				</div>
-				{/* Description */}
 				{recipe.description && (
 					<p className="text-muted-foreground mt-5 text-base leading-relaxed text-pretty">
 						{recipe.description}
 					</p>
 				)}
 
-				{/* Content zone: Ingredients + Instructions */}
 				<div className="mt-4 grid gap-5 md:mt-8 lg:grid-cols-[6fr_7fr] lg:gap-6">
-					{/* Ingredients */}
 					{/* Under the header: a demo's banner makes it taller (DemoBanner). */}
 					<div className="min-w-0 lg:sticky lg:top-[calc(5rem+var(--demo-banner-h,0px))] lg:self-start">
 						<div>
@@ -198,7 +192,6 @@ export function SharedRecipeView({
 						</div>
 					</div>
 
-					{/* Instructions */}
 					<RecipeInstructionsList
 						instructions={recipe.instructions}
 						checkedSteps={checkedSteps}
@@ -206,7 +199,6 @@ export function SharedRecipeView({
 					/>
 				</div>
 
-				{/* Save / Sign-up CTA */}
 				{menuContext ? (
 					<div className="mt-10">
 						<Button asChild>

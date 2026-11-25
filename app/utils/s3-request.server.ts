@@ -7,7 +7,7 @@ import { createHash, createHmac } from 'node:crypto'
  * copy of the crypto.
  *
  * Every request is signed with `UNSIGNED-PAYLOAD`, so bodies never have to be
- * buffered to hash them — the payload is still protected by TLS, just not by
+ * buffered to hash them. The payload is still protected by TLS, just not by
  * the signature.
  */
 

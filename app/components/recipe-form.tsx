@@ -264,6 +264,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 		rowsSeen.current = [ingredients, instructions]
 		if (!seen || (seen[0] === ingredients && seen[1] === instructions)) return
 		if (rowsHadErrors.current) form.validate()
+		// Only a change to the rows runs it; form is read, not watched.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [ingredients, instructions])
 
@@ -350,7 +351,6 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 						: 'This Recipe won’t be saved.'
 				}
 			/>
-			{/* Form-level errors */}
 			{form.errors && form.errors.length > 0 && (
 				<div className="border-destructive bg-destructive/5 rounded-lg border p-4">
 					<ErrorList errors={form.errors} id={form.errorId} focusable />
@@ -366,7 +366,6 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 				errors={fields.title.errors}
 			/>
 
-			{/* Ingredients Section */}
 			<FormSection
 				title="Ingredients"
 				summary={(() => {
@@ -432,7 +431,6 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 					</datalist>
 				</div>
 			</FormSection>
-			{/* Hidden inputs for ingredients */}
 			{ingredients.map((ingredient, index) => (
 				<div key={ingredient.id ?? index}>
 					{ingredient.id && (
@@ -477,7 +475,6 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 				</div>
 			))}
 
-			{/* Instructions Section */}
 			<FormSection
 				title="Instructions"
 				summary={(() => {
@@ -494,7 +491,6 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 					rowErrors={instructionErrors.rows}
 				/>
 			</FormSection>
-			{/* Hidden inputs for instructions */}
 			{instructions.map((instruction, index) => (
 				<div key={instruction.id ?? index}>
 					{instruction.id && (
@@ -512,7 +508,6 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 				</div>
 			))}
 
-			{/* Photo Section */}
 			<FormSection
 				title="Photo"
 				summary={imagePreview ? 'Has photo' : 'No photo'}
@@ -559,7 +554,6 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 				</div>
 			</FormSection>
 
-			{/* Details Section */}
 			<FormSection title="Details" summary="Optional">
 				<div className="space-y-4">
 					<TextareaField

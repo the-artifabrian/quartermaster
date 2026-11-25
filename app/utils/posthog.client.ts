@@ -149,7 +149,7 @@ export function initializePostHog({
 			mask_all_text: false,
 			capture_exceptions: true,
 			// Outlook SafeLinks scanners execute the page in an embedded browser and
-			// throw "Object Not Found Matching Id:N, MethodName:update" — pure bot
+			// throw "Object Not Found Matching Id:N, MethodName:update". That is bot
 			// noise (each Id:N gets its own error-tracking issue), so never send it.
 			before_send: (event) => {
 				if (
@@ -171,8 +171,9 @@ export function initializePostHog({
 				}),
 			},
 			// Built-in performance capture: Core Web Vitals (incl. INP) as standalone
-			// events, plus resource/network timing attached to session replay — gives
-			// the `.data` fetch TTFB/download split without custom instrumentation.
+			// events, plus resource/network timing attached to session replay. That
+			// gives the `.data` fetch TTFB/download split without custom
+			// instrumentation.
 			capture_performance: { web_vitals: true, network_timing: true },
 		})
 	}

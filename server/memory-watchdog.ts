@@ -4,9 +4,9 @@ import { shutdownPostHog } from '../app/utils/posthog.server.ts'
 // Last line of defense against slow memory leaks on the 512MB Fly box: two
 // separate leaks (SSR heap ratchet, zombie SSE streams) each took prod from
 // healthy to page-cache thrash over days, and Fly's health checks only stop
-// routing — they never restart the machine. The watchdog samples memory and,
+// routing; they never restart the machine. The watchdog samples memory and,
 // on a sustained breach that a forced full GC can't fix, exits non-zero so
-// Fly's `on-failure` restart policy reboots us in seconds — a blip instead of
+// Fly's `on-failure` restart policy reboots us in seconds: a blip instead of
 // a multi-hour crawl.
 //
 // Two independent breach conditions, because they see different failure
@@ -20,7 +20,7 @@ const DEFAULT_MAX_SWAP_MB = 250
 // Consecutive breaching samples (each surviving a forced GC) before exiting:
 // 3 × 30s means a transient allocation spike never kills the process.
 const BREACHES_BEFORE_EXIT = 3
-// Samples to skip after boot — migrations, LiteFS sync, and first renders
+// Samples to skip after boot. Migrations, LiteFS sync, and first renders
 // make early memory numbers unrepresentative, and the grace also bounds a
 // worst-case restart loop to one reboot per ~7 minutes with the app serving
 // in between.
@@ -70,7 +70,7 @@ export function parseProcStatus(status: string): {
 
 /**
  * Returns a human-readable breach reason, or null if the sample is healthy.
- * Unreadable fields (null) never count as a breach — a broken /proc read must
+ * Unreadable fields (null) never count as a breach: a broken /proc read must
  * not be able to kill the process.
  */
 export function breachReason(
@@ -142,14 +142,14 @@ function readProcSample(): MemorySample {
 			fs.readFileSync('/proc/meminfo', 'utf8'),
 		)
 	} catch {
-		// Leave null — never breach on a failed read
+		// Leave null: never breach on a failed read
 	}
 	try {
 		const status = parseProcStatus(fs.readFileSync('/proc/self/status', 'utf8'))
 		vmSwapMb = status.vmSwapMb
 		vmRssMb = status.vmRssMb
 	} catch {
-		// Leave null — never breach on a failed read
+		// Leave null: never breach on a failed read
 	}
 	return { memAvailableMb, vmSwapMb, vmRssMb }
 }
@@ -189,7 +189,7 @@ export function startMemoryWatchdog({
 		return null
 	}
 	if (readSample === readProcSample && !fs.existsSync('/proc/meminfo')) {
-		// Not a Linux box (local dev on macOS) — nothing to watch. An injected
+		// Not a Linux box (local dev on macOS), so nothing to watch. An injected
 		// sampler (tests) doesn't need /proc.
 		return null
 	}
@@ -210,7 +210,7 @@ export function startMemoryWatchdog({
 		if (samples <= GRACE_SAMPLES) return
 		let reason = breachReason(sample, config)
 		if (reason !== null && gc) {
-			// Give a collectable heap one chance before the breach counts — only
+			// Give a collectable heap one chance before the breach counts. Only
 			// rooted memory (a real leak) or external pressure survives a full GC.
 			gc(true)
 			sample = readSample()

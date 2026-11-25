@@ -257,8 +257,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	if (intent === 'toggleFavorite') {
 		// The tap says which state it wants, so two taps, or two people,
-		// can't cancel out. A page loaded before taps said so sends nothing,
-		// and flips it as it used to.
+		// can't cancel out. A tab from an older build sends nothing, and then
+		// the tap flips it.
 		const wanted = formData.get('isFavorite')
 		invariantResponse(
 			wanted === null || wanted === 'true' || wanted === 'false',
@@ -511,8 +511,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		setUseMetric(localStorage.getItem('qm-use-metric') === 'true')
 	}, [])
 
-	// Keep the screen awake while the recipe is open — cooking with wet hands is
-	// the primary context; don't make the cook unlock the phone mid-step.
+	// Keep the screen awake while the recipe is open. People cook with wet
+	// hands, so don't make the cook unlock the phone mid-step.
 	// (Effect-gated so SSR and the keep-awake preference are respected.)
 	const [keepAwake, setKeepAwake] = useState(false)
 	useEffect(() => {
@@ -520,7 +520,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	}, [])
 	useWakeLock(keepAwake)
 
-	// Add-to-plan popover state
 	const navigate = useNavigate()
 	const [planPickerOpen, setPlanPickerOpen] = useState(false)
 	// A phone gets the picker as a bottom sheet, like every other picker in
@@ -617,8 +616,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			const where = label ? `${dayLabel} ${MEAL_TYPE_LABELS[label]}` : dayLabel
 			const meal = planFetcher.data.meal
 			if (meal && !meal.created) {
-				// The Meal that already holds this Recipe keeps its own multiplier
-				// — name it, and point at the Meal to change it there (#236).
+				// The Meal that already holds this Recipe keeps its own multiplier,
+				// so name it, and point at the Meal to change it there.
 				toast.info('Already planned', {
 					description: `${where} · ${formatScaleMultiplier(meal.scaleMultiplier)}×`,
 					duration: 8000,
@@ -644,8 +643,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		formData.set('date', planDate)
 		if (planMealType) formData.set('label', planMealType)
 		formData.set('recipeId', recipe.id)
-		// The friendly target/multiplier control is only a view of the deterministic
-		// stored quantity basis used by Menu, Meal, Shopping, and future costing.
+		// The target/multiplier control is only a view of the stored multiplier
+		// that Menu, Meal and Shopping use.
 		if (ratio !== 1) {
 			formData.set('multiplier', formatScaleMultiplier(ratio))
 		}
@@ -812,7 +811,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						onDismiss={() => setImported(null)}
 					/>
 				) : null}
-				{/* Hero: Title + Image */}
 				<div className="flex flex-col md:flex-row md:items-start md:gap-8">
 					<div className="min-w-0 flex-1">
 						<h1 className="font-serif text-[2rem] leading-[1.15] font-normal tracking-[-0.02em]">
@@ -828,7 +826,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						/>
 					</div>
 
-					{/* Image: full-bleed above the title on mobile, side column on desktop */}
 					{recipe.image && (
 						<div className="order-first -mx-4 -mt-4 mb-5 shrink-0 sm:-mx-8 md:order-none md:mx-0 md:my-0 md:w-[45%] lg:w-100 print:hidden">
 							<Img
@@ -843,14 +840,12 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						</div>
 					)}
 				</div>
-				{/* Description */}
 				{recipe.description && (
 					<p className="text-muted-foreground mt-5 text-base leading-relaxed text-pretty">
 						{recipe.description}
 					</p>
 				)}
 
-				{/* Action bar */}
 				<Popover
 					open={planPickerOpen && !planPickerAsSheet}
 					onOpenChange={setPlanPickerOpen}
@@ -901,9 +896,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				    stays compact and Ingredients start within the first screen. */}
 				{recipe.notes && <RecipeNotes notes={recipe.notes} className="mt-4" />}
 
-				{/* Content zone: Ingredients + Instructions */}
 				<div className="mt-4 grid gap-5 md:mt-8 lg:grid-cols-[6fr_7fr] lg:gap-6 print:grid-cols-1 print:gap-4">
-					{/* Ingredients - sticky on desktop, interactive checkboxes */}
 					<div className="min-w-0 lg:sticky lg:top-[calc(var(--nav-bar-bottom,4rem)+1rem)] lg:self-start print:static">
 						<div className="print:p-2">
 							<div ref={ingredientsHeaderRef}>
@@ -936,7 +929,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						</div>
 					</div>
 
-					{/* Instructions - interactive crossable steps */}
 					<div className="min-w-0">
 						<RecipeInstructionsList
 							instructions={recipe.instructions}
@@ -948,7 +940,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				</div>
 
 				{/* Ingredients at hand while deep in the steps (mobile only).
-				    Hidden once every step is checked — the cook is done. */}
+				    Hidden once every step is checked, since the cook is done. */}
 				<RecipeIngredientsSheet
 					visible={ingredientsPassed && !allStepsChecked}
 					checkedCount={checkedIngredientCount}
@@ -961,7 +953,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					useMetric={useMetric}
 				/>
 
-				{/* Print-only source URL footer */}
 				{recipe.sourceUrl && (
 					<p className="mt-8 hidden text-xs text-gray-500 print:block">
 						Source: {recipe.sourceUrl}

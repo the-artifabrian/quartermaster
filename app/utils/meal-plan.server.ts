@@ -16,7 +16,7 @@ export async function ensureMealPlan(
 		weekStart: Date
 	},
 ) {
-	// Current-format row first — what the unique index can see.
+	// Current-format row first, which the unique index can see.
 	const direct = await db.mealPlan.findUnique({
 		where: { householdId_weekStart: { householdId, weekStart } },
 	})
@@ -24,10 +24,10 @@ export async function ensureMealPlan(
 
 	// `weekStart` values span two storage eras (INTEGER epoch-ms and TEXT
 	// ISO), and neither the unique index nor a raw comparison can equate the
-	// two formats — inserting here for a week stored in the old era would
-	// silently create a duplicate plan and hide its Meals (found in #106 via
-	// an import round-trip against real data). Prisma reads both formats
-	// correctly, so match the semantic instant in JS.
+	// two formats. Inserting here for a week stored in the old format would
+	// silently create a duplicate plan and hide its Meals (found in PR #152
+	// when an import round-trip ran against real data). Prisma reads both
+	// formats correctly, so match the semantic instant in JS.
 	const semantic = (
 		await db.mealPlan.findMany({ where: { householdId } })
 	).filter((plan) => plan.weekStart.getTime() === weekStart.getTime())

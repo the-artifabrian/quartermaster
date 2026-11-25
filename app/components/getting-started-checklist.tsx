@@ -73,7 +73,6 @@ export function GettingStartedChecklist({
 
 	return (
 		<div className="bg-muted/40 mb-6 rounded-lg p-5">
-			{/* Header */}
 			<div className="mb-4 flex items-center justify-between">
 				<div>
 					<h2 className="font-serif text-lg">Getting started</h2>
@@ -91,7 +90,6 @@ export function GettingStartedChecklist({
 				</button>
 			</div>
 
-			{/* Progress bar */}
 			<div className="bg-muted mb-4 h-1.5 overflow-hidden rounded-full">
 				<div
 					className="bg-primary h-full rounded-full transition-[width] duration-500 ease-out"
@@ -99,7 +97,6 @@ export function GettingStartedChecklist({
 				/>
 			</div>
 
-			{/* Steps */}
 			<div className="space-y-2">
 				{steps.map((step) => (
 					<div

@@ -62,7 +62,7 @@ export const ALLOWED_IMAGE_MEDIA_TYPES = [
 ] as const
 
 /**
- * A household's own value names, per dimension — the only Cuisine, Season and
+ * A household's own value names, per dimension: the only Cuisine, Season and
  * Course values an extraction is allowed to come back with. The prompt states
  * them; `matchVocabulary` below is what makes that binding.
  */
@@ -231,10 +231,10 @@ function matchVocabulary(
 }
 
 /**
- * The shape the provider constrains the response to. It settles the types the
- * prompt used to only ask for — a time arrives as a whole number of minutes or
- * not at all — while every trim and coercion stays in the Zod schema
- * above, which structured outputs cannot express.
+ * The shape the provider constrains the response to. It fixes the types
+ * (a time arrives as a whole number of minutes or not at all), while every
+ * trim and coercion stays in the Zod schema above, which structured outputs
+ * cannot express.
  */
 const EXTRACT_JSON_SCHEMA: JsonSchema = {
 	anyOf: [
@@ -474,9 +474,9 @@ export async function extractRecipeFromText(
 }
 
 // Claude accepts up to 1568px on the long edge before it downsamples on its
-// own, so anything smaller only throws away recipe text: a 1170×2532 phone
-// screenshot used to arrive at 473×1024. Quality 88 keeps small type legible
-// at a size the request can still carry.
+// own, so anything smaller only throws away recipe text: capped at 1024px,
+// a 1170×2532 phone screenshot arrives at 473×1024. Quality 88 keeps small
+// type legible at a size the request can still carry.
 const IMAGE_MAX_DIMENSION = 1568
 const IMAGE_JPEG_QUALITY = 88
 

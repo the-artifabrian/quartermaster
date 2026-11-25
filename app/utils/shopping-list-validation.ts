@@ -90,7 +90,7 @@ export function guessCategory(ingredientName: string): string {
 	if (name.match(/bread|bun|roll|bagel|tortilla|pita/)) {
 		return 'bakery'
 	}
-	// Household check before pantry — "toilet" contains "oil" which would
+	// Household check before pantry: "toilet" contains "oil", which would
 	// otherwise match the pantry pattern.
 	if (
 		name.match(

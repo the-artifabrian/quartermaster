@@ -3,7 +3,7 @@ type EventPayload = Record<string, unknown>
 /**
  * Above this many events in one burst we collapse to a single summary toast.
  * A burst that big means catch-up (returning to the app after a while, or a
- * reconnect), not something the user can read one line at a time — and sonner
+ * reconnect), not something the user can read one line at a time, and sonner
  * only renders 3 toasts at once, so the rest would drip over the content for
  * a minute.
  */
@@ -24,7 +24,7 @@ export function formatEventBatch(
 	)
 	if (formatted.length <= MAX_INDIVIDUAL_TOASTS) return formatted
 
-	// Only offer "View" when every event points at the same place — otherwise
+	// Only offer "View" when every event points at the same place. Otherwise
 	// the link would be arbitrary.
 	const [first, ...rest] = formatted
 	const sharedUrl =

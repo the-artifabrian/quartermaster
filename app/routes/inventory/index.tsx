@@ -170,8 +170,8 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 	}
 
-	// An intent this page no longer sends, such as an old tab's remove-staple
-	// from before Undo (it goes to resources/undo-delete now).
+	// An intent this page doesn't send, such as remove-staple from a tab
+	// opened before Undo (it goes to resources/undo-delete).
 	return data({ status: 'error' as const }, { status: 400 })
 }
 

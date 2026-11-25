@@ -39,7 +39,6 @@ export function RecipeCard({
 			viewTransition
 			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-accent/30 md:active:bg-card flex flex-row items-center gap-3.5 px-4 py-3 transition-colors sm:px-8 md:flex-col md:items-stretch md:gap-0 md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-colors md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
 		>
-			{/* Image / Placeholder — thumbnail on mobile, full-width on desktop */}
 			<div
 				data-recipe-image-transition={
 					isTransitioning && imageObjectKey ? '' : undefined
@@ -51,7 +50,6 @@ export function RecipeCard({
 						: 'flex size-16 md:h-28 md:w-full',
 				)}
 			>
-				{/* Desktop badges overlay */}
 				<div className="absolute top-2 right-2 z-10 hidden items-center gap-1 md:flex">
 					{isFavorite && (
 						<Icon
@@ -88,7 +86,6 @@ export function RecipeCard({
 				)}
 			</div>
 
-			{/* Content */}
 			<div
 				className={cn(
 					'flex min-w-0 flex-1 flex-col justify-center md:justify-start',
@@ -99,7 +96,6 @@ export function RecipeCard({
 					<h3 className="min-w-0 font-serif text-[17px] leading-[1.4] md:text-base md:leading-[1.3] md:tracking-[-0.005em]">
 						<span className="line-clamp-2">{title}</span>
 					</h3>
-					{/* Mobile-only inline favorite */}
 					{isFavorite && (
 						<span className="shrink-0 md:hidden">
 							<Icon name="heart-filled" className="text-accent size-3.5" />
@@ -107,7 +103,6 @@ export function RecipeCard({
 					)}
 				</div>
 
-				{/* Mobile meta */}
 				{(totalTime != null || showUnknownTime) && (
 					<div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-[13px] md:hidden">
 						<span className="flex items-center gap-1">
@@ -117,7 +112,6 @@ export function RecipeCard({
 					</div>
 				)}
 
-				{/* Description — desktop only */}
 				{description && (
 					<p
 						className={cn(
@@ -129,7 +123,6 @@ export function RecipeCard({
 					</p>
 				)}
 
-				{/* Desktop meta */}
 				<div className="mt-auto hidden items-center gap-3 pt-2 md:flex">
 					{(totalTime != null || showUnknownTime) && (
 						<span className="text-muted-foreground flex items-center gap-1 text-xs">

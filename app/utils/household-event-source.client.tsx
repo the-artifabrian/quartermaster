@@ -16,7 +16,7 @@ const listeners = new Set<EventCallback>()
 const seenEventIds: Set<string> = new Set()
 const SEEN_IDS_MAX = 500
 
-// Cursor for polling — updated on every event received from either source
+// Cursor for polling, updated on every event received from either source
 let lastSeenTimestamp: string | null = null
 
 function addSeenId(id: string) {
@@ -32,7 +32,6 @@ function broadcast(event: HouseholdEventData) {
 	if (seenEventIds.has(event.id)) return
 	addSeenId(event.id)
 
-	// Advance cursor
 	if (!lastSeenTimestamp || event.createdAt > lastSeenTimestamp) {
 		lastSeenTimestamp = event.createdAt
 	}
@@ -55,7 +54,7 @@ async function poll() {
 			broadcast(event)
 		}
 	} catch {
-		// Silently ignore poll failures — SSE is still the primary channel
+		// Ignore poll failures. SSE is still the primary channel.
 	}
 }
 
@@ -79,7 +78,7 @@ function resetState() {
 function connect() {
 	if (eventSource) return
 
-	// Don't open a stream while the tab/PWA is backgrounded — iOS suspends it
+	// Don't open a stream while the tab/PWA is backgrounded. iOS suspends it
 	// anyway, so reopening on resume avoids churn. visibilitychange handles resume.
 	if (typeof document !== 'undefined' && document.hidden) return
 
@@ -94,10 +93,10 @@ function connect() {
 	const current = () => eventSource === source
 	armWatchdog()
 
-	// SSE is healthy — drop the polling fallback if it was running, but first
-	// catch up on anything emitted during the gap: the fallback's first tick is
-	// 30s out, so it never covers the 3-5s reconnect window, and the server now
-	// deliberately ends every stream at its lifetime cap.
+	// SSE is healthy: drop the polling fallback if it was running, but first
+	// catch up on anything emitted during the gap. The fallback's first tick is
+	// 30s out, so it never covers the 3-5s reconnect window, and the server
+	// ends every stream at its lifetime cap on purpose.
 	source.addEventListener('open', () => {
 		if (!current()) return
 		armWatchdog()

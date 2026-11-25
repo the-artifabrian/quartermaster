@@ -4,8 +4,8 @@ import { prisma } from './db.server.ts'
 import { writeTransaction } from './write-transaction.server.ts'
 
 // Codes emailed for signup, a password reset and an email change. How they
-// work, and the guessing bound, is in docs/ARCHITECTURE.md under "Emailed
-// codes". Authenticator (2FA) codes are a separate thing in Verification.
+// work, and the guessing bound, is in docs/SECURITY.md under "Emailed codes".
+// Authenticator (2FA) codes are a separate thing in Verification.
 
 export const emailCodeTypes = [
 	'onboarding',

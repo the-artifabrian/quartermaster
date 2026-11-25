@@ -232,14 +232,14 @@ export async function action({ request, params }: Route.ActionArgs) {
 			})
 
 			// A blank name marks the headingless unnamed section; any section may
-			// take or lose a name in place (#149), so no stored row is special.
+			// take or lose a name in place, so no stored row is special.
 			const storedUnnamed = storedSections.find(
 				(section) => section.name === null,
 			)
 
 			// The submission is the Menu as the editor left it. An absent (or
 			// empty) sections key resets it to the default: one empty unnamed
-			// section (#102's note items must join this round-trip).
+			// section.
 			const submittedSections = submission.value.sections
 			const sections = (
 				submittedSections?.length
@@ -265,7 +265,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 			)
 
 			// Items flattened with their submitted position: a stored item
-			// appearing under a different section is an explicit move.
+			// appearing under a different section has been moved there.
 			const items = sections.flatMap((section, sectionIndex) =>
 				section.items.map((item, itemIndex) => ({
 					...item,
@@ -300,7 +300,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 			)
 
 			// Effective Recipe references after this save: a stored card keeps
-			// its reference unless the submission explicitly replaces it (a
+			// its reference unless the submission replaces it (a
 			// missing card submits an empty recipeId, which never unlinks a live
 			// one). Note cards never reference a Recipe.
 			const effectiveRecipeIds = items.map((item, index) => {

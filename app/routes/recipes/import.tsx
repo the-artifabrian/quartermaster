@@ -389,7 +389,6 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					className="mb-6 w-full"
 				/>
 
-				{/* URL tab */}
 				{visibleTab === 'url' && (
 					// The bare path, so a shared ?url= never outlives a submit.
 					<Form
@@ -422,7 +421,6 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					</Form>
 				)}
 
-				{/* Text tab */}
 				{visibleTab === 'text' && (
 					<Form
 						{...tabPanelProps('import', 'text')}
@@ -472,7 +470,6 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					</Form>
 				)}
 
-				{/* Image tab */}
 				{visibleTab === 'image' && (
 					<Form
 						ref={imageForm}

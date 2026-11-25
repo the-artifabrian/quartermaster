@@ -17,7 +17,7 @@ import { Textarea } from './ui/textarea.tsx'
 export type InstructionFieldValue = {
 	id?: string
 	content: string
-	/** Stable key for DnD — persists across re-renders */
+	/** Stable key for DnD that persists across re-renders */
 	sortKey?: string
 }
 

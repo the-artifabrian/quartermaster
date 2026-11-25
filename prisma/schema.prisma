@@ -108,8 +108,8 @@ model Verification {
 
 /// One code emailed for signup, a password reset or an email change. Only
 /// hashes are stored. A target can hold a few live codes at once, and each
-/// works until it expires or one of them is used (see emailed codes in
-/// docs/ARCHITECTURE.md).
+/// works until it expires or one of them is used (see docs/SECURITY.md,
+/// Emailed codes).
 model EmailCode {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -341,7 +341,7 @@ model Instruction {
 model Menu {
   id          String  @id @default(cuid())
   title       String
-  /// Trimmed, Unicode-normalized (NFKC), lower-cased title — the Menu's
+  /// Trimmed, Unicode-normalized (NFKC), lower-cased title: the Menu's
   /// case-insensitive identity within its household.
   titleKey    String
   description String?
@@ -367,7 +367,7 @@ model Menu {
 
 model MenuSection {
   id    String  @id @default(cuid())
-  /// null marks the durable unnamed section every Menu starts with.
+  /// null marks the unnamed section every Menu starts with.
   name  String?
   order Int     @default(0)
 
@@ -392,15 +392,15 @@ model MenuItem {
   /// Frozen at add/replace time so a deleted Recipe's card keeps its identity.
   recipeTitle String?
   /// Positive decimal batches of the Recipe's stored ingredient list ("1×" = one
-  /// batch). Deliberately not derived from an unverified default quantity
-  /// with no provenance (#98 readiness corrections).
+  /// batch). Deliberately a batch count, not derived from a default serving
+  /// size.
   scaleMultiplier Float?
-  /// A Recipe card's optional serving/preparation context — or, on a note
-  /// card, the card's flexible text itself.
+  /// A Recipe card's optional serving or preparation note, or, on a note
+  /// card, the card's text itself.
   note String?
 
-  /// Nulled when the Recipe is deleted — the card then reads as missing until
-  /// the user explicitly replaces or removes it.
+  /// Nulled when the Recipe is deleted. The card then reads as missing until
+  /// the user replaces or removes it.
   recipe   Recipe? @relation(fields: [recipeId], references: [id], onDelete: SetNull)
   recipeId String?
 
@@ -417,12 +417,12 @@ model MenuItem {
 }
 
 /// An ordinary Shopping line carried by a note card, so supporting purchases
-/// (drinks, candles, ice) travel with the Menu without a dedicated subsystem.
+/// (drinks, candles, ice) travel with the Menu into each Meal planned from it.
 model MenuShoppingLine {
   id   String @id @default(cuid())
   name String
-  /// Free-text amount — structured enough for later aggregation (#108) while
-  /// unresolved wording stays usable.
+  /// Free-text amount. Shopping sums it with other lines when it parses, and
+  /// shows the wording as written when it doesn't.
   quantity String?
   unit     String?
   order    Int     @default(0)
@@ -436,9 +436,8 @@ model MenuShoppingLine {
   @@index([itemId, order])
 }
 
-/// One durable household ingredient identity. Staple rows are the household's
-/// quick-add list of usual items; later ingredient-library work may also
-/// retain non-Staple identities without changing what this entity means.
+/// One household ingredient identity. Staple rows are the household's
+/// quick-add list of usual items.
 model HouseholdIngredient {
   id           String  @id @default(cuid())
   displayName  String
@@ -470,37 +469,34 @@ model MealPlan {
   @@unique([householdId, weekStart])
 }
 
-/// One scheduled Meal within the household/week Plan — the ordered parent
-/// Release 1B evolves the planner around (#104/#105). The sole Plan
-/// representation since #106 contracted the legacy fixed-slot MealPlanEntry
-/// rows.
+/// One scheduled Meal within the household's week Plan. Meals are how the
+/// Plan is stored: each holds its cards in order, or a line of text.
 model Meal {
   id   String   @id @default(cuid())
   /// Semantic date within the Plan week (midnight UTC).
   date DateTime
-  /// Explicit within-day order — authoritative. Label and serving time are
-  /// display metadata and never silently reorder Meals.
+  /// Within-day order, set by the user. Label and serving time are display
+  /// metadata and never reorder Meals.
   order Int
   /// Optional familiar label ("breakfast", "lunch", …).
   label String?
   /// Optional serving time, stored once as a UTC instant plus the IANA
   /// timezone it was entered in. Date/time edits recompute the instant from
-  /// the Plan's semantic date; Release 5 reuses this representation.
+  /// the Plan's semantic date.
   servingAt       DateTime?
   servingTimeZone String?
-  /// Generic text ("Leftovers") — mutually exclusive with Recipe items. A
-  /// text-only Meal has no Shopping behavior.
+  /// Generic text ("Leftovers"). A Meal has this or Recipe items, never both.
+  /// A text-only Meal puts nothing on Shopping.
   genericText String?
   /// Completion for a text-only Meal. A Recipe Meal instead derives completion
-  /// from its items' cooked state; a Meal-level "mark cooked" action updates
-  /// all items explicitly.
+  /// from its items' cooked state, and marking the Meal cooked updates every
+  /// item.
   completed  Boolean @default(false)
-  /// Planning context only — never scales quantities by itself.
+  /// Planning context only. It never scales quantities by itself.
   guestCount Int?
 
-  /// Where this Meal was planned from, kept for a future explicit
-  /// Update-from-Menu action. revision = the Menu's updatedAt when the
-  /// snapshot was taken, so later Menu edits are detectable.
+  /// The Menu this Meal was planned from. sourceMenuRevision records the
+  /// Menu's updatedAt when the snapshot was taken.
   sourceMenu         Menu?     @relation(fields: [sourceMenuId], references: [id], onDelete: SetNull)
   sourceMenuId       String?
   sourceMenuRevision DateTime?
@@ -520,12 +516,12 @@ model Meal {
   @@index([sourceMenuId])
 }
 
-/// One frozen Menu section inside a Meal snapshot (#107). Copied at planning
+/// One frozen Menu section inside a Meal snapshot. Copied at planning
 /// time and never re-read from the Menu, so later Menu edits cannot mutate
 /// the planned event. Planner-created Meals have no sections.
 model MealSection {
   id    String  @id @default(cuid())
-  /// null marks the snapshot of a Menu's durable unnamed section.
+  /// null marks the snapshot of a Menu's unnamed section.
   name  String?
   order Int
 
@@ -541,8 +537,8 @@ model MealSection {
   @@index([mealId, order])
 }
 
-/// A note card frozen into a Meal snapshot — drinks, shared prep, serving
-/// reminders — with its ordinary Shopping lines underneath. Shares its
+/// A note card frozen into a Meal snapshot (drinks, shared prep, serving
+/// reminders) with its ordinary Shopping lines underneath. Shares its
 /// section's order sequence with MealRecipeItem, like MenuItem's two kinds.
 model MealNoteItem {
   id    String @id @default(cuid())
@@ -566,9 +562,9 @@ model MealNoteItem {
   @@index([sectionId])
 }
 
-/// A note card's frozen ordinary Shopping line (#107) — the Meal-side twin of
-/// MenuShoppingLine. Distinct from the current-state Shopping contribution
-/// records #108 introduces.
+/// A note card's frozen ordinary Shopping line, the Meal-side twin of
+/// MenuShoppingLine. Not to be confused with MealShoppingContribution, which
+/// links a Meal to the Shopping rows it added.
 model MealShoppingLine {
   id       String  @id @default(cuid())
   name     String
@@ -586,23 +582,23 @@ model MealShoppingLine {
 }
 
 /// One ordered Recipe card inside a Meal. Cooked state lives here, not on the
-/// Meal (#98 readiness corrections).
+/// Meal.
 model MealRecipeItem {
   id    String @id @default(cuid())
   order Int
   /// Frozen at add/replace time so a deleted Recipe's card keeps its identity.
   recipeTitle String
   /// Positive decimal batches of the Recipe's stored ingredient list ("1×" =
-  /// one batch). Historical serving overrides were migrated to the exact
-  /// selected/base ratio, preserving the chosen quantity without treating the
-  /// old base value as trustworthy yield (#98).
+  /// one batch). Serving overrides from the fixed-slot Plan were migrated to
+  /// the exact selected/base ratio, which keeps the chosen quantity without
+  /// treating the old base value as a trustworthy yield.
   scaleMultiplier Float   @default(1)
   cooked          Boolean @default(false)
-  /// Frozen display note copied from the Menu card at planning time (#107).
+  /// Frozen display note copied from the Menu card at planning time.
   note            String?
 
-  /// Nulled when the Recipe is deleted — the card then reads as missing until
-  /// the user explicitly replaces or removes it.
+  /// Nulled when the Recipe is deleted. The card then reads as missing until
+  /// the user replaces or removes it.
   recipe   Recipe? @relation(fields: [recipeId], references: [id], onDelete: SetNull)
   recipeId String?
 
@@ -612,7 +608,7 @@ model MealRecipeItem {
   meal   Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
   mealId String
 
-  /// Set on Menu-snapshot items (#107); planner-created items stay unsectioned
+  /// Set on Menu-snapshot items. Planner-created items stay unsectioned
   /// and `order` then sequences within the Meal instead of within a section.
   section   MealSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
   sectionId String?
@@ -644,7 +640,7 @@ model ShoppingListItem {
   category   String?  // "produce", "dairy", "meat", "pantry", "frozen", "bakery", "household", "other"
   checked    Boolean  @default(false)
   /// Local write precondition. SQLite triggers also advance it when the
-  /// displayed requirement or its Meal contributions change (#225).
+  /// displayed requirement or its Meal contributions change.
   checkVersion Int @default(0)
   /// Only the latest checkbox request; permits a lost-response retry without
   /// retaining an operation history. Recovery creates fresh write identities.
@@ -662,30 +658,29 @@ model ShoppingListItem {
   @@index([listId, horizon, checked])
 }
 
-/// Current-state provenance between one source Meal and the displayed
-/// Shopping row its generated demand feeds (#108). One record per
-/// (meal, canonical demand identity), reconciled in place — NOT an event
-/// ledger; no contribution history is kept. Distinct from MealShoppingLine,
-/// which is frozen snapshot display data. Contributions are durable recovery
-/// data, not transient UI state (#98 readiness corrections).
+/// Links one source Meal to the Shopping row its ingredients feed. One record
+/// per (meal, canonical demand identity), updated in place: it records what
+/// the Meal adds now and keeps no history. Not to be confused with
+/// MealShoppingLine, which is frozen snapshot display data. Contributions go
+/// into the export and come back on restore.
 model MealShoppingContribution {
   id String @id @default(cuid())
 
   /// Source Meal. Nulled when the Meal is deleted while its Shopping rows are
-  /// kept — the contribution then reads as safely orphaned current state.
+  /// kept. The contribution then stays as an orphan, still counted in the row.
   meal   Meal?   @relation(fields: [mealId], references: [id], onDelete: SetNull)
   mealId String?
 
   /// The displayed Shopping row this contribution currently feeds. Deleting
-  /// the row removes the current contribution; a later explicit update may
-  /// add the demand again (#98 stories 66/67).
+  /// the row removes the contribution. A later Update from the Meal may add
+  /// the demand back.
   item   ShoppingListItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   itemId String
 
   /// Normalized demand identity within the Meal.
   canonicalName String
-  /// The normalized demand that was actually added — the demand a later
-  /// update compares against.
+  /// The normalized demand that was actually added, which a later update
+  /// compares against.
   name     String
   quantity String?
   unit     String?

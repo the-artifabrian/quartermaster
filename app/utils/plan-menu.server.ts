@@ -15,7 +15,7 @@ export const EMPTY_MENU_MESSAGE =
 /**
  * Plan one household Menu as a stable Meal snapshot.
  *
- * This is the shared write seam for both Menu detail and Plan. It always reads
+ * Menu detail and Plan both plan a Menu through here. It always reads
  * the Menu fresh through the household, copies its current structure by value,
  * finds or creates the target week's Plan, and appends one Meal to the day.
  * Omitting `guestCount` applies the Menu default; passing null deliberately

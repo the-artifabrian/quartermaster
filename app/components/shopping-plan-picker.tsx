@@ -51,7 +51,7 @@ type AddFromPlanResponse = {
 	promotedRowCount: number
 }
 
-/** Ticked lines, keyed by Meal — the set the writer receives. */
+/** Ticked lines, keyed by Meal: the set the writer receives. */
 type Picks = Map<string, Set<string>>
 
 /**
@@ -107,7 +107,7 @@ function lineNote(line: PlanPickerLine) {
 }
 
 /**
- * From Plan (#288): pick the Meals and lines to buy for, then add them. Each
+ * From Plan: pick the Meals and lines to buy for, then add them. Each
  * ticked Meal writes through the same Meal-add path as adding that Meal from
  * Plan, so a second pick of the same Meal changes nothing.
  */
@@ -152,7 +152,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 			if (!isWeekChoices(result)) throw new Error('Invalid Plan response')
 			setChoiceState({ status: 'success', choices: result })
 			// Fewest taps: everything is ticked except what the household would
-			// normally skip — Staples, pantry lines, rows already on the list, and
+			// normally skip: Staples, pantry lines, rows already on the list, and
 			// whole Meals on days already gone. Those start folded too, so the
 			// week opens on what is still ahead.
 			const meals = result.days.flatMap((day) =>

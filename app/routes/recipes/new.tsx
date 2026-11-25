@@ -229,7 +229,6 @@ export async function action({ request }: Route.ActionArgs) {
 	}
 	const recipe = saved
 
-	// Upload image if provided
 	if (photo) {
 		const objectKey = await uploadRecipeImage(userId, recipe.id, photo)
 		await prisma.recipeImage.create({

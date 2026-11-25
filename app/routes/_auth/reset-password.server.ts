@@ -89,8 +89,8 @@ export async function handleVerification({ submission }: VerifyFunctionArgs) {
 }
 
 /**
- * The account a reset is for. Without a hand-off the form goes to /login, as
- * before; with one that has run out or no longer matches the account, to
+ * The account a reset is for. Without a hand-off the form goes to /login;
+ * with one that has run out or no longer matches the account, to
  * /forgot-password to ask for a new code.
  */
 export async function requireResetPasswordUser(request: Request) {

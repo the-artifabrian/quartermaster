@@ -62,7 +62,7 @@ const TEMP_AFTER = /^\s*°[FCfc]/
  * Detects time references in instruction text and returns structured matches.
  */
 export function detectTimes(text: string): TimeMatch[] {
-	// Bounded work per instruction — see MAX_CUE_SCAN_LENGTH.
+	// Bounded work per instruction (see MAX_CUE_SCAN_LENGTH).
 	if (text.length > MAX_CUE_SCAN_LENGTH) return []
 
 	const matches: TimeMatch[] = []
@@ -71,7 +71,7 @@ export function detectTimes(text: string): TimeMatch[] {
 	// The number is `\d[\d./…]*`, never `\d+[\d./…]*`: the trailing class already
 	// contains digits, so a leading `\d+` makes the split between the two
 	// quantifiers ambiguous and the engine tries every one of them before it can
-	// fail. That is O(n³) on a long digit run — 5000 digits (the import schema's
+	// fail. That is O(n³) on a long digit run: 5000 digits (the import schema's
 	// per-instruction cap) took 2.7 minutes and wedged production. One leading
 	// digit matches exactly the same language with no ambiguity. `numberPat`
 	// below carries the same fix; the regression test is in time-detection.test.ts.

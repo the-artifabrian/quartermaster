@@ -5,7 +5,7 @@ import { guessCategory } from '#app/utils/shopping-list-validation.ts'
 const normalizeName = (name: string) => name.toLowerCase().trim()
 
 /**
- * What a Shopping row shows as its quantity line (#109): the row's own
+ * What a Shopping row shows as its quantity line: the row's own
  * quantity grouped for display with its current Meal contributions, computed
  * server-side by combineRowDisplay. `combined` marks a number the stored row
  * alone would not explain (manual + meal demand, or several Meals summed) so
@@ -56,7 +56,7 @@ export function makeOptimisticShoppingItem({
 		horizon,
 		listId,
 		createdAt: new Date(),
-		// A just-typed row has no contributions yet — it displays itself.
+		// A just-typed row has no contributions yet, so it displays itself.
 		display: { quantity: trimmedQuantity, unit: trimmedUnit, combined: false },
 	}
 }

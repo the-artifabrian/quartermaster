@@ -30,7 +30,7 @@ export type ParsedRecipe = {
 const HEADING_PATTERN =
 	/^(ingredients|instructions|directions|steps|method|preparation)\s*(?::\s*)?$/i
 
-// Trailing "(Serves 2)" / "— serves 4" on a recipe title. Only the end of a
+// Trailing "(Serves 2)" or "— serves 4" on a recipe title. Only the end of a
 // title can hold one, so only its last characters are read.
 const TITLE_SERVES_PATTERN =
 	/(?:\(\s*serves\s+(\d+)\s*\)|[,—–-]\s*serves\s+(\d+))\s*$/i

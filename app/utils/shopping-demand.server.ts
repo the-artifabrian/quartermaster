@@ -20,14 +20,13 @@ import {
 } from './unit-conversion.ts'
 
 /**
- * The one pure Shopping-demand module (#108). Recipe ingredient batches with
- * positive scale multipliers plus ordinary note Shopping lines go in;
- * normalized demand lines come out, with unresolved input preserved rather
- * than dropped or falsely totalled. Deterministic and persistence-free by
- * design: this interface never accepts Inventory, Staples, displayed
- * Shopping rows, or persistence state. Availability annotation
- * (shopping-list.server.ts) and transactional contribution reconciliation
- * (shopping-contribution.server.ts) consume the output at separate seams.
+ * Turns what a Meal needs into Shopping demand. Recipe ingredient batches
+ * with positive scale multipliers plus ordinary note Shopping lines go in;
+ * normalized demand lines come out, with input it can't read kept as written
+ * rather than dropped or added into a wrong total. Pure on purpose: it never
+ * sees Staples, Shopping rows, or the database. shopping-list.server.ts drops
+ * lines that match a Staple, and shopping-contribution.server.ts writes the
+ * result to Shopping.
  */
 
 export type DemandIngredient = {
@@ -39,15 +38,15 @@ export type DemandIngredient = {
 }
 
 /**
- * One Recipe's stored ingredient list at a positive decimal batch multiplier
- * — the Meal item's stored scale multiplier (#98). Absent means one batch.
+ * One Recipe's stored ingredient list at a positive decimal batch multiplier,
+ * which is the Meal item's stored scale multiplier. Absent means one batch.
  */
 export type RecipeIngredientBatch = {
 	ingredients: DemandIngredient[]
 	scaleMultiplier?: number | null
 }
 
-/** An ordinary free-text Shopping line — a Menu/Meal note line or bulk add. */
+/** An ordinary free-text Shopping line: a note card's line, or a bulk add. */
 export type NoteShoppingLine = {
 	name: string
 	quantity?: string | null
@@ -57,14 +56,14 @@ export type NoteShoppingLine = {
 export type ShoppingDemandLine = {
 	/** Cleaned display name. */
 	name: string
-	/** Normalized demand identity — dedup and contribution keying. */
+	/** Normalized demand identity, used to dedupe lines and key contributions. */
 	canonicalName: string
 	quantity: string | null
 	unit: string | null
 	category: string
 	/**
 	 * True when any part of this line came from an ordinary note Shopping
-	 * line. The availability seam ignores it: a saved household Staple drops a
+	 * line. The Staples check ignores it: a saved household Staple drops a
 	 * matching line whatever its source. The Plan picker reads it to keep the
 	 * pantry-basic heuristic off deliberate note text.
 	 */
@@ -82,7 +81,7 @@ const HEADING_PREFIX =
 /**
  * Normalized demand identity. Falls back to the trimmed lowercased display
  * name when canonicalization empties the string (e.g. "medium/small
- * peaches") — an empty identity would collapse unrelated ingredients into
+ * peaches"). An empty identity would collapse unrelated ingredients into
  * one false total and collide contribution keys. Every consumer that
  * compares demand lines against stored Shopping rows must derive the rows'
  * identity through this same function, or fallback-identity lines can never
@@ -110,13 +109,13 @@ function looksLikeHeading(ingredient: {
 
 /**
  * Build normalized Shopping demand. Recipe ingredients are scaled by their
- * batch multiplier and cleaned; then all demand — Recipe ingredients and
- * note Shopping lines alike — consolidates by demand identity with
- * deterministic compatible-unit summation (#109). Note lines need no
+ * batch multiplier and cleaned. Then all demand, Recipe ingredients and
+ * note Shopping lines alike, merges by demand identity, summing amounts in
+ * compatible units in a fixed order. Note lines need no
  * canonical ingredient identity: demandIdentity()'s trimmed-lowercase
  * fallback covers them. What cannot merge honestly (free text, incompatible
  * units, ranges, unparseable values) stays visible as separate parts of one
- * line — never a false total.
+ * line, never a false total.
  */
 export function buildShoppingDemand({
 	recipeBatches = [],
@@ -245,7 +244,7 @@ type SummableGroup = {
 	firstIndex: number
 	familyName: string | null
 	members: Array<{ value: number; normalizedUnit: string }>
-	/** First-seen original unit spelling — display keeps the author's word. */
+	/** First-seen original unit spelling, so display keeps the author's word. */
 	displayUnit: string | null
 }
 
@@ -282,9 +281,9 @@ function summableKey(normalizedUnit: string): {
 
 /**
  * Combine several quantity parts for one demand identity into an honest
- * display value (#109). Parseable amounts in compatible units sum
- * deterministically; everything else — free text, ranges, incompatible
- * units — stays visible as a ` + `-joined composite instead of a count or a
+ * display value. Parseable amounts in compatible units sum in a fixed
+ * order. Everything else (free text, ranges, incompatible units) stays
+ * visible as a ` + `-joined composite instead of a count or a
  * false total. Amountless parts add no quantitative information and drop
  * out when quantified parts exist.
  */
@@ -380,7 +379,7 @@ function sumGroup(group: SummableGroup): {
 	}
 
 	// Mixed units within one known family (the familyName is set whenever
-	// members can disagree on unit) — convert and sum.
+	// members can disagree on unit): convert and sum.
 	const family = getUnitFamily(firstUnit)!.family
 	const result = convertAndSum(
 		group.members.map((m) => ({
@@ -394,15 +393,15 @@ function sumGroup(group: SummableGroup): {
 
 /**
  * Compute one Shopping row's displayed quantity from the row itself plus its
- * current Meal contributions (#109). Grouping happens at display time only —
+ * current Meal contributions. Grouping happens at display time only, and
  * neither the row nor any contribution is rewritten.
  * - A manual row's own quantity is the manual component; compatible
  *   generated demand combines with it, incompatible demand stays visible as
  *   separate parts. A row added from Recipe detail ('recipe') works the same
  *   way, since its amount is one someone asked for.
- * - A row the contribution seam created (source 'meal') duplicates its first
- *   contribution's quantity, so its display is the contributions alone —
- *   counting the row too would double it.
+ * - A row a Meal add created (source 'meal') duplicates its first
+ *   contribution's quantity, so its display is the contributions alone.
+ *   Counting the row too would double it.
  * - Week-generated and other rows keep their own quantity: their value may
  *   already include the same Meals' demand, so adding contributions on top
  *   would fabricate a false total. Their contributions stay provenance-only.

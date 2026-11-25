@@ -44,7 +44,7 @@ export async function action({ request }: Route.ActionArgs) {
 				ctx.addIssue({
 					path: ['email'],
 					code: z.ZodIssueCode.custom,
-					message: 'A user already exists with this email',
+					message: 'This email already has an account. Log in instead.',
 				})
 				return
 			}
@@ -65,7 +65,7 @@ export async function action({ request }: Route.ActionArgs) {
 		send: ({ verifyUrl, otp }) =>
 			sendEmail({
 				to: email,
-				subject: `Welcome to Quartermaster!`,
+				subject: 'Your Quartermaster sign-up code',
 				react: <SignupEmail onboardingUrl={verifyUrl.toString()} otp={otp} />,
 			}),
 	})
@@ -100,7 +100,7 @@ export function SignupEmail({
 		<E.Html lang="en" dir="ltr">
 			<E.Container>
 				<h1>
-					<E.Text>Welcome to Quartermaster!</E.Text>
+					<E.Text>Finish signing up</E.Text>
 				</h1>
 				<p>
 					<E.Text>
@@ -108,7 +108,7 @@ export function SignupEmail({
 					</E.Text>
 				</p>
 				<p>
-					<E.Text>Or click the link to get started:</E.Text>
+					<E.Text>Or open this link:</E.Text>
 				</p>
 				<E.Link href={onboardingUrl}>{onboardingUrl}</E.Link>
 			</E.Container>
@@ -140,14 +140,14 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 	return (
 		<div className="container flex flex-col justify-center pt-20 pb-32">
 			<div className="text-center">
-				<h1 className="font-serif text-2xl">Your recipes deserve a home.</h1>
+				<h1 className="font-serif text-2xl">Create an account</h1>
 				<p className="text-muted-foreground mt-3 text-lg">
-					Enter your email to create an account.
+					We&apos;ll email you a code to confirm your address.
 				</p>
 				{/* The iOS app shows no copy about Pro or its trial (ADR 0001). */}
 				{isNativeShell ? null : (
 					<p className="text-muted-foreground mt-1 text-sm">
-						Free for 14 days. No credit card needed.
+						New accounts get 14 days of Pro. No card needed.
 					</p>
 				)}
 			</div>
@@ -178,7 +178,7 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 						type="submit"
 						disabled={isPending}
 					>
-						Submit
+						Email me a code
 					</StatusButton>
 				</Form>
 				<div className="text-muted-foreground mt-6 text-center text-sm">

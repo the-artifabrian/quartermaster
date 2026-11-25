@@ -117,7 +117,7 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 			<>
 				<h1 className="font-serif text-2xl">Check your 2FA app</h1>
 				<p className="text-muted-foreground mt-3 text-lg">
-					Please enter your 2FA code to verify your identity.
+					Enter the code it shows for Quartermaster.
 				</p>
 			</>
 		),
@@ -175,7 +175,7 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 				) : type ? (
 					headings[type]
 				) : (
-					'Invalid Verification Type'
+					'This link isn’t valid'
 				)}
 			</div>
 

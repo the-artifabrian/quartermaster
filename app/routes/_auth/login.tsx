@@ -117,9 +117,9 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 		<div className="flex min-h-full flex-col justify-center pt-20 pb-32">
 			<div className="mx-auto w-full max-w-md">
 				<div className="flex flex-col gap-3 text-center">
-					<h1 className="font-serif text-2xl">Welcome back!</h1>
+					<h1 className="font-serif text-2xl">Log in</h1>
 					<p className="text-muted-foreground text-lg">
-						Please enter your details.
+						Use your password or a passkey.
 					</p>
 				</div>
 				<Spacer size="xs" />
@@ -348,9 +348,7 @@ function PasskeyLogin({
 						await finishLoginRef.current(authResponse, options.rpId)
 					} catch (e) {
 						if (unmounted) return
-						setError(
-							`Failed to authenticate with passkey: ${getErrorMessage(e)}`,
-						)
+						setError(`Couldn't log in with a passkey. ${getErrorMessage(e)}`)
 						rearm()
 					}
 				})
@@ -376,21 +374,21 @@ function PasskeyLogin({
 			// Let a pending autofill options request land first, so its
 			// challenge cookie can't replace the one fetched below.
 			await autofillOptions.current?.catch(() => {})
-			setPasskeyMessage('Generating Authentication Options')
+			setPasskeyMessage('Getting ready…')
 			const options = await fetchAuthenticationOptions()
 
-			setPasskeyMessage('Requesting your authorization')
+			setPasskeyMessage('Waiting for your passkey…')
 			// This cancels the pending autofill request.
 			const authResponse = await startAuthentication({ optionsJSON: options })
-			setPasskeyMessage('Verifying your passkey')
+			setPasskeyMessage('Checking your passkey…')
 
 			await finishLoginRef.current(authResponse, options.rpId)
 			loggedIn = true
-			setPasskeyMessage("You're logged in! Navigating...")
+			setPasskeyMessage('Logged in')
 		} catch (e) {
 			// Closing the prompt or letting it time out leaves the page as it was.
 			if (isPasskeyPromptDismissed(e)) return
-			setError(`Failed to authenticate with passkey: ${getErrorMessage(e)}`)
+			setError(`Couldn't log in with a passkey. ${getErrorMessage(e)}`)
 		} finally {
 			buttonActive.current = false
 			if (!loggedIn) armAutofill.current()
@@ -439,7 +437,7 @@ function PasskeyLoginButton({
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Log in to Quartermaster' }]
+	return [{ title: 'Log in | Quartermaster' }]
 }
 
 export function ErrorBoundary() {

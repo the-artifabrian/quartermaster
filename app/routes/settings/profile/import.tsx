@@ -40,12 +40,12 @@ import { type Route } from './+types/import.ts'
 import { type SettingsPageHandle } from './_layout.tsx'
 
 export const handle: SettingsPageHandle & SEOHandle = {
-	pageTitle: 'Import Data',
+	pageTitle: 'Import data',
 	getSitemapEntries: () => null,
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Import Data | Quartermaster' }]
+	return [{ title: 'Import data | Quartermaster' }]
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

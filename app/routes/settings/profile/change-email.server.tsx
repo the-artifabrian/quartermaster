@@ -97,7 +97,7 @@ export async function handleVerification({
 		sendEmail({
 			to: preUpdateUser.email,
 			subject: 'Quartermaster email changed',
-			react: <EmailChangeNoticeEmail userId={user.id} />,
+			react: <EmailChangeNoticeEmail />,
 		}),
 		'sending an email-change notification',
 	)
@@ -105,9 +105,9 @@ export async function handleVerification({
 	return redirectWithToast(
 		'/settings/profile',
 		{
-			title: 'Email Changed',
+			title: 'Email changed',
 			type: 'success',
-			description: `Your email has been changed to ${user.email}`,
+			description: `Your email is now ${user.email}`,
 		},
 		{
 			headers: {
@@ -128,7 +128,7 @@ export function EmailChangeEmail({
 		<E.Html lang="en" dir="ltr">
 			<E.Container>
 				<h1>
-					<E.Text>Quartermaster Email Change</E.Text>
+					<E.Text>Confirm your new email</E.Text>
 				</h1>
 				<p>
 					<E.Text>
@@ -136,7 +136,7 @@ export function EmailChangeEmail({
 					</E.Text>
 				</p>
 				<p>
-					<E.Text>Or click the link:</E.Text>
+					<E.Text>Or open this link:</E.Text>
 				</p>
 				<E.Link href={verifyUrl}>{verifyUrl}</E.Link>
 			</E.Container>
@@ -144,28 +144,27 @@ export function EmailChangeEmail({
 	)
 }
 
-function EmailChangeNoticeEmail({ userId }: { userId: string }) {
+function EmailChangeNoticeEmail() {
 	return (
 		<E.Html lang="en" dir="ltr">
 			<E.Container>
 				<h1>
-					<E.Text>Your Quartermaster email has been changed</E.Text>
+					<E.Text>Your Quartermaster email changed</E.Text>
 				</h1>
 				<p>
 					<E.Text>
-						We're writing to let you know that your Quartermaster email has been
-						changed.
+						The email address on your Quartermaster account was just changed.
 					</E.Text>
+				</p>
+				<p>
+					<E.Text>If you changed it, there’s nothing to do.</E.Text>
 				</p>
 				<p>
 					<E.Text>
-						If you changed your email address, then you can safely ignore this.
-						But if you did not change your email address, then please contact
-						support immediately.
+						If you didn’t, log in with your password and change your email back
+						in Settings. Then change your password, which logs out every other
+						device.
 					</E.Text>
-				</p>
-				<p>
-					<E.Text>Your Account ID: {userId}</E.Text>
 				</p>
 			</E.Container>
 		</E.Html>

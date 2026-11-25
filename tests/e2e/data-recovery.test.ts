@@ -156,7 +156,7 @@ test('a Recipe restored from its export still opens its sub-Recipe', async ({
 
 	await page.goto('/settings/profile')
 	const downloading = page.waitForEvent('download')
-	await page.getByRole('link', { name: 'Export All Data' }).click()
+	await page.getByRole('link', { name: 'Export all data' }).click()
 	const download = await downloading
 	const exportFile = await readFile(await download.path())
 

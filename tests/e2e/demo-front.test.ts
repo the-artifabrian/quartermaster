@@ -337,10 +337,10 @@ test('Settings leaves out what the demo blocks and keeps export and theme', asyn
 	for (const name of [
 		/^Email/,
 		/^Password/,
-		/^Two-Factor Auth/,
+		/^Two-factor auth/,
 		/^Passkeys/,
 		/^Household/,
-		/^Import Data/,
+		/^Import data/,
 		/^Guest/,
 	]) {
 		await expect(main.getByRole('link', { name })).toHaveCount(0)
@@ -350,7 +350,7 @@ test('Settings leaves out what the demo blocks and keeps export and theme', asyn
 		main.getByRole('button', { name: 'Delete my account' }),
 	).toHaveCount(0)
 	await expect(
-		main.getByRole('link', { name: 'Export All Data' }),
+		main.getByRole('link', { name: 'Export all data' }),
 	).toBeVisible()
 	await expect(main.getByRole('link', { name: 'Export Recipes' })).toBeVisible()
 	await expect(main.getByText('Theme')).toBeVisible()

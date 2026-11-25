@@ -83,8 +83,8 @@ export async function requireRecentVerification(request: Request) {
 			redirectTo: pagePathOf(new URL(request.url)),
 		})
 		throw await redirectWithToast(pathAndSearch(redirectUrl), {
-			title: 'Please Reverify',
-			description: 'Please reverify your account before proceeding',
+			title: 'Confirm it’s you',
+			description: 'Enter the code from your 2FA app to carry on.',
 		})
 	}
 }
@@ -221,8 +221,8 @@ const logInAgainToasts: Record<
 	{ title: string; description: string }
 > = {
 	'nothing-pending': {
-		title: 'Invalid session',
-		description: 'Could not find session to verify. Please try again.',
+		title: 'Log in again',
+		description: 'No login is waiting for this code. Log in and try again.',
 	},
 	ended: {
 		title: 'Login expired',

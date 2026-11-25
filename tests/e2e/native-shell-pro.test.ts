@@ -269,7 +269,7 @@ test.describe('in a browser', () => {
 		for (const path of ['/', '/signup']) {
 			await page.goto(path)
 			await expect(
-				page.getByText('Free for 14 days. No credit card needed.'),
+				page.getByText('New accounts get 14 days of Pro. No card needed.'),
 				path,
 			).toBeVisible()
 		}

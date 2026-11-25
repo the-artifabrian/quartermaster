@@ -110,7 +110,7 @@ test('Users can register and use passkeys', async ({
 	await page.getByRole('button', { name: /log in with a passkey/i }).click()
 
 	// Check for error message before waiting for completion
-	const errorLocator = page.getByText(/failed to authenticate/i)
+	const errorLocator = page.getByText(/couldn't log in with a passkey/i)
 	const errorPromise = errorLocator.waitFor({ timeout: 1000 }).then(() => {
 		throw new Error('Passkey authentication failed')
 	})
@@ -369,6 +369,6 @@ test('The passkey button, even tapped twice, takes over from a waiting autofill 
 	await page.getByRole('button', { name: /log in with a passkey/i }).dblclick()
 
 	await expect(page).toHaveURL('/recipes')
-	await expect(page.getByText(/failed to authenticate/i)).toHaveCount(0)
+	await expect(page.getByText(/couldn't log in with a passkey/i)).toHaveCount(0)
 	expect(warnings.filter((text) => /passkey|webauthn/i.test(text))).toEqual([])
 })

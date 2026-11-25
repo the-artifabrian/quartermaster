@@ -60,7 +60,7 @@ async function sendResetCode(target: string) {
 		send: ({ verifyUrl, otp }) =>
 			sendEmail({
 				to: user.email,
-				subject: `Quartermaster Password Reset`,
+				subject: 'Reset your Quartermaster password',
 				react: (
 					<ForgotPasswordEmail onboardingUrl={verifyUrl.toString()} otp={otp} />
 				),
@@ -79,7 +79,7 @@ function ForgotPasswordEmail({
 		<E.Html lang="en" dir="ltr">
 			<E.Container>
 				<h1>
-					<E.Text>Quartermaster Password Reset</E.Text>
+					<E.Text>Reset your password</E.Text>
 				</h1>
 				<p>
 					<E.Text>
@@ -87,16 +87,19 @@ function ForgotPasswordEmail({
 					</E.Text>
 				</p>
 				<p>
-					<E.Text>Or click the link:</E.Text>
+					<E.Text>Or open this link:</E.Text>
 				</p>
 				<E.Link href={onboardingUrl}>{onboardingUrl}</E.Link>
+				<p>
+					<E.Text>If you didn&apos;t ask for this, you can ignore it.</E.Text>
+				</p>
 			</E.Container>
 		</E.Html>
 	)
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Password Recovery for Quartermaster' }]
+	return [{ title: 'Forgot password | Quartermaster' }]
 }
 
 export default function ForgotPasswordRoute() {
@@ -118,19 +121,19 @@ export default function ForgotPasswordRoute() {
 		<div className="container pt-20 pb-32">
 			<div className="flex flex-col justify-center">
 				<div className="text-center">
-					<h1 className="font-serif text-2xl">Forgot Password</h1>
+					<h1 className="font-serif text-2xl">Forgot password</h1>
 					<p className="text-muted-foreground mt-3 text-lg">
 						{isSent
-							? 'Check your email for reset instructions.'
-							: "No worries, we'll send you reset instructions."}
+							? 'Check your email.'
+							: "We'll email you a code to reset it."}
 					</p>
 				</div>
 				<div className="mx-auto mt-16 max-w-sm min-w-full sm:min-w-[368px]">
 					{isSent ? (
 						<div className="text-center">
 							<p className="text-muted-foreground">
-								If an account exists with that username or email, you'll receive
-								a password reset link shortly.
+								If an account matches, we&apos;ve sent a code and a link to its
+								email address.
 							</p>
 							<p className="text-muted-foreground mt-2">{SEVERAL_CODES_NOTE}</p>
 							<Link
@@ -147,7 +150,7 @@ export default function ForgotPasswordRoute() {
 									<Field
 										labelProps={{
 											htmlFor: fields.usernameOrEmail.id,
-											children: 'Username or Email',
+											children: 'Username or email',
 										}}
 										inputProps={{
 											autoFocus: true,
@@ -171,7 +174,7 @@ export default function ForgotPasswordRoute() {
 										type="submit"
 										disabled={forgotPassword.state !== 'idle'}
 									>
-										Recover password
+										Email me a code
 									</StatusButton>
 								</div>
 							</forgotPassword.Form>

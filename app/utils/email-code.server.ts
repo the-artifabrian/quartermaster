@@ -136,7 +136,7 @@ export async function issueEmailCode({
 		await prisma.emailCode.deleteMany({ where: { id } }).catch(() => {})
 		return {
 			status: 'failed',
-			error: { message: "We couldn't send the code. Please try again." },
+			error: { message: "We couldn't send the code. Try again in a minute." },
 		}
 	}
 	return { status: 'sent' }

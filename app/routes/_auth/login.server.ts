@@ -188,8 +188,8 @@ export async function handleVerification({
 	const noSessionToVerify = () =>
 		redirectWithToast('/login', {
 			type: 'error',
-			title: 'Invalid session',
-			description: 'Could not find session to verify. Please try again.',
+			title: 'Log in again',
+			description: 'No login is waiting for this code. Log in and try again.',
 		})
 
 	const found = await findPendingSignIn(request)

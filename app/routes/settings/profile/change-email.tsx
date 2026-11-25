@@ -24,7 +24,7 @@ import { type SettingsPageHandle } from './_layout.tsx'
 import { EmailChangeEmail } from './change-email.server.tsx'
 
 export const handle: SettingsPageHandle & SEOHandle = {
-	pageTitle: 'Change Email',
+	pageTitle: 'Change email',
 	getSitemapEntries: () => null,
 }
 
@@ -95,7 +95,7 @@ export async function action({ request }: Route.ActionArgs) {
 		send: ({ verifyUrl, otp }) =>
 			sendEmail({
 				to: address,
-				subject: `Quartermaster Email Change Verification`,
+				subject: 'Confirm your new Quartermaster email',
 				react: <EmailChangeEmail verifyUrl={verifyUrl.toString()} otp={otp} />,
 			}),
 	})
@@ -172,7 +172,7 @@ export default function ChangeEmailIndex({
 				{loaderData.hasPassword ? (
 					<Form method="POST" {...getFormProps(form)}>
 						<Field
-							labelProps={{ children: 'New Email' }}
+							labelProps={{ children: 'New email' }}
 							inputProps={{
 								...getInputProps(fields.email, { type: 'email' }),
 								autoComplete: 'email',
@@ -192,7 +192,7 @@ export default function ChangeEmailIndex({
 							<StatusButton
 								status={isPending ? 'pending' : (form.status ?? 'idle')}
 							>
-								Send Confirmation
+								Send confirmation
 							</StatusButton>
 						</div>
 					</Form>

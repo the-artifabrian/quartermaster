@@ -4,7 +4,7 @@ import { type VerificationTypes } from '#app/routes/_auth/verify.tsx'
 import { type SettingsPageHandle } from '../../profile/_layout.tsx'
 
 export const handle: SettingsPageHandle & SEOHandle = {
-	pageTitle: 'Two-Factor Auth',
+	pageTitle: 'Two-factor auth',
 	getSitemapEntries: () => null,
 }
 

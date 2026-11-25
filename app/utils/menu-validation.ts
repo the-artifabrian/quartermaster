@@ -213,4 +213,4 @@ export function isUniqueConstraintError(error: unknown): boolean {
 }
 
 export const DUPLICATE_MENU_TITLE_MESSAGE =
-	'A menu with this title already exists'
+	'You already have a Menu with this title'

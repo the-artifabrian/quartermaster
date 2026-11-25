@@ -93,7 +93,7 @@ export function RecipePicker({
 					open={sheetOpen}
 					onClose={() => setSheetOpen(false)}
 					labelledBy="recipe-picker-sheet-title"
-					title="Add a recipe"
+					title="Add a Recipe"
 				>
 					<PickerList
 						recipes={recipes}
@@ -139,19 +139,19 @@ function PickerList({
 	let emptyMessage: string | null = null
 	if (filtered.length === 0) {
 		if (recipes.length === 0) {
-			emptyMessage = 'No recipes in your library yet'
+			emptyMessage = 'No Recipes yet'
 		} else if (available.length === 0) {
-			emptyMessage = 'Every recipe is already on this menu'
+			emptyMessage = 'Every Recipe is already on this Menu'
 		} else {
-			emptyMessage = 'No recipes found'
+			emptyMessage = 'No Recipes found'
 		}
 	}
 
 	return (
 		<div className="space-y-2">
 			<Input
-				placeholder="Search recipes..."
-				aria-label="Search recipes"
+				placeholder="Search Recipes…"
+				aria-label="Search Recipes"
 				inputMode="search"
 				enterKeyHint="search"
 				value={search}

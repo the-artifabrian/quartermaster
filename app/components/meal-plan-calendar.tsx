@@ -302,7 +302,7 @@ function AddMealControl({
 								if (event.key === 'Enter') submitText()
 								if (event.key === 'Escape') close()
 							}}
-							placeholder="Leftovers, takeout, dinner out..."
+							placeholder="Leftovers, dinner out…"
 							enterKeyHint="done"
 							maxLength={200}
 							aria-label="Meal text"

@@ -920,7 +920,7 @@ test('an AI import with only ingredients saves and leaves the steps to the cook;
 		expect(nothing).toMatchObject({
 			data: {
 				intent: 'extract-text',
-				error: expect.stringMatching(/Couldn't find a recipe/),
+				error: expect.stringMatching(/Couldn’t find a Recipe/),
 				existing: null,
 			},
 		})

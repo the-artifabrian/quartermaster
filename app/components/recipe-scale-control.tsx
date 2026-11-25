@@ -156,7 +156,7 @@ export function RecipeScaleControl({
 		>
 			<button
 				type="button"
-				aria-label="Decrease recipe scale"
+				aria-label="Decrease Recipe scale"
 				disabled={scaleMultiplier <= SCALE_STEP}
 				onClick={() => adjustScale(-SCALE_STEP)}
 				className="border-input hover:bg-accent/10 focus-visible:ring-ring flex size-11 shrink-0 items-center justify-center rounded-md border text-xl leading-none focus-visible:ring-2 focus-visible:outline-hidden disabled:opacity-40"
@@ -166,7 +166,7 @@ export function RecipeScaleControl({
 			{input}
 			<button
 				type="button"
-				aria-label="Increase recipe scale"
+				aria-label="Increase Recipe scale"
 				disabled={scaleMultiplier >= 100}
 				onClick={() => adjustScale(SCALE_STEP)}
 				className="border-input hover:bg-accent/10 focus-visible:ring-ring flex size-11 shrink-0 items-center justify-center rounded-md border text-xl leading-none focus-visible:ring-2 focus-visible:outline-hidden disabled:opacity-40"

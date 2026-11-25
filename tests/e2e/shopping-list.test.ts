@@ -905,7 +905,7 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 
 		await laterToggle.click()
 		await expect(laterToggle).toHaveAttribute('aria-expanded', 'true')
-		await expect(page.getByPlaceholder('Add to Later...')).toBeVisible()
+		await expect(page.getByPlaceholder('Add to Later…')).toBeVisible()
 		const laterGroup = page.getByRole('group', {
 			name: `${itemName} shopping item`,
 		})
@@ -938,7 +938,7 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 		// A search reveals a collapsed Later match without changing the stored
 		// expansion preference; clearing it collapses Later again.
 		await page.goto('/shopping')
-		const search = page.getByPlaceholder('Search Shopping...')
+		const search = page.getByPlaceholder('Search Shopping…')
 		await search.fill('Solar eclipse glasses')
 		await expect(
 			page.getByText('Solar eclipse glasses', { exact: true }),
@@ -1114,7 +1114,7 @@ test('the phone add sheet opens empty after each way of closing it, and still ad
 	await openShopping(page)
 	const addItem = page.getByRole('button', { name: 'Add item' })
 	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
-	const name = sheet.getByPlaceholder('Add an item...')
+	const name = sheet.getByPlaceholder('Add an item…')
 	const quantity = sheet.getByPlaceholder('Qty')
 	const unit = sheet.getByPlaceholder('Unit')
 
@@ -1186,7 +1186,7 @@ test('the phone add sheet opens without the last item’s warning, and checks th
 	await openShopping(page)
 	const addItem = page.getByRole('button', { name: 'Add item' })
 	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
-	const name = sheet.getByPlaceholder('Add an item...')
+	const name = sheet.getByPlaceholder('Add an item…')
 	const warning = sheet.getByText('Milk is already on Shopping')
 
 	await addItem.click()

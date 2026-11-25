@@ -613,13 +613,13 @@ function extractionError(
 			return 'The AI sent nothing back. Try again.'
 		case 'max-tokens':
 			return mode === 'text'
-				? 'This recipe was too long to extract in one go. Try pasting just the recipe card, or splitting it in two.'
-				: 'This recipe was too long to extract in one go. Try fewer images at a time.'
+				? 'This Recipe is too long to read in one go. Paste only the Recipe, or split it in two.'
+				: 'This Recipe is too long to read in one go. Try fewer screenshots at a time.'
 		case 'parse':
 		case 'schema':
 			return mode === 'text'
-				? "Couldn't find a recipe in the provided text. Try including ingredients or instructions."
-				: "Couldn't find a recipe in the provided image(s). Make sure the image contains recipe text or ingredients."
+				? 'Couldn’t find a Recipe in the text. Include its ingredients or steps.'
+				: 'Couldn’t find a Recipe in the screenshots. Use ones that show its ingredients or steps.'
 		case 'provider':
 		case 'network':
 		case 'refusal':

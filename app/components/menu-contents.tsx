@@ -49,7 +49,7 @@ export function MenuContents({
 								</p>
 							) : (
 								<p className="text-muted-foreground border-border/60 rounded-lg border-2 border-dashed px-4 py-8 text-center text-sm">
-									Nothing on this menu yet.
+									Nothing on this Menu yet.
 								</p>
 							)
 						) : (

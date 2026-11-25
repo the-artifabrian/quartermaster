@@ -49,7 +49,7 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	const visibleButton = (name: string | RegExp) =>
 		page.getByRole('button', { name }).filter({ visible: true })
 	const pickerSearch = () =>
-		page.getByPlaceholder('Search recipes...').filter({ visible: true }).last()
+		page.getByPlaceholder('Search Recipes…').filter({ visible: true }).last()
 	const pickerOption = (name: string) => visibleButton(name).last()
 
 	// 1. The Recipes / Menus library switch
@@ -85,7 +85,7 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 		await pickerSearch().fill(title)
 		await pickerOption(title).click()
 		await expect(
-			page.getByRole('button', { name: `Remove ${title} from menu` }),
+			page.getByRole('button', { name: `Remove ${title} from Menu` }),
 		).toBeVisible()
 	}
 	// Every Recipe edits the same multiplier; known yield remains explanatory.
@@ -101,7 +101,7 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	await pickerSearch().fill('Orange Cake')
 	await pickerOption('Orange Cake').click()
 	await expect(
-		page.getByRole('button', { name: 'Remove Orange Cake from menu' }),
+		page.getByRole('button', { name: 'Remove Orange Cake from Menu' }),
 	).toBeVisible()
 
 	// 4. A note card with one ordinary Shopping line
@@ -203,9 +203,9 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 		mimeType: 'application/json',
 		buffer: Buffer.from(exportBody),
 	})
-	await expect(page.getByRole('heading', { name: 'Full Export' })).toBeVisible()
+	await expect(page.getByRole('heading', { name: 'Full export' })).toBeVisible()
 	await page.getByRole('button', { name: 'Import', exact: true }).click()
-	await expect(page.getByText('Import Complete')).toBeVisible()
+	await expect(page.getByText('Import complete')).toBeVisible()
 
 	await page.goto('/recipes/menus')
 	await page.getByRole('link', { name: /Levantine Terrace Dinner/ }).click()

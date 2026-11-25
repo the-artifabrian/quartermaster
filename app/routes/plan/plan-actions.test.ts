@@ -899,7 +899,7 @@ describe('meal plan actions', () => {
 		expect(result).toEqual({
 			status: 'error',
 			menuError:
-				'This Menu has nothing to plan yet—add a Recipe or note first.',
+				'This Menu has nothing to plan yet. Add a Recipe or note first.',
 		})
 		expect(await prisma.meal.count({ where: { sourceMenuId: menu.id } })).toBe(
 			0,

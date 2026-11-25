@@ -78,7 +78,7 @@ export default function Index() {
 				index={1}
 				id="how-it-works"
 				heading="Your Recipes, in one place"
-				body="Paste a link or the text of a recipe, or type one in. Scale up for guests and check off ingredients as you cook."
+				body="Paste a link or the text of a Recipe, or type one in. Scale up for guests and check off ingredients as you cook."
 				screenSide="left"
 				screen={<RecipesScreen />}
 			/>
@@ -640,7 +640,7 @@ function PlanScreen({ today }: { today: string }) {
 					</span>
 					<div className="text-center">
 						<p className="font-serif text-lg">{range}</p>
-						<p className="text-sage text-sm font-medium">This Week</p>
+						<p className="text-sage text-sm font-medium">This week</p>
 					</div>
 					<span className="flex size-9 items-center justify-center rounded-full">
 						<Icon name="chevron-right" size="md" />

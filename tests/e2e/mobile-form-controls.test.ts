@@ -168,7 +168,7 @@ test('mobile Shopping add controls stay zoom-safe and keep Add reachable', async
 	await page.goto('/shopping')
 	await page.getByRole('button', { name: 'Add item' }).click()
 
-	const item = page.getByPlaceholder('Add an item...').filter({ visible: true })
+	const item = page.getByPlaceholder('Add an item…').filter({ visible: true })
 	const add = page.getByRole('button', { name: 'Add to Next shop' })
 	await expectFocusKeepsActionReachable(page, item, add)
 	await page.getByRole('button', { name: '+ Qty & unit' }).click()
@@ -258,7 +258,7 @@ test('the mobile size adjustment ends below md without restricting user zoom', a
 	await expect(
 		page.getByRole('searchbox', { name: 'Search by name or ingredient' }),
 	).toHaveCSS('font-size', '16px')
-	await expect(page.getByRole('combobox', { name: 'Sort recipes' })).toHaveCSS(
+	await expect(page.getByRole('combobox', { name: 'Sort Recipes' })).toHaveCSS(
 		'font-size',
 		'16px',
 	)
@@ -267,7 +267,7 @@ test('the mobile size adjustment ends below md without restricting user zoom', a
 	await expect(
 		page.getByRole('searchbox', { name: 'Search by name or ingredient' }),
 	).toHaveCSS('font-size', '14px')
-	await expect(page.getByRole('combobox', { name: 'Sort recipes' })).toHaveCSS(
+	await expect(page.getByRole('combobox', { name: 'Sort Recipes' })).toHaveCSS(
 		'font-size',
 		'12px',
 	)

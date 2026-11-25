@@ -733,7 +733,7 @@ test('a long Recipe word wraps inside a Plan row, and a tap in the scale field e
 	await expect(field).toHaveValue('12.')
 })
 
-test('a Recipe’s ingredient summary row and Link recipe take 44px taps', async ({
+test('a Recipe’s ingredient summary row and Link Recipe take 44px taps', async ({
 	page,
 	login,
 }) => {
@@ -762,7 +762,7 @@ test('a Recipe’s ingredient summary row and Link recipe take 44px taps', async
 	const notes = page.getByRole('textbox', { name: 'Ingredient 1 notes' })
 	await expect(notes).toBeVisible()
 
-	const linkRecipe = page.getByRole('button', { name: 'Link recipe' })
+	const linkRecipe = page.getByRole('button', { name: 'Link Recipe' })
 	const link = await hitArea(linkRecipe)
 	expect(link.height).toBeGreaterThanOrEqual(44)
 	// The notes field above keeps its own bottom edge.

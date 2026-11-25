@@ -535,7 +535,7 @@ test('From Staples is a sheet: picked Staples go to Next shop', async ({
 		])
 })
 
-test('Link recipe is a sheet; Enter in its search sends nothing; a pick leaves and focuses Remove recipe link', async ({
+test('Link Recipe is a sheet; Enter in its search sends nothing; a pick leaves and focuses Remove Recipe link', async ({
 	page,
 	login,
 }) => {
@@ -548,11 +548,11 @@ test('Link recipe is a sheet; Enter in its search sends nothing; a pick leaves a
 	await page.getByRole('textbox', { name: 'Ingredient 1 name' }).fill('dough')
 	await page.getByRole('textbox', { name: 'Step 1' }).fill('Bake hot.')
 	const sheet = page.getByRole('dialog', { name: 'Link a Recipe' })
-	await tapUntil(page.getByRole('button', { name: 'Link recipe' }), () =>
+	await tapUntil(page.getByRole('button', { name: 'Link Recipe' }), () =>
 		expect(sheet).toBeVisible({ timeout: 1000 }),
 	)
 	await expectBottomSheet(page, sheet)
-	const search = sheet.getByRole('textbox', { name: 'Search recipes' })
+	const search = sheet.getByRole('textbox', { name: 'Search Recipes' })
 	await expect(search).toBeFocused()
 	await search.fill('pizza')
 	await expect(sheet.getByRole('button', { name: 'Pizza dough' })).toBeVisible()
@@ -571,7 +571,7 @@ test('Link recipe is a sheet; Enter in its search sends nothing; a pick leaves a
 	expect(await sheetExits(page)).toBe(1)
 	await expect(page.getByText('Pizza dough', { exact: true })).toBeVisible()
 	await expect(
-		page.getByRole('button', { name: 'Remove recipe link' }),
+		page.getByRole('button', { name: 'Remove Recipe link' }),
 	).toBeFocused()
 
 	await page.getByRole('button', { name: 'Save', exact: true }).tap()
@@ -716,7 +716,7 @@ test.describe('on a desktop', () => {
 
 		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
 		const desktop = page.getByTestId('desktop-plan')
-		const search = desktop.getByPlaceholder('Search recipes...')
+		const search = desktop.getByPlaceholder('Search Recipes…')
 		await expect(async () => {
 			await desktop
 				.getByRole('button', { name: 'Add Recipe to Miso Soup' })
@@ -1026,7 +1026,7 @@ test.describe('sheets while they come and go', () => {
 
 		await page.getByRole('button', { name: /^Add Meal to/ }).tap()
 		await expect(
-			sheet.getByPlaceholder('Search Recipes and Menus...'),
+			sheet.getByPlaceholder('Search Recipes and Menus…'),
 		).toBeVisible()
 		await expect(sheet.getByRole('button', { name: 'Lunch' })).toHaveAttribute(
 			'aria-pressed',
@@ -1350,14 +1350,14 @@ test('reopening Edit details or Add a Recipe while it leaves starts afresh', asy
 	const addBox = (await addRecipe.boundingBox())!
 	await addRecipe.click()
 	await expect(picker).toHaveAttribute('data-state', 'open')
-	await picker.getByPlaceholder('Search recipes...').fill('ric')
+	await picker.getByPlaceholder('Search Recipes…').fill('ric')
 	await picker.getByRole('button', { name: 'Close', exact: true }).click()
 	await page.mouse.click(
 		addBox.x + addBox.width / 2,
 		addBox.y + addBox.height / 2,
 	)
 	await expect(picker).toHaveAttribute('data-state', 'open')
-	await expect(picker.getByPlaceholder('Search recipes...')).toHaveValue('')
+	await expect(picker.getByPlaceholder('Search Recipes…')).toHaveValue('')
 })
 
 test('a sheet still leaving when its page goes plays its exit to the end', async ({

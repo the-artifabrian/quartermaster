@@ -115,7 +115,7 @@ test('the add sheet slides up, and a close mid-entrance turns it around', async 
 	await expect(
 		page
 			.getByRole('dialog', { name: 'Add to Shopping' })
-			.getByPlaceholder('Add an item...'),
+			.getByPlaceholder('Add an item…'),
 	).toBeFocused()
 })
 
@@ -151,7 +151,7 @@ test('Escape, the backdrop and Close each close the add sheet, and focus comes b
 
 	await addItem.focus()
 	await page.keyboard.press('Enter')
-	await expect(sheet.getByPlaceholder('Add an item...')).toBeFocused()
+	await expect(sheet.getByPlaceholder('Add an item…')).toBeFocused()
 	await page.keyboard.press('Escape')
 	await expect(sheet).toBeHidden()
 	await expect(addItem).toBeFocused()
@@ -234,7 +234,7 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
 		await page.getByRole('button', { name: 'Add item' }).click()
 		await page
 			.getByRole('dialog', { name: 'Add to Shopping' })
-			.getByPlaceholder('Add an item...')
+			.getByPlaceholder('Add an item…')
 			.fill('Bananas')
 		await page.keyboard.press('Enter')
 		await expect(

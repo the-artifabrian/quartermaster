@@ -46,9 +46,9 @@ export const meta: Route.MetaFunction = () => {
 }
 
 const SORT_OPTIONS = [
-	{ value: 'recent', label: 'Recently Updated' },
+	{ value: 'recent', label: 'Recently updated' },
 	{ value: 'alphabetical', label: 'Alphabetical' },
-	{ value: 'newest', label: 'Newest First' },
+	{ value: 'newest', label: 'Newest first' },
 ] as const
 
 type SortOption = (typeof SORT_OPTIONS)[number]['value']
@@ -532,7 +532,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						<select
 							value={sort}
 							onChange={(e) => handleSortChange(e.target.value)}
-							aria-label="Sort recipes"
+							aria-label="Sort Recipes"
 							className={cn(chipClassName(), filterSelect)}
 						>
 							{SORT_OPTIONS.map((option) => (
@@ -555,7 +555,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						<Chip
 							onClick={handleFavoritesToggle}
 							aria-label={
-								favoritesOnly ? 'Show all recipes' : 'Show favorites only'
+								favoritesOnly ? 'Show all Recipes' : 'Show favorites only'
 							}
 							pressed={favoritesOnly}
 							icon={favoritesOnly ? 'heart-filled' : 'heart'}
@@ -721,12 +721,10 @@ function SearchEmptyState({
 				/>
 			</div>
 			<h2 className="mt-4 font-serif text-xl font-normal">
-				No recipes match &ldquo;{query}&rdquo;
+				No Recipes match &ldquo;{query}&rdquo;
 			</h2>
 			<p className="text-muted-foreground mt-2 max-w-sm">
-				{restricted
-					? 'Saved Recipes may be excluded by your active filters.'
-					: 'Check the spelling — or this might be the one your cookbook is missing.'}
+				{restricted ? 'Your filters may be hiding it.' : 'Check the spelling.'}
 			</p>
 			<div className="mt-6 flex gap-3">
 				<Button variant="outline" onClick={onClearSearch}>

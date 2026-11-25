@@ -50,7 +50,7 @@ async function expectNoShareToast(page: Page) {
 	const announcements = page.getByRole('region', { name: /Notifications/ })
 	await expect(announcements.getByText('Copied', { exact: true })).toBeVisible()
 	await expect(announcements.getByText('Public link copied')).toHaveCount(0)
-	await expect(announcements.getByText(/Unable to copy —/)).toHaveCount(0)
+	await expect(announcements.getByText(/Couldn’t copy the link/)).toHaveCount(0)
 }
 
 test('Share opens the system share sheet with the Recipe title and public link', async ({

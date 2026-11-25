@@ -422,7 +422,7 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 			.first()
 			.click()
 		await expect(
-			page.getByPlaceholder('Search Recipes and Menus...').first(),
+			page.getByPlaceholder('Search Recipes and Menus…').first(),
 		).toBeVisible({ timeout: 2000 })
 		await expect(page.getByRole('dialog')).toHaveCount(0)
 	}).toPass()
@@ -447,9 +447,7 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 		.getByRole('button', { name: /add meal/i })
 		.first()
 		.click()
-	const planSearch = page
-		.getByPlaceholder('Search Recipes and Menus...')
-		.first()
+	const planSearch = page.getByPlaceholder('Search Recipes and Menus…').first()
 	await planSearch.fill('garlic flatbrad')
 	await expect(page.getByText('Menus', { exact: true }).first()).toBeVisible()
 	await page
@@ -613,14 +611,14 @@ test.describe('Plan quick-add failure', () => {
 				.first()
 				.click()
 			await expect(
-				page.getByPlaceholder('Search Recipes and Menus...').first(),
+				page.getByPlaceholder('Search Recipes and Menus…').first(),
 			).toBeVisible({ timeout: 2000 })
 		}).toPass()
 		await page.getByRole('button', { name: /herb salad/i }).click()
 
 		// The picker still closes at once, and the failure follows as a toast.
 		await expect(
-			page.getByPlaceholder('Search Recipes and Menus...'),
+			page.getByPlaceholder('Search Recipes and Menus…'),
 		).toHaveCount(0)
 		const announcements = page.getByRole('region', { name: /Notifications/ })
 		await expect(
@@ -713,7 +711,7 @@ test('Narrowing the phone Plan picker keeps the sheet height, so the input stays
 		}
 		await expect(composer).toBeVisible({ timeout: 1000 })
 	}).toPass()
-	const search = composer.getByPlaceholder('Search Recipes and Menus...')
+	const search = composer.getByPlaceholder('Search Recipes and Menus…')
 	await expect(search).toBeVisible()
 	await expect(
 		composer.getByRole('button', { name: /Herb Omelette/ }),

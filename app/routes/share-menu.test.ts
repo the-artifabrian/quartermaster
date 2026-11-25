@@ -519,7 +519,7 @@ test('a failed image upload cleans staged bytes and reports failure without a bu
 	const failed = await action(await args(menu.id, target, true))
 	expect(failed).toMatchObject({
 		init: { status: 500 },
-		data: { error: expect.stringContaining('Unable to save') },
+		data: { error: expect.stringContaining('Couldn’t save') },
 	})
 	expect(objects.size).toBe(1)
 	expect(

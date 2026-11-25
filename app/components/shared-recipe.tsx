@@ -245,7 +245,7 @@ export function SharedRecipeView({
 									<p className="font-serif text-lg">Like this Recipe?</p>
 									<p className="text-muted-foreground mt-1 text-sm">
 										Sign up for Quartermaster to save Recipes, plan Meals, and
-										keep household Staples.
+										keep Household Staples.
 									</p>
 									<div className="mt-4 flex justify-center gap-3">
 										<Button asChild>

@@ -469,7 +469,7 @@ for (const fallback of [false, true]) {
 			}
 		}
 		await page
-			.getByPlaceholder('Add an item...')
+			.getByPlaceholder('Add an item…')
 			.filter({ visible: true })
 			.fill('Apples')
 		await page
@@ -484,7 +484,7 @@ for (const fallback of [false, true]) {
 			phone.getByRole('group', { name: 'Apples shopping item' }),
 		).toBeVisible()
 		await expect(
-			page.getByPlaceholder('Add an item...').filter({ visible: true }),
+			page.getByPlaceholder('Add an item…').filter({ visible: true }),
 		).toHaveValue('')
 		let originRefreshes = 0
 		const countOriginRefresh = (request: {

@@ -92,14 +92,14 @@ test('Plan loads shared Recipe and Menu choices only when a phone user asks', as
 	await expect.poll(() => choiceRequestCount).toBe(1)
 	releaseFirstRequest()
 	await expect(
-		composer.getByPlaceholder('Search Recipes and Menus...'),
+		composer.getByPlaceholder('Search Recipes and Menus…'),
 	).toBeVisible()
 
 	await composer.getByRole('button', { name: 'Close', exact: true }).click()
 	await expect(composer).toBeHidden()
 	composer = await openAddMeal()
 	await expect(
-		composer.getByPlaceholder('Search Recipes and Menus...'),
+		composer.getByPlaceholder('Search Recipes and Menus…'),
 	).toBeVisible()
 	expect(choiceRequestCount).toBe(1)
 
@@ -125,7 +125,7 @@ test('Plan loads shared Recipe and Menu choices only when a phone user asks', as
 	expect(choiceRequestCount).toBe(3)
 	await composer.getByRole('button', { name: 'Try again' }).click()
 	await expect(
-		composer.getByPlaceholder('Search Recipes and Menus...'),
+		composer.getByPlaceholder('Search Recipes and Menus…'),
 	).toBeVisible()
 	expect(choiceRequestCount).toBe(4)
 	await composer.getByRole('button', { name: /Crisp Salad/ }).click()
@@ -139,7 +139,7 @@ test('Plan loads shared Recipe and Menu choices only when a phone user asks', as
 	await addRecipe.click()
 	// A sheet over the Meal on a phone.
 	const recipeSheet = page.getByRole('dialog', { name: 'Add a Recipe' })
-	const recipeSearch = recipeSheet.getByPlaceholder('Search recipes...')
+	const recipeSearch = recipeSheet.getByPlaceholder('Search Recipes…')
 	await expect(recipeSearch).toBeVisible()
 	await expect(
 		recipeSheet.getByRole('button', { name: 'Anchor Pasta', exact: true }),

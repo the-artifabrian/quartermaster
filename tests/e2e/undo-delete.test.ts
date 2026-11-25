@@ -383,7 +383,7 @@ test('Undo after the item was added again in the meantime does not double it', a
 	await openShopping(other)
 	await other.getByRole('button', { name: 'Add item' }).click()
 	const sheet = other.getByRole('dialog', { name: 'Add to Shopping' })
-	await sheet.getByPlaceholder('Add an item...').fill('2 milk')
+	await sheet.getByPlaceholder('Add an item…').fill('2 milk')
 	await sheet.getByRole('button', { name: 'Add to Next shop' }).click()
 	await expect
 		.poll(() => savedNames(user.householdId))
@@ -419,7 +419,7 @@ test('opening a sheet closes the Undo toast, so it never covers the sheet', asyn
 		Promise.all(element.getAnimations().map((a) => a.finished)),
 	)
 	await expect(undoButton(page)).toBeHidden()
-	const input = sheet.getByPlaceholder('Add an item...')
+	const input = sheet.getByPlaceholder('Add an item…')
 	const box = (await input.boundingBox())!
 	expect(
 		await page.evaluate(
@@ -427,7 +427,7 @@ test('opening a sheet closes the Undo toast, so it never covers the sheet', asyn
 				document.elementFromPoint(x, y)?.getAttribute('placeholder'),
 			{ x: box.x + box.width - 8, y: box.y + box.height / 2 },
 		),
-	).toBe('Add an item...')
+	).toBe('Add an item…')
 	expect(await savedNames(user.householdId)).toEqual(['eggs'])
 })
 

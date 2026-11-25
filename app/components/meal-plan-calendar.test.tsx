@@ -449,8 +449,8 @@ test('shares one in-flight and successful choice request across Plan controls', 
 	expect(requestCount).toBe(1)
 
 	releaseResponse()
-	await addMealSheet().findByPlaceholderText('Search Recipes and Menus...')
-	await within(desktop).findByPlaceholderText('Search Recipes and Menus...')
+	await addMealSheet().findByPlaceholderText('Search Recipes and Menus…')
+	await within(desktop).findByPlaceholderText('Search Recipes and Menus…')
 	await user.click(addMealSheet().getByRole('button', { name: 'Close' }))
 	await waitFor(() =>
 		expect(
@@ -459,7 +459,7 @@ test('shares one in-flight and successful choice request across Plan controls', 
 	)
 	await user.click(titlePlus('Wednesday, Apr 8'))
 	expect(
-		addMealSheet().getByPlaceholderText('Search Recipes and Menus...'),
+		addMealSheet().getByPlaceholderText('Search Recipes and Menus…'),
 	).toBeVisible()
 	expect(requestCount).toBe(1)
 })
@@ -496,7 +496,7 @@ test('the Plan title + opens the real picker in a sheet for the day showing', as
 	expect(composer.getByText('Wednesday · Apr 8')).toBeVisible()
 	expect(composer.getByText(/^Label/)).toHaveTextContent('Label (optional)')
 	await user.type(
-		await composer.findByPlaceholderText('Search Recipes and Menus...'),
+		await composer.findByPlaceholderText('Search Recipes and Menus…'),
 		'hreb salad',
 	)
 	expect(composer.queryByText('Banana Bread')).not.toBeInTheDocument()
@@ -517,7 +517,7 @@ test('mobile finds a saved Menu by one of its Recipes and adds it to the selecte
 	const composer = addMealSheet()
 	await user.click(composer.getByRole('button', { name: 'Dinner' }))
 	await user.type(
-		await composer.findByPlaceholderText('Search Recipes and Menus...'),
+		await composer.findByPlaceholderText('Search Recipes and Menus…'),
 		'garlic flatbrad',
 	)
 
@@ -558,18 +558,18 @@ test('mobile explains a stale empty Menu and lets the user retry', async () => {
 			? {
 					status: 'error' as const,
 					menuError:
-						'This Menu has nothing to plan yet—add a Recipe or note first.',
+						'This Menu has nothing to plan yet. Add a Recipe or note first.',
 				}
 			: { status: 'success' as const }
 	})
 
 	await user.click(titlePlus('Wednesday, Apr 8'))
 	const composer = addMealSheet()
-	await composer.findByPlaceholderText('Search Recipes and Menus...')
+	await composer.findByPlaceholderText('Search Recipes and Menus…')
 	await user.click(composer.getByRole('button', { name: /Friday Supper/ }))
 
 	expect(await composer.findByRole('alert')).toHaveTextContent(
-		'This Menu has nothing to plan yet—add a Recipe or note first.',
+		'This Menu has nothing to plan yet. Add a Recipe or note first.',
 	)
 	expect(screen.getByRole('dialog', { name: 'Add Meal' })).toBeVisible()
 	expect(composer.getByRole('button', { name: /Friday Supper/ })).toBeEnabled()
@@ -623,7 +623,7 @@ test('mobile reports an already-planned Recipe and links to that Meal', async ()
 		const composer = addMealSheet()
 		await user.click(composer.getByRole('button', { name: 'Dinner' }))
 		await user.type(
-			await composer.findByPlaceholderText('Search Recipes and Menus...'),
+			await composer.findByPlaceholderText('Search Recipes and Menus…'),
 			search,
 		)
 		await user.click(composer.getByRole('button', { name }))

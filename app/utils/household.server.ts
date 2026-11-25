@@ -144,7 +144,7 @@ export async function acceptInvite(
 				householdId_userId: { householdId: targetHouseholdId, userId },
 			},
 		})
-		if (existingMember) throw new Error('Already a member of this household')
+		if (existingMember) throw new Error('You’re already in this Household')
 
 		// Mark the invite used. The write lock was taken before the read
 		// above, so no other accept can have used it in between.

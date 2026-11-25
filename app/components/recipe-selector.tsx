@@ -122,7 +122,7 @@ export function PlanItemSelector({ ...props }: PlanItemSelectorProps) {
 	return (
 		<ItemSelector
 			{...props}
-			placeholder="Search Recipes and Menus..."
+			placeholder="Search Recipes and Menus…"
 			emptyMessage="No Recipes or Menus found"
 		/>
 	)
@@ -148,8 +148,8 @@ export function RecipeSelector({
 			onPick={(choice) => {
 				if (choice.kind === 'recipe') onPick(choice.recipe)
 			}}
-			placeholder="Search recipes..."
-			emptyMessage="No recipes found"
+			placeholder="Search Recipes…"
+			emptyMessage="No Recipes found"
 		/>
 	)
 }

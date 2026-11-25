@@ -39,9 +39,7 @@ for (const width of [390, 1280]) {
 			.getByRole('button', { name: 'Clear search and filters', exact: true })
 			.first()
 		await page.goto('/recipes?favorites=true&search=Walnut&sort=alphabetical')
-		await expect(
-			page.getByText('Saved Recipes may be excluded by your active filters.'),
-		).toBeVisible()
+		await expect(page.getByText('Your filters may be hiding it.')).toBeVisible()
 		await expect(
 			page.getByText('Favorites', { exact: true }).last(),
 		).toBeVisible()

@@ -130,7 +130,7 @@ test('a hung provider request times out as an error result', async () => {
 	expect(result.error.name).toBe('EmailTimeoutError')
 	expect(result.error.statusCode).toBe(504)
 	// User-facing copy: no configured-timeout value, no transport internals.
-	expect(result.error.message).toMatch(/timed out/i)
+	expect(result.error.message).toMatch(/took too long/i)
 	expect(result.error.message).not.toMatch(/\d+\s*ms/i)
 	// The failure must still reach the logs — callers render the result
 	// instead of throwing, so this is the only trace of a provider outage.

@@ -262,7 +262,7 @@ test.describe('errors that hold Save back', () => {
 		await saveButton(page).tap()
 
 		const error = page.getByText(
-			'One or more Recipe classifications are not available in this household.',
+			'One or more Recipe classifications are not available in this Household.',
 		)
 		await expect(error).toBeVisible()
 		const message = page.locator('[data-error-target]').first()
@@ -1257,7 +1257,7 @@ test.describe('a Save that cannot go through keeps the form', () => {
 		await expect(page.getByLabel('Title')).toHaveValue('Chicken noodle soup')
 		expect(await recipeTitle(soup.id)).toBe('Chicken soup')
 
-		await page.getByRole('button', { name: 'Remove recipe link' }).tap()
+		await page.getByRole('button', { name: 'Remove Recipe link' }).tap()
 		await expect(message).toBeHidden()
 		await saveButton(page).tap()
 		await expect(page).toHaveURL(`/recipes/${soup.id}`)

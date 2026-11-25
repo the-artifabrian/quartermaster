@@ -43,7 +43,7 @@ export async function resolveRecipeMetadataValueIds(
 
 	if (selectedValues.length !== selectedIds.length) {
 		throw new RecipeMetadataSelectionError(
-			'One or more Recipe classifications are not available in this household.',
+			'One or more Recipe classifications are not available in this Household.',
 		)
 	}
 

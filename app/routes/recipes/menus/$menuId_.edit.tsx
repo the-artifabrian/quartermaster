@@ -521,7 +521,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 			return data(
 				{
 					result: submission.reply({
-						formErrors: ['That recipe is no longer in your library'],
+						formErrors: ['That Recipe isn’t in your Recipes any more'],
 					}),
 				},
 				{ status: 400 },

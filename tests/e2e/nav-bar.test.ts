@@ -887,7 +887,7 @@ test('changing the scale keeps the Recipe where it was, small title and all', as
 		requestAnimationFrame(sample)
 	})
 	await scale.tap()
-	await page.getByRole('button', { name: 'Increase recipe scale' }).tap()
+	await page.getByRole('button', { name: 'Increase Recipe scale' }).tap()
 	await expect(page).toHaveURL(/scale=/)
 	await page.waitForTimeout(300)
 	expect(Math.abs((await scrollY(page)) - before)).toBeLessThan(5)

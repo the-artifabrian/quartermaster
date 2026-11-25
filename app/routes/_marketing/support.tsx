@@ -15,7 +15,7 @@ const pageDescription =
 
 const faqs = [
 	{
-		question: 'How do I import recipes?',
+		question: 'How do I import Recipes?',
 		answer:
 			'Open New Recipe > Import to paste a link or a Recipe’s text. On Pro, AI can also read pasted text and screenshots. Choose Write a Recipe to type one in yourself. To restore a Quartermaster JSON export, go to Settings > Data.',
 		// The iOS app shows no copy about Pro (ADR 0001).

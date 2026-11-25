@@ -1006,7 +1006,7 @@ Instructions
 	})
 	await page.getByRole('button', { name: 'Copy Recipe' }).click()
 	await expect(
-		announcements.getByText('Unable to copy recipe', { exact: true }),
+		announcements.getByText('Couldn’t copy the Recipe', { exact: true }),
 	).toBeVisible()
 })
 

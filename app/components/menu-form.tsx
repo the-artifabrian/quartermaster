@@ -601,8 +601,8 @@ function MenuSectionCard({
 			{itemList.length === 0 ? (
 				<p className="text-muted-foreground border-border/60 rounded-lg border-2 border-dashed px-4 py-8 text-center text-sm">
 					{solo
-						? 'No recipes on this menu yet.'
-						: 'No recipes in this section yet.'}
+						? 'No Recipes on this Menu yet.'
+						: 'No Recipes in this section yet.'}
 				</p>
 			) : (
 				<ul className="space-y-2">
@@ -769,7 +769,7 @@ function MenuItemRow({
 					</p>
 					{missing ? (
 						<p className="text-foreground-destructive mt-0.5 text-xs">
-							No longer in your recipe library
+							This Recipe isn’t in your Recipes any more
 						</p>
 					) : null}
 				</div>
@@ -791,7 +791,7 @@ function MenuItemRow({
 					size="icon"
 					className="shrink-0"
 					{...form.remove.getButtonProps({ name: itemsName, index })}
-					aria-label={`Remove ${title} from menu`}
+					aria-label={`Remove ${title} from Menu`}
 				>
 					<Icon name="trash" size="sm" />
 				</Button>
@@ -805,7 +805,7 @@ function MenuItemRow({
 				<div className="mt-2 flex items-center gap-2">
 					<RecipePicker
 						recipes={recipes}
-						label="Replace recipe"
+						label="Replace Recipe"
 						onPick={(replacement) => {
 							form.update({
 								name: item.recipeId.name,
@@ -965,7 +965,7 @@ function MenuNoteRow({
 					size="icon"
 					className="shrink-0"
 					{...form.remove.getButtonProps({ name: itemsName, index })}
-					aria-label={`Remove ${label} from menu`}
+					aria-label={`Remove ${label} from Menu`}
 				>
 					<Icon name="trash" size="sm" />
 				</Button>

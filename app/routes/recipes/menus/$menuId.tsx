@@ -40,7 +40,7 @@ import { requireUserWithHousehold } from '#app/utils/household.server.ts'
 import { getRequestToday } from '#app/utils/today.server.ts'
 import { PlanMenuSchema } from '#app/utils/meal-plan-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
-import { planMenu } from '#app/utils/plan-menu.server.ts'
+import { EMPTY_MENU_MESSAGE, planMenu } from '#app/utils/plan-menu.server.ts'
 import { servingInstantFromWallTime } from '#app/utils/serving-time.ts'
 import { DEMO_BLOCKED_MESSAGE } from '#app/utils/demo.ts'
 import { browserShareFunctions, shareOrCopy } from '#app/utils/share-link.ts'
@@ -196,9 +196,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 		return data(
 			{
 				result: submission.reply({
-					formErrors: [
-						'This menu has nothing to plan yet — add a recipe or note first.',
-					],
+					formErrors: [EMPTY_MENU_MESSAGE],
 				}),
 			},
 			{ status: 400 },
@@ -402,7 +400,7 @@ export default function MenuDetail({
 						'Anyone with this link can view the Menu and its Recipes.',
 				})
 			} else if (outcome === 'copy-failed') {
-				toast.error('Unable to copy the link')
+				toast.error('Couldn’t copy the link. Try again.')
 			}
 		} finally {
 			shareInFlight.current = false

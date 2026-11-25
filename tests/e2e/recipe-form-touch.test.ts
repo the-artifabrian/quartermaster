@@ -201,7 +201,7 @@ test('Recipes filters and Settings controls are thumb-sized on a phone', async (
 		.getByRole('button', { name: /filter/i })
 		.first()
 		.click()
-	await expectThumbSized(page.getByRole('combobox', { name: 'Sort recipes' }))
+	await expectThumbSized(page.getByRole('combobox', { name: 'Sort Recipes' }))
 	await expectThumbSized(
 		page.getByRole('button', { name: 'Show favorites only' }),
 	)

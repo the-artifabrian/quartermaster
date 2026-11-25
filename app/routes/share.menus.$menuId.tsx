@@ -118,7 +118,7 @@ export async function action({ params, request }: Route.ActionArgs) {
 		}
 		console.error('Unable to save shared Menu', error)
 		return data(
-			{ error: 'Unable to save this Menu and its Recipes. Please try again.' },
+			{ error: 'Couldn’t save this Menu and its Recipes. Try again.' },
 			{ status: 500 },
 		)
 	}

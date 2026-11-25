@@ -955,7 +955,7 @@ test.describe('in the iOS app', () => {
 					await expect(linkGone).toBeVisible()
 				}),
 			).toEqual([])
-			await page.getByRole('button', { name: 'Remove recipe link' }).tap()
+			await page.getByRole('button', { name: 'Remove Recipe link' }).tap()
 
 			await context.setOffline(true)
 			expect(
@@ -990,7 +990,7 @@ test.describe('in the iOS app', () => {
 				await ui.hapticsOf(async () => {
 					await saveButton(page).tap()
 					await expect(
-						page.getByText('A menu with this title already exists'),
+						page.getByText('You already have a Menu with this title'),
 					).toBeVisible()
 				}),
 			).toEqual([])
@@ -1086,7 +1086,7 @@ test.describe('in the iOS app', () => {
 			await login()
 			await page.goto('/settings/profile')
 			const keepAwake = page.getByRole('switch', {
-				name: 'Keep screen awake while a recipe is open',
+				name: 'Keep screen awake while a Recipe is open',
 			})
 			await expect(keepAwake).toBeEnabled()
 			await ui.settled()

@@ -27,9 +27,9 @@ const nothingToRead: Record<ImportIntent, string> = {
 	fetch:
 		'The Recipe on this page has no ingredients or steps. Paste its text in From text instead.',
 	'parse-text':
-		'Could not find a recipe in the pasted text. Try including a title, ingredients, and instructions.',
-	'extract-text': 'Could not find a recipe in the pasted text.',
-	'extract-image': 'Could not find a recipe in the screenshots.',
+		'Couldn’t find a Recipe in the pasted text. Include its title, ingredients and steps.',
+	'extract-text': 'Couldn’t find a Recipe in the pasted text.',
+	'extract-image': 'Couldn’t find a Recipe in the screenshots.',
 }
 
 /** An import that saved nothing, said on the tab the cook used. */

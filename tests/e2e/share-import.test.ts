@@ -799,7 +799,9 @@ test.describe('shared screenshots', () => {
 		expect(await deliverScreenshots(page, await screenshots(2))).toBe(true)
 
 		await expect(
-			page.getByText("Couldn't find a recipe in the provided image(s)."),
+			page.getByText('Couldn’t find a Recipe in the screenshots.', {
+				exact: false,
+			}),
 		).toBeVisible()
 		await expect(page).toHaveURL(/\/recipes\/import$/)
 		await expect(

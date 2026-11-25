@@ -186,7 +186,7 @@ export function ShoppingListItemCard({
 		isEditing &&
 		editFetcher.data?.status === 'error' &&
 		editFetcher.data?.submission?.error
-			? 'Please check your input and try again.'
+			? 'Check the name and amount, then try again.'
 			: isEditing
 				? editNotice
 				: null

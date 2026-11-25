@@ -276,7 +276,7 @@ function KeepAwakeSwitch() {
 		<Switch
 			checked={enabled}
 			onCheckedChange={handleChange}
-			aria-label="Keep screen awake while a recipe is open"
+			aria-label="Keep screen awake while a Recipe is open"
 			disabled={!hydrated}
 		/>
 	)

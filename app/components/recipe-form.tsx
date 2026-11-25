@@ -393,7 +393,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 							inputMode="decimal"
 							enterKeyHint="done"
 							placeholder="4"
-							aria-label="Amount this recipe makes"
+							aria-label="Amount this Recipe makes"
 							aria-invalid={
 								fields.yieldAmount.errors?.length ? true : undefined
 							}

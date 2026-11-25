@@ -365,7 +365,7 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 									<span className="font-semibold">
 										{passkey.deviceType === 'platform'
 											? 'Device'
-											: 'Security Key'}
+											: 'Security key'}
 									</span>
 								</div>
 								<div className="text-muted-foreground text-sm">

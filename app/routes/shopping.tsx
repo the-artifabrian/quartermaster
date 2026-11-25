@@ -752,7 +752,7 @@ function LaterQuickAdd() {
 						setName(event.target.value)
 						setWarningDismissed(false)
 					}}
-					placeholder="Add to Later..."
+					placeholder="Add to Later…"
 					enterKeyHint="go"
 					autoCapitalize="none"
 					className="min-w-0 flex-1"
@@ -1105,7 +1105,7 @@ export default function ShoppingListRoute({
 							nudgeId="check-items-off"
 							icon="check"
 							title="Check items off as you shop"
-							description="Tap items as you shop, then clear the checked rows when you're done."
+							description="Tap an item to check it off, then clear the checked rows when you're done."
 							dismissText="Got it"
 							className="mb-4"
 						/>
@@ -1148,7 +1148,7 @@ export default function ShoppingListRoute({
 										setQaName(e.target.value)
 										setWarningDismissed(false)
 									}}
-									placeholder="Add an item..."
+									placeholder="Add an item…"
 									enterKeyHint="go"
 									autoCapitalize="none"
 									className="h-10 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
@@ -1178,7 +1178,7 @@ export default function ShoppingListRoute({
 										isRecording
 											? 'Stop recording'
 											: isTranscribing
-												? 'Transcribing...'
+												? 'Transcribing…'
 												: 'Voice input'
 									}
 								>
@@ -1248,7 +1248,7 @@ export default function ShoppingListRoute({
 							type="search"
 							inputMode="search"
 							enterKeyHint="search"
-							placeholder="Search Shopping..."
+							placeholder="Search Shopping…"
 							value={search}
 							onChange={(e) => setSearch(e.target.value)}
 							className="pl-9"

@@ -231,7 +231,7 @@ test('Keep screen awake is a switch that holds its setting', async ({
 	)
 	await page.goto('/settings/profile')
 	const keepAwake = page.getByRole('switch', {
-		name: 'Keep screen awake while a recipe is open',
+		name: 'Keep screen awake while a Recipe is open',
 	})
 	const track = keepAwake.locator('[data-slot="switch-track"]')
 	const thumb = keepAwake.locator('[data-slot="switch-thumb"]')

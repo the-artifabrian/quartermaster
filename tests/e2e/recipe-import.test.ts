@@ -283,7 +283,7 @@ test('text with neither ingredients nor steps saves nothing and keeps what was p
 	await page
 		.getByRole('button', { name: 'Read as written', exact: true })
 		.click()
-	await expect(page.getByText(/Could not find a recipe/)).toBeVisible()
+	await expect(page.getByText(/Couldn’t find a Recipe/)).toBeVisible()
 	await expect(page.getByLabel('Recipe text', { exact: true })).toHaveValue(
 		text,
 	)

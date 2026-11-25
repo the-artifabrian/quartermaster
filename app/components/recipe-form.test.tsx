@@ -37,7 +37,7 @@ test('Recipe form reopens explicit time and typed yield values for editing', () 
 		screen.getByRole('spinbutton', { name: 'Total time (min)' }),
 	).toHaveValue(180)
 	expect(
-		screen.getByRole('spinbutton', { name: 'Amount this recipe makes' }),
+		screen.getByRole('spinbutton', { name: 'Amount this Recipe makes' }),
 	).toHaveValue(2.5)
 	expect(
 		screen.getByRole('combobox', { name: 'What this Recipe makes' }),

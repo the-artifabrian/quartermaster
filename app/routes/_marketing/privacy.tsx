@@ -49,7 +49,7 @@ export default function PrivacyRoute() {
 						Quartermaster collects the minimum data needed to provide the
 						service. This includes account and authentication data, plus the
 						Recipes, classifications, Menus, Meals, Staples, and Shopping your
-						household creates.
+						Household creates.
 					</p>
 				</section>
 

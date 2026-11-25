@@ -729,6 +729,84 @@ test.describe('the old /inventory address', () => {
 		).toBe(0)
 	})
 
+	// An older page runs the same Staples client loader under the old route
+	// id. Answering its Staples data request with what /inventory.data says
+	// to that page plays the tap without the old build.
+	async function answerAsOldPage(page: Page) {
+		await page.route(
+			'**/staples.data*',
+			async (route) => {
+				const response = await route.fetch({
+					url: new URL(
+						'/inventory.data?_routes=routes%2Finventory%2Findex',
+						route.request().url(),
+					).toString(),
+					maxRedirects: 0,
+				})
+				await route.fulfill({ response })
+			},
+			{ times: 1 },
+		)
+	}
+
+	async function markDocument(page: Page) {
+		await page.evaluate(() => {
+			;(window as { beforeNavigation?: boolean }).beforeNavigation = true
+		})
+	}
+
+	async function expectNewStaplesDocument(page: Page) {
+		await expect(page).toHaveURL('/staples')
+		await expect(stapleRow(page, 'Salt')).toBeVisible()
+		await expect(page.getByRole('heading', { level: 1 })).toHaveText('Staples')
+		expect(
+			await page.evaluate(
+				() => (window as { beforeNavigation?: boolean }).beforeNavigation,
+			),
+		).toBeUndefined()
+	}
+
+	test('an older page tapping Staples for the first time lands on Staples', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seedStaples(user.householdId, ['Salt'])
+		await page.goto('/recipes')
+		await waitForHydration(page)
+		await markDocument(page)
+		await answerAsOldPage(page)
+
+		await page
+			.getByRole('navigation', { name: 'Main' })
+			.getByRole('link', { name: 'Staples', exact: true })
+			.click()
+
+		await expectNewStaplesDocument(page)
+	})
+
+	test('an older page tapping Staples again, with Staples in memory, lands on Staples', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seedStaples(user.householdId, ['Salt'])
+		await page.goto('/staples')
+		await expect(stapleRow(page, 'Salt')).toBeVisible()
+		await waitForHydration(page)
+		const nav = page.getByRole('navigation', { name: 'Main' })
+		await nav.getByRole('link', { name: 'Recipes', exact: true }).click()
+		await expect(page).toHaveURL('/recipes')
+		await markDocument(page)
+		await answerAsOldPage(page)
+
+		// The stored Staples show at once; the refresh behind them meets the
+		// redirect.
+		await nav.getByRole('link', { name: 'Staples', exact: true }).click()
+
+		await expectNewStaplesDocument(page)
+	})
+
 	test('a client-side navigation to /inventory loads Staples as a new page', async ({
 		page,
 		login,

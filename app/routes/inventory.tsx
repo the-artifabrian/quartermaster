@@ -21,9 +21,3 @@ export const middleware: Route.MiddlewareFunction[] = [
 		throw redirectDocument(`/staples${url.search}`, 301)
 	},
 ]
-
-// Gives the route a loader, so a client navigation here asks the server and
-// meets the middleware. It never runs.
-export function loader() {
-	return null
-}

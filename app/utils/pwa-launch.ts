@@ -11,6 +11,17 @@ export const launchThemes = {
 	},
 } as const
 
+/**
+ * The document's canvas on the homepage, which keeps the look it had before
+ * the app's palette changed until it is redesigned itself: what shows around
+ * its espresso page (overscroll, the browser's toolbar tint, a scrollbar's
+ * gutter). tailwind.css keeps the same two values.
+ */
+export const homepageCanvas = {
+	light: '#f6f1eb',
+	dark: '#1a1816',
+} as const
+
 export type LaunchTheme = keyof typeof launchThemes
 
 export const launchThemeNames = Object.keys(launchThemes) as LaunchTheme[]

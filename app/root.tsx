@@ -67,7 +67,11 @@ import {
 	PostHogPageview,
 	PostHogPwaLifecycle,
 } from './utils/posthog-provider.tsx'
-import { iosStartupImages, launchThemes } from './utils/pwa-launch.ts'
+import {
+	homepageCanvas,
+	iosStartupImages,
+	launchThemes,
+} from './utils/pwa-launch.ts'
 import { SITE_DESCRIPTION } from './utils/site-description.ts'
 import { getUserTier, type TierInfo } from './utils/subscription.server.ts'
 import { type Theme, getTheme } from './utils/theme.server.ts'
@@ -316,6 +320,8 @@ function Document({
 }) {
 	const allowIndexing = ENV.ALLOW_INDEXING !== 'false'
 	const launchTheme = launchThemes[theme]
+	const canvas = (scheme: Theme) =>
+		chrome === 'espresso' ? homepageCanvas[scheme] : launchThemes[scheme].canvas
 	const posthogOrigin = env.POSTHOG_API_KEY
 		? new URL(getPostHogHost(env.POSTHOG_HOST)).origin
 		: null
@@ -332,19 +338,19 @@ function Document({
 				<meta name="color-scheme" content="light dark" />
 				<meta
 					name="theme-color"
-					content={launchThemes.light.canvas}
+					content={canvas('light')}
 					media="(prefers-color-scheme: light)"
 				/>
 				<meta
 					name="theme-color"
-					content={launchThemes.dark.canvas}
+					content={canvas('dark')}
 					media="(prefers-color-scheme: dark)"
 				/>
 				<style
 					nonce={nonce}
 					data-pwa-launch-theme={theme}
 					dangerouslySetInnerHTML={{
-						__html: `:root{color-scheme:${theme}}html,body{background:${launchTheme.canvas};color:${launchTheme.foreground}}`,
+						__html: `:root{color-scheme:${theme}}html,body{background:${canvas(theme)};color:${launchTheme.foreground}}`,
 					}}
 				/>
 				<ClientHintCheck nonce={nonce} />

@@ -119,6 +119,13 @@
 :root:has([data-chrome='espresso']) {
 	--typeface-sans: 'DM Sans', system-ui, sans-serif;
 	--typeface-serif: 'Young Serif', Georgia, serif;
+	/* The canvas around the page (overscroll, a scrollbar's gutter) keeps its
+	   old color too, as homepageCanvas in pwa-launch.ts does. */
+	--background: #f6f1eb;
+}
+
+.dark:has([data-chrome='espresso']) {
+	--background: #1a1816;
 }
 
 /* The homepage re-themes the site chrome around it (header, Log In)

@@ -498,7 +498,7 @@ test('a database restored from an older backup gets a dump before it is migrated
 	expect(boot.result).not.toBeNull()
 })
 
-test('a boot with every migration applied takes no dump, whatever else sits in the folder', async () => {
+test('a boot with every migration applied takes no dump, even with a lock file and a stray file in the folder', async () => {
 	expect(hasSqlite3).toBe(true)
 	const dir = await makeTempDir()
 	const sourcePath = await makeDatabase(path.join(dir, 'sqlite.db'))
@@ -507,7 +507,6 @@ test('a boot with every migration applied takes no dump, whatever else sits in t
 		'1_init',
 		'2_menus',
 	])
-	await mkdir(path.join(migrationsDir, 'notes'))
 	await writeFile(path.join(migrationsDir, 'README.md'), 'x')
 
 	const boot = await bootDump(dir, sourcePath, migrationsDir, bootAt(0))
@@ -565,6 +564,26 @@ test('a database Prisma has never migrated gets a dump', async () => {
 
 	const boot = await bootDump(dir, sourcePath, migrationsDir, bootAt(0))
 	expect(boot.result).not.toBeNull()
+	expect(boot.unknown).toBeFalsy()
+	expect(boot.reason).toMatch(/never been migrated/)
+})
+
+test("a migration history that can't be read gets a dump and a warning with sqlite's own message", async () => {
+	expect(hasSqlite3).toBe(true)
+	const dir = await makeTempDir()
+	const sourcePath = await makeDatabase(path.join(dir, 'sqlite.db'))
+	await execFileAsync('sqlite3', [
+		sourcePath,
+		'CREATE TABLE _prisma_migrations (id TEXT)',
+	])
+	const migrationsDir = await makeMigrationsDir(path.join(dir, 'migrations'), [
+		'1_init',
+	])
+
+	const boot = await bootDump(dir, sourcePath, migrationsDir, bootAt(0))
+	expect(boot.result).not.toBeNull()
+	expect(boot.unknown).toBe(true)
+	expect(boot.reason).toMatch(/no such column/)
 })
 
 test('a migrations folder that is missing or empty still gets a dump', async () => {
@@ -588,4 +607,38 @@ test('a migrations folder that is missing or empty still gets a dump', async () 
 		bootAt(1),
 	)
 	expect(empty.result).not.toBeNull()
+})
+
+test('the boot script finds the real migrations folder from any working directory', async () => {
+	expect(hasSqlite3).toBe(true)
+	const dir = await makeTempDir()
+	const sourcePath = await makeDatabase(path.join(dir, 'sqlite.db'))
+	const repoMigrations = path.join(import.meta.dirname, '../prisma/migrations')
+	const names = (await readdir(repoMigrations, { withFileTypes: true }))
+		.filter((entry) => entry.isDirectory())
+		.map((entry) => entry.name)
+	await recordMigrations(
+		sourcePath,
+		names.map((name) => ({ name })),
+	)
+
+	const { LITEFS_DIR, SKIP_DB_BACKUP, ...env } = process.env
+	const { stdout } = await execFileAsync(
+		'bun',
+		[
+			path.join(import.meta.dirname, '../scripts/backup-db.ts'),
+			'--source',
+			sourcePath,
+			'--dir',
+			path.join(dir, 'backups'),
+			'--local-only',
+			'--label',
+			'pre-migration',
+			'--only-if-migrations-pending',
+		],
+		{ cwd: dir, env },
+	)
+
+	expect(stdout).toMatch(/no pending migrations/)
+	expect(await readdir(path.join(dir, 'backups')).catch(() => [])).toEqual([])
 })

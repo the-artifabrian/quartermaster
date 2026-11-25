@@ -424,7 +424,10 @@ export async function readMigrationState({
 }): Promise<MigrationState> {
 	let folders: Array<string>
 	try {
-		// A migration, to Prisma, is a folder holding a migration.sql.
+		// Prisma treats every folder here as a migration and stops with an
+		// error at one with no migration.sql. Any real migrations still pending
+		// are counted below, so skipping such a folder only keeps it from making
+		// every boot dump.
 		const withSql = await Promise.all(
 			(await readdir(migrationsDir)).map((name) =>
 				stat(path.join(migrationsDir, name, 'migration.sql')).then(
@@ -465,12 +468,22 @@ export async function readMigrationState({
 		])
 		rows = output ? (JSON.parse(output) as Array<Row>) : []
 	} catch (error) {
+		// execFile's message starts with the whole command line; sqlite's own
+		// complaint is on stderr.
+		const detail =
+			(error as { stderr?: string }).stderr?.trim() || String(error)
 		// A database Prisma has never migrated has no such table. Anything else
 		// means the check itself is broken, which the boot log should shout.
+		if (detail.includes('no such table')) {
+			return {
+				pending: folders,
+				reason: 'the database has never been migrated',
+			}
+		}
 		return {
 			pending: folders,
-			unknown: !String(error).includes('no such table'),
-			reason: `can't read _prisma_migrations (${String(error).split('\n')[0]})`,
+			unknown: true,
+			reason: `can't read _prisma_migrations (${detail})`,
 		}
 	}
 

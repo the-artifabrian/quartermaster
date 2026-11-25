@@ -737,8 +737,9 @@ async function importRecipes(
 			try {
 				// Older exports may carry only Prep/Cook. They become a total only
 				// when both parts are present, non-negative, and add up to more than
-				// zero. An old file's servings is accepted here and never becomes typed
-				// yield.
+				// zero, and the rule runs one way: a total is never split back into
+				// prep and cook. An old file's servings is accepted here and never
+				// becomes typed yield.
 				const legacyTotal =
 					recipe.prepTime != null &&
 					recipe.cookTime != null &&
@@ -2120,8 +2121,8 @@ async function restore(
 		sharedMenuIdsByTitleKey = imported.sharedMenuIdsByTitleKey
 	}
 
-	// Staples: rows the Household already has win, so a restore never rewrites
-	// a choice the Household has already made.
+	// Household ingredients (Staples included): rows the Household already has
+	// win, so a restore never rewrites a choice the Household has already made.
 	if (fullData?.householdIngredients !== undefined) {
 		await writeTransaction(prisma, async (tx) => {
 			const existing = await tx.householdIngredient.findMany({

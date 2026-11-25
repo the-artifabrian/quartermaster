@@ -216,8 +216,8 @@ export function createPlanAction(
 
 		// Puts one Meal's ingredients on Shopping. Planning itself never touches
 		// Shopping. buildShoppingDemand works out the lines, the Staples check
-		// marks them, and each line written leaves a contribution keyed to this
-		// Meal.
+		// drops the ones the household usually has, and each line written leaves
+		// a contribution keyed to this Meal.
 		if (intent === 'addMealToShopping' || intent === 'refreshMealShopping') {
 			const meal = await requireMeal(formData.get('mealId'))
 			// A text-only Meal puts nothing on Shopping.

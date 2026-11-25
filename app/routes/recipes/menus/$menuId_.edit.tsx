@@ -300,9 +300,9 @@ export async function action({ request, params }: Route.ActionArgs) {
 			)
 
 			// Effective Recipe references after this save: a stored card keeps
-			// its reference unless the submission replaces it (a
-			// missing card submits an empty recipeId, which never unlinks a live
-			// one). Note cards never reference a Recipe.
+			// its reference unless the submission replaces it (a missing card
+			// submits an empty recipeId, which never unlinks a live one). Note
+			// cards never reference a Recipe.
 			const effectiveRecipeIds = items.map((item, index) => {
 				if (item.kind === 'note') return null
 				const stored = itemMatch.matches[index]

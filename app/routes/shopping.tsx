@@ -201,8 +201,8 @@ export async function action({ request }: Route.ActionArgs) {
 
 	// From Plan: the household picks Meals and lines in the picker, and each
 	// ticked Meal writes through the same Meal-add path as adding that Meal
-	// from Plan. There is no week-wide rebuild: a second pick
-	// of the same Meal records nothing new, and an untouched line stays off.
+	// from Plan. There is no week-wide rebuild: a second pick of the same Meal
+	// records nothing new, and an untouched line stays off.
 	if (intent === 'add-from-plan') {
 		const rawPicks = formData.get('picks')
 		invariantResponse(typeof rawPicks === 'string', 'Picks are required')

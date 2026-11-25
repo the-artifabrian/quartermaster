@@ -14,8 +14,9 @@ import { writeTransaction } from './write-transaction.server.ts'
 type Tx = Prisma.TransactionClient
 
 /**
- * Writes buildShoppingDemand output to Shopping, in the caller's
- * transaction. It keeps one MealShoppingContribution per (Meal, canonical
+ * Writes buildShoppingDemand output to Shopping in one write transaction
+ * (reconcileMealShoppingContributionsInTransaction does the same inside the
+ * caller's). It keeps one MealShoppingContribution per (Meal, canonical
  * demand identity), linking the source Meal to the Shopping row its demand
  * feeds. It records what the Meal adds now: re-adding is idempotent and no
  * history builds up. A matching manual row is only pointed at, never
@@ -225,8 +226,7 @@ async function createMealRow(
  * Replace one Meal's current contribution with freshly built demand. Existing
  * unchecked display rows are reused; rows created for demand that no longer
  * exists disappear only when no manual or other-Meal component still needs
- * them. New groups start unchecked even when a first add's Staples check
- * would have pre-checked them.
+ * them. New rows start unchecked.
  *
  * A checked row is a purchase, so Update leaves it alone. Whether this
  * Meal's demand on it grew, shrank or went away, the row and the share stay
@@ -336,7 +336,8 @@ export async function replaceMealShoppingContributionsInTransaction(
 
 	// New demand reuses only an outstanding row (Next shop first, a Later
 	// row moves up) or gets its own row, so a checked purchase never grows.
-	// Every Meal add follows this rule; PR #271 has the reasoning.
+	// Every Meal add follows this rule. Issue #226 has the case behind it
+	// (200 g rice checked, a Recipe needing 400 g), fixed in PR #271.
 	async function placeNewDemand(line: ShoppingDemandLine) {
 		const existingRow = rowByCanonical.get(line.canonicalName)
 		if (existingRow) {

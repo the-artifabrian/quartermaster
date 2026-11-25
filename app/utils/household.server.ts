@@ -223,10 +223,10 @@ export async function acceptInvite(
 			// Week plans move whole: a non-colliding week just changes household;
 			// a colliding week re-parents its Meals into the target plan, appended
 			// after each day's existing Meals (as a restore does), so nothing is
-			// merged away and no cooked state or multiplier is
-			// second-guessed. Week matching happens in JS because raw SQL equality
-			// on `weekStart` is unsound across the column's two storage formats
-			// (INTEGER epoch-ms vs TEXT ISO); Prisma reads both correctly.
+			// merged away and no cooked state or multiplier is second-guessed. Week
+			// matching happens in JS because raw SQL equality on `weekStart` is
+			// unsound across the column's two storage formats (INTEGER epoch-ms vs
+			// TEXT ISO); Prisma reads both correctly.
 			const [sourcePlans, targetPlans] = await Promise.all([
 				tx.mealPlan.findMany({
 					where: { householdId: currentHouseholdId },

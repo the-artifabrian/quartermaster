@@ -166,8 +166,8 @@ export function ServiceWorkerUpdate() {
 			void registration
 				.update()
 				.then(revealWaitingWorker)
-				// Offline or the server is down. The next visible or online moment
-				// checks again.
+				// Offline or the server is down. The next check after
+				// UPDATE_CHECK_INTERVAL_MS tries again.
 				.catch(() => {})
 		}
 

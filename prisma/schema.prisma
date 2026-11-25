@@ -667,7 +667,7 @@ model MealShoppingContribution {
   id String @id @default(cuid())
 
   /// Source Meal. Nulled when the Meal is deleted while its Shopping rows are
-  /// kept. The contribution then stays as an orphan, still counted in the row.
+  /// kept. The contribution then stays linked to the row as an orphan.
   meal   Meal?   @relation(fields: [mealId], references: [id], onDelete: SetNull)
   mealId String?
 

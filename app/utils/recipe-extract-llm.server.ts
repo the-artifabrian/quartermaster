@@ -34,8 +34,7 @@ import {
 import { CANONICAL_UNITS } from './unit-conversion.ts'
 
 // Long enough for the whole paste the box accepts and for a recipe that fills
-// the row caps (MAX_RECIPE_INGREDIENTS, MAX_RECIPE_INSTRUCTIONS); both were
-// raised together on 2026-09-21.
+// the row caps (MAX_RECIPE_INGREDIENTS, MAX_RECIPE_INSTRUCTIONS).
 const TIMEOUT_TEXT_MS = 45_000
 const TIMEOUT_IMAGE_MS = 60_000
 const MAX_TOKENS = 16_000
@@ -469,9 +468,9 @@ export async function extractRecipeFromText(
 }
 
 // Claude accepts up to 1568px on the long edge before it downsamples on its
-// own, so anything smaller only throws away recipe text: capped at 1024px,
-// a 1170×2532 phone screenshot arrives at 473×1024. Quality 88 keeps small
-// type legible at a size the request can still carry.
+// own, so anything smaller only throws away recipe text: at a 1024px cap a
+// 1170×2532 phone screenshot would arrive at 473×1024. Quality 88 keeps
+// small type legible at a size the request can still carry.
 const IMAGE_MAX_DIMENSION = 1568
 const IMAGE_JPEG_QUALITY = 88
 

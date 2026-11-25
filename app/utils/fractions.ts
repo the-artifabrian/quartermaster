@@ -207,8 +207,8 @@ function snapToCommonFraction(
 /**
  * A range amount like "1-2", "2 to 3", or "1½–2". Ranges are honest input:
  * they scale end by end but never sum, so every caller asks this first.
- * parseAmount reads no range as a number. PR #394 shows what happened when a
- * caller didn't: "1-2 cloves garlic" reached Shopping as "1".
+ * parseAmount reads no range as a number. PR #394 fixed "1-2 cloves garlic"
+ * reaching Shopping as "1".
  */
 const RANGE_AMOUNT =
 	/^\s*(\d[\d\s.,/½⅓⅔¼¾⅛⅜⅝⅞]*?|[½⅓⅔¼¾⅛⅜⅝⅞])\s*([-–—~]|to)\s*(\d[\d\s.,/½⅓⅔¼¾⅛⅜⅝⅞]*|[½⅓⅔¼¾⅛⅜⅝⅞])\s*$/i

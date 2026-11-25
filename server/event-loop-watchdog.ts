@@ -14,9 +14,9 @@ import { Worker } from 'node:worker_threads'
 // thread bumps a counter in a SharedArrayBuffer on a timer, and a worker
 // *thread* watches that counter. The worker has its own OS thread and its own
 // event loop, so the main thread spinning doesn't stop it. When the counter
-// stops advancing for long enough, the
-// worker kills the whole process (same PID) and Fly's `on-failure` restart
-// policy reboots us: a blip instead of a multi-hour outage.
+// stops advancing for long enough, the worker kills the whole process (same
+// PID) and Fly's `on-failure` restart policy reboots us: a blip instead of a
+// multi-hour outage.
 //
 // The decision is deliberately made on a COUNTER, not on wall-clock deltas. A
 // timestamp heartbeat would let an NTP step larger than the stall threshold

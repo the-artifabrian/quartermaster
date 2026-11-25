@@ -86,8 +86,9 @@ export const MenuShoppingLineSchema = z.object({
 /**
  * One card in the builder: a Recipe card or a note card, discriminated by
  * `kind` the way stored MenuItems are. One schema (with per-kind refinement)
- * rather than a union keeps conform's field metadata simple; `kind` defaults
- * to 'recipe' so a submission without it parses as a Recipe card.
+ * rather than a union keeps conform's field metadata simple. `kind` defaults
+ * to 'recipe' because a form from a tab opened before note cards existed
+ * sends no card type.
  */
 const MenuBuilderItemSchema = z
 	.object({

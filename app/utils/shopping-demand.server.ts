@@ -111,11 +111,10 @@ function looksLikeHeading(ingredient: {
  * Build normalized Shopping demand. Recipe ingredients are scaled by their
  * batch multiplier and cleaned. Then all demand, Recipe ingredients and
  * note Shopping lines alike, merges by demand identity, summing amounts in
- * compatible units in a fixed order. Note lines need no
- * canonical ingredient identity: demandIdentity()'s trimmed-lowercase
- * fallback covers them. What cannot merge honestly (free text, incompatible
- * units, ranges, unparseable values) stays visible as separate parts of one
- * line, never a false total.
+ * compatible units in a fixed order. Note lines need no canonical ingredient
+ * identity: demandIdentity()'s trimmed-lowercase fallback covers them. What
+ * cannot merge honestly (free text, incompatible units, ranges, unparseable
+ * values) stays visible as separate parts of one line, never a false total.
  */
 export function buildShoppingDemand({
 	recipeBatches = [],

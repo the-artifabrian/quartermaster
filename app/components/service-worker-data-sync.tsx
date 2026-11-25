@@ -20,8 +20,8 @@ function postToServiceWorker(message: Record<string, unknown>) {
 		.then((registration) => {
 			registration.active?.postMessage(message)
 		})
-		// No worker means no cache to act on, and controllerchange re-sends once
-		// one takes control.
+		// Only postMessage can throw here. The session and purge messages are
+		// re-sent on controllerchange (see the sync effect).
 		.catch(() => {})
 }
 

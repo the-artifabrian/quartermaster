@@ -1014,9 +1014,9 @@ export function MealCard({
 						)
 					})}
 
-					{/* Add another Recipe directly to this Meal. The
-					    picker replaces the button while open and has its own Cancel;
-					    on a phone it is a sheet over the button. */}
+					{/* Add another Recipe directly to this Meal. The picker replaces
+					    the button while open and has its own Cancel; on a phone it is
+					    a sheet over the button. */}
 					{addingRecipe && !recipeInSheet ? (
 						<div className="bg-card animate-fade-up-reveal shadow-warm-lg mt-2 rounded-lg border p-3">
 							{recipePicker}

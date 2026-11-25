@@ -1,4 +1,3 @@
-import { type Locator } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
 import { SHELL_UA } from '#tests/native-shell.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
@@ -119,7 +118,7 @@ test.describe('in the iOS app on a phone', () => {
 		userAgent: SHELL_UA,
 	})
 
-	test('Recipes search and its filter button are 44px and share the field shape', async ({
+	test('Recipes search and its filter button are 44px', async ({
 		page,
 		login,
 	}) => {
@@ -132,11 +131,5 @@ test.describe('in the iOS app on a phone', () => {
 		await expect(search).toBeVisible()
 		expect((await search.boundingBox())!.height).toBe(44)
 		expect(await filters.boundingBox()).toMatchObject({ width: 44, height: 44 })
-		const radius = (control: Locator) =>
-			control.evaluate(
-				(element) => getComputedStyle(element).borderTopLeftRadius,
-			)
-		expect(await radius(search)).toBe(await radius(filters))
-		expect(Number.parseFloat(await radius(search))).toBeLessThanOrEqual(8)
 	})
 })

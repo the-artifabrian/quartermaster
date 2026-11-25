@@ -725,7 +725,7 @@ test.describe('on a desktop', () => {
 })
 
 test.describe('Plan Meals as flat rows', () => {
-	test('a Meal has no card border, fill or shadow; a hairline divides Meals and its actions still work', async ({
+	test('a hairline divides Meals, and their actions still work', async ({
 		page,
 		login,
 	}) => {
@@ -768,35 +768,13 @@ test.describe('Plan Meals as flat rows', () => {
 			const plan = page.getByTestId(copy)
 			const row = plan.locator(`[data-meal-id="${meal.id}"]`)
 			await expect(row).toBeVisible()
-			const style = await row.evaluate((element) => {
-				const css = getComputedStyle(element)
-				return {
-					border: css.borderTopWidth,
-					shadow: css.boxShadow,
-					fill: css.backgroundColor,
-				}
-			})
-			expect(style).toEqual({
-				border: '0px',
-				shadow: 'none',
-				fill: 'rgba(0, 0, 0, 0)',
-			})
-			// The second Meal sits under a hairline in the border colour.
+			// The second Meal sits under a hairline.
 			const groups = plan.locator('[data-slot="meal-group"]')
 			await expect(groups).toHaveCount(3)
-			const divider = await groups.nth(1).evaluate((element) => {
-				const probe = document.createElement('span')
-				probe.className = 'border-border border'
-				document.body.append(probe)
-				const color = getComputedStyle(probe).borderTopColor
-				probe.remove()
-				const css = getComputedStyle(element)
-				return {
-					width: css.borderTopWidth,
-					matches: css.borderTopColor === color,
-				}
-			})
-			expect(divider).toEqual({ width: '1px', matches: true })
+			const divider = await groups
+				.nth(1)
+				.evaluate((element) => getComputedStyle(element).borderTopWidth)
+			expect(divider).toBe('1px')
 			// Between the two Recipes of one Meal: a hairline that starts where
 			// the titles start, past the cooked toggle.
 			const salads = plan

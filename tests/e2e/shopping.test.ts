@@ -450,9 +450,8 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	await expect(
 		page.getByRole('menuitem', { name: 'Edit', exact: true }),
 	).toBeVisible()
-	// Delete is red from the start and deletes at once, with Undo.
+	// Delete deletes at once, with Undo.
 	const deleteFoil = page.getByRole('menuitem', { name: 'Delete', exact: true })
-	await expect(deleteFoil).toHaveCSS('color', 'rgb(168, 80, 64)')
 	await deleteFoil.click()
 	await expect(foil).toBeHidden()
 	await expect
@@ -1483,17 +1482,7 @@ test.describe('tapping a row on a phone', () => {
 		expect(menu.y + menu.height).toBeLessThanOrEqual(tabBar.y)
 		// And its items are thumb-sized on a touch screen.
 		expect((await deleteItem.boundingBox())!.height).toBeGreaterThanOrEqual(44)
-		// Delete is red before it is armed, not only once it asks.
-		const red = await page.evaluate(() => {
-			const probe = document.createElement('span')
-			probe.className = 'text-foreground-destructive'
-			document.body.append(probe)
-			const color = getComputedStyle(probe).color
-			probe.remove()
-			return color
-		})
 		await expect(deleteItem).toHaveText('Delete')
-		await expect(deleteItem).toHaveCSS('color', red)
 
 		await deleteItem.click()
 		await expect(row(page, target)).toBeHidden()

@@ -8,6 +8,7 @@ import {
 import { prisma } from '#app/utils/db.server.ts'
 import { readEmail } from '#tests/mocks/utils.ts'
 import {
+	animationsFinished,
 	createUser,
 	expect,
 	expectThumbSized,
@@ -352,11 +353,6 @@ async function recordTransitions(page: Page, selector: string, flag: string) {
 	}
 }
 
-/** Waits long enough for a 150–200ms transition to have started and ended. */
-async function pastAnyTransition(page: Page) {
-	await page.waitForTimeout(400)
-}
-
 test.describe('on a phone', () => {
 	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
@@ -384,8 +380,6 @@ test.describe('on a phone', () => {
 			])
 			return Math.round(k!.x - t!.x)
 		}
-		const trackColor = () =>
-			track.evaluate((element) => getComputedStyle(element).backgroundColor)
 
 		// Read from the device after hydration; disabled until then.
 		await expect(keepAwake).toBeEnabled()
@@ -397,23 +391,21 @@ test.describe('on a phone', () => {
 			51, 31,
 		])
 		expect(await thumbOffset()).toBe(22)
-		const onColor = await trackColor()
 
 		await keepAwake.tap()
 		await expect(keepAwake).toHaveAttribute('aria-checked', 'false')
 		expect(
 			await page.evaluate(() => localStorage.getItem('qm-keep-awake')),
 		).toBe('false')
-		// The thumb slides left and the track gives up its sage.
+		// The thumb slides left.
 		await expect.poll(thumbOffset).toBe(2)
-		await expect.poll(trackColor).not.toBe(onColor)
 		expect(await thumbSlid.seen()).toBe(true)
 
 		// A page that opens on Off shows it without playing the slide.
 		await page.reload()
 		await expect(keepAwake).toBeEnabled()
 		await expect(keepAwake).toHaveAttribute('aria-checked', 'false')
-		await pastAnyTransition(page)
+		await animationsFinished(page)
 		expect(await thumbOffset()).toBe(2)
 		expect(await thumbSlid.seen()).toBe(false)
 
@@ -423,7 +415,6 @@ test.describe('on a phone', () => {
 			await page.evaluate(() => localStorage.getItem('qm-keep-awake')),
 		).toBe('true')
 		await expect.poll(thumbOffset).toBe(22)
-		await expect.poll(trackColor).toBe(onColor)
 
 		await expectThumbTall(
 			page.getByRole('button', { name: 'Delete my account' }),

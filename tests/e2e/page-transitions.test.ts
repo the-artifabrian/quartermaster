@@ -3,6 +3,7 @@ import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { SAFARI_UA, SHELL_UA } from '#tests/native-shell.ts'
 import {
+	animationsFinished,
 	browserToday,
 	expect,
 	hydrated,
@@ -1215,6 +1216,16 @@ test.describe('Back in the iOS app', () => {
 		})
 	}
 
+	/** Waits until a slide has finished and nothing else is animating. */
+	async function slideFinished(page: Page) {
+		await page.waitForFunction(() =>
+			(window as unknown as { __slides: Array<Slide> }).__slides.some(
+				(s) => s.direction === 'forward' || s.direction === 'back',
+			),
+		)
+		await animationsFinished(page)
+	}
+
 	function slidesThatMoved(slides: Array<Slide>) {
 		return slides.filter(
 			(s) => s.direction === 'forward' || s.direction === 'back',
@@ -1264,8 +1275,7 @@ test.describe('Back in the iOS app', () => {
 		await expect(
 			page.getByRole('link', { name: /Red Miso Soup/ }),
 		).toBeVisible()
-		// Long enough for the slide and any transition after it.
-		await page.waitForTimeout(1000)
+		await slideFinished(page)
 		const back = slidesThatMoved(await takeSlides(page))
 		expect(back).toHaveLength(1)
 		expect(back[0]!.direction).toBe('back')
@@ -1281,7 +1291,7 @@ test.describe('Back in the iOS app', () => {
 		await expect(
 			page.getByRole('heading', { level: 1, name: 'Red Miso Soup' }),
 		).toBeVisible()
-		await page.waitForTimeout(1000)
+		await slideFinished(page)
 		const forward = slidesThatMoved(await takeSlides(page))
 		expect(forward).toHaveLength(1)
 		expect(forward[0]!.direction).toBe('forward')

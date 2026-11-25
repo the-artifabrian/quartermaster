@@ -267,3 +267,24 @@ export async function tapUntil(
 		await then()
 	}).toPass({ timeout })
 }
+
+/**
+ * Waits two frames, so a transition that a change has just started is
+ * running, then until every animation on the page that ends has finished.
+ */
+export async function animationsFinished(page: Page) {
+	await page.evaluate(async () => {
+		await new Promise((resolve) =>
+			requestAnimationFrame(() => requestAnimationFrame(resolve)),
+		)
+		await Promise.all(
+			document
+				.getAnimations()
+				.filter(
+					(animation) =>
+						animation.effect?.getComputedTiming().endTime !== Infinity,
+				)
+				.map((animation) => animation.finished.catch(() => {})),
+		)
+	})
+}

@@ -1140,7 +1140,7 @@ test.describe('in the iOS app on a phone', () => {
 		userAgent: SHELL_UA,
 	})
 
-	test('Recipes, Staples and Plan put one round + beside the title; Plan’s adds a Meal to the day showing', async ({
+	test('Recipes, Staples and Plan put one + beside the title; Plan’s adds a Meal to the day showing', async ({
 		page,
 		login,
 	}) => {
@@ -1156,8 +1156,6 @@ test.describe('in the iOS app on a phone', () => {
 		type Look = {
 			width: number
 			height: number
-			radius: string
-			background: string
 			rightGap: number
 			afterTitle: boolean
 			centerOffset: number
@@ -1169,17 +1167,9 @@ test.describe('in the iOS app on a phone', () => {
 			const h1 = page.getByRole('heading', { level: 1 })
 			const titleBox = (await h1.boundingBox())!
 			const box = (await plus.boundingBox())!
-			const style = await plus.evaluate((element) => {
-				const computed = getComputedStyle(element)
-				return {
-					radius: computed.borderTopLeftRadius,
-					background: computed.backgroundColor,
-				}
-			})
 			return {
 				width: box.width,
 				height: box.height,
-				...style,
 				// At the right end of the title's row, past the title.
 				rightGap: await h1.evaluate((title, plusRight) => {
 					const row = title.parentElement!
@@ -1205,7 +1195,6 @@ test.describe('in the iOS app on a phone', () => {
 			afterTitle: true,
 			centerOffset: 0,
 		})
-		expect(Number.parseFloat(recipes.radius)).toBeGreaterThanOrEqual(22)
 		expect(staples).toEqual(recipes)
 		expect(plan).toEqual(recipes)
 

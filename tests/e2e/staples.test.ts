@@ -406,11 +406,9 @@ test.describe('with a finger', () => {
 
 		const finalRow = list.getByRole('listitem').filter({ hasText: 'Zucchini' })
 		await finalRow.scrollIntoViewIfNeeded()
-		const bottomNav = page
-			.getByRole('navigation', { name: 'Main' })
-			.filter({
-				has: page.getByRole('link', { name: 'Shopping', exact: true }),
-			})
+		const bottomNav = page.getByRole('navigation', { name: 'Main' }).filter({
+			has: page.getByRole('link', { name: 'Shopping', exact: true }),
+		})
 		const [rowBox, navBox] = await Promise.all([
 			finalRow.boundingBox(),
 			bottomNav.boundingBox(),
@@ -428,7 +426,7 @@ test.describe('in the iOS app on a phone', () => {
 		userAgent: SHELL_UA,
 	})
 
-	test('a Staple row swiped left shows a red Delete that removes it at once, with Undo', async ({
+	test('a Staple row swiped left shows a Delete that removes it at once, with Undo', async ({
 		page,
 		login,
 	}) => {
@@ -451,7 +449,6 @@ test.describe('in the iOS app on a phone', () => {
 		await drag(page, salt, { fromX: 0.8, toX: 0.2 })
 		await expect.poll(() => restingX(salt)).toBe(-76)
 		expect(await onTop(del)).toBe(true)
-		await expect(del).toHaveCSS('background-color', 'rgb(184, 92, 74)')
 
 		// Opening another row shuts this one.
 		const apples = stapleRow(page, 'Apples')

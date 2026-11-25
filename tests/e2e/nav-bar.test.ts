@@ -4,6 +4,7 @@ import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { SHELL_UA, setShellSafeArea } from '#tests/native-shell.ts'
 import {
+	animationsFinished,
 	browserToday,
 	expect,
 	hydrated,
@@ -235,7 +236,7 @@ test('a page opened from a scrolled page does not start with its title in the ba
 	await expect(
 		page.getByRole('heading', { level: 1, name: 'Household' }),
 	).toBeVisible()
-	await page.waitForTimeout(300)
+	await animationsFinished(page)
 	const frames = await page.evaluate(
 		() => (window as unknown as { __frames: string[] }).__frames,
 	)
@@ -887,7 +888,7 @@ test('changing the scale keeps the Recipe where it was, small title and all', as
 	await scale.tap()
 	await page.getByRole('button', { name: 'Increase Recipe scale' }).tap()
 	await expect(page).toHaveURL(/scale=/)
-	await page.waitForTimeout(300)
+	await animationsFinished(page)
 	expect(Math.abs((await scrollY(page)) - before)).toBeLessThan(5)
 	const frames = await page.evaluate(
 		() => (window as unknown as { __frames: boolean[] }).__frames,
@@ -1053,7 +1054,7 @@ test('opening a form from a list commits Cancel and Save with the form', async (
 	await newMenu.tap()
 	await expect(page).toHaveURL('/recipes/menus/new')
 	await expect(page.locator('[data-nav-save]')).toBeVisible()
-	await page.waitForTimeout(300)
+	await animationsFinished(page)
 	const frames = await page.evaluate(
 		() => (window as unknown as { __frames: string[] }).__frames,
 	)

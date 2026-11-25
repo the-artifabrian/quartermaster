@@ -1,6 +1,7 @@
 import { type Locator, type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
 import {
+	animationsFinished,
 	expect,
 	expectThumbTall,
 	hydrated,
@@ -405,11 +406,6 @@ async function waitForHydration(page: Page, selector: string) {
 	}, selector)
 }
 
-/** Waits long enough for a 150–200ms transition to have started and ended. */
-async function pastAnyTransition(page: Page) {
-	await page.waitForTimeout(400)
-}
-
 /** Whether the sage pill now sits under `tab`. */
 async function pillUnder(pill: Locator, tab: Locator) {
 	const [p, t] = await Promise.all([pill.boundingBox(), tab.boundingBox()])
@@ -460,18 +456,18 @@ test.describe('on a phone', () => {
 			['forward', /\/recipes$/],
 		] as const) {
 			// Let the slide from the step before finish first.
-			await pastAnyTransition(page)
+			await animationsFinished(page)
 			await pillSlid.reset()
 			await (step === 'back' ? page.goBack() : page.goForward())
 			await expect(page).toHaveURL(url)
-			await pastAnyTransition(page)
+			await animationsFinished(page)
 			expect(await pillSlid.seen(), `no slide on ${step}`).toBe(false)
 		}
 
 		// A reload keeps the entry's state, but it is not a switch.
 		await page.reload()
 		await waitForHydration(page, 'nav[aria-label="Library"] a')
-		await pastAnyTransition(page)
+		await animationsFinished(page)
 		expect(await pillSlid.seen(), 'no slide on reload').toBe(false)
 		await expect(recipes).toHaveAttribute('aria-current', 'page')
 		expect(

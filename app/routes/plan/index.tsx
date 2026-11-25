@@ -6,7 +6,7 @@ import {
 	useNavigate,
 } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
-import { TitleRow } from '#app/components/ui/title-add-button.tsx'
+import { TabTitle, TitleRow } from '#app/components/ui/title-add-button.tsx'
 import { OfflineErrorBoundary } from '#app/components/offline-error-boundary.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -241,7 +241,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 					renderHeader={(titleAction) => (
 						<div className="py-4">
 							<TitleRow>
-								<h1 className="font-serif text-2xl">Plan</h1>
+								<TabTitle>Plan</TabTitle>
 								{titleAction}
 							</TitleRow>
 

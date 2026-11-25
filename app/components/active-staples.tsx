@@ -5,7 +5,7 @@ import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
 import { RowCollapse } from './ui/row-collapse.tsx'
-import { TitleAddButton, TitleRow } from './ui/title-add-button.tsx'
+import { TabTitle, TitleAddButton, TitleRow } from './ui/title-add-button.tsx'
 import {
 	useDeleteWithUndo,
 	useEnteringRows,
@@ -99,7 +99,7 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 		<div className="container-content w-full min-w-0 overflow-x-hidden py-4 pb-[calc(var(--bottom-nav-h)+2rem+var(--bottom-nav-inset))] md:py-6 md:pb-8">
 			<header>
 				<TitleRow>
-					<h1 className="font-serif text-2xl font-normal">Staples</h1>
+					<TabTitle>Staples</TabTitle>
 					<TitleAddButton
 						ref={addButtonRef}
 						aria-label="Add Staple"
@@ -201,7 +201,7 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 
 			{search.trim() && filteredStaples.length === 0 ? (
 				<div className="bg-muted/40 mt-5 rounded-lg p-6 text-center">
-					<h2 className="font-serif text-xl font-normal">No Staples found</h2>
+					<h2 className="font-serif text-xl">No Staples found</h2>
 					<p className="text-muted-foreground mt-1 text-sm">
 						Nothing matches &ldquo;{search.trim()}&rdquo;.
 					</p>
@@ -235,7 +235,7 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 				/>
 			) : (
 				<div className="bg-muted/40 mt-5 rounded-lg p-6 text-center">
-					<h2 className="font-serif text-xl font-normal">No Staples yet</h2>
+					<h2 className="font-serif text-xl">No Staples yet</h2>
 					<p className="text-muted-foreground mt-1 text-sm">
 						Add what your Household usually has. Tap Need on one to put it on
 						Next shop.

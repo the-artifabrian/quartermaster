@@ -5,6 +5,7 @@ import { RecipeCardGrid } from '#app/components/recipe-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import {
+	TabTitle,
 	TitleAddButton,
 	TitleRow,
 } from '#app/components/ui/title-add-button.tsx'
@@ -75,12 +76,12 @@ export default function MenusIndex({ loaderData }: Route.ComponentProps) {
 		<div className="pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
 			<div className="border-border/50 border-b">
 				<TitleRow className="container-grid py-3 md:py-4">
-					<h1 className="font-serif text-2xl font-normal">
+					<TabTitle>
 						Menus{' '}
 						<span className="text-muted-foreground text-base font-normal">
 							({menus.length})
 						</span>
-					</h1>
+					</TabTitle>
 					<TitleAddButton
 						asChild
 						aria-label="New Menu"
@@ -114,9 +115,7 @@ export default function MenusIndex({ loaderData }: Route.ComponentProps) {
 						<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
 							<Icon name="rows" className="text-muted-foreground/40 size-8" />
 						</div>
-						<h2 className="mt-4 font-serif text-xl font-normal">
-							No Menus yet
-						</h2>
+						<h2 className="mt-4 font-serif text-xl">No Menus yet</h2>
 						<p className="text-muted-foreground mt-2 max-w-sm">
 							Create a Menu for Recipes and notes you serve together.
 						</p>

@@ -42,7 +42,7 @@ export const handle: SEOHandle = {
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'My Recipes | Quartermaster' }]
+	return [{ title: 'Recipes | Quartermaster' }]
 }
 
 const SORT_OPTIONS = [
@@ -431,7 +431,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 			<div>
 				<TitleRow className="container-grid py-3 md:py-4">
 					<h1 className="font-serif text-2xl font-normal">
-						My Recipes{' '}
+						Recipes{' '}
 						<span className="text-muted-foreground text-base font-normal">
 							{/* While searching/filtering, the count says what you see (B2) */}
 							{hasFilters && displayRecipes.length !== totalRecipeCount

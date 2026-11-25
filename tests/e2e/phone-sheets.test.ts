@@ -212,7 +212,7 @@ test('Add a Meal is a sheet: picking a Recipe plans it and closes the sheet', as
 
 	await page.goto('/plan')
 	const mobile = page.getByTestId('mobile-plan')
-	const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
+	const sheet = page.getByRole('dialog', { name: 'Add Meal' })
 	await tapUntil(page.getByRole('button', { name: /^Add Meal to/ }), () =>
 		expect(sheet).toBeVisible({ timeout: 1000 }),
 	)
@@ -251,7 +251,7 @@ test('Add a Meal as text saves from the sheet’s full-width Add', async ({
 
 	await page.goto('/plan')
 	const mobile = page.getByTestId('mobile-plan')
-	const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
+	const sheet = page.getByRole('dialog', { name: 'Add Meal' })
 	await tapUntil(page.getByRole('button', { name: /^Add Meal to/ }), () =>
 		expect(sheet).toBeVisible({ timeout: 1000 }),
 	)
@@ -506,7 +506,7 @@ test('From Staples is a sheet: picked Staples go to Next shop', async ({
 
 	await openShopping(page)
 	const sheet = page.getByRole('dialog', {
-		name: 'What do you need this trip?',
+		name: 'Pick Staples for this trip',
 	})
 	await tapUntil(page.getByRole('button', { name: /^From Staples/ }), () =>
 		expect(sheet).toBeVisible({ timeout: 1000 }),
@@ -985,7 +985,7 @@ test.describe('sheets while they come and go', () => {
 	}) => {
 		await login()
 		await page.goto('/plan')
-		const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
+		const sheet = page.getByRole('dialog', { name: 'Add Meal' })
 		await tapUntil(page.getByRole('button', { name: /^Add Meal to/ }), () =>
 			expect(sheet).toBeVisible({ timeout: 1000 }),
 		)
@@ -1196,7 +1196,7 @@ test.describe('a phone on its side', () => {
 		await login()
 		await page.goto('/plan')
 		const desktop = page.getByTestId('desktop-plan')
-		const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
+		const sheet = page.getByRole('dialog', { name: 'Add Meal' })
 		await tapUntil(
 			desktop.getByRole('button', { name: /^Add Meal to/ }).first(),
 			() => expect(sheet).toBeVisible({ timeout: 1000 }),
@@ -1214,7 +1214,7 @@ test.describe('a phone on its side', () => {
 		await login()
 		await page.setViewportSize({ width: 390, height: 844 })
 		await page.goto('/plan')
-		const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
+		const sheet = page.getByRole('dialog', { name: 'Add Meal' })
 		await tapUntil(page.getByRole('button', { name: /^Add Meal to/ }), () =>
 			expect(sheet).toBeVisible({ timeout: 1000 }),
 		)
@@ -1410,7 +1410,7 @@ test('Staples picked and added are not picked again after Shopping clears them',
 	await seedShopping(user, ['foil'])
 	await openShopping(page)
 	const sheet = page.getByRole('dialog', {
-		name: 'What do you need this trip?',
+		name: 'Pick Staples for this trip',
 	})
 	const fromStaples = page.getByRole('button', { name: /^From Staples/ })
 	await tapUntil(fromStaples, () =>

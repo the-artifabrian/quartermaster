@@ -796,7 +796,7 @@ test.describe('history after Save and Delete', () => {
 			.tap()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^My Recipes/ }),
+			page.getByRole('heading', { name: /^Recipes \(/ }),
 		).toBeVisible()
 		expect(await historyIdx(page)).toBe(0)
 
@@ -896,7 +896,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await page.goBack()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^My Recipes/ }),
+			page.getByRole('heading', { name: /^Recipes \(/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 	})
@@ -921,7 +921,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await page.goBack()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^My Recipes/ }),
+			page.getByRole('heading', { name: /^Recipes \(/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 	})
@@ -945,7 +945,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await page.goBack()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^My Recipes/ }),
+			page.getByRole('heading', { name: /^Recipes \(/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 	})
@@ -993,7 +993,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await page.goBack()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^My Recipes/ }),
+			page.getByRole('heading', { name: /^Recipes \(/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 		await prisma.household.delete({ where: { id: elsewhere.id } })
@@ -1014,7 +1014,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await page.goBack()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^My Recipes/ }),
+			page.getByRole('heading', { name: /^Recipes \(/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 	})
@@ -1041,7 +1041,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await context.setOffline(false)
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^My Recipes/ }),
+			page.getByRole('heading', { name: /^Recipes \(/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 	})

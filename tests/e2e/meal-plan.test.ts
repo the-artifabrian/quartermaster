@@ -706,7 +706,7 @@ test('Narrowing the phone Plan picker keeps the sheet height, so the input stays
 	await page.goto('/plan')
 	const mobile = page.getByTestId('mobile-plan')
 	// On a phone the composer is a sheet over the page.
-	const composer = page.getByRole('dialog', { name: 'Add a Meal' })
+	const composer = page.getByRole('dialog', { name: 'Add Meal' })
 	await expect(async () => {
 		if (!(await composer.isVisible())) {
 			await page.getByRole('button', { name: /^Add Meal to/ }).click()

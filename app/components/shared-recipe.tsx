@@ -234,7 +234,7 @@ export function SharedRecipeView({
 													type="submit"
 													disabled={saveFetcher.state !== 'idle'}
 												>
-													<Icon name="plus">Save to My Recipes</Icon>
+													<Icon name="plus">Save to your Recipes</Icon>
 												</Button>
 											</saveFetcher.Form>
 										)}

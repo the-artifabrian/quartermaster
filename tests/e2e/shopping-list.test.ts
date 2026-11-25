@@ -751,7 +751,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 			.getByRole('button', { name: 'From Staples, reminder available' })
 			.click()
 		await expect(
-			page.getByRole('heading', { name: 'What do you need this trip?' }),
+			page.getByRole('heading', { name: 'Pick Staples for this trip' }),
 		).toBeVisible({ timeout: 2000 })
 	}).toPass({ timeout: 15_000 })
 	await expect(page.getByRole('button', { name: 'From Staples' })).toBeVisible()
@@ -769,7 +769,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 	await page.getByRole('button', { name: 'Add 2 to Next shop' }).click()
 
 	await expect(
-		page.getByRole('heading', { name: 'What do you need this trip?' }),
+		page.getByRole('heading', { name: 'Pick Staples for this trip' }),
 	).toBeHidden()
 	await expect(page.getByText('Milk', { exact: true })).toBeVisible()
 	await expect(page.getByText('Yogurt', { exact: true })).toBeVisible()
@@ -789,7 +789,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 
 	// On a phone the picker is a sheet; its Close shuts it.
 	const staplesSheet = page.getByRole('dialog', {
-		name: 'What do you need this trip?',
+		name: 'Pick Staples for this trip',
 	})
 	async function closeStaplesSheet() {
 		await staplesSheet

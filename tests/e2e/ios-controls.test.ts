@@ -88,7 +88,7 @@ test('Add a meal names its label chips as Add to Plan does, at thumb size', asyn
 	const addMeal = page.getByRole('button', { name: /^Add Meal to/ }).first()
 	await expectThumbTall(addMeal)
 	const label = page
-		.getByRole('dialog', { name: 'Add a Meal' })
+		.getByRole('dialog', { name: 'Add Meal' })
 		.getByRole('group', { name: 'Label (optional)' })
 	await tapUntil(addMeal, () => expect(label).toBeVisible({ timeout: 2000 }))
 	const lunch = label.getByRole('button', { name: 'Lunch' })
@@ -450,7 +450,7 @@ test('From Plan turns the week with thumb-sized chevrons', async ({
 	const previous = page.getByRole('button', { name: 'Previous week' })
 	// Measure once the sheet has finished sliding in: mid-slide its transform
 	// leaves the chevrons a fraction of a pixel short of 44.
-	const sheet = page.getByRole('dialog', { name: 'What are we buying for?' })
+	const sheet = page.getByRole('dialog', { name: 'Pick Meals to shop for' })
 	await sheet.evaluate((element) =>
 		Promise.all(element.getAnimations().map((a) => a.finished)),
 	)

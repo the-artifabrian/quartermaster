@@ -396,7 +396,7 @@ function AddMealControl({
 						open={open}
 						onClose={close}
 						labelledBy={`add-meal-${serializeDate(date)}-title`}
-						title="Add a Meal"
+						title="Add Meal"
 						description={`${formatWeekdayName(date)} · ${formatMonthDay(date)}`}
 					>
 						{fields}

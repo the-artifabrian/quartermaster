@@ -87,7 +87,7 @@ for (const zone of ZONES) {
 			// The browser drew the same day the server did.
 			expect(hydrationErrors).toEqual([])
 
-			const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
+			const sheet = page.getByRole('dialog', { name: 'Add Meal' })
 			await expect(async () => {
 				await page.getByRole('button', { name: /^Add Meal to/ }).tap()
 				await expect(sheet).toBeVisible({ timeout: 1000 })

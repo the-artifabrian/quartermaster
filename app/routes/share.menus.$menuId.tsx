@@ -158,7 +158,7 @@ export default function SharedMenu({ loaderData }: Route.ComponentProps) {
 					<save.Form method="POST">
 						<Button type="submit" disabled={save.state !== 'idle'}>
 							<Icon name="plus" />
-							{save.state !== 'idle' ? 'Saving…' : 'Save to my Menus'}
+							{save.state !== 'idle' ? 'Saving…' : 'Save to your Menus'}
 						</Button>
 					</save.Form>
 				) : (
@@ -166,7 +166,7 @@ export default function SharedMenu({ loaderData }: Route.ComponentProps) {
 						<Link
 							to={`/login?${new URLSearchParams({ redirectTo: `/share/menus/${menu.id}` })}`}
 						>
-							Save to my Menus
+							Save to your Menus
 						</Link>
 					</Button>
 				)}

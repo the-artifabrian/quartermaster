@@ -160,7 +160,7 @@ function titlePlus(day: string) {
 
 /** The Add a Meal sheet the title + opens. */
 function addMealSheet() {
-	return within(screen.getByRole('dialog', { name: 'Add a Meal' }))
+	return within(screen.getByRole('dialog', { name: 'Add Meal' }))
 }
 
 test('a direct Meal link opens its day on mobile and still allows changing days', async () => {
@@ -327,13 +327,13 @@ test('a later today leaves the day alone while a sheet is open', async () => {
 			name: 'Add Meal to Tuesday, Apr 7',
 		}),
 	)
-	const sheet = await screen.findByRole('dialog', { name: 'Add a Meal' })
+	const sheet = await screen.findByRole('dialog', { name: 'Add Meal' })
 
 	await act(async () => setTodayTo('2026-04-08'))
 
 	expectSelected(mobile, 'Show Tuesday, Apr 7, no Meals planned')
 	expect(sheet).toBeInTheDocument()
-	expect(screen.getByRole('dialog', { name: 'Add a Meal' })).toBe(sheet)
+	expect(screen.getByRole('dialog', { name: 'Add Meal' })).toBe(sheet)
 })
 
 test('Edit details submits the date and stored-zone clock time, and keeps validation errors visible', async () => {
@@ -454,7 +454,7 @@ test('shares one in-flight and successful choice request across Plan controls', 
 	await user.click(addMealSheet().getByRole('button', { name: 'Close' }))
 	await waitFor(() =>
 		expect(
-			screen.queryByRole('dialog', { name: 'Add a Meal' }),
+			screen.queryByRole('dialog', { name: 'Add Meal' }),
 		).not.toBeInTheDocument(),
 	)
 	await user.click(titlePlus('Wednesday, Apr 8'))
@@ -544,7 +544,7 @@ test('mobile finds a saved Menu by one of its Recipes and adds it to the selecte
 	)
 	await waitFor(() =>
 		expect(
-			screen.queryByRole('dialog', { name: 'Add a Meal' }),
+			screen.queryByRole('dialog', { name: 'Add Meal' }),
 		).not.toBeInTheDocument(),
 	)
 })
@@ -571,13 +571,13 @@ test('mobile explains a stale empty Menu and lets the user retry', async () => {
 	expect(await composer.findByRole('alert')).toHaveTextContent(
 		'This Menu has nothing to plan yet—add a Recipe or note first.',
 	)
-	expect(screen.getByRole('dialog', { name: 'Add a Meal' })).toBeVisible()
+	expect(screen.getByRole('dialog', { name: 'Add Meal' })).toBeVisible()
 	expect(composer.getByRole('button', { name: /Friday Supper/ })).toBeEnabled()
 
 	await user.click(composer.getByRole('button', { name: /Friday Supper/ }))
 	await waitFor(() =>
 		expect(
-			screen.queryByRole('dialog', { name: 'Add a Meal' }),
+			screen.queryByRole('dialog', { name: 'Add Meal' }),
 		).not.toBeInTheDocument(),
 	)
 	expect(attempts).toBe(2)

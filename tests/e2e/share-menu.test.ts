@@ -167,14 +167,14 @@ test('share a dinner, sign in, save, edit, cook and plan an independent Menu on 
 			),
 		).toBe(true)
 		await page.getByRole('link', { name: 'Back to Menu' }).click()
-		await page.getByRole('link', { name: 'Save to my Menus' }).click()
+		await page.getByRole('link', { name: 'Save to your Menus' }).click()
 		await page
 			.getByRole('textbox', { name: 'Username' })
 			.fill(recipient!.username)
 		await page.getByLabel('Password', { exact: true }).fill(password)
 		await page.getByRole('button', { name: 'Log in', exact: true }).click()
 		await expect(page).toHaveURL(publicPath)
-		await page.getByRole('button', { name: 'Save to my Menus' }).click()
+		await page.getByRole('button', { name: 'Save to your Menus' }).click()
 		await expect(page).toHaveURL(/\/recipes\/menus\/[^/]+$/)
 		const savedPath = new URL(page.url()).pathname
 		const saved = await prisma.menu.findFirstOrThrow({

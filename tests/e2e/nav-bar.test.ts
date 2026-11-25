@@ -110,7 +110,7 @@ test('Back from a deep-linked Recipe opens Recipes in its place', async ({
 	await backButton(page, 'Recipes').tap()
 	await expect(page).toHaveURL('/recipes')
 	await expect(
-		page.getByRole('heading', { level: 1, name: /My Recipes/ }),
+		page.getByRole('heading', { level: 1, name: /^Recipes \(/ }),
 	).toBeVisible()
 	// Replaced, so the Recipe is not left behind the list.
 	expect(await page.evaluate(() => window.history.length)).toBe(lengthBefore)

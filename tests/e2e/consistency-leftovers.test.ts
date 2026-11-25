@@ -221,7 +221,7 @@ test('Recipes, Staples and Plan put one round + beside the title; Plan’s adds 
 	).toBeVisible()
 
 	await plus.tap()
-	const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
+	const sheet = page.getByRole('dialog', { name: 'Add Meal' })
 	await expect(sheet).toBeVisible()
 	await sheet.getByRole('button', { name: /Miso Soup/ }).tap()
 	await expect(sheet).toBeHidden()
@@ -271,7 +271,7 @@ test('after a week swipe, Plan’s + adds to the day showing in the new week', a
 	await expect(plus).toBeVisible()
 	await expect(page.getByRole('button', { name: /^Add Meal/ })).toHaveCount(1)
 	await plus.tap()
-	const sheet = page.getByRole('dialog', { name: 'Add a Meal' })
+	const sheet = page.getByRole('dialog', { name: 'Add Meal' })
 	await expect(sheet).toBeVisible()
 	await sheet.getByRole('button', { name: /Miso Soup/ }).tap()
 	await expect(sheet).toBeHidden()

@@ -91,7 +91,7 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 
 	// Lands on the Recipes list, not back on /recipes/:id or its edit form
 	await expect(page).toHaveURL('/recipes')
-	await expect(page.getByRole('heading', { name: /^My Recipes/ })).toBeVisible()
+	await expect(page.getByRole('heading', { name: /^Recipes \(/ })).toBeVisible()
 	await expect(page.getByText('E2E Updated Pasta')).toHaveCount(0)
 	expect(await prisma.recipe.findUnique({ where: { id: recipeId } })).toBeNull()
 })

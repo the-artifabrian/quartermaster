@@ -50,7 +50,7 @@ function isChoiceResponse(
 	)
 }
 
-const STAPLES_TITLE = 'What do you need this trip?'
+const STAPLES_TITLE = 'Pick Staples for this trip'
 const STAPLES_DESCRIPTION = 'Pick Staples to add to Next shop.'
 
 type BulkAddResponse =

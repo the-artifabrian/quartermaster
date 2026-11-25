@@ -378,7 +378,7 @@ function InviteSection({
 			</createFetcher.Form>
 
 			{newToken ? (
-				<div className="bg-primary/10 mt-4 rounded-md p-4">
+				<div className="bg-primary-tint mt-4 rounded-md p-4">
 					<p className="mb-2 text-sm font-medium">
 						Send this link to the person you’re inviting:
 					</p>

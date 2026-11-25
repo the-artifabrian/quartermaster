@@ -224,7 +224,7 @@ function Pill({
 				transform: `translateX(${index * 100}%)`,
 			}}
 		>
-			<span className="bg-primary block size-full rounded-md" />
+			<span className="bg-primary-fill block size-full rounded-md" />
 		</span>
 	)
 }

@@ -407,7 +407,7 @@ export default function MenuDetail({
 	}
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
-			<h1 className="font-serif text-2xl font-normal">{menu.title}</h1>
+			<h1 className="font-serif text-2xl">{menu.title}</h1>
 
 			{menu.defaultGuestCount ? (
 				<p className="text-muted-foreground mt-1 flex items-center gap-1.5 text-sm">

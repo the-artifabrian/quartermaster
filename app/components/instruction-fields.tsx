@@ -197,7 +197,7 @@ function SortableInstructionRow({
 				>
 					<Icon name="dots-horizontal" size="sm" />
 				</button>
-				<div className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-full text-sm font-medium sm:size-8">
+				<div className="bg-primary-fill text-primary-foreground flex size-7 items-center justify-center rounded-full text-sm font-medium sm:size-8">
 					{index + 1}
 				</div>
 			</div>

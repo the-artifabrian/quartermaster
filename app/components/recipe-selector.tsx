@@ -363,7 +363,7 @@ function RecipeOption({
 					{recipe.isFavorite && (
 						<Icon
 							name="heart-filled"
-							className="text-accent mr-1 inline size-3"
+							className="text-primary mr-1 inline size-3"
 						/>
 					)}
 					{recipe.title}

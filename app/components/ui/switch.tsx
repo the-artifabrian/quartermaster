@@ -52,7 +52,7 @@ export function Switch({
 				className={cn(
 					'relative h-[31px] w-[51px] rounded-full transition-colors',
 					motion,
-					checked ? 'bg-primary' : 'bg-muted-foreground/25',
+					checked ? 'bg-primary-fill' : 'bg-muted-foreground/25',
 				)}
 			>
 				<span

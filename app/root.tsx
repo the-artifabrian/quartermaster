@@ -15,6 +15,8 @@ import {
 import { type Route } from './+types/root.ts'
 import appleTouchIconAssetUrl from './assets/favicons/apple-touch-icon.png'
 import dmSansFontUrl from './assets/fonts/dm-sans-latin.woff2?url'
+import newsreaderFontUrl from './assets/fonts/newsreader-latin.woff2?url'
+import schibstedGroteskFontUrl from './assets/fonts/schibsted-grotesk-latin.woff2?url'
 import youngSerifFontUrl from './assets/fonts/young-serif-latin.woff2?url'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { BottomNav, navItems } from './components/bottom-nav.tsx'
@@ -77,22 +79,7 @@ import { useOptionalUser } from './utils/user.ts'
 
 export const links: Route.LinksFunction = () => {
 	return [
-		// Self-hosted fonts (app/styles/fonts.css). The two faces above the fold
-		// are preloaded; fonts need crossOrigin even on the same origin.
-		{
-			rel: 'preload',
-			href: dmSansFontUrl,
-			as: 'font',
-			type: 'font/woff2',
-			crossOrigin: 'anonymous',
-		} as const,
-		{
-			rel: 'preload',
-			href: youngSerifFontUrl,
-			as: 'font',
-			type: 'font/woff2',
-			crossOrigin: 'anonymous',
-		} as const,
+		// The fonts are preloaded by Document, which knows the page.
 		{
 			rel: 'icon',
 			href: '/favicon.ico',
@@ -292,6 +279,22 @@ export const middleware: Route.MiddlewareFunction[] = [
 	demoGuardMiddleware,
 ]
 
+/**
+ * The homepage re-themes the chrome around it to espresso in either theme,
+ * and keeps its own faces (tailwind.css).
+ */
+function chromeFor(pathname: string) {
+	return pathname === '/' ? ('espresso' as const) : undefined
+}
+
+// Self-hosted fonts (app/styles/fonts.css). The two faces above the fold are
+// preloaded, the homepage's on the homepage and the app's elsewhere, so no
+// page preloads a face it does not use.
+const preloadedFonts = {
+	espresso: [dmSansFontUrl, youngSerifFontUrl],
+	app: [schibstedGroteskFontUrl, newsreaderFontUrl],
+}
+
 function Document({
 	children,
 	nonce,
@@ -299,6 +302,7 @@ function Document({
 	env = {},
 	origin,
 	path,
+	chrome,
 	isNativeShell = false,
 }: {
 	children: React.ReactNode
@@ -307,6 +311,7 @@ function Document({
 	env?: Record<string, string | undefined>
 	origin?: string
 	path?: string
+	chrome?: ReturnType<typeof chromeFor>
 	isNativeShell?: boolean
 }) {
 	const allowIndexing = ENV.ALLOW_INDEXING !== 'false'
@@ -343,6 +348,17 @@ function Document({
 					}}
 				/>
 				<ClientHintCheck nonce={nonce} />
+				{preloadedFonts[chrome ?? 'app'].map((href) => (
+					// Fonts need crossOrigin even on the same origin.
+					<link
+						key={href}
+						rel="preload"
+						href={href}
+						as="font"
+						type="font/woff2"
+						crossOrigin="anonymous"
+					/>
+				))}
 				<Meta />
 				{posthogOrigin ? (
 					<link rel="preconnect" href={posthogOrigin} crossOrigin="anonymous" />
@@ -393,6 +409,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 	const data = useLoaderData<typeof loader | null>()
 	const nonce = useNonce()
 	const theme = useOptionalTheme()
+	const { pathname } = useLocation()
 	// Marks the page as hydrated for the e2e tests. A parent's effects run
 	// after its children's, so by now every mount effect on the page has run
 	// and the router takes navigations. Error pages render inside this too.
@@ -406,6 +423,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 			env={data?.ENV}
 			origin={data?.requestInfo.origin}
 			path={data?.requestInfo.path}
+			chrome={chromeFor(pathname)}
 			isNativeShell={data?.requestInfo.isNativeShell}
 		>
 			{children}
@@ -420,8 +438,7 @@ function App() {
 	const isPro = data.tierInfo.isProActive
 	const { pathname } = useLocation()
 	const isNativeShell = data.requestInfo.isNativeShell
-	// The homepage re-themes the chrome around it to espresso in either theme.
-	const chrome = pathname === '/' ? 'espresso' : undefined
+	const chrome = chromeFor(pathname)
 	useToast(data.toast)
 	useNavDirection()
 	useRecordHistory()

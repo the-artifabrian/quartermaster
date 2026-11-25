@@ -379,7 +379,7 @@ export function ShoppingListItemCard({
 						<div
 							className={`flex size-6 shrink-0 items-center justify-center rounded border-2 transition-[scale,background-color,border-color] duration-150 ease-(--ease-micro) group-enabled/check:group-active/check:scale-[0.97] ${
 								optimisticChecked
-									? 'border-primary bg-primary'
+									? 'border-primary-fill bg-primary-fill'
 									: 'border-border bg-muted/30'
 							}`}
 						>
@@ -398,14 +398,14 @@ export function ShoppingListItemCard({
 									'text-base',
 									optimisticChecked
 										? 'text-muted-foreground/50 decoration-muted-foreground/60 line-through decoration-2'
-										: isVoiceAdded && 'text-copper-text',
+										: isVoiceAdded && 'text-primary',
 								)}
 							>
 								{item.name}
 								{isVoiceAdded && !optimisticChecked && (
 									<Icon
 										name="microphone"
-										className="text-copper-text ml-1.5 inline size-4 align-middle"
+										className="text-primary ml-1.5 inline size-4 align-middle"
 									/>
 								)}
 							</p>

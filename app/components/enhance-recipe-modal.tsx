@@ -38,7 +38,7 @@ export function EnhanceRecipeModal({
 			labelledBy="enhance-title"
 			title={
 				<span className="flex items-center gap-2">
-					<Icon name="sparkles" className="text-accent size-5" />
+					<Icon name="sparkles" className="text-primary size-5" />
 					Suggest description & times
 				</span>
 			}

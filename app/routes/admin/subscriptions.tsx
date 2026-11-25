@@ -120,7 +120,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 const tierStyles: Record<string, string> = {
-	pro: 'border-primary/30 bg-primary/10 text-primary',
+	pro: 'border-primary/30 bg-primary-tint text-primary',
 	free: 'border-muted-foreground/30 bg-muted text-muted-foreground',
 }
 

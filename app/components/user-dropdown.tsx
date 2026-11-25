@@ -6,7 +6,7 @@ import { useDaysUntilExpiry, useIsProActive } from '#app/utils/subscription.ts'
 import { useUser } from '#app/utils/user.ts'
 import { PushLink } from './push-link.tsx'
 
-export function UserDropdown() {
+export function UserDropdown({ className }: { className?: string }) {
 	const user = useUser()
 	const rootData = useRouteLoaderData<typeof rootLoader>('root')
 	const householdName = rootData?.householdName
@@ -22,6 +22,7 @@ export function UserDropdown() {
 			// In the iOS app the initial stands alone, without the ring, in a 44pt
 			// hit area.
 			className={cn(
+				className,
 				'flex items-center gap-2 rounded-full transition-colors sm:pr-3',
 				isNativeShell
 					? 'p-1.5'
@@ -30,7 +31,7 @@ export function UserDropdown() {
 			aria-label="Settings"
 		>
 			<div
-				className="bg-accent/20 text-accent-foreground flex size-8 items-center justify-center rounded-full text-sm font-bold"
+				className="bg-primary-tint text-primary flex size-8 items-center justify-center rounded-full text-sm font-bold"
 				aria-hidden="true"
 			>
 				{initial}
@@ -49,7 +50,7 @@ export function UserDropdown() {
 							daysLeft <= 3
 								? 'text-foreground-destructive font-bold'
 								: daysLeft <= 7
-									? 'text-copper-text'
+									? 'text-foreground'
 									: 'text-muted-foreground',
 						)}
 					>

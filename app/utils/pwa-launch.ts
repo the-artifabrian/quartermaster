@@ -1,13 +1,13 @@
 export const launchThemes = {
 	light: {
-		canvas: '#f6f1eb',
-		foreground: '#2d2926',
-		mutedForeground: '#6f6358',
+		canvas: '#fbfbf8',
+		foreground: '#1a1915',
+		mutedForeground: '#69665e',
 	},
 	dark: {
-		canvas: '#1a1816',
-		foreground: '#e2dbd1',
-		mutedForeground: '#b5a99b',
+		canvas: '#151513',
+		foreground: '#efede6',
+		mutedForeground: '#a5a299',
 	},
 } as const
 

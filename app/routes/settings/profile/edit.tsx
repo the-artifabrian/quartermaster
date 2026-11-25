@@ -86,7 +86,7 @@ export default function EditProfile({ loaderData }: Route.ComponentProps) {
 		<div className="flex flex-col gap-6">
 			<div className="flex justify-center">
 				<div
-					className="bg-accent/20 text-accent-foreground flex size-16 items-center justify-center rounded-full text-xl font-bold"
+					className="bg-primary-tint text-primary flex size-16 items-center justify-center rounded-full text-xl font-bold"
 					aria-hidden="true"
 				>
 					{(user.name ?? user.username).charAt(0).toUpperCase()}

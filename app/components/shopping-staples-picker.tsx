@@ -266,7 +266,7 @@ export function ShoppingStaplesPicker({
 										className={cn(
 											'flex size-5 shrink-0 items-center justify-center rounded border',
 											isSelected
-												? 'border-primary bg-primary text-primary-foreground'
+												? 'border-primary-fill bg-primary-fill text-primary-foreground'
 												: 'border-border bg-background',
 										)}
 									>
@@ -340,7 +340,7 @@ export function ShoppingStaplesPicker({
 						From Staples
 						{showCue && (
 							<span
-								className="bg-accent ring-background absolute -top-1 -right-1 size-2.5 rounded-full ring-2"
+								className="bg-primary ring-background absolute -top-1 -right-1 size-2.5 rounded-full ring-2"
 								aria-hidden="true"
 							/>
 						)}

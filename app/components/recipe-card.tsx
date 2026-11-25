@@ -37,7 +37,7 @@ export function RecipeCard({
 			to={to}
 			// Outside the iOS app too: a cross-fade.
 			viewTransition
-			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-accent/30 md:active:bg-card flex flex-row items-center gap-3.5 px-4 py-3 transition-colors sm:px-8 md:flex-col md:items-stretch md:gap-0 md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-colors md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
+			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-primary/30 md:active:bg-card flex flex-row items-center gap-3.5 px-4 py-3 transition-colors sm:px-8 md:flex-col md:items-stretch md:gap-0 md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-colors md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
 		>
 			<div
 				data-recipe-image-transition={
@@ -54,7 +54,7 @@ export function RecipeCard({
 					{isFavorite && (
 						<Icon
 							name="heart-filled"
-							className="text-accent size-4 drop-shadow"
+							className="size-4 text-white drop-shadow"
 						/>
 					)}
 				</div>
@@ -98,7 +98,7 @@ export function RecipeCard({
 					</h3>
 					{isFavorite && (
 						<span className="shrink-0 md:hidden">
-							<Icon name="heart-filled" className="text-accent size-3.5" />
+							<Icon name="heart-filled" className="text-primary size-3.5" />
 						</span>
 					)}
 				</div>

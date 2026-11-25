@@ -283,7 +283,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
-			<h1 className="mb-2 font-serif text-2xl font-normal">Import Recipe</h1>
+			<h1 className="mb-2 font-serif text-2xl">Import Recipe</h1>
 			<p className="text-muted-foreground mb-6">
 				{hideAi
 					? 'Paste a Recipe’s link or its text.'
@@ -460,7 +460,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 									<PushLink to="/upgrade">
 										<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
 										Read with AI
-										<span className="bg-primary-foreground text-primary ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
+										<span className="bg-primary-foreground text-primary-fill ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
 											Pro
 										</span>
 									</PushLink>
@@ -513,7 +513,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 									<PushLink to="/upgrade">
 										<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
 										Read with AI
-										<span className="bg-primary-foreground text-primary ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
+										<span className="bg-primary-foreground text-primary-fill ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
 											Pro
 										</span>
 									</PushLink>

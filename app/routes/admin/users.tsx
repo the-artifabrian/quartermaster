@@ -93,8 +93,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 const tierStyles: Record<string, string> = {
-	pro: 'border-primary/30 bg-primary/10 text-primary',
-	household: 'border-accent/30 bg-accent/10 text-accent-foreground',
+	pro: 'border-primary/30 bg-primary-tint text-primary',
+	household: 'border-border bg-muted text-foreground',
 	free: 'border-muted-foreground/30 bg-muted text-muted-foreground',
 }
 

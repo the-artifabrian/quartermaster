@@ -399,7 +399,7 @@ export default function EditRecipe({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
-			<h1 className="mb-6 font-serif text-2xl font-normal">Edit Recipe</h1>
+			<h1 className="mb-6 font-serif text-2xl">Edit Recipe</h1>
 			<RecipeForm recipe={recipe} metadataOptions={metadataOptions} />
 			<div className="mt-8 border-t pt-8">
 				<DeleteRecipe recipeId={recipe.id} />

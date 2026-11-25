@@ -175,7 +175,7 @@ export function MobileFabAdd({
 				// Undo toasts stop short of it (tailwind.css, "Undo toasts").
 				data-shopping-fab=""
 				className={cn(
-					'bg-primary text-primary-foreground shadow-warm-md fixed right-4 bottom-[calc(var(--bottom-nav-h)+1.5rem+var(--bottom-nav-inset))] z-50 flex size-12 items-center justify-center rounded-full transition-[scale] duration-150 ease-(--ease-micro) active:scale-95',
+					'bg-primary-fill text-primary-foreground shadow-warm-md fixed right-4 bottom-[calc(var(--bottom-nav-h)+1.5rem+var(--bottom-nav-inset))] z-50 flex size-12 items-center justify-center rounded-full transition-[scale] duration-150 ease-(--ease-micro) active:scale-95',
 					open && 'hidden',
 				)}
 				aria-label="Add item"
@@ -253,7 +253,7 @@ export function MobileFabAdd({
 						<button
 							type="submit"
 							disabled={!name.trim() || fetcher.state !== 'idle'}
-							className="bg-primary text-primary-foreground flex size-11 shrink-0 items-center justify-center rounded-full disabled:opacity-50"
+							className="bg-primary-fill text-primary-foreground flex size-11 shrink-0 items-center justify-center rounded-full disabled:opacity-50"
 							aria-label={canForce ? 'Add anyway' : 'Add to Next shop'}
 						>
 							<Icon name="plus" className="size-5" />

@@ -57,7 +57,7 @@ export function RecipeActionBar({
 							aria-label={
 								isFavorite ? 'Remove from favorites' : 'Add to favorites'
 							}
-							className={isFavorite ? 'text-accent hover:text-accent/80' : ''}
+							className={isFavorite ? 'text-primary hover:text-primary/80' : ''}
 						>
 							<Icon name={isFavorite ? 'heart-filled' : 'heart'} size="md" />
 						</Button>

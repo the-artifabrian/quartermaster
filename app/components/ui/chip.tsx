@@ -45,7 +45,7 @@ export function chipClassName(on?: boolean) {
 	return cn(
 		'ring-ring ring-offset-background inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border px-3.5 text-sm ring-offset-2 outline-hidden transition-[scale,background-color,border-color,color,opacity] duration-150 ease-(--ease-micro) focus-visible:ring-2 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50',
 		on
-			? 'border-primary bg-primary text-primary-foreground'
+			? 'border-primary-fill bg-primary-fill text-primary-foreground'
 			: 'border-border bg-background text-foreground hover:bg-muted',
 	)
 }

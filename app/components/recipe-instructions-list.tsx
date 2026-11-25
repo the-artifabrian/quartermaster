@@ -37,7 +37,7 @@ export function RecipeInstructionsList({
 
 	return (
 		<div>
-			<h2 className="mb-4 font-serif text-lg font-normal">Instructions</h2>
+			<h2 className="mb-4 font-serif text-lg">Instructions</h2>
 			<ol className="space-y-1">
 				{instructions.map((instruction, index) => {
 					const isChecked = checkedSteps.has(instruction.id)
@@ -64,7 +64,7 @@ export function RecipeInstructionsList({
 								className={cn(
 									// The width of an ingredient's checkbox, so steps and ingredients
 									// share their columns.
-									'flex h-8 w-6 shrink-0 items-center justify-center font-serif text-xl leading-none font-normal transition-colors print:size-5 print:text-sm',
+									'flex h-8 w-6 shrink-0 items-center justify-center font-serif text-xl leading-none transition-colors print:size-5 print:text-sm',
 									isChecked ? 'text-primary/40' : 'text-muted-foreground',
 								)}
 							>

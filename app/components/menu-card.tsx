@@ -23,7 +23,7 @@ export function MenuCard({
 			to={`/recipes/menus/${id}`}
 			// Outside the iOS app too: a cross-fade.
 			viewTransition
-			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-accent/30 md:active:bg-card flex flex-row items-center gap-3.5 px-4 py-3.5 transition-colors sm:px-8 md:flex-col md:items-stretch md:gap-0 md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-colors md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
+			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-primary/30 md:active:bg-card flex flex-row items-center gap-3.5 px-4 py-3.5 transition-colors sm:px-8 md:flex-col md:items-stretch md:gap-0 md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-colors md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
 		>
 			{/* Menus carry no imagery. The row reads like a printed menu
 			    card: title, guests at the right, courses beneath. */}

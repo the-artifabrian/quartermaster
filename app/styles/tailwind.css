@@ -14,46 +14,53 @@
 :root {
 	--radius: 0.5rem;
 
-	--background: #f6f1eb;
-	--foreground: #2d2926;
+	/* The app's faces (fonts.css). The homepage swaps them below. */
+	--typeface-sans: 'Schibsted Grotesk', system-ui, sans-serif;
+	--typeface-serif: 'Newsreader', Georgia, serif;
 
-	--card: #fdfaf6;
-	--card-foreground: #2d2926;
+	--background: #fbfbf8;
+	--foreground: #1a1915;
 
-	--popover: #fdfaf6;
-	--popover-foreground: #2d2926;
+	/* Sheets, menus and the bars: white on the near-white page. */
+	--card: #ffffff;
+	--card-foreground: #1a1915;
 
-	--primary: #48724e;
-	--primary-foreground: #fdfaf6;
+	--popover: var(--card);
+	--popover-foreground: var(--card-foreground);
 
-	--secondary: #e8e0d4;
-	--secondary-foreground: #4a4139;
+	/* Green as text: links, icons, today. */
+	--primary: #1f5a3d;
+	/* Green as a fill (buttons, filled circles), always under white text.
+	   Light uses one green for both; dark needs a deeper fill. */
+	--primary-fill: #1f5a3d;
+	--primary-foreground: #ffffff;
+	/* Selected chips, a row just added. */
+	--primary-tint: #e6efe8;
 
-	--muted: #ede7de;
-	--muted-foreground: #6f6358;
+	--secondary: var(--muted);
+	--secondary-foreground: var(--foreground);
 
-	--accent: #c4956a;
-	--accent-foreground: #2d2926;
-	/* Copper as *text* (≥4.5:1 on cream). The accent itself never colors text
-	   below 24px in light mode (DESIGN_SYSTEM.md, Color). */
-	--copper-text: #8c5f3a;
+	--muted: #f1f0ea;
+	--muted-foreground: #69665e;
+	/* Checked and cooked rows. */
+	--faint: #76736b;
+	/* The edge of an empty check circle or box. */
+	--control-edge: #8a867d;
 
-	--border: #ded6ca;
-	--input: #ded6ca;
-	--input-invalid: #a85040;
+	--border: #e3e1d9;
+	--input: var(--border);
+	--input-invalid: var(--foreground-destructive);
 
-	--destructive: #b85c4a;
-	--destructive-foreground: #fdfaf6;
+	--destructive: #b3261e;
+	--destructive-foreground: #ffffff;
 	/* prefixed with foreground because it should look good on the background */
-	--foreground-destructive: #a85040;
+	--foreground-destructive: #a8281f;
 
-	--ring: #48724e;
+	--ring: var(--primary);
 
-	--shadow-warm: 0 1px 2px oklch(25% 0.02 60 / 0.06);
-	--shadow-warm-md:
-		0 2px 8px oklch(25% 0.02 60 / 0.08), 0 1px 2px oklch(25% 0.02 60 / 0.04);
-	--shadow-warm-lg:
-		0 4px 16px oklch(25% 0.02 60 / 0.08), 0 1px 4px oklch(25% 0.02 60 / 0.05);
+	--elevation-sm: 0 1px 2px rgb(0 0 0 / 0.06);
+	--elevation-md: 0 2px 8px rgb(0 0 0 / 0.08), 0 1px 2px rgb(0 0 0 / 0.04);
+	--elevation-lg: 0 4px 16px rgb(0 0 0 / 0.08), 0 1px 4px rgb(0 0 0 / 0.05);
 
 	--ease-page-settle: cubic-bezier(0.22, 0.68, 0.35, 1);
 	--ease-hover-lift: cubic-bezier(0.34, 0.01, 0.21, 1);
@@ -82,54 +89,64 @@
 	--bottom-nav-inset: var(--safe-bottom);
 }
 
+.dark {
+	--background: #151513;
+	--foreground: #efede6;
+
+	--card: #1e1e1b;
+	--card-foreground: #efede6;
+
+	--primary: #8cc9a4;
+	--primary-fill: #2c7551;
+	--primary-foreground: #ffffff;
+	--primary-tint: #1d2b23;
+
+	--muted: #242421;
+	--muted-foreground: #a5a299;
+	--faint: #8f8c84;
+	--control-edge: #77746c;
+
+	--border: #2f2e2a;
+
+	--destructive: #b3261e;
+	--destructive-foreground: #ffffff;
+	/* prefixed with foreground because it should look good on the background */
+	--foreground-destructive: #f0a198;
+}
+
+/* The homepage keeps its own faces. On <html>, where the page's text takes
+   its face, so nothing on the page (the skip link included) loads the app's. */
+:root:has([data-chrome='espresso']) {
+	--typeface-sans: 'DM Sans', system-ui, sans-serif;
+	--typeface-serif: 'Young Serif', Georgia, serif;
+}
+
 /* The homepage re-themes the site chrome around it (header, Log In)
-   so the whole viewport sits on the espresso palette in either theme. */
+   so the whole viewport sits on the espresso palette in either theme.
+   Every token the app adds is remapped here. After .dark, which sets the
+   same tokens on <html>. */
 [data-chrome='espresso'] {
 	--background: var(--color-espresso);
 	--foreground: var(--color-cream);
 	--card: var(--color-espresso);
 	--card-foreground: var(--color-cream);
+	--popover: var(--color-espresso);
+	--popover-foreground: var(--color-cream);
 	--muted-foreground: var(--color-cream-muted);
+	--faint: var(--color-cream-muted);
+	--control-edge: var(--color-cream-muted);
 	--border: var(--color-espresso-line);
 	--primary: var(--color-espresso-raised);
+	--primary-fill: var(--color-espresso-raised);
 	--primary-foreground: var(--color-cream);
+	--primary-tint: var(--color-espresso-surface);
 	--ring: var(--color-cream-muted);
-}
 
-.dark {
-	--background: #1a1816;
-	--foreground: #e2dbd1;
-
-	--card: #2a2620;
-	--card-foreground: #e2dbd1;
-
-	--popover: #2a2620;
-	--popover-foreground: #e2dbd1;
-
-	--primary: #8cb393;
-	--primary-foreground: #1a1816;
-
-	--secondary: #2e2b26;
-	--secondary-foreground: #d4ccc0;
-
-	--muted: #302c26;
-	--muted-foreground: #b5a99b;
-
-	--accent: #d4a87a;
-	--accent-foreground: #1a1816;
-	/* Light copper already clears AA on charcoal; text-copper matches accent */
-	--copper-text: #d4a87a;
-
-	--border: #3d3830;
-	--input: #3d3830;
-	--input-invalid: #d07a68;
-
-	--destructive: #d07a68;
-	--destructive-foreground: #1a1816;
-	/* prefixed with foreground because it should look good on the background */
-	--foreground-destructive: #d07a68;
-
-	--ring: #8cb393;
+	--elevation-sm: 0 1px 2px oklch(25% 0.02 60 / 0.06);
+	--elevation-md:
+		0 2px 8px oklch(25% 0.02 60 / 0.08), 0 1px 2px oklch(25% 0.02 60 / 0.04);
+	--elevation-lg:
+		0 4px 16px oklch(25% 0.02 60 / 0.08), 0 1px 4px oklch(25% 0.02 60 / 0.05);
 }
 
 @theme inline {
@@ -144,14 +161,15 @@
 	--color-popover: var(--popover);
 	--color-popover-foreground: var(--popover-foreground);
 	--color-primary: var(--primary);
+	--color-primary-fill: var(--primary-fill);
 	--color-primary-foreground: var(--primary-foreground);
+	--color-primary-tint: var(--primary-tint);
 	--color-secondary: var(--secondary);
 	--color-secondary-foreground: var(--secondary-foreground);
 	--color-muted: var(--muted);
 	--color-muted-foreground: var(--muted-foreground);
-	--color-accent: var(--accent);
-	--color-accent-foreground: var(--accent-foreground);
-	--color-copper-text: var(--copper-text);
+	--color-faint: var(--faint);
+	--color-control-edge: var(--control-edge);
 	--color-destructive: var(--destructive);
 	--color-border: var(--border);
 	--color-input: var(--input);
@@ -159,13 +177,13 @@
 	--color-input-invalid: var(--input-invalid);
 	--color-destructive-foreground: var(--destructive-foreground);
 	--color-foreground-destructive: var(--foreground-destructive);
-	--shadow-warm: 0 1px 2px oklch(25% 0.02 60 / 0.06);
-	--shadow-warm-md:
-		0 2px 8px oklch(25% 0.02 60 / 0.08), 0 1px 2px oklch(25% 0.02 60 / 0.04);
-	--shadow-warm-lg:
-		0 4px 16px oklch(25% 0.02 60 / 0.08), 0 1px 4px oklch(25% 0.02 60 / 0.05);
-	--font-sans: 'DM Sans', system-ui, sans-serif;
-	--font-serif: 'Young Serif', Georgia, serif;
+	/* Through variables, so the homepage can keep its warm shadows and its
+	   faces: `inline` would otherwise write the values into the utilities. */
+	--shadow-warm: var(--elevation-sm);
+	--shadow-warm-md: var(--elevation-md);
+	--shadow-warm-lg: var(--elevation-lg);
+	--font-sans: var(--typeface-sans);
+	--font-serif: var(--typeface-serif);
 	/* Homepage palette: warm espresso canvas, visibly lighter
 	   surfaces, cream text, and one accent (the app's sage green) reserved for the primary
 	   CTA and at most two highlights. */
@@ -423,6 +441,16 @@ html {
 	h5,
 	h6 {
 		text-wrap: balance;
+	}
+
+	/* The serif sets titles and names at 500, with lining figures; a weight
+	   class beside it still wins, being a utility. The figure variable lets
+	   `tabular-nums` add to lining figures instead of replacing them. The
+	   homepage's Young Serif has one weight and inherits the rest. */
+	.font-serif:not([data-chrome='espresso'] *) {
+		font-weight: 500;
+		--tw-numeric-figure: lining-nums;
+		font-variant-numeric: lining-nums;
 	}
 }
 

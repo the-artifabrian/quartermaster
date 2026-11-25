@@ -174,7 +174,7 @@ function ItemRow({
 					}
 				>
 					{isCooked ? (
-						<span className="border-primary bg-primary text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">
+						<span className="border-primary-fill bg-primary-fill text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">
 							<Icon name="check" className="size-3" />
 						</span>
 					) : (
@@ -932,7 +932,7 @@ export function MealCard({
 						}
 					>
 						{isComplete ? (
-							<span className="border-primary bg-primary text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">
+							<span className="border-primary-fill bg-primary-fill text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">
 								<Icon name="check" className="size-3" />
 							</span>
 						) : (

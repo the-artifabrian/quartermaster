@@ -1064,3 +1064,97 @@ test('a scaled Recipe counts its loaves, eggs and pinches in the plural, and bac
 	await expect(row('garlic')).toHaveText('1 clove garlic')
 	await expect(row('egg')).toHaveText('1/2 egg')
 })
+
+async function box(locator: Locator) {
+	await expect(locator).toBeVisible()
+	const rect = (await locator.boundingBox())!
+	return {
+		left: Math.round(rect.x),
+		right: Math.round(rect.x + rect.width),
+		top: Math.round(rect.y),
+		bottom: Math.round(rect.y + rect.height),
+	}
+}
+
+/** Within a pixel: glyph boxes land on half pixels. */
+function expectNear(actual: number, expected: number) {
+	expect(Math.abs(actual - expected)).toBeLessThanOrEqual(1)
+}
+
+test.describe('on a phone', () => {
+	// On a phone every row lines up on the page's edges: what leads a row (a
+	// cooked circle, a checkbox, a step number, a small label, the first icon)
+	// starts on the content edge, and the dots, trash and cart glyphs that end a
+	// row end on it. 44px tap areas reach into the gutter instead of pushing the
+	// glyphs in.
+	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+	test('a Recipe page starts its actions, headings, checkboxes and steps on the content edge', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Weeknight Curry',
+				userId: user.id,
+				householdId: user.householdId,
+				ingredients: {
+					create: [
+						{ name: 'chicken thighs', amount: '600', unit: 'g', order: 0 },
+						{ name: 'yogurt', amount: '150', unit: 'ml', order: 1 },
+					],
+				},
+				instructions: {
+					create: [
+						{ content: 'Marinate the chicken.', order: 0 },
+						{ content: 'Simmer until done.', order: 1 },
+					],
+				},
+			},
+		})
+
+		await page.goto(`/recipes/${recipe.id}`)
+		const title = await box(
+			page.getByRole('heading', { name: 'Weeknight Curry', level: 1 }),
+		)
+		const left = title.left
+
+		const favorite = page
+			.getByRole('button', { name: 'Add to favorites' })
+			.locator('svg')
+		expectNear((await box(favorite)).left, left)
+		expectNear(
+			(await box(page.getByRole('heading', { name: 'Ingredients' }).first()))
+				.left,
+			left,
+		)
+		expectNear(
+			(await box(page.getByRole('heading', { name: 'Instructions' }))).left,
+			left,
+		)
+
+		// Checkboxes and step numbers share a column; ingredient and step text
+		// share the next.
+		const ingredient = page.getByRole('checkbox', { name: 'chicken thighs' })
+		const checkbox = await box(ingredient.locator('span').first())
+		expectNear(checkbox.left, left)
+		const step = page.getByRole('checkbox').filter({ hasText: 'Marinate' })
+		const number = await box(step.locator('span').first())
+		expectNear(number.left, left)
+		expectNear(number.right, checkbox.right)
+		expectNear(
+			(await box(step.locator('p'))).left,
+			(await box(ingredient.locator('span').nth(1))).left,
+		)
+
+		// The cart glyph ends on the content edge, under the Metric toggle's end.
+		const metric = await box(page.getByRole('button', { name: 'Metric' }))
+		const cart = await box(
+			ingredient
+				.getByRole('button', { name: 'Add to Shopping' })
+				.locator('svg'),
+		)
+		expectNear(cart.right, metric.right)
+	})
+})

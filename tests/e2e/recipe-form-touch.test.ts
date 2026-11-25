@@ -1,5 +1,6 @@
 import { type Locator } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
+import { SHELL_UA } from '#tests/native-shell.ts'
 import { expect, hydrated, test } from '#tests/playwright-utils.ts'
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
@@ -210,4 +211,145 @@ test('Recipes filters and Settings controls are thumb-sized on a phone', async (
 	await expectThumbSized(
 		page.getByRole('button', { name: /System|Light|Dark/ }),
 	)
+})
+
+async function expectThumbTall(control: Locator) {
+	await expect(control).toBeVisible()
+	const box = await control.boundingBox()
+	expect(box, 'control has a box').not.toBeNull()
+	expect(box!.height).toBeGreaterThanOrEqual(44)
+}
+
+async function createRecipe(user: { id: string; householdId: string }) {
+	return prisma.recipe.create({
+		data: {
+			title: 'Miso Soup',
+			userId: user.id,
+			householdId: user.householdId,
+			ingredients: {
+				create: { name: 'miso', amount: '2', unit: 'tbsp', order: 0 },
+			},
+			instructions: { create: { content: 'Whisk.', order: 0 } },
+		},
+	})
+}
+
+/**
+ * How far a control's tap area reaches, probed with elementFromPoint along
+ * the lines through its drawn middle: the height and width over which a
+ * finger still lands on it, and the rectangle that spans.
+ */
+async function hitArea(control: Locator) {
+	return control.evaluate((element) => {
+		const box = element.getBoundingClientRect()
+		const cx = box.left + box.width / 2
+		const cy = box.top + box.height / 2
+		const lands = (x: number, y: number) => {
+			const hit = document.elementFromPoint(x, y)
+			if (!hit) return false
+			// A tap on a control's label is the control's.
+			const owner =
+				hit === element ||
+				element.contains(hit) ||
+				(hit instanceof HTMLLabelElement && hit.control === element) ||
+				hit.contains(element)
+			return owner && hit.closest('a, button, label, input') != null
+		}
+		let top = cy
+		while (lands(cx, top - 1)) top--
+		let bottom = cy
+		while (lands(cx, bottom + 1)) bottom++
+		let left = cx
+		while (lands(left - 1, cy)) left--
+		let right = cx
+		while (lands(right + 1, cy)) right++
+		return {
+			top,
+			bottom,
+			left,
+			right,
+			height: bottom - top + 1,
+			width: right - left + 1,
+		}
+	})
+}
+
+test('recipe form buttons, remove and classification chips are thumb-sized', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createRecipe(user)
+
+	await page.goto(`/recipes/${recipe.id}/edit`)
+	await expectThumbTall(
+		page.getByRole('button', { name: 'Heading', exact: true }),
+	)
+	await expectThumbTall(
+		page.getByRole('button', { name: 'Ingredient', exact: true }),
+	)
+	await expectThumbTall(page.getByRole('button', { name: 'Add step' }))
+	await expectThumbSized(
+		page.getByRole('button', { name: 'Remove ingredient' }).first(),
+	)
+
+	await page.getByText('Classification', { exact: true }).click()
+	await expectThumbTall(
+		page
+			.getByRole('group', { name: 'Season' })
+			.getByRole('button', { name: 'Year-round' }),
+	)
+	await expectThumbTall(
+		page
+			.getByRole('group', { name: 'Course' })
+			.getByRole('button', { name: 'Breakfast' }),
+	)
+	await expectThumbTall(page.getByRole('button', { name: 'Add cuisine' }))
+})
+
+test.describe('in the iOS app', () => {
+	test.use({ userAgent: SHELL_UA })
+
+	test('a Recipe’s ingredient summary row and Link Recipe take 44px taps', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Miso Soup',
+				userId: user.id,
+				householdId: user.householdId,
+				ingredients: {
+					create: [
+						{ name: 'miso', amount: '2', unit: 'tbsp', order: 0 },
+						{ name: 'tofu', amount: '200', unit: 'g', order: 1 },
+					],
+				},
+			},
+		})
+		await page.goto(`/recipes/${recipe.id}/edit`)
+		const summary = page.getByRole('button', { name: /^2 tbsp miso/ })
+		await expect(summary).toBeVisible()
+		const summaryArea = await hitArea(summary)
+		expect(summaryArea.height).toBeGreaterThanOrEqual(44)
+		// Its edge, well outside the 20px line of text, still opens it.
+		const box = (await summary.boundingBox())!
+		await page.touchscreen.tap(box.x + 40, summaryArea.top + 2)
+		const notes = page.getByRole('textbox', { name: 'Ingredient 1 notes' })
+		await expect(notes).toBeVisible()
+
+		const linkRecipe = page.getByRole('button', { name: 'Link Recipe' })
+		const link = await hitArea(linkRecipe)
+		expect(link.height).toBeGreaterThanOrEqual(44)
+		// The notes field above keeps its own bottom edge.
+		const notesBox = (await notes.boundingBox())!
+		expect(link.top).toBeGreaterThanOrEqual(notesBox.y + notesBox.height)
+		// A tap just under the drawn button opens the picker.
+		const drawn = (await linkRecipe.boundingBox())!
+		await page.touchscreen.tap(drawn.x + 20, drawn.y + drawn.height + 8)
+		await expect(
+			page.getByRole('dialog', { name: 'Link a Recipe' }),
+		).toBeVisible()
+	})
 })

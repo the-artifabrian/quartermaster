@@ -21,7 +21,7 @@
  *   saved nothing (the page would take it as done), a thrown error (the
  *   error page) or a 500.
  * - A form posted to /plan/shopping-list, Shopping's old address, gets a 405
- *   rather than a redirect that drops its body (tests/e2e/shopping-list.test.ts,
+ *   rather than a redirect that drops its body (tests/e2e/shopping.test.ts,
  *   since only the built router answers a route with no action).
  */
 import { RouterContextProvider } from 'react-router'

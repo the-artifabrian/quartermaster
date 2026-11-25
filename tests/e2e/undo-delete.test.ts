@@ -708,7 +708,7 @@ test('a Meal delete that fails offline brings it back and says so', async ({
 	expect(await mealOrder(user.householdId)).toEqual(['Soup'])
 })
 
-// A phone deletes a Staple by a swipe (consistency-leftovers.test.ts); a
+// A phone deletes a Staple by a swipe (staples.test.ts); a
 // mouse has the trash button.
 test.describe('with a mouse', () => {
 	test.use({ viewport: { width: 1024, height: 768 }, hasTouch: false })

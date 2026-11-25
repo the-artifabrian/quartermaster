@@ -1,4 +1,6 @@
+import { type Locator } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
+import { SHELL_UA } from '#tests/native-shell.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
 for (const width of [390, 1280]) {
@@ -109,3 +111,32 @@ for (const width of [390, 1280]) {
 		).toBeVisible()
 	})
 }
+
+test.describe('in the iOS app on a phone', () => {
+	test.use({
+		viewport: { width: 390, height: 844 },
+		hasTouch: true,
+		userAgent: SHELL_UA,
+	})
+
+	test('Recipes search and its filter button are 44px and share the field shape', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		await page.goto('/recipes')
+		const search = page.getByRole('searchbox', {
+			name: 'Search by name or ingredient',
+		})
+		const filters = page.getByRole('button', { name: 'Toggle filters' })
+		await expect(search).toBeVisible()
+		expect((await search.boundingBox())!.height).toBe(44)
+		expect(await filters.boundingBox()).toMatchObject({ width: 44, height: 44 })
+		const radius = (control: Locator) =>
+			control.evaluate(
+				(element) => getComputedStyle(element).borderTopLeftRadius,
+			)
+		expect(await radius(search)).toBe(await radius(filters))
+		expect(Number.parseFloat(await radius(search))).toBeLessThanOrEqual(8)
+	})
+})

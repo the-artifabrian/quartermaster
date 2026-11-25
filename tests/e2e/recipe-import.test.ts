@@ -1,3 +1,4 @@
+import { type Locator, type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
@@ -320,4 +321,92 @@ test('a Pro user out of AI imports for the day is told so and nothing is saved',
 	)
 	expect(await prisma.recipe.count({ where: { userId: user.id } })).toBe(0)
 	expect(await prisma.usageEvent.count({ where: { userId: user.id } })).toBe(10)
+})
+
+async function expectThumbTall(control: Locator) {
+	await expect(control).toBeVisible()
+	const box = await control.boundingBox()
+	expect(box, 'control has a box').not.toBeNull()
+	expect(box!.height).toBeGreaterThanOrEqual(44)
+}
+
+/** Taps until the tap lands on a hydrated page and `then` holds. */
+async function tapUntil(
+	control: Locator,
+	then: () => Promise<void>,
+	timeout = 10_000,
+) {
+	await expect(async () => {
+		await control.tap()
+		await then()
+	}).toPass({ timeout })
+}
+
+async function importTab(page: Page, name: string) {
+	return page
+		.getByRole('tablist', { name: 'Import from' })
+		.getByRole('tab', { name, exact: true })
+}
+
+/** Whether the sage pill now sits under `tab`. */
+async function pillUnder(pill: Locator, tab: Locator) {
+	const [p, t] = await Promise.all([pill.boundingBox(), tab.boundingBox()])
+	const center = p!.x + p!.width / 2
+	return center > t!.x && center < t!.x + t!.width
+}
+
+test.describe('on a phone', () => {
+	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+	test('Import switches between URL and pasted text with a segmented control', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		await page.goto('/recipes/import')
+		const tablist = page.getByRole('tablist', { name: 'Import from' })
+		const pill = tablist.locator('[data-slot="segmented-pill"]')
+		const fromUrl = await importTab(page, 'From link')
+		const fromText = await importTab(page, 'From text')
+		const fromImage = await importTab(page, 'From image')
+		await expect(fromUrl).toHaveAttribute('aria-selected', 'true')
+		await expect(fromText).toHaveAttribute('aria-selected', 'false')
+		await expectThumbTall(fromText)
+		expect(await pillUnder(pill, fromUrl)).toBe(true)
+		await expect(
+			page.getByRole('tabpanel', { name: 'From link' }),
+		).toContainText('Recipe link')
+
+		await tapUntil(fromText, () =>
+			expect(page.getByLabel('Recipe text')).toBeVisible({ timeout: 2000 }),
+		)
+		await expect(fromText).toHaveAttribute('aria-selected', 'true')
+		await expect(fromUrl).toHaveAttribute('aria-selected', 'false')
+		await expect(page.getByLabel('Recipe link')).toHaveCount(0)
+		await expect(
+			page.getByRole('tabpanel', { name: 'From text' }),
+		).toContainText('Recipe text')
+		await expect.poll(() => pillUnder(pill, fromText)).toBe(true)
+
+		await fromUrl.tap()
+		await expect(page.getByLabel('Recipe link')).toBeVisible()
+		await expect(fromUrl).toHaveAttribute('aria-selected', 'true')
+		await expect.poll(() => pillUnder(pill, fromUrl)).toBe(true)
+
+		// From the keyboard: Left/Right and Home/End move a row of tabs; Up/Down
+		// leave it alone.
+		await fromUrl.focus()
+		await page.keyboard.press('ArrowRight')
+		await expect(fromText).toHaveAttribute('aria-selected', 'true')
+		await expect(fromText).toBeFocused()
+		await expect(page.getByLabel('Recipe text')).toBeVisible()
+		await page.keyboard.press('ArrowDown')
+		await expect(fromText).toHaveAttribute('aria-selected', 'true')
+		await page.keyboard.press('End')
+		await expect(fromImage).toHaveAttribute('aria-selected', 'true')
+		await expect(fromImage).toBeFocused()
+		await page.keyboard.press('Home')
+		await expect(fromUrl).toHaveAttribute('aria-selected', 'true')
+		await expect.poll(() => pillUnder(pill, fromUrl)).toBe(true)
+	})
 })

@@ -430,7 +430,7 @@ test.describe('leaving with changes asks first', () => {
 		await sheet.getByRole('button', { name: 'Discard Changes' }).tap()
 		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 		// Back to the Recipe's own entry, as Cancel went before. (It slides
-		// back in the iOS app: push-slide.test.ts.)
+		// back in the iOS app: page-transitions.test.ts.)
 		expect(await historyIdx(page)).toBe(recipeIdx)
 		await expect(
 			page.getByRole('heading', { level: 1, name: 'Lentil soup' }),

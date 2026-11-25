@@ -506,3 +506,229 @@ test('pending feedback clears when a tab navigation is interrupted or fails', as
 		})
 		.toBeNull()
 })
+
+test.describe('pressing a tab', () => {
+	// The bottom tab bar switches on the press (pointerdown), not on the click
+	// that follows once the finger lifts. See #346, 5.0.
+
+	const touch = {
+		button: 0,
+		buttons: 1,
+		isPrimary: true,
+		pointerId: 1,
+		pointerType: 'touch',
+	}
+
+	function tab(page: Page, name: 'Recipes' | 'Staples' | 'Plan' | 'Shopping') {
+		return page
+			.getByRole('navigation', { name: 'Main' })
+			.getByRole('link', { name, exact: true })
+	}
+
+	async function countDataRequests(page: Page, delayMs = 0) {
+		const counts = new Map<string, number>()
+		await page.route(
+			/\/(recipes|inventory|plan|shopping)\.data(?:\?|$)/,
+			async (route) => {
+				const path = new URL(route.request().url()).pathname
+				counts.set(path, (counts.get(path) ?? 0) + 1)
+				if (delayMs)
+					await new Promise((resolve) => setTimeout(resolve, delayMs))
+				await route.continue()
+			},
+		)
+		return counts
+	}
+
+	test.use({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } })
+
+	test('a press switches tabs before the finger lifts, and the click after it adds nothing', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		const counts = await countDataRequests(page)
+		await page.goto('/plan')
+		const shop = tab(page, 'Shopping')
+		await expect(shop).toBeVisible()
+
+		await shop.dispatchEvent('pointerdown', touch)
+		await expect(page).toHaveURL('/shopping')
+
+		await shop.dispatchEvent('pointerup', { ...touch, buttons: 0 })
+		await shop.dispatchEvent('click', { button: 0, detail: 1 })
+		await expect(shop).not.toHaveAttribute('data-pending', /.+/)
+		await page.waitForTimeout(200)
+		expect(counts.get('/shopping.data')).toBe(1)
+	})
+
+	test('a second press on the tab being switched to starts nothing new', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		const counts = await countDataRequests(page, 400)
+		await page.goto('/plan')
+		const shop = tab(page, 'Shopping')
+		await expect(shop).toBeVisible()
+
+		await shop.dispatchEvent('pointerdown', touch)
+		await expect(shop).toHaveAttribute('data-pending', 'true')
+		// The tapped tab looks selected while Plan is still showing.
+		await expect(shop).toHaveClass(/(^|\s)text-primary(\s|$)/)
+		await expect(tab(page, 'Plan')).not.toHaveClass(/(^|\s)text-primary(\s|$)/)
+		await expect(tab(page, 'Plan')).toHaveAttribute('aria-current', 'page')
+		await shop.dispatchEvent('pointerup', { ...touch, buttons: 0 })
+		await shop.dispatchEvent('pointerdown', touch)
+		await shop.dispatchEvent('pointerup', { ...touch, buttons: 0 })
+
+		await expect(page).toHaveURL('/shopping')
+		await expect(shop).not.toHaveAttribute('data-pending', /.+/)
+		expect(counts.get('/shopping.data')).toBe(1)
+	})
+
+	test('a press on another tab during a pending switch wins', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		await countDataRequests(page, 400)
+		await page.goto('/plan')
+		const shop = tab(page, 'Shopping')
+		await expect(shop).toBeVisible()
+
+		await shop.dispatchEvent('pointerdown', touch)
+		await expect(shop).toHaveAttribute('data-pending', 'true')
+		await tab(page, 'Recipes').dispatchEvent('pointerdown', touch)
+
+		await expect(page).toHaveURL('/recipes')
+		await expect(tab(page, 'Recipes')).toHaveAttribute('aria-current', 'page')
+		await expect(shop).not.toHaveAttribute('data-pending', /.+/)
+	})
+
+	test('the right mouse button and a modified press do not switch', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		const counts = await countDataRequests(page)
+		await page.goto('/plan')
+		const shop = tab(page, 'Shopping')
+		await expect(shop).toBeVisible()
+
+		await shop.dispatchEvent('pointerdown', {
+			...touch,
+			button: 2,
+			buttons: 2,
+			pointerType: 'mouse',
+		})
+		await shop.dispatchEvent('pointerdown', {
+			...touch,
+			pointerType: 'mouse',
+			metaKey: true,
+		})
+		await page.waitForTimeout(300)
+		await expect(page).toHaveURL('/plan')
+		expect(counts.get('/shopping.data')).toBeUndefined()
+	})
+
+	test('Enter on a focused tab still switches', async ({ page, login }) => {
+		await login()
+		await page.goto('/plan')
+		const shop = tab(page, 'Shopping')
+		await expect(shop).toBeVisible()
+
+		await shop.focus()
+		await page.keyboard.press('Enter')
+		await expect(page).toHaveURL('/shopping')
+	})
+})
+
+test.describe('tapping the open tab again', () => {
+	// Service workers stay on here, unlike the rest of this file.
+	test.use({ serviceWorkers: 'allow' })
+
+	test.use({ viewport: { width: 390, height: 844 } })
+
+	function tab(page: Page, name: 'Recipes' | 'Shopping') {
+		return page
+			.getByRole('navigation', { name: 'Main' })
+			.getByRole('link', { name, exact: true })
+	}
+
+	function librarySwitch(page: Page, name: 'Recipes' | 'Menus') {
+		return page
+			.getByRole('navigation', { name: 'Library' })
+			.getByRole('link', { name, exact: true })
+	}
+
+	test('a re-tap on Recipes pops to the library the page was opened from', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await prisma.recipe.create({
+			data: { title: 'Hummus', userId: user.id, householdId: user.householdId },
+			select: { id: true },
+		})
+		const menu = await prisma.menu.create({
+			data: {
+				title: 'Mezze night',
+				titleKey: 'mezze night',
+				householdId: user.householdId,
+				sections: {
+					create: {
+						items: {
+							create: {
+								kind: 'recipe',
+								recipeId: recipe.id,
+								recipeTitle: 'Hummus',
+								order: 0,
+							},
+						},
+					},
+				},
+			},
+			select: { id: true },
+		})
+
+		// Menus list → Menu → its Recipe: the tab pops back to Menus.
+		await page.goto('/recipes')
+		await librarySwitch(page, 'Menus').click()
+		await expect(page).toHaveURL('/recipes/menus')
+		await page.getByRole('link', { name: /Mezze night/ }).click()
+		await expect(page).toHaveURL(`/recipes/menus/${menu.id}`)
+		await page.getByRole('link', { name: /Hummus/ }).click()
+		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+		await expect(tab(page, 'Recipes')).toHaveAttribute('href', '/recipes/menus')
+		await tab(page, 'Recipes').click()
+		await expect(page).toHaveURL('/recipes/menus')
+		await expect(page.getByRole('heading', { name: /^Menus \(/ })).toBeVisible()
+
+		// Leaving for another tab and coming back restores the page and keeps
+		// its Menus root.
+		await page.getByRole('link', { name: /Mezze night/ }).click()
+		// The Menu card on the list names its Recipes too, so wait for the Menu
+		// page before looking for the Recipe link.
+		await expect(page).toHaveURL(`/recipes/menus/${menu.id}`)
+		await page.getByRole('link', { name: /Hummus/ }).click()
+		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+		await tab(page, 'Shopping').click()
+		await expect(page).toHaveURL('/shopping')
+		await tab(page, 'Recipes').click()
+		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+		await tab(page, 'Recipes').click()
+		await expect(page).toHaveURL('/recipes/menus')
+
+		// The same Recipe opened from the Recipes list pops back to Recipes.
+		await librarySwitch(page, 'Recipes').click()
+		await expect(page).toHaveURL('/recipes')
+		await page.getByRole('link', { name: 'Hummus recipe' }).click()
+		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
+		await tab(page, 'Recipes').click()
+		await expect(page).toHaveURL('/recipes')
+		await expect(
+			page.getByRole('heading', { name: /^Recipes \(/ }),
+		).toBeVisible()
+	})
+})

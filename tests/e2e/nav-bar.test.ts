@@ -422,7 +422,7 @@ test('Save in the nav bar saves the edit and returns to the Recipe', async ({
 	expect(saved.title).toBe('Red lentil soup')
 
 	// Back from the saved Recipe steps over the edit form to the list. (The
-	// slide is the iOS app's: push-slide.test.ts.)
+	// slide is the iOS app's: page-transitions.test.ts.)
 	await backButton(page, 'Recipes').tap()
 	await expect(page).toHaveURL('/recipes')
 	expect(await historyIdx(page)).toBe(listIdx)

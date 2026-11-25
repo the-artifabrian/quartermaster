@@ -8,6 +8,7 @@ import express from 'express'
 import { afterEach, beforeAll, expect, test } from 'vitest'
 import { type S3Credentials } from '#app/utils/s3-request.server.ts'
 import {
+	backupBeforeMigrations,
 	buildBackupKey,
 	downloadBackup,
 	gunzipFile,
@@ -379,4 +380,212 @@ test('backup keys sort chronologically within a label', () => {
 	// Sorting by name is how `--latest` and local pruning find the newest.
 	expect([later, earlier].sort()).toEqual([earlier, later])
 	expect(later).toBe('backups/app/daily/2026-07-29T04-17-00-000Z.db.gz')
+})
+
+type MigrationRow = {
+	name: string
+	finished?: boolean
+	rolledBack?: boolean
+}
+
+/** The table `prisma migrate deploy` keeps, with the columns it reads. */
+async function recordMigrations(
+	databasePath: string,
+	rows: Array<MigrationRow>,
+) {
+	const values = rows
+		.map(
+			({ name, finished = true, rolledBack = false }, i) =>
+				`('${i}-${name}', '${name}', ${finished ? 'CURRENT_TIMESTAMP' : 'NULL'}, ${rolledBack ? 'CURRENT_TIMESTAMP' : 'NULL'})`,
+		)
+		.join(',')
+	await execFileAsync('sqlite3', [
+		databasePath,
+		`CREATE TABLE IF NOT EXISTS _prisma_migrations (
+			id TEXT PRIMARY KEY NOT NULL,
+			checksum TEXT NOT NULL DEFAULT '',
+			finished_at DATETIME,
+			migration_name TEXT NOT NULL,
+			logs TEXT,
+			rolled_back_at DATETIME,
+			started_at DATETIME NOT NULL DEFAULT current_timestamp,
+			applied_steps_count INTEGER UNSIGNED NOT NULL DEFAULT 0
+		);
+		${rows.length ? `INSERT INTO _prisma_migrations (id, migration_name, finished_at, rolled_back_at) VALUES ${values};` : ''}`,
+	])
+}
+
+/** A migrations folder as Prisma lays it out, lock file included. */
+async function makeMigrationsDir(dir: string, names: Array<string>) {
+	await mkdir(dir, { recursive: true })
+	await writeFile(path.join(dir, 'migration_lock.toml'), 'provider = "sqlite"')
+	for (const name of names) {
+		await mkdir(path.join(dir, name))
+		await writeFile(path.join(dir, name, 'migration.sql'), 'SELECT 1;')
+	}
+	return dir
+}
+
+async function bootDump(
+	dir: string,
+	sourcePath: string,
+	migrationsDir: string,
+	now: Date,
+) {
+	return backupBeforeMigrations({
+		sourcePath,
+		migrationsDir,
+		localDir: path.join(dir, 'backups'),
+		label: 'pre-migration',
+		remotePrefix: 'backups/test-app',
+		upload: false,
+		keepLocal: 3,
+		retentionDays: 30,
+		keepRemoteMinimum: 7,
+		now,
+	})
+}
+
+const bootAt = (minute: number) =>
+	new Date(`2026-11-25T10:${String(minute).padStart(2, '0')}:00.000Z`)
+
+test('a crash loop after a migration keeps the dump from before it', async () => {
+	expect(hasSqlite3).toBe(true)
+	const dir = await makeTempDir()
+	const sourcePath = await makeDatabase(path.join(dir, 'sqlite.db'))
+	await recordMigrations(sourcePath, [{ name: '1_init' }])
+	const migrationsDir = await makeMigrationsDir(path.join(dir, 'migrations'), [
+		'1_init',
+		'2_drop_users',
+	])
+
+	const first = await bootDump(dir, sourcePath, migrationsDir, bootAt(0))
+	expect(first.pending).toEqual(['2_drop_users'])
+	const before = first.result?.archivePath
+	expect(before).toBeDefined()
+
+	// The migration runs, and then the app keeps failing to start.
+	await execFileAsync('sqlite3', [sourcePath, 'DELETE FROM User'])
+	await recordMigrations(sourcePath, [{ name: '2_drop_users' }])
+	for (const minute of [1, 2, 3]) {
+		await bootDump(dir, sourcePath, migrationsDir, bootAt(minute))
+	}
+
+	const stagingDir = path.join(dir, 'backups', 'pre-migration')
+	expect(await readdir(stagingDir)).toEqual([path.basename(before!)])
+	const restoredPath = path.join(dir, 'restored.db')
+	await gunzipFile(before!, restoredPath)
+	const { stdout: count } = await execFileAsync('sqlite3', [
+		restoredPath,
+		'SELECT COUNT(*) FROM User',
+	])
+	expect(count.trim()).toBe('50')
+})
+
+test('a database restored from an older backup gets a dump before it is migrated forward', async () => {
+	expect(hasSqlite3).toBe(true)
+	const dir = await makeTempDir()
+	const sourcePath = await makeDatabase(path.join(dir, 'sqlite.db'))
+	await recordMigrations(sourcePath, [{ name: '1_init' }])
+	const migrationsDir = await makeMigrationsDir(path.join(dir, 'migrations'), [
+		'1_init',
+		'2_add_menus',
+		'3_add_staples',
+	])
+
+	const boot = await bootDump(dir, sourcePath, migrationsDir, bootAt(0))
+	expect(boot.pending).toEqual(['2_add_menus', '3_add_staples'])
+	expect(boot.result).not.toBeNull()
+})
+
+test('a boot with every migration applied takes no dump, whatever else sits in the folder', async () => {
+	expect(hasSqlite3).toBe(true)
+	const dir = await makeTempDir()
+	const sourcePath = await makeDatabase(path.join(dir, 'sqlite.db'))
+	await recordMigrations(sourcePath, [{ name: '1_init' }, { name: '2_menus' }])
+	const migrationsDir = await makeMigrationsDir(path.join(dir, 'migrations'), [
+		'1_init',
+		'2_menus',
+	])
+	await mkdir(path.join(migrationsDir, 'notes'))
+	await writeFile(path.join(migrationsDir, 'README.md'), 'x')
+
+	const boot = await bootDump(dir, sourcePath, migrationsDir, bootAt(0))
+	expect(boot.pending).toEqual([])
+	expect(boot.result).toBeNull()
+	expect(await readdir(path.join(dir, 'backups')).catch(() => [])).toEqual([])
+})
+
+test('restarts after a migration failed partway leave the clean dump alone', async () => {
+	expect(hasSqlite3).toBe(true)
+	const dir = await makeTempDir()
+	const sourcePath = await makeDatabase(path.join(dir, 'sqlite.db'))
+	// Prisma leaves the failed row unfinished and refuses to apply anything
+	// newer until someone resolves it, so nothing will change on this boot.
+	await recordMigrations(sourcePath, [
+		{ name: '1_init' },
+		{ name: '2_broken', finished: false },
+	])
+	const migrationsDir = await makeMigrationsDir(path.join(dir, 'migrations'), [
+		'1_init',
+		'2_broken',
+		'3_newer',
+	])
+
+	const boot = await bootDump(dir, sourcePath, migrationsDir, bootAt(0))
+	expect(boot.result).toBeNull()
+	expect(boot.reason).toMatch(/2_broken/)
+})
+
+test('a migration marked as rolled back is pending again and gets a dump', async () => {
+	expect(hasSqlite3).toBe(true)
+	const dir = await makeTempDir()
+	const sourcePath = await makeDatabase(path.join(dir, 'sqlite.db'))
+	await recordMigrations(sourcePath, [
+		{ name: '1_init' },
+		{ name: '2_broken', finished: false, rolledBack: true },
+	])
+	const migrationsDir = await makeMigrationsDir(path.join(dir, 'migrations'), [
+		'1_init',
+		'2_broken',
+	])
+
+	const boot = await bootDump(dir, sourcePath, migrationsDir, bootAt(0))
+	expect(boot.pending).toEqual(['2_broken'])
+	expect(boot.result).not.toBeNull()
+})
+
+test('a database Prisma has never migrated gets a dump', async () => {
+	expect(hasSqlite3).toBe(true)
+	const dir = await makeTempDir()
+	const sourcePath = await makeDatabase(path.join(dir, 'sqlite.db'))
+	const migrationsDir = await makeMigrationsDir(path.join(dir, 'migrations'), [
+		'1_init',
+	])
+
+	const boot = await bootDump(dir, sourcePath, migrationsDir, bootAt(0))
+	expect(boot.result).not.toBeNull()
+})
+
+test('a migrations folder that is missing or empty still gets a dump', async () => {
+	expect(hasSqlite3).toBe(true)
+	const dir = await makeTempDir()
+	const sourcePath = await makeDatabase(path.join(dir, 'sqlite.db'))
+	await recordMigrations(sourcePath, [{ name: '1_init' }])
+
+	const missing = await bootDump(
+		dir,
+		sourcePath,
+		path.join(dir, 'nowhere'),
+		bootAt(0),
+	)
+	expect(missing.result).not.toBeNull()
+
+	const empty = await bootDump(
+		dir,
+		sourcePath,
+		await makeMigrationsDir(path.join(dir, 'empty'), []),
+		bootAt(1),
+	)
+	expect(empty.result).not.toBeNull()
 })

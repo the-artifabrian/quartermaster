@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { scaleAmount } from './fractions.ts'
 import {
 	detectIngredientHeading,
 	isAllCapsHouseStyle,
@@ -849,6 +850,25 @@ describe('parseISODuration', () => {
 		expect(parseISODuration('P')).toBeUndefined()
 		expect(parseISODuration('PT')).toBeUndefined()
 	})
+})
+
+describe('a hyphenated mixed number in a Recipe line', () => {
+	test('"1-1/2 cups flour" keeps the amount whole and scales it as 1 1/2', () => {
+		const parsed = parseIngredient('1-1/2 cups flour')
+		expect(parsed).toMatchObject({ amount: '1-1/2', unit: 'cups' })
+		expect(scaleAmount(parsed!.amount, 2)).toBe('3')
+	})
+
+	// The parser closes up a spaced hyphen and rewrites "to" as a hyphen, so
+	// these read as 1 1/2 too. As ranges they would run downhill.
+	test.each(['1 - 1/2 cups flour', '1 to 1/2 cups flour'])(
+		'"%s" reads as 1 1/2 cups',
+		(line) => {
+			const parsed = parseIngredient(line)
+			expect(parsed).toMatchObject({ amount: '1-1/2', unit: 'cups' })
+			expect(scaleAmount(parsed!.amount, 2)).toBe('3')
+		},
+	)
 })
 
 describe('unit words the Shopping parsers already knew', () => {

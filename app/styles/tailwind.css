@@ -114,18 +114,64 @@
 	--foreground-destructive: #f0a198;
 }
 
-/* The homepage keeps its own faces. On <html>, where the page's text takes
-   its face, so nothing on the page (the skip link included) loads the app's. */
+/* The homepage keeps its own faces and the palette it had before the app's
+   changed, on <html>: the page's text takes its face there, and what sits
+   outside its espresso shell reads the tokens there (the canvas around the
+   page in overscroll and a scrollbar's gutter, the focused skip link,
+   toasts). homepageCanvas in pwa-launch.ts holds the same two canvases. */
 :root:has([data-chrome='espresso']) {
 	--typeface-sans: 'DM Sans', system-ui, sans-serif;
 	--typeface-serif: 'Young Serif', Georgia, serif;
-	/* The canvas around the page (overscroll, a scrollbar's gutter) keeps its
-	   old color too, as homepageCanvas in pwa-launch.ts does. */
+
 	--background: #f6f1eb;
+	--foreground: #2d2926;
+	--card: #fdfaf6;
+	--card-foreground: #2d2926;
+	--popover: #fdfaf6;
+	--popover-foreground: #2d2926;
+	--primary: #48724e;
+	--primary-fill: #48724e;
+	--primary-foreground: #fdfaf6;
+	--secondary: #e8e0d4;
+	--secondary-foreground: #4a4139;
+	--muted: #ede7de;
+	--muted-foreground: #6f6358;
+	--border: #ded6ca;
+	--input: #ded6ca;
+	--input-invalid: #a85040;
+	--destructive: #b85c4a;
+	--destructive-foreground: #fdfaf6;
+	--foreground-destructive: #a85040;
+	--ring: #48724e;
+
+	--elevation-sm: 0 1px 2px oklch(25% 0.02 60 / 0.06);
+	--elevation-md:
+		0 2px 8px oklch(25% 0.02 60 / 0.08), 0 1px 2px oklch(25% 0.02 60 / 0.04);
+	--elevation-lg:
+		0 4px 16px oklch(25% 0.02 60 / 0.08), 0 1px 4px oklch(25% 0.02 60 / 0.05);
 }
 
 .dark:has([data-chrome='espresso']) {
 	--background: #1a1816;
+	--foreground: #e2dbd1;
+	--card: #2a2620;
+	--card-foreground: #e2dbd1;
+	--popover: #2a2620;
+	--popover-foreground: #e2dbd1;
+	--primary: #8cb393;
+	--primary-fill: #8cb393;
+	--primary-foreground: #1a1816;
+	--secondary: #2e2b26;
+	--secondary-foreground: #d4ccc0;
+	--muted: #302c26;
+	--muted-foreground: #b5a99b;
+	--border: #3d3830;
+	--input: #3d3830;
+	--input-invalid: #d07a68;
+	--destructive: #d07a68;
+	--destructive-foreground: #1a1816;
+	--foreground-destructive: #d07a68;
+	--ring: #8cb393;
 }
 
 /* The homepage re-themes the site chrome around it (header, Log In)

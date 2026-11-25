@@ -839,5 +839,34 @@ test.describe('the Settings tab', () => {
 				inside: true,
 			})
 		}
+
+		// One row: the tabs share a top, share the bar's width, and stay inside
+		// the bar and the screen.
+		const layout = await bottomNav(page).evaluate((nav) => {
+			const bar = nav.getBoundingClientRect()
+			return {
+				bar: { left: bar.left, right: bar.right },
+				tabs: [...nav.querySelectorAll('a')].map((link) => {
+					const box = link.getBoundingClientRect()
+					return {
+						top: box.top,
+						left: box.left,
+						right: box.right,
+						width: box.width,
+					}
+				}),
+				viewport: window.innerWidth,
+			}
+		})
+		const tops = new Set(layout.tabs.map((tab) => Math.round(tab.top)))
+		expect(tops.size).toBe(1)
+		const widths = layout.tabs.map((tab) => tab.width)
+		expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(1)
+		for (const tab of layout.tabs) {
+			expect(tab.left).toBeGreaterThanOrEqual(Math.max(0, layout.bar.left))
+			expect(tab.right).toBeLessThanOrEqual(
+				Math.min(layout.viewport, layout.bar.right),
+			)
+		}
 	})
 })

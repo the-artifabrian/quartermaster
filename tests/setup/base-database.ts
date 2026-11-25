@@ -91,10 +91,11 @@ export async function ensureBaseDatabase({
 	}
 
 	// Build into this run's own file and rename it into place, so a run that is
-	// already copying `base.db` never reads a half-migrated database. The key
-	// goes in after the database: a run stopped between the two leaves a key
-	// that doesn't match, and the next run builds again.
+	// already copying `base.db` never reads a half-migrated database. The old
+	// key goes before the new database comes in and the new key after it, so a
+	// run stopped in between leaves no key and the next run builds again.
 	await build(pendingPath)
+	await fs.rm(keyPath, { force: true })
 	await moveDatabase(pendingPath, basePath)
 	await fs.writeFile(`${pendingPath}.hash`, sourcesHash)
 	await fs.rename(`${pendingPath}.hash`, keyPath)

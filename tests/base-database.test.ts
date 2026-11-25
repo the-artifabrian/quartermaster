@@ -11,6 +11,9 @@
 //   trusted as current.
 // - Two runs start at once: one copies `base.db` while the other is still
 //   migrating, and reads half a database.
+// - A run stops after moving its database in but before writing its key. The
+//   old key, still beside the new database, matches again once the sources go
+//   back (switching branches), and the wrong database is reused.
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -51,6 +54,12 @@ async function setupSources() {
 		schemaPath,
 		basePath,
 		writeMigration,
+		async removeMigration(name: string) {
+			await fs.rm(path.join(migrationsDirectory, name), { recursive: true })
+		},
+		pendingPath(run: string) {
+			return path.join(dir, `${run}.pending.db`)
+		},
 		build,
 		get builds() {
 			return builds
@@ -169,4 +178,23 @@ test('two runs at once never expose a half-built database', async () => {
 		'20260101000000_init',
 	)
 	expect(await sources.ensure('c')).toBe('reused')
+})
+
+test('a run stopped before writing its key leaves nothing to reuse', async () => {
+	await using sources = await setupSources()
+	await sources.ensure()
+	await sources.writeMigration('20260102000000_recipe_notes', 'SELECT 1;\n')
+	// A directory where the key would go makes the run fail right after it
+	// moves its database in, as a run killed at that moment would.
+	await fs.mkdir(`${sources.pendingPath('b')}.hash`)
+	await expect(sources.ensure('b')).rejects.toThrow()
+	expect(await fs.readFile(sources.basePath, 'utf8')).toContain(
+		'20260102000000_recipe_notes',
+	)
+
+	await sources.removeMigration('20260102000000_recipe_notes')
+	expect(await sources.ensure('c')).toBe('built')
+	expect(await fs.readFile(sources.basePath, 'utf8')).not.toContain(
+		'20260102000000_recipe_notes',
+	)
 })

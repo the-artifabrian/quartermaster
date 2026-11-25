@@ -38,7 +38,7 @@ export function EnhanceRecipeModal({
 			title={
 				<span className="flex items-center gap-2">
 					<Icon name="sparkles" className="text-accent size-5" />
-					Enhance Recipe
+					Suggest description & times
 				</span>
 			}
 		>
@@ -102,7 +102,7 @@ function EnhanceSuggestions({
 				requiresPro?: boolean
 			}
 			if (result.success) {
-				toast.success('Recipe enhanced!')
+				toast.success('Suggestions applied')
 				onClose()
 			} else if (result.error) {
 				toast.error(result.error)
@@ -110,8 +110,8 @@ function EnhanceSuggestions({
 				// The iOS app shows no copy about Pro (ADR 0001).
 				toast.error(
 					isNativeShell
-						? 'Recipe enhancement is not available.'
-						: 'Recipe enhancement requires Pro.',
+						? 'Suggestions aren’t available on your account. Edit the Recipe to add these yourself.'
+						: 'Suggest description & times needs Pro.',
 				)
 			}
 		}
@@ -161,7 +161,7 @@ function EnhanceSuggestions({
 			{hasAnyChange ? (
 				<>
 					<p className="text-muted-foreground mb-4 text-sm">
-						Review AI suggestions and select which to apply.
+						Pick the suggestions to keep.
 					</p>
 
 					<div className="space-y-3">
@@ -177,7 +177,7 @@ function EnhanceSuggestions({
 
 						{hasActiveTimeChange && (
 							<FieldRow
-								label="Active Time"
+								label="Active time"
 								current={formatMinutes(recipe.activeTime)}
 								suggested={formatMinutes(suggestions.activeTime)}
 								checked={checked.activeTime}
@@ -187,7 +187,7 @@ function EnhanceSuggestions({
 
 						{hasTotalTimeChange && (
 							<FieldRow
-								label="Total Time"
+								label="Total time"
 								current={formatMinutes(recipe.totalTime)}
 								suggested={formatMinutes(suggestions.totalTime)}
 								checked={checked.totalTime}
@@ -201,7 +201,7 @@ function EnhanceSuggestions({
 							className="text-foreground-destructive mt-3 text-sm"
 							role="alert"
 						>
-							Total time must be at least active time.
+							Total time can’t be shorter than active time. Untick one of them.
 						</p>
 					)}
 
@@ -218,10 +218,10 @@ function EnhanceSuggestions({
 							{fetcher.state !== 'idle' ? (
 								<>
 									<Icon name="update" className="size-4 animate-spin" />
-									Applying...
+									Applying…
 								</>
 							) : (
-								'Apply Selected'
+								'Apply selected'
 							)}
 						</Button>
 					</div>
@@ -229,7 +229,7 @@ function EnhanceSuggestions({
 			) : (
 				<>
 					<p className="text-muted-foreground mb-5 text-sm">
-						This recipe looks complete! No improvements suggested.
+						Nothing to suggest. This Recipe already has a description and times.
 					</p>
 					<Button variant="outline" onClick={onClose} className="w-full">
 						Done

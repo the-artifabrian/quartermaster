@@ -578,7 +578,7 @@ describe('extractRecipeFromText', () => {
 		delete process.env.ANTHROPIC_API_KEY
 		const result = await extractRecipeFromText('some recipe text')
 		expect(result).toEqual({
-			error: expect.stringContaining('not configured'),
+			error: expect.stringContaining('isn’t set up'),
 			refundable: true,
 		})
 	})
@@ -639,7 +639,7 @@ describe('extractRecipeFromText', () => {
 		)
 
 		const result = await extractRecipeFromText('some text')
-		expect((result as { error: string }).error).toContain('rate limit')
+		expect((result as { error: string }).error).toContain('Too many AI imports')
 	})
 
 	test('reports a truncated answer as too long, not as no recipe found', async () => {
@@ -949,7 +949,9 @@ describe('extractRecipeFromImages', () => {
 			{ base64: 'base64', mediaType: 'image/gif' },
 		])
 		expect(result).toHaveProperty('error')
-		expect((result as { error: string }).error).toContain('Unsupported')
+		expect((result as { error: string }).error).toContain(
+			'Choose a JPG, PNG or WebP',
+		)
 		expect(fetchSpy).not.toHaveBeenCalled()
 	})
 
@@ -970,7 +972,7 @@ describe('extractRecipeFromImages', () => {
 			{ base64: 'base64', mediaType: 'image/png' },
 		])
 		expect(result).toEqual({
-			error: expect.stringContaining('not configured'),
+			error: expect.stringContaining('isn’t set up'),
 			refundable: true,
 		})
 	})

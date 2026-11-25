@@ -254,8 +254,10 @@ test('a shared link that fails shows the error on the filled URL tab, and coming
 
 	expect(await deliverShare(page, E2E_MISSING_URL)).toBe(true)
 
-	await expect(page.getByText('Failed to fetch URL (404)')).toBeVisible()
-	await expect(page.getByLabel('Recipe URL', { exact: true })).toHaveValue(
+	await expect(
+		page.getByText('Couldn’t open that page (error 404)'),
+	).toBeVisible()
+	await expect(page.getByLabel('Recipe link', { exact: true })).toHaveValue(
 		E2E_MISSING_URL,
 	)
 	await expect(page).toHaveURL(/\/recipes\/import$/)
@@ -296,7 +298,7 @@ test('a link shared with no connection says so and stays filled in for one tap',
 	expect(await deliverShare(page, sharedUrl)).toBe(true)
 
 	await expect(page.getByText(OFFLINE_MESSAGE)).toBeVisible()
-	await expect(page.getByLabel('Recipe URL', { exact: true })).toHaveValue(
+	await expect(page.getByLabel('Recipe link', { exact: true })).toHaveValue(
 		sharedUrl,
 	)
 	expect(count.fetches).toBe(1)
@@ -318,12 +320,12 @@ test('a typed link with no connection says so and stays typed for one tap', asyn
 	const user = await login()
 	await page.goto('/recipes/import')
 	await hydrated(importButton(page))
-	await page.getByLabel('Recipe URL', { exact: true }).fill(E2E_RECIPE_URL)
+	await page.getByLabel('Recipe link', { exact: true }).fill(E2E_RECIPE_URL)
 	await page.context().setOffline(true)
 	await importButton(page).tap()
 
 	await expect(page.getByText(OFFLINE_MESSAGE)).toBeVisible()
-	await expect(page.getByLabel('Recipe URL', { exact: true })).toHaveValue(
+	await expect(page.getByLabel('Recipe link', { exact: true })).toHaveValue(
 		E2E_RECIPE_URL,
 	)
 	expect(await recipesIn(user.householdId)).toHaveLength(0)
@@ -801,7 +803,7 @@ test.describe('shared screenshots', () => {
 		).toBeVisible()
 		await expect(page).toHaveURL(/\/recipes\/import$/)
 		await expect(
-			page.getByRole('tab', { name: 'From Image', selected: true }),
+			page.getByRole('tab', { name: 'From image', selected: true }),
 		).toBeVisible()
 		const input = page.getByLabel('Upload screenshots (up to 5)')
 		expect(
@@ -814,7 +816,7 @@ test.describe('shared screenshots', () => {
 
 		// One tap tries again with the same screenshots.
 		await prisma.recipeMetadataValue.delete({ where: { id: marker.id } })
-		await page.getByRole('button', { name: 'Extract with AI' }).tap()
+		await page.getByRole('button', { name: 'Read with AI' }).tap()
 		await expect(page).toHaveURL(savedRecipe)
 		await expect(
 			page.getByRole('heading', {
@@ -846,7 +848,7 @@ test.describe('shared screenshots', () => {
 
 		await expect(page.getByText(OFFLINE_MESSAGE)).toBeVisible()
 		await expect(
-			page.getByRole('tab', { name: 'From Image', selected: true }),
+			page.getByRole('tab', { name: 'From image', selected: true }),
 		).toBeVisible()
 		const input = page.getByLabel('Upload screenshots (up to 5)')
 		expect(
@@ -858,7 +860,7 @@ test.describe('shared screenshots', () => {
 		expect(await recipesIn(user.householdId)).toHaveLength(0)
 
 		await page.context().setOffline(false)
-		await page.getByRole('button', { name: 'Extract with AI' }).tap()
+		await page.getByRole('button', { name: 'Read with AI' }).tap()
 		await expect(page).toHaveURL(savedRecipe)
 		expect(count.images).toBe(2)
 		expect(await recipesIn(user.householdId)).toEqual([

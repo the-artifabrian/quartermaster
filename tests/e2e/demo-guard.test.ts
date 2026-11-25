@@ -126,13 +126,13 @@ demoTest(
 		const extract = async () => {
 			await page.goto('/recipes/import')
 			await expect(page.locator('html')).toHaveAttribute('data-hydrated')
-			await page.getByRole('tab', { name: 'From Image', exact: true }).click()
+			await page.getByRole('tab', { name: 'From image', exact: true }).click()
 			await page.getByLabel('Upload screenshots (up to 5)').setInputFiles({
 				name: 'recipe.png',
 				mimeType: 'image/png',
 				buffer: screenshot,
 			})
-			await page.getByRole('button', { name: 'Extract with AI' }).click()
+			await page.getByRole('button', { name: 'Read with AI' }).click()
 		}
 
 		await withDemoAiUses(async () => {

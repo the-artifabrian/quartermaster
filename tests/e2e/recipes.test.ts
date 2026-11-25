@@ -267,16 +267,12 @@ test('a Pro user can extract with AI from text and from an image', async ({
 	})
 
 	await page.goto('/recipes/import')
-	await page.getByRole('tab', { name: 'From Text' }).click()
+	await page.getByRole('tab', { name: 'From text' }).click()
 	await expect(page.getByLabel('Recipe text')).toBeVisible()
-	await expect(
-		page.getByRole('button', { name: 'Extract with AI' }),
-	).toBeVisible()
-	await page.getByRole('tab', { name: 'From Image' }).click()
+	await expect(page.getByRole('button', { name: 'Read with AI' })).toBeVisible()
+	await page.getByRole('tab', { name: 'From image' }).click()
 	await expect(page.getByLabel('Upload screenshots (up to 5)')).toBeVisible()
-	await expect(
-		page.getByRole('button', { name: 'Extract with AI' }),
-	).toBeVisible()
+	await expect(page.getByRole('button', { name: 'Read with AI' })).toBeVisible()
 })
 
 test('Recipe search and filter', async ({ page, login }) => {

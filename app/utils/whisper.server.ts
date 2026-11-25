@@ -37,7 +37,10 @@ const WHISPER_HALLUCINATION_EXACT = new Set([
 ])
 
 function isWhisperHallucination(text: string): boolean {
-	const normalized = text.toLowerCase().replace(/[.,!?;:\s]+/g, ' ').trim()
+	const normalized = text
+		.toLowerCase()
+		.replace(/[.,!?;:\s]+/g, ' ')
+		.trim()
 
 	// Too short to be a real grocery item
 	if (normalized.length < 2) return true
@@ -72,8 +75,8 @@ function isRefundableStatus(status: number) {
 	return status === 401 || status === 403 || status === 404 || status >= 500
 }
 
-const FAILED = 'Voice transcription failed. Please try again.'
-const NOT_UNDERSTOOD = "Couldn't understand the audio. Please try again."
+const FAILED = 'We couldn’t turn that into text. Try again.'
+const NOT_UNDERSTOOD = 'We couldn’t make out what you said. Try again.'
 
 export async function transcribeAudio(
 	audioFile: FileUpload,
@@ -81,7 +84,7 @@ export async function transcribeAudio(
 	const apiKey = process.env.GROQ_API_KEY
 	if (!apiKey) {
 		return {
-			error: 'Voice input is not configured. Contact support.',
+			error: 'Voice input isn’t set up on this server. Type the items instead.',
 			refundable: true,
 		}
 	}
@@ -91,9 +94,13 @@ export async function transcribeAudio(
 		const formData = new FormData()
 		formData.append(
 			'file',
-			new File([await audioFile.arrayBuffer()], audioFile.name || 'audio.webm', {
-				type: audioFile.type,
-			}),
+			new File(
+				[await audioFile.arrayBuffer()],
+				audioFile.name || 'audio.webm',
+				{
+					type: audioFile.type,
+				},
+			),
 		)
 		formData.append('model', MODEL)
 		formData.append(
@@ -111,7 +118,7 @@ export async function transcribeAudio(
 		console.error('Whisper transcription error:', error)
 		if (error instanceof DOMException && error.name === 'TimeoutError') {
 			return {
-				error: 'Voice transcription timed out. Please try again.',
+				error: 'That took too long to turn into text. Try again.',
 				refundable: false,
 			}
 		}
@@ -126,8 +133,7 @@ export async function transcribeAudio(
 		)
 		if (response.status === 429) {
 			return {
-				error:
-					'Voice input hit a rate limit. Please wait a moment and try again.',
+				error: 'Too many voice requests at once. Wait a moment and try again.',
 				refundable: true,
 			}
 		}

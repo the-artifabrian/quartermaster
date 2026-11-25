@@ -286,8 +286,8 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 			<h1 className="mb-2 font-serif text-2xl font-normal">Import Recipe</h1>
 			<p className="text-muted-foreground mb-6">
 				{hideAi
-					? 'Paste a Recipe URL or its text.'
-					: 'Paste a Recipe URL or its text, or upload screenshots.'}{' '}
+					? 'Paste a Recipe’s link or its text.'
+					: 'Paste a Recipe’s link or its text, or upload screenshots.'}{' '}
 				Quartermaster saves it to your Recipes, ready to edit.
 			</p>
 
@@ -381,10 +381,10 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					onValueChange={setActiveTab}
 					options={[
 						{ value: 'url', label: 'From URL' },
-						{ value: 'text', label: 'From Text' },
+						{ value: 'text', label: 'From text' },
 						...(hideAi
 							? []
-							: [{ value: 'image' as const, label: 'From Image' }]),
+							: [{ value: 'image' as const, label: 'From image' }]),
 					]}
 					className="mb-6 w-full"
 				/>
@@ -400,12 +400,12 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					>
 						<input type="hidden" name="intent" value="fetch" />
 						<div className="space-y-2">
-							<Label htmlFor="url">Recipe URL</Label>
+							<Label htmlFor="url">Recipe link</Label>
 							<Input
 								id="url"
 								name="url"
 								type="url"
-								placeholder="https://example.com/recipe/..."
+								placeholder="https://example.com/recipe"
 								defaultValue={(!sharedExisting && sharedUrl) || undefined}
 								autoFocus
 								required
@@ -434,9 +434,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 							<Textarea
 								id="rawText"
 								name="rawText"
-								placeholder={
-									'Paste a recipe from social media, a blog post, or any text source...'
-								}
+								placeholder={'Paste the ingredients and steps'}
 								rows={8}
 							/>
 						</div>
@@ -452,18 +450,18 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 								value="parse-text"
 								variant="outline"
 							>
-								Parse Recipe
+								Read as written
 							</Button>
 							{isProActive ? (
 								<Button type="submit" name="intent" value="extract-text">
 									<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
-									Extract with AI
+									Read with AI
 								</Button>
 							) : hideAi ? null : (
 								<Button asChild>
 									<PushLink to="/upgrade">
 										<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
-										Extract with AI
+										Read with AI
 										<span className="bg-primary-foreground text-primary ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
 											Pro
 										</span>
@@ -498,8 +496,8 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 								onChange={(event) => void fitImages(event.currentTarget)}
 							/>
 							<p className="text-muted-foreground text-xs">
-								JPG, PNG or WebP. Large images are resized. Multiple images will
-								be combined into one recipe.
+								JPG, PNG or WebP. Large images are resized. Several screenshots
+								make one Recipe.
 							</p>
 						</div>
 						{imageError && (
@@ -511,13 +509,13 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 							{isProActive ? (
 								<Button type="submit" disabled={preparingImages}>
 									<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
-									Extract with AI
+									Read with AI
 								</Button>
 							) : (
 								<Button asChild>
 									<PushLink to="/upgrade">
 										<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
-										Extract with AI
+										Read with AI
 										<span className="bg-primary-foreground text-primary ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
 											Pro
 										</span>

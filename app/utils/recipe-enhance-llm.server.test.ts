@@ -228,7 +228,7 @@ describe('enhanceRecipeMetadata', () => {
 	it('preserves feature-local wording for configuration and rate limits', async () => {
 		vi.stubEnv('ANTHROPIC_API_KEY', '')
 		await expect(enhanceRecipeMetadata(sampleInput)).resolves.toEqual({
-			error: expect.stringContaining('not configured'),
+			error: expect.stringContaining('isn’t set up'),
 			refundable: true,
 		})
 
@@ -238,7 +238,7 @@ describe('enhanceRecipeMetadata', () => {
 			new Response('', { status: 429 }),
 		)
 		await expect(enhanceRecipeMetadata(sampleInput)).resolves.toEqual({
-			error: expect.stringContaining('rate limit'),
+			error: expect.stringContaining('Too many suggestion requests'),
 			refundable: true,
 		})
 	})

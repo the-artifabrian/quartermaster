@@ -306,14 +306,14 @@ test('Import switches between URL and pasted text with a segmented control', asy
 	const tablist = page.getByRole('tablist', { name: 'Import from' })
 	const pill = tablist.locator('[data-slot="segmented-pill"]')
 	const fromUrl = await importTab(page, 'From URL')
-	const fromText = await importTab(page, 'From Text')
-	const fromImage = await importTab(page, 'From Image')
+	const fromText = await importTab(page, 'From text')
+	const fromImage = await importTab(page, 'From image')
 	await expect(fromUrl).toHaveAttribute('aria-selected', 'true')
 	await expect(fromText).toHaveAttribute('aria-selected', 'false')
 	await expectThumbTall(fromText)
 	expect(await pillUnder(pill, fromUrl)).toBe(true)
 	await expect(page.getByRole('tabpanel', { name: 'From URL' })).toContainText(
-		'Recipe URL',
+		'Recipe link',
 	)
 
 	await tapUntil(fromText, () =>
@@ -321,14 +321,14 @@ test('Import switches between URL and pasted text with a segmented control', asy
 	)
 	await expect(fromText).toHaveAttribute('aria-selected', 'true')
 	await expect(fromUrl).toHaveAttribute('aria-selected', 'false')
-	await expect(page.getByLabel('Recipe URL')).toHaveCount(0)
-	await expect(page.getByRole('tabpanel', { name: 'From Text' })).toContainText(
+	await expect(page.getByLabel('Recipe link')).toHaveCount(0)
+	await expect(page.getByRole('tabpanel', { name: 'From text' })).toContainText(
 		'Recipe text',
 	)
 	await expect.poll(() => pillUnder(pill, fromText)).toBe(true)
 
 	await fromUrl.tap()
-	await expect(page.getByLabel('Recipe URL')).toBeVisible()
+	await expect(page.getByLabel('Recipe link')).toBeVisible()
 	await expect(fromUrl).toHaveAttribute('aria-selected', 'true')
 	await expect.poll(() => pillUnder(pill, fromUrl)).toBe(true)
 

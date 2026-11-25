@@ -108,7 +108,7 @@ export function useSpeechToText({ onResult, onError }: SpeechToTextOptions) {
 				chunksRef.current = []
 
 				if (blob.size === 0) {
-					onError?.('No audio recorded. Please try again.')
+					onError?.('Nothing was recorded. Try again.')
 					return
 				}
 
@@ -133,10 +133,10 @@ export function useSpeechToText({ onResult, onError }: SpeechToTextOptions) {
 							}
 							onError?.(
 								errorData.error ||
-									'Voice transcription failed. Please try again.',
+									'We couldn’t turn that into text. Try again.',
 							)
 						} catch {
-							onError?.('Voice transcription failed. Please try again.')
+							onError?.('We couldn’t turn that into text. Try again.')
 						}
 						return
 					}
@@ -153,7 +153,7 @@ export function useSpeechToText({ onResult, onError }: SpeechToTextOptions) {
 						onResult(data.items, data.transcription)
 					}
 				} catch {
-					onError?.('Failed to transcribe audio. Please try again.')
+					onError?.('We couldn’t turn that into text. Try again.')
 				} finally {
 					setIsTranscribing(false)
 				}
@@ -180,7 +180,10 @@ export function useSpeechToText({ onResult, onError }: SpeechToTextOptions) {
 			let silenceStart: number | null = null
 
 			function checkAudioLevel() {
-				if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'recording') {
+				if (
+					!mediaRecorderRef.current ||
+					mediaRecorderRef.current.state !== 'recording'
+				) {
 					return
 				}
 
@@ -222,7 +225,7 @@ export function useSpeechToText({ onResult, onError }: SpeechToTextOptions) {
 		} catch (error) {
 			if (error instanceof DOMException && error.name === 'NotAllowedError') {
 				onError?.(
-					'Microphone access denied. Please allow microphone access and try again.',
+					'Quartermaster can’t use the microphone. Allow it in your settings, then try again.',
 				)
 			} else if (
 				error instanceof DOMException &&
@@ -230,7 +233,7 @@ export function useSpeechToText({ onResult, onError }: SpeechToTextOptions) {
 			) {
 				onError?.('No microphone found on this device.')
 			} else {
-				onError?.('Could not start recording. Please try again.')
+				onError?.('Recording didn’t start. Try again.')
 			}
 		}
 	}, [onResult, onError, stopRecording, cleanupAudioMonitoring])

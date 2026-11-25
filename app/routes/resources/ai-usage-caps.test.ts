@@ -273,7 +273,7 @@ describe('voice input', () => {
 		)
 
 		expect(result.body.error).toBe(
-			'Voice transcription timed out. Please try again.',
+			'That took too long to turn into text. Try again.',
 		)
 		expect(await uses(session.userId)).toBe(1)
 	})
@@ -335,7 +335,7 @@ describe('AI extraction', () => {
 		)
 
 		expect(result.body.error).toBe(
-			'Recipe extraction timed out. Please try again.',
+			'Reading the Recipe took too long. Try again.',
 		)
 		expect(await uses(session.userId)).toBe(1)
 	})
@@ -423,7 +423,7 @@ test('an image that can’t be prepared keeps the use spent', async () => {
 	)
 
 	expect(result.body.error).toBe(
-		'Could not process the image(s). Please try different images or formats.',
+		'We couldn’t read these images. Try other screenshots.',
 	)
 	expect(modelCalls).toBe(0)
 	expect(await uses(session.userId)).toBe(1)
@@ -493,8 +493,7 @@ test('the extraction refuses an image over the decoded-size limit without sendin
 	])
 
 	expect(result).toEqual({
-		error:
-			'Could not process the image(s). Please try different images or formats.',
+		error: 'We couldn’t read these images. Try other screenshots.',
 		refundable: false,
 	})
 	expect(modelCalls).toBe(0)
@@ -639,7 +638,7 @@ describe('Recipe enhance', () => {
 		)
 
 		expect(result.body.error).toBe(
-			'Recipe enhance hit a rate limit. Please wait a moment and try again.',
+			'Too many suggestion requests at once. Wait a moment and try again.',
 		)
 		expect(await uses(session.userId)).toBe(0)
 	})

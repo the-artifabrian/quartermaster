@@ -87,7 +87,10 @@ test('a request with no import intent still throws', async () => {
 })
 
 test('a result passes through', async () => {
-	const result = { intent: 'fetch', error: 'Failed to fetch URL (404)' }
+	const result = {
+		intent: 'fetch',
+		error: 'Couldn’t open that page (error 404)',
+	}
 	expect(await clientAction(args('fetch', () => Promise.resolve(result)))).toBe(
 		result,
 	)

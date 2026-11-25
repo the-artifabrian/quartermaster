@@ -70,7 +70,8 @@ describe('Pro-only resources', () => {
 		).toEqual({
 			status: 403,
 			body: {
-				error: 'Recipe enhancement is not available.',
+				error:
+					'Suggestions aren’t available on your account. Edit the Recipe to add these yourself.',
 				suggestions: null,
 			},
 		})

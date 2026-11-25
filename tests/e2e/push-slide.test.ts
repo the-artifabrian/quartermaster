@@ -616,13 +616,15 @@ test.describe('in the iOS app', () => {
 
 		await page.goto('/recipes')
 		await page.goto('/recipes/import')
-		await page.getByRole('tab', { name: 'From Text', exact: true }).tap()
+		await page.getByRole('tab', { name: 'From text', exact: true }).tap()
 		await page
 			.getByLabel('Recipe text', { exact: true })
 			.fill(
 				'Chickpea lunch\nIngredients\n1 lemon\nInstructions\nSqueeze the lemon.',
 			)
-		await page.getByRole('button', { name: 'Parse Recipe', exact: true }).tap()
+		await page
+			.getByRole('button', { name: 'Read as written', exact: true })
+			.tap()
 		const notice = page.getByRole('region', { name: 'Saved to your Recipes' })
 		await expect(notice).toBeVisible()
 		await ui.settled()
@@ -1096,7 +1098,7 @@ test.describe('in the iOS app', () => {
 			await expect(keepAwake).toHaveAttribute('aria-checked', before!)
 
 			await page.goto('/recipes/import')
-			const fromText = page.getByRole('tab', { name: 'From Text', exact: true })
+			const fromText = page.getByRole('tab', { name: 'From text', exact: true })
 			await hydrated(fromText)
 			await ui.settled()
 			expect(await ui.hapticsOf(() => fromText.tap())).toEqual(['selection'])

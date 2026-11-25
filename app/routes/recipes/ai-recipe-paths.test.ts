@@ -307,7 +307,7 @@ describe('surviving AI Recipe paths', () => {
 				...routeArgs('/recipes/import'),
 			}),
 		)
-		expect(importFailure.error).toContain('AI service returned an error')
+		expect(importFailure.error).toContain('AI service isn’t answering')
 
 		const enhancementFailure = unwrapData<{ error: string }>(
 			await enhanceAction({
@@ -317,7 +317,7 @@ describe('surviving AI Recipe paths', () => {
 				...routeArgs('/resources/enhance-recipe'),
 			}),
 		)
-		expect(enhancementFailure.error).toContain('AI service returned an error')
+		expect(enhancementFailure.error).toContain('AI service isn’t answering')
 		await expect(
 			prisma.recipe.findUniqueOrThrow({
 				where: { id: recipe.id },

@@ -142,22 +142,22 @@ export async function enhanceRecipeMetadata(
 function enhanceError(failure: AnthropicJsonFailure): string {
 	switch (failure.kind) {
 		case 'configuration':
-			return 'AI features are not configured. Contact support.'
+			return 'AI isn’t set up on this server. Edit the Recipe to add these yourself.'
 		case 'rate-limit':
-			return 'Recipe enhance hit a rate limit. Please wait a moment and try again.'
+			return 'Too many suggestion requests at once. Wait a moment and try again.'
 		case 'timeout':
-			return 'Recipe enhance timed out. Please try again.'
+			return 'Getting suggestions took too long. Try again.'
 		case 'empty-response':
-			return 'Recipe enhance returned an empty response. Please try again.'
+			return 'The AI sent nothing back. Try again.'
 		case 'max-tokens':
-			return 'Recipe enhance returned more than it could fit. Please try again.'
+			return 'The AI’s answer was cut off. Try again.'
 		case 'parse':
 		case 'schema':
-			return 'Recipe enhance returned an unexpected response. Please try again.'
+			return 'The AI’s answer didn’t make sense. Try again.'
 		case 'provider':
 		case 'network':
 		case 'refusal':
-			return 'Recipe enhance failed — the AI service returned an error. Please try again later.'
+			return 'The AI service isn’t answering. Try again later.'
 	}
 }
 

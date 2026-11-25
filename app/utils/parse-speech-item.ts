@@ -1,6 +1,6 @@
 import { parseAmount } from './fractions.ts'
 import { CONTAINER_START } from './ingredient-parser.ts'
-import { normalizeUnit, SHOPPING_UNIT_PATTERN } from './units.ts'
+import { namesAThing, normalizeUnit, SHOPPING_UNIT_PATTERN } from './units.ts'
 
 export type ParsedItem = {
 	name: string
@@ -163,6 +163,15 @@ const SPACED_QTY_UNIT_NAME = new RegExp(
 )
 const SPACED_QTY_NAME = new RegExp(`^${SPACED_QTY}\\s+(.+)$`)
 
+/**
+ * A match of a quantity, unit and name pattern, or null when there is none
+ * or the unit word starts the name of a thing ("1 pack choi").
+ */
+function unitMatch(text: string, pattern: RegExp) {
+	const match = text.match(pattern)
+	return match && !namesAThing(match[2]!, match[3]!) ? match : null
+}
+
 export function parseSpeechItem(transcript: string): ParsedItem {
 	const text = normalizeTranscript(transcript)
 
@@ -171,7 +180,7 @@ export function parseSpeechItem(transcript: string): ParsedItem {
 	}
 
 	// Try "2 pounds of chicken thighs" or "2 lbs chicken"
-	const qtyUnitMatch = text.match(QTY_UNIT_NAME)
+	const qtyUnitMatch = unitMatch(text, QTY_UNIT_NAME)
 	if (qtyUnitMatch) {
 		return {
 			quantity: qtyUnitMatch[1]!,
@@ -196,8 +205,9 @@ export function parseSpeechItem(transcript: string): ParsedItem {
 
 /**
  * Parse a *typed* item like "2 lemons" or "2 lbs chicken". Unlike
- * parseSpeechItem there's no transcript cleanup and no lowercasing: typed
- * text is taken as written. Returns null when there's no leading quantity,
+ * parseSpeechItem there's no transcript cleanup and the name keeps its
+ * capitals, as typed. The unit is stored the way normalizeUnit gives it, in
+ * lower case. Returns null when there's no leading quantity,
  * so callers can fall back to the raw input untouched.
  */
 export function parseTypedItem(text: string): ParsedItem | null {
@@ -209,7 +219,7 @@ export function parseTypedItem(text: string): ParsedItem | null {
 	// when parseAmount reads them as one number ("1 000 eggs").
 	// A container after the unit ("2 400 g tins tomatoes") keeps the first
 	// number a count of them.
-	const spacedUnitMatch = trimmed.match(SPACED_QTY_UNIT_NAME)
+	const spacedUnitMatch = unitMatch(trimmed, SPACED_QTY_UNIT_NAME)
 	if (spacedUnitMatch && !CONTAINER_START.test(spacedUnitMatch[3]!.trim())) {
 		return {
 			quantity: spacedUnitMatch[1]!,
@@ -222,7 +232,7 @@ export function parseTypedItem(text: string): ParsedItem | null {
 		return { quantity: spacedMatch[1]!, unit: '', name: spacedMatch[2]!.trim() }
 	}
 
-	const qtyUnitMatch = trimmed.match(QTY_UNIT_NAME)
+	const qtyUnitMatch = unitMatch(trimmed, QTY_UNIT_NAME)
 	if (qtyUnitMatch) {
 		return {
 			quantity: qtyUnitMatch[1]!,

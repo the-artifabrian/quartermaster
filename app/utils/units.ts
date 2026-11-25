@@ -111,6 +111,17 @@ export function normalizeUnit(unit: string): string {
 }
 
 /**
+ * A unit word and the word after it that together name a thing, so the
+ * first word is no unit there: "pack choi", "loaf tin".
+ */
+const NAMES_LED_BY_A_UNIT = /^(?:pack\s+choi|loaf\s+(?:tins?|pans?))\b/i
+
+/** Whether `unitWord` followed by `rest` names a thing, as "pack choi" does. */
+export function namesAThing(unitWord: string, rest: string): boolean {
+	return NAMES_LED_BY_A_UNIT.test(`${unitWord} ${rest}`)
+}
+
+/**
  * Unit words that also start things people put on a Shopping list: "half and
  * half", "half gallon milk".
  */

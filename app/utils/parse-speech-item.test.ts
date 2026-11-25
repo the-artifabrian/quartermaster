@@ -466,6 +466,25 @@ describe('parseTypedItem', () => {
 		expect(parseTypedItem('2 halves peaches')?.unit).toBe('')
 	})
 
+	test('"pack choi" and "loaf tin" are things, not a unit and a name', () => {
+		expect(parseTypedItem('1 pack choi')).toEqual({
+			name: 'pack choi',
+			quantity: '1',
+			unit: '',
+		})
+		expect(parseTypedItem('2 Loaf tins')).toEqual({
+			name: 'Loaf tins',
+			quantity: '2',
+			unit: '',
+		})
+		expect(parseSpeechItem('2 pack choi')).toEqual({
+			name: 'pack choi',
+			quantity: '2',
+			unit: '',
+		})
+		expect(parseTypedItem('1 pack tortillas')?.unit).toBe('pack')
+	})
+
 	test('a unit typed in capitals is stored in lower case', () => {
 		expect(parseTypedItem('2 TBSP honey')?.unit).toBe('tbsp')
 		expect(parseTypedItem('2 KG rice')?.unit).toBe('kg')

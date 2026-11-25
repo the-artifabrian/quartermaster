@@ -360,14 +360,16 @@ type PlanDay = WeekDay & {
 }
 
 /**
- * The mock week on the real calendar: Monday is `weekStart`, the row for
- * `today` says Today, and the Meals on days already gone are cooked.
+ * The mock week on the real calendar: Monday is `weekStart` and the row for
+ * `today` says Today. Only yesterday's Meal is cooked, as the mock always
+ * showed, so the hero looks the same whatever the weekday.
  */
 function onDates(days: WeekDay[], weekStart: Date, today: string): PlanDay[] {
+	const yesterday = serializeDate(addDaysUTC(parseDate(today), -1))
 	return days.map((row, index) => {
 		const date = addDaysUTC(weekStart, index)
 		const day = serializeDate(date)
-		const done = day < today
+		const done = day === yesterday
 		return {
 			...row,
 			date: date.getUTCDate(),

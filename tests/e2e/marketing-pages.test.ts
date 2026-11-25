@@ -89,7 +89,9 @@ test('About says the app is open source and links to the code', async ({
 // - the server and the browser draw different days and the page hydrates
 //   with a mismatch;
 // - the Plan section's week range stays on one week of the year, or isn't
-//   the week after the hero's.
+//   the week after the hero's;
+// - every Meal before today is struck through, so the hero (and the link
+//   preview made from it) changes with the weekday.
 test.describe('the homepage Plans follow the visitor’s calendar', () => {
 	// A zone on another date than UTC right now, so a loader that ignored the
 	// visitor's zone would draw the wrong day. Kiritimati is a day ahead of
@@ -103,9 +105,18 @@ test.describe('the homepage Plans follow the visitor’s calendar', () => {
 	test('the hero marks today and the Plan section shows next week', async ({
 		page,
 	}) => {
-		const errors: string[] = []
+		// A production build reports a mismatch as a minified React error,
+		// often as an uncaught page error rather than a console line.
+		const hydrationErrors: string[] = []
+		const isHydrationError = (text: string) =>
+			/hydrat|Minified React error #(418|419|421|422|423|425)/i.test(text)
 		page.on('console', (message) => {
-			if (message.type() === 'error') errors.push(message.text())
+			if (message.type() === 'error' && isHydrationError(message.text())) {
+				hydrationErrors.push(message.text())
+			}
+		})
+		page.on('pageerror', (error) => {
+			if (isHydrationError(String(error))) hydrationErrors.push(String(error))
 		})
 		const today = parseDate(todayInTimeZone(timeZone))
 		const nextWeek = addDaysUTC(getWeekStart(today), 7)
@@ -120,6 +131,9 @@ test.describe('the homepage Plans follow the visitor’s calendar', () => {
 		await expect(todayRow.locator('p.font-serif').first()).toHaveText(
 			String(today.getUTCDate()),
 		)
+		// Only yesterday's Meal is cooked, so the hero looks the same every day.
+		const isMonday = today.getUTCDay() === 1
+		await expect(hero.locator('p.line-through')).toHaveCount(isMonday ? 0 : 1)
 
 		const range = formatWeekRange(nextWeek, serializeDate(today))
 		await expect(
@@ -128,6 +142,6 @@ test.describe('the homepage Plans follow the visitor’s calendar', () => {
 				exact: false,
 			}),
 		).toBeVisible()
-		expect(errors.filter((text) => /hydrat/i.test(text))).toEqual([])
+		expect(hydrationErrors).toEqual([])
 	})
 })

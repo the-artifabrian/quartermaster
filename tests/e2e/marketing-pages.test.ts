@@ -1,5 +1,13 @@
 import { type Page } from '@playwright/test'
-import { expect, test } from '#tests/playwright-utils.ts'
+import {
+	addDaysUTC,
+	formatWeekRange,
+	getWeekStart,
+	parseDate,
+	serializeDate,
+	todayInTimeZone,
+} from '#app/utils/date.ts'
+import { expect, test, waitForHydration } from '#tests/playwright-utils.ts'
 
 // Failure list for the public pages' links to the source code:
 // - a marketing page's footer has no link to the source (the footer is
@@ -72,4 +80,54 @@ test('About says the app is open source and links to the code', async ({
 	await expect(
 		main.getByRole('link', { name: 'read it on GitHub' }),
 	).toHaveAttribute('href', SOURCE_URL)
+})
+
+// Failure list for the homepage's mock Plans:
+// - the hero marks a fixed day as Today, so on any other day it is wrong;
+// - the dates come from the server's clock in UTC, so a visitor ahead of or
+//   behind UTC sees the wrong day for part of the day;
+// - the server and the browser draw different days and the page hydrates
+//   with a mismatch;
+// - the Plan section's week range stays on one week of the year, or isn't
+//   the week after the hero's.
+test.describe('the homepage Plans follow the visitor’s calendar', () => {
+	// A zone on another date than UTC right now, so a loader that ignored the
+	// visitor's zone would draw the wrong day. Kiritimati is a day ahead of
+	// UTC from 10:00 UTC, Pago Pago a day behind until 11:00 UTC.
+	const timeZone =
+		todayInTimeZone('Pacific/Kiritimati') !== todayInTimeZone('UTC')
+			? 'Pacific/Kiritimati'
+			: 'Pacific/Pago_Pago'
+	test.use({ timezoneId: timeZone })
+
+	test('the hero marks today and the Plan section shows next week', async ({
+		page,
+	}) => {
+		const errors: string[] = []
+		page.on('console', (message) => {
+			if (message.type() === 'error') errors.push(message.text())
+		})
+		const today = parseDate(todayInTimeZone(timeZone))
+		const nextWeek = addDaysUTC(getWeekStart(today), 7)
+
+		await page.goto('/')
+		await waitForHydration(page)
+		const hero = page.getByRole('img', {
+			name: 'This week’s Plan, Monday to Sunday',
+		})
+		const todayRow = hero.locator('section').filter({ hasText: 'Today' })
+		await expect(todayRow).toHaveCount(1)
+		await expect(todayRow.locator('p.font-serif').first()).toHaveText(
+			String(today.getUTCDate()),
+		)
+
+		const range = formatWeekRange(nextWeek, serializeDate(today))
+		await expect(
+			page.getByRole('img', {
+				name: `The Plan page: next week, ${range}`,
+				exact: false,
+			}),
+		).toBeVisible()
+		expect(errors.filter((text) => /hydrat/i.test(text))).toEqual([])
+	})
 })

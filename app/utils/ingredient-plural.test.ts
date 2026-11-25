@@ -155,6 +155,16 @@ test('a parsed line in tins scales its unit', () => {
 	)
 })
 
+test.each([
+	['bar', 'bars'],
+	['case', 'cases'],
+	['container', 'containers'],
+	['tube', 'tubes'],
+])('the unit %s scales to %s and back', (one, many) => {
+	expect(scaledLineWords(line('1', one, 'chocolate'), 2).unit).toBe(many)
+	expect(scaledLineWords(line('2', many, 'chocolate'), 0.5).unit).toBe(one)
+})
+
 test('an amount that shows as a whole number counts as that number', () => {
 	expect(scaledLineWords(line('3', null, 'eggs'), 0.34).name).toBe('egg')
 	expect(scaledLineWords(line('3', null, 'peppers'), 0.32).name).toBe('pepper')

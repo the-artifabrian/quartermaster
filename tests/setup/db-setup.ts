@@ -5,9 +5,9 @@
  * import '#tests/setup/db-setup.ts'
  * ```
  *
- * It restores a freshly seeded database before every test in the file. Tests
- * that never touch the database skip the import and the copying that goes with
- * it.
+ * It restores a fresh copy of the migrated database before every test in the
+ * file. Tests that never touch the database skip the import and the copying
+ * that goes with it.
  */
 
 import fs from 'node:fs/promises'

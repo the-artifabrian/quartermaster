@@ -1,4 +1,4 @@
 # Icons
 
-Most come from Radix Icons (https://icons.radix-ui.com/, MIT). Every SVG here
-goes into the sprite sheet, so add only icons the app uses.
+From Radix Icons (https://icons.radix-ui.com/, MIT). Every SVG here goes into
+the sprite sheet, so add only icons the app uses.

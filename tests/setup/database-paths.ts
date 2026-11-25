@@ -3,7 +3,7 @@ import path from 'node:path'
 const TEST_PRISMA_DIRECTORY = path.join(process.cwd(), './tests/prisma')
 
 /**
- * The migrated and seeded template every worker database is copied from.
+ * The migrated template every worker database is copied from.
  * Shared between runs, so it is only ever replaced atomically.
  */
 export const BASE_DATABASE_PATH = path.join(TEST_PRISMA_DIRECTORY, 'base.db')

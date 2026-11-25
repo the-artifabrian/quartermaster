@@ -1,6 +1,11 @@
 import { type Locator, type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import {
+	expect,
+	expectThumbTall,
+	tapUntil,
+	test,
+} from '#tests/playwright-utils.ts'
 
 const original = `Chickpea lunch
 Ingredients
@@ -322,25 +327,6 @@ test('a Pro user out of AI imports for the day is told so and nothing is saved',
 	expect(await prisma.recipe.count({ where: { userId: user.id } })).toBe(0)
 	expect(await prisma.usageEvent.count({ where: { userId: user.id } })).toBe(10)
 })
-
-async function expectThumbTall(control: Locator) {
-	await expect(control).toBeVisible()
-	const box = await control.boundingBox()
-	expect(box, 'control has a box').not.toBeNull()
-	expect(box!.height).toBeGreaterThanOrEqual(44)
-}
-
-/** Taps until the tap lands on a hydrated page and `then` holds. */
-async function tapUntil(
-	control: Locator,
-	then: () => Promise<void>,
-	timeout = 10_000,
-) {
-	await expect(async () => {
-		await control.tap()
-		await then()
-	}).toPass({ timeout })
-}
 
 async function importTab(page: Page, name: string) {
 	return page

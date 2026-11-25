@@ -149,7 +149,7 @@ jobs:
         env:
           DEMO_PHOTO_DIR: ${{ runner.temp }}/demo-photos
           # Runner load makes the 34 ms bottom-nav feedback budget flaky; the
-          # number is still logged to the report (#304).
+          # number is still logged to the report.
           BOTTOM_NAV_FEEDBACK_TRACE_ONLY: '1'
 
       - name: 📊 Upload report

@@ -14,18 +14,6 @@ import { expect, hydrated, test } from '#tests/playwright-utils.ts'
  * The demo: a visitor gets a user of their own with a copy of the sample
  * Household, which ends after a couple of hours. The e2e database has a demo
  * template (scripts/e2e.sh builds one).
- *
- * Failure list:
- * - A demo started from the homepage's "Try the demo" isn't held back by the
- *   guard, which other tests only meet with users made by createDemoCopy:
- *   renaming the Household goes through, or is refused without a word.
- * - With the AI uses all demo users share in a day used up, an AI import
- *   still calls the AI, counts a use or saves a Recipe, or says nothing, or
- *   gives the per-user message instead.
- * - Settings shows the demo member by the made-up username the demo gives
- *   it ("@demo-ut94…"), or loses the role or "(you)" when that goes.
- * - A real member stops showing their @username, even one whose username
- *   starts with "demo", because the demo is told apart by its name.
  */
 
 /**
@@ -160,6 +148,8 @@ test('a demo opens on the sample Recipes and this week’s Plan, and ends signed
 	expect(await prisma.household.count({ where: { id: householdId } })).toBe(0)
 })
 
+// Other tests make demo users with createDemoCopy. This one starts from the
+// homepage button, the way a visitor does, so the guard meets that demo too.
 test('a demo started from the homepage can’t rename its Household, and says so', async ({
 	page,
 }) => {

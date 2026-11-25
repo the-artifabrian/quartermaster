@@ -2,7 +2,12 @@ import { type Page } from '@playwright/test'
 import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { SAFARI_UA, SHELL_UA } from '#tests/native-shell.ts'
-import { expect, hydrated, test } from '#tests/playwright-utils.ts'
+import {
+	browserToday,
+	expect,
+	hydrated,
+	test,
+} from '#tests/playwright-utils.ts'
 
 // In the iOS app every push into a page with a nav bar slides in from the
 // right, and the nav bar's Back, Cancel, and an edit screen's leave after
@@ -268,13 +273,6 @@ async function createRecipe(
 	})
 }
 
-function todayUTC() {
-	const today = new Date()
-	return new Date(
-		Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
-	)
-}
-
 test.describe('in the iOS app', () => {
 	test.use({ userAgent: SHELL_UA })
 
@@ -505,7 +503,7 @@ test.describe('in the iOS app', () => {
 				sections: { create: { name: null, order: 0 } },
 			},
 		})
-		const today = todayUTC()
+		const today = browserToday()
 		const weekStart = getWeekStart(today)
 		await prisma.mealPlan.create({
 			data: {
@@ -1007,7 +1005,7 @@ test.describe('in the iOS app', () => {
 			const user = await login()
 			const soup = await createRecipe(user, 'Lentil soup')
 			const stew = await createRecipe(user, 'Bean stew')
-			const today = todayUTC()
+			const today = browserToday()
 			const weekStart = getWeekStart(today)
 			const plan = await prisma.mealPlan.create({
 				data: {

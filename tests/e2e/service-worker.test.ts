@@ -1,5 +1,5 @@
 import { type BrowserContext, type Page } from '@playwright/test'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { expect, openShopping, test } from '#tests/playwright-utils.ts'
 
 const UPDATE_KEY = 'qm:pwa-update'
 
@@ -64,20 +64,8 @@ async function setVisibility(page: Page, state: 'hidden' | 'visible') {
 	}, state)
 }
 
-/**
- * Open Shopping and wait for hydration, which also means the update control
- * has registered the worker: a deploy after this point is found mid-session.
- */
-async function openShopping(page: Page) {
-	await page.goto('/shopping')
-	await page.waitForFunction(() =>
-		[
-			...document.querySelectorAll<HTMLInputElement>(
-				'input[name="originClientId"]',
-			),
-		].some((input) => input.value),
-	)
-}
+// openShopping waits for hydration, which also means the update control has
+// registered the worker: a deploy after that point is found mid-session.
 
 function addItemInput(page: Page) {
 	return page.getByPlaceholder(/add an item/i).filter({ visible: true })

@@ -4,7 +4,10 @@ import { prisma } from '#app/utils/db.server.ts'
 import {
 	browserToday,
 	expect,
+	expectThumbSized,
+	expectThumbTall,
 	openShopping,
+	tapUntil,
 	test,
 } from '#tests/playwright-utils.ts'
 
@@ -34,7 +37,7 @@ async function expectLocalPendingFeedback({
 	await expect(status).toBeHidden()
 }
 
-test('Recipe ingredient addition creates an outstanding purchase beside checked rice (#226)', async ({
+test('Recipe ingredient addition creates an outstanding purchase beside checked rice', async ({
 	page,
 	login,
 }) => {
@@ -205,7 +208,7 @@ test('a Meal joining a row added from Recipe detail shows the summed amount', as
 	})
 })
 
-test('a range amount added from a Recipe keeps both ends on Shopping (#384)', async ({
+test('a range amount added from a Recipe keeps both ends on Shopping', async ({
 	page,
 	login,
 }) => {
@@ -505,12 +508,8 @@ test('From Plan shows what a Meal already put on Shopping as on the list, and th
 	page,
 	login,
 }) => {
-	// Failure list for the done Meal box:
-	// - The box disappears under keyboard focus when a toggle makes the Meal
-	//   done, and focus drops to the page.
-	// - Someone tabbing never hears that the Meal is done, because the text
-	//   saying so isn't tied to anything they can focus.
-	// - The Meal's button still says done once a line is ticked.
+	// The done Meal box keeps keyboard focus when a toggle makes the Meal done,
+	// and the words saying so belong to something a keyboard can reach.
 	const user = await login()
 	await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
 	const recipe = await prisma.recipe.create({
@@ -1074,8 +1073,8 @@ test('the old Shopping address still opens Shopping, and a form posted to it sav
 }) => {
 	const user = await login()
 
-	// A form posted to the old address used to be sent on to Shopping without
-	// its body, so the page saw no answer and nothing was saved.
+	// A form posted to the old address is refused rather than redirected, since
+	// a redirect drops its body and the page would take that as saved.
 	const posted = await page.request.post('/plan/shopping-list', {
 		form: { intent: 'add', name: 'oat milk' },
 		maxRedirects: 0,
@@ -1095,11 +1094,6 @@ test('the old Shopping address still opens Shopping, and a form posted to it sav
 	).toBeVisible()
 })
 
-// Failure list for the phone add sheet keeping what was typed:
-// - Close, the backdrop or Escape leaves the name, amount or unit in the
-//   fields, so the next open shows them and new typing runs on from the old
-//   text.
-// - Clearing on open breaks the add that follows, or leaves its text behind.
 test('the phone add sheet opens empty after each way of closing it, and still adds an item', async ({
 	page,
 	login,
@@ -1164,12 +1158,6 @@ test('the phone add sheet opens empty after each way of closing it, and still ad
 		.toEqual([{ name: 'Butter', quantity: '250', unit: 'g' }])
 })
 
-// Failure list for the add sheet's duplicate warning across a close:
-// - The warning for the last item is still showing when the sheet opens
-//   again, above an empty field.
-// - Its "add anyway" stays armed, so the next item is added without being
-//   checked against the list.
-// - Add anyway on the fresh warning no longer adds.
 test('the phone add sheet opens without the last item’s warning, and checks the next add again', async ({
 	page,
 	login,
@@ -1269,17 +1257,6 @@ test.describe('swiping a row', () => {
 			await Promise.all(layer.getAnimations().map((a) => a.finished))
 			return new DOMMatrix(getComputedStyle(layer).transform).m41
 		})
-	}
-
-	async function openShopping(page: Page) {
-		await page.goto('/shopping')
-		await page.waitForFunction(() =>
-			[
-				...document.querySelectorAll<HTMLInputElement>(
-					'input[name="originClientId"]',
-				),
-			].some((input) => input.value),
-		)
 	}
 
 	const row = (page: Page, name: string) =>
@@ -1437,28 +1414,8 @@ test.describe('tapping a row on a phone', () => {
 		})
 	}
 
-	// Shopping fills its client id once it has hydrated.
-	async function openShopping(page: Page) {
-		await page.goto('/shopping')
-		await page.waitForFunction(() =>
-			[
-				...document.querySelectorAll<HTMLInputElement>(
-					'input[name="originClientId"]',
-				),
-			].some((input) => input.value),
-		)
-	}
-
 	const row = (page: Page, name: string) =>
 		page.getByRole('group', { name: `${name} shopping item` })
-
-	async function expectThumbSized(control: Locator) {
-		await expect(control).toBeVisible()
-		const box = await control.boundingBox()
-		expect(box).not.toBeNull()
-		expect(box!.width).toBeGreaterThanOrEqual(44)
-		expect(box!.height).toBeGreaterThanOrEqual(44)
-	}
 
 	test('a tap near the edge of a Shopping row checks the item off', async ({
 		page,
@@ -1579,30 +1536,6 @@ test.describe('tapping a row on a phone', () => {
 test.describe('controls on a phone', () => {
 	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
-	async function expectThumbTall(control: Locator) {
-		await expect(control).toBeVisible()
-		const box = await control.boundingBox()
-		expect(box, 'control has a box').not.toBeNull()
-		expect(box!.height).toBeGreaterThanOrEqual(44)
-	}
-
-	async function expectThumbSized(control: Locator) {
-		await expectThumbTall(control)
-		expect((await control.boundingBox())!.width).toBeGreaterThanOrEqual(44)
-	}
-
-	/** Taps until the tap lands on a hydrated page and `then` holds. */
-	async function tapUntil(
-		control: Locator,
-		then: () => Promise<void>,
-		timeout = 10_000,
-	) {
-		await expect(async () => {
-			await control.tap()
-			await then()
-		}).toPass({ timeout })
-	}
-
 	async function createRecipe(user: { id: string; householdId: string }) {
 		return prisma.recipe.create({
 			data: {
@@ -1640,17 +1573,14 @@ test.describe('controls on a phone', () => {
 		const user = await login()
 		// From Plan shows once something is planned.
 		const recipe = await createRecipe(user)
-		const today = new Date()
-		const todayUTC = new Date(
-			Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
-		)
+		const today = browserToday()
 		await prisma.mealPlan.create({
 			data: {
 				householdId: user.householdId,
-				weekStart: getWeekStart(todayUTC),
+				weekStart: getWeekStart(today),
 				meals: {
 					create: {
-						date: todayUTC,
+						date: today,
 						order: 0,
 						recipeItems: {
 							create: {
@@ -1691,11 +1621,8 @@ test.describe('controls on a phone', () => {
 	}) => {
 		const user = await login()
 		const recipe = await createRecipe(user)
-		const today = new Date()
-		const todayUTC = new Date(
-			Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
-		)
-		const thisWeek = getWeekStart(todayUTC)
+		const today = browserToday()
+		const thisWeek = getWeekStart(today)
 		const nextWeek = new Date(thisWeek.getTime() + 7 * 24 * 60 * 60 * 1000)
 		for (const weekStart of [thisWeek, nextWeek]) {
 			await prisma.mealPlan.create({

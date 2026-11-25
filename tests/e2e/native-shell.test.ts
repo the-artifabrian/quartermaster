@@ -6,7 +6,7 @@ import {
 	setHomeIndicatorInset,
 	setShellSafeArea,
 } from '#tests/native-shell.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { expect, openShopping, test } from '#tests/playwright-utils.ts'
 
 // The iOS app registers `haptic`, `theme`, `refresh` and `launch` message
 // handlers on its web view. These stand-ins record what the page posts to them.
@@ -45,18 +45,6 @@ async function createShoppingList(user: { id: string; householdId: string }) {
 		include: { items: true },
 	})
 	return { list, rice: list.items[0]! }
-}
-
-// Shopping fills its client id once it has hydrated.
-async function openShopping(page: Page) {
-	await page.goto('/shopping')
-	await page.waitForFunction(() =>
-		[
-			...document.querySelectorAll<HTMLInputElement>(
-				'input[name="originClientId"]',
-			),
-		].some((input) => input.value),
-	)
 }
 
 /**

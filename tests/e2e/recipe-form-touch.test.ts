@@ -1,17 +1,15 @@
 import { type Locator } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
 import { SHELL_UA } from '#tests/native-shell.ts'
-import { expect, hydrated, test } from '#tests/playwright-utils.ts'
+import {
+	expect,
+	expectThumbSized,
+	expectThumbTall,
+	hydrated,
+	test,
+} from '#tests/playwright-utils.ts'
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
-
-async function expectThumbSized(control: Locator) {
-	await expect(control).toBeVisible()
-	const box = await control.boundingBox()
-	expect(box).not.toBeNull()
-	expect(box!.width).toBeGreaterThanOrEqual(44)
-	expect(box!.height).toBeGreaterThanOrEqual(44)
-}
 
 test('recipe steps reorder from the keyboard through a named, thumb-sized handle', async ({
 	page,
@@ -212,13 +210,6 @@ test('Recipes filters and Settings controls are thumb-sized on a phone', async (
 		page.getByRole('button', { name: /System|Light|Dark/ }),
 	)
 })
-
-async function expectThumbTall(control: Locator) {
-	await expect(control).toBeVisible()
-	const box = await control.boundingBox()
-	expect(box, 'control has a box').not.toBeNull()
-	expect(box!.height).toBeGreaterThanOrEqual(44)
-}
 
 async function createRecipe(user: { id: string; householdId: string }) {
 	return prisma.recipe.create({

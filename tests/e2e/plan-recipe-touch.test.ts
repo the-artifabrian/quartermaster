@@ -1,7 +1,12 @@
 import { type Locator, type Page } from '@playwright/test'
 import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import {
+	browserToday,
+	expect,
+	expectThumbSized,
+	test,
+} from '#tests/playwright-utils.ts'
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
@@ -13,27 +18,12 @@ async function slidIn(sheet: Locator) {
 	)
 }
 
-async function expectThumbSized(control: Locator) {
-	await expect(control).toBeVisible()
-	const box = await control.boundingBox()
-	expect(box).not.toBeNull()
-	expect(box!.width).toBeGreaterThanOrEqual(44)
-	expect(box!.height).toBeGreaterThanOrEqual(44)
-}
-
 // Taps just right of a control's drawn box, where only an enlarged tap area
 // reaches. A finger, so controls that open on a tap are tested as a phone
 // uses them.
 async function tapJustRightOf(page: Page, control: Locator) {
 	const box = (await control.boundingBox())!
 	await page.touchscreen.tap(box.x + box.width + 4, box.y + box.height / 2)
-}
-
-function todayUTC() {
-	const today = new Date()
-	return new Date(
-		Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
-	)
 }
 
 async function createRecipe(user: { id: string; householdId: string }) {
@@ -83,7 +73,7 @@ test('on a phone, Add to Plan opens as a sheet with thumb-sized choices', async 
 			recipeItems: { select: { recipeId: true } },
 		},
 	})
-	const tomorrowUTC = new Date(todayUTC().getTime() + 24 * 60 * 60 * 1000)
+	const tomorrowUTC = new Date(browserToday().getTime() + 24 * 60 * 60 * 1000)
 	expect(meals).toEqual([
 		{
 			date: tomorrowUTC,
@@ -166,7 +156,7 @@ test('Plan meal and Add Meal controls take taps around their drawn edges', async
 }) => {
 	const user = await login()
 	const recipe = await createRecipe(user)
-	const today = todayUTC()
+	const today = browserToday()
 	const weekStart = getWeekStart(today)
 	await prisma.mealPlan.create({
 		data: {
@@ -259,7 +249,7 @@ test('a Meal with two Recipes gives each remove button a thumb-sized target', as
 			householdId: user.householdId,
 		},
 	})
-	const today = todayUTC()
+	const today = browserToday()
 	const weekStart = getWeekStart(today)
 	await prisma.mealPlan.create({
 		data: {

@@ -2,21 +2,8 @@
  * A link to a Recipe or Menu that isn't there says so in the app, with the
  * tabs still around it, instead of the raw "404 Recipe not found".
  *
- * Failure list:
- * - A missing Recipe or Menu still shows the raw status line, or the
- *   generic title "Quartermaster".
- * - The page answers 200, so a crawler or a link preview reads it as real.
- * - A Recipe in another Household (which answers 403) shows something other
- *   than a missing one does.
- * - The message only shows on a full load: a Recipe deleted after the list
- *   loaded, opened from that list, still gets the raw line.
- * - The edit screens of a missing Recipe or Menu are left out.
- * - The way back goes somewhere other than the list it belongs to.
- * - A 404 from an action on a Recipe that is still there (an ingredient
- *   another member removed, then added to Shopping) shows the not-found page
- *   over that Recipe.
- * - The Recipe boundary hides the offline notice for pages the device hasn't
- *   loaded (covered in offline-tabs.test.ts).
+ * The offline notice for pages the device hasn't loaded is covered in
+ * offline-tabs.test.ts.
  */
 import { prisma } from '#app/utils/db.server.ts'
 import { expect, test, waitForHydration } from '#tests/playwright-utils.ts'

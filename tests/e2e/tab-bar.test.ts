@@ -2,6 +2,8 @@ import { type Locator, type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
 import { expect, test } from '#tests/playwright-utils.ts'
 
+// BOTTOM_NAV_TRACE_ONLY=1 logs each tab's timings and skips the checks on
+// them, for measuring the bar without a failing run.
 const TRACE_ONLY = process.env.BOTTOM_NAV_TRACE_ONLY === '1'
 // CI sets this: the 34 ms press-to-feedback budget failed on loaded runners
 // while the same code passed on rerun, so CI records the number in the trace
@@ -379,7 +381,7 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 		pointerId: 2,
 		pointerType: 'touch',
 	})
-	// The press itself switched tabs (#346, 5.0); the cancel only ends the
+	// The press itself switched tabs; the cancel only ends the
 	// pressed look.
 	await expect(recipesLink).not.toHaveAttribute('data-pressed')
 	await expect(page).toHaveURL('/recipes')
@@ -509,7 +511,7 @@ test('pending feedback clears when a tab navigation is interrupted or fails', as
 
 test.describe('pressing a tab', () => {
 	// The bottom tab bar switches on the press (pointerdown), not on the click
-	// that follows once the finger lifts. See #346, 5.0.
+	// that follows once the finger lifts.
 
 	const touch = {
 		button: 0,

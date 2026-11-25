@@ -241,3 +241,29 @@ export async function openShopping(page: Page) {
 		].some((input) => input.value),
 	)
 }
+
+/** Checks that a control is visible and at least 44px tall, a thumb's height. */
+export async function expectThumbTall(control: Locator) {
+	await expect(control).toBeVisible()
+	const box = await control.boundingBox()
+	expect(box, 'control has a box').not.toBeNull()
+	expect(box!.height).toBeGreaterThanOrEqual(44)
+}
+
+/** Checks that a control is visible and at least 44px each way. */
+export async function expectThumbSized(control: Locator) {
+	await expectThumbTall(control)
+	expect((await control.boundingBox())!.width).toBeGreaterThanOrEqual(44)
+}
+
+/** Taps until the tap lands on a hydrated page and `then` holds. */
+export async function tapUntil(
+	control: Locator,
+	then: () => Promise<void>,
+	timeout = 10_000,
+) {
+	await expect(async () => {
+		await control.tap()
+		await then()
+	}).toPass({ timeout })
+}

@@ -2,7 +2,13 @@ import { type Locator, type Page } from '@playwright/test'
 import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { SAFARI_UA, SHELL_UA } from '#tests/native-shell.ts'
-import { expect, openShopping, test } from '#tests/playwright-utils.ts'
+import {
+	browserToday,
+	expect,
+	openShopping,
+	tapUntil,
+	test,
+} from '#tests/playwright-utils.ts'
 
 // On a phone, everything you type or pick in is a bottom sheet: no popover
 // and no panel that opens in place. Each flow opens its sheet, saves through
@@ -139,21 +145,6 @@ function fromDb<T>(read: () => Promise<T>) {
 		})
 }
 
-/** Taps until a tap lands on a hydrated page and `then` holds. */
-async function tapUntil(control: Locator, then: () => Promise<void>) {
-	await expect(async () => {
-		await control.tap()
-		await then()
-	}).toPass({ timeout: 10_000 })
-}
-
-function todayUTC() {
-	const today = new Date()
-	return new Date(
-		Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
-	)
-}
-
 async function createRecipe(
 	user: { id: string; householdId: string },
 	title: string,
@@ -176,7 +167,7 @@ async function planMeal(
 	user: { householdId: string },
 	recipe: { id: string; title: string },
 ) {
-	const today = todayUTC()
+	const today = browserToday()
 	const weekStart = getWeekStart(today)
 	const plan = await prisma.mealPlan.create({
 		data: {
@@ -1126,7 +1117,7 @@ test.describe('sheets while they come and go', () => {
 		const miso = await createRecipe(user, 'Miso Soup')
 		const { meal, weekStart } = await planMeal(user, miso)
 		// Another day of the same week.
-		const today = todayUTC()
+		const today = browserToday()
 		const other = new Date(
 			weekStart.getTime() +
 				(today.getTime() === weekStart.getTime() ? 1 : 0) * 86_400_000,

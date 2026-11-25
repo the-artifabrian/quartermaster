@@ -3,7 +3,12 @@ import sharp from 'sharp'
 import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { SHELL_UA, setShellSafeArea } from '#tests/native-shell.ts'
-import { expect, hydrated, test } from '#tests/playwright-utils.ts'
+import {
+	browserToday,
+	expect,
+	hydrated,
+	test,
+} from '#tests/playwright-utils.ts'
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
@@ -543,13 +548,6 @@ test('Settings goes back to the tab it came from, and its pages back to Settings
 	await expect(brand(page)).toBeVisible()
 })
 
-function todayUTC() {
-	const today = new Date()
-	return new Date(
-		Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
-	)
-}
-
 /** A JPEG over the 3 MB upload limit, so the form shrinks it first. */
 async function bulkyPhoto() {
 	const jpeg = await sharp({
@@ -575,7 +573,7 @@ test('a Recipe opened from the Plan goes back to the Plan where it was', async (
 	for (let i = 1; i <= 12; i++) {
 		recipes.push(await createLongRecipe(user, `Dish ${i}`))
 	}
-	const today = todayUTC()
+	const today = browserToday()
 	const weekStart = getWeekStart(today)
 	await prisma.mealPlan.create({
 		data: {

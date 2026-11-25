@@ -7,18 +7,8 @@ import { createUser, expect, test } from '#tests/playwright-utils.ts'
 
 /* eslint-disable playwright/no-raw-locators -- this test inspects document head metadata */
 
-// Failure list for the link preview tags, by route:
-// - / and any page that falls back to root's meta (the 404 page) must carry
-//   the site description in description and og:description, og:title
-//   "Quartermaster", and one og:image that loads as a 1200×630 PNG.
-// - /about, /support, /privacy and /tos replace root's meta, so each must
-//   still carry the preview image tags itself.
-// - The image URL must be fingerprinted, so a new image gets a new URL.
-// - A shared Recipe keeps its own title, description and photo; root's tags
-//   must not add a second og:image.
-// - Root's error page has no origin and must not write a relative og:image
-//   (covered in app/utils/meta.test.ts, since a page can't reach it).
-
+// Root's error page has no origin, so it must not write a relative og:image.
+// app/utils/meta.test.ts covers that, since a page can't reach it.
 // A link to a public page, pasted into Slack, LinkedIn or iMessage, unfurls
 // with the preview image. Each marketing page's meta replaces root's, so each
 // one has to carry the image tags itself.

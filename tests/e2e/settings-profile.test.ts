@@ -1,13 +1,20 @@
 import { invariant } from '@epic-web/invariant'
 import { faker } from '@faker-js/faker'
-import { type Locator, type Page } from '@playwright/test'
+import { type Page } from '@playwright/test'
 import {
 	getSessionExpirationDate,
 	verifyUserPassword,
 } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { readEmail } from '#tests/mocks/utils.ts'
-import { expect, test, createUser, waitFor } from '#tests/playwright-utils.ts'
+import {
+	createUser,
+	expect,
+	expectThumbSized,
+	expectThumbTall,
+	test,
+	waitFor,
+} from '#tests/playwright-utils.ts'
 
 const CODE_REGEX = /Here's your verification code: (?<code>[\d\w]+)/
 
@@ -305,18 +312,6 @@ test('the invite token on the join page is blocked from session replays', async 
 	await expect(token).toHaveValue(invite.token)
 	await expect(token).toHaveClass(/\bph-no-capture\b/)
 })
-
-async function expectThumbTall(control: Locator) {
-	await expect(control).toBeVisible()
-	const box = await control.boundingBox()
-	expect(box, 'control has a box').not.toBeNull()
-	expect(box!.height).toBeGreaterThanOrEqual(44)
-}
-
-async function expectThumbSized(control: Locator) {
-	await expectThumbTall(control)
-	expect((await control.boundingBox())!.width).toBeGreaterThanOrEqual(44)
-}
 
 /**
  * Records, from every frame, whether an element matching `selector` ran a CSS

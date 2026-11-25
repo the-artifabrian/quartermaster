@@ -1,13 +1,18 @@
 import { type Locator, type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
-import { expect, hydrated, test } from '#tests/playwright-utils.ts'
+import {
+	expect,
+	expectThumbTall,
+	hydrated,
+	test,
+} from '#tests/playwright-utils.ts'
 
 /**
- * Release 1A critical path (#102): the Recipes / Menus switch, a five-Recipe
+ * The Menu critical path: the Recipes / Menus switch, a five-Recipe
  * two-section Menu with a note card and Shopping line, reorder and
  * cross-section move, save, reopen, edit, missing-Recipe behavior, and full
- * JSON recovery. Recipes are seeded directly so this never depends on the
- * Recipe form (its Playwright test is a known pre-existing failure).
+ * JSON recovery. Recipes are seeded directly so this doesn't depend on the
+ * Recipe form.
  */
 test('Menu critical path: build, reorder, save, reopen, missing recipe, recover', async ({
 	page,
@@ -350,13 +355,6 @@ test('a Menu card another member adds while the edit form is open survives Save'
 		added.id,
 	])
 })
-
-async function expectThumbTall(control: Locator) {
-	await expect(control).toBeVisible()
-	const box = await control.boundingBox()
-	expect(box, 'control has a box').not.toBeNull()
-	expect(box!.height).toBeGreaterThanOrEqual(44)
-}
 
 /**
  * Records, from every frame, whether an element matching `selector` ran a CSS

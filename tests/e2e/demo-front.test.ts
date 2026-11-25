@@ -1,32 +1,5 @@
 // What a demo visitor sees: the "Try the demo" buttons, the banner on every
 // app page, and the Settings and Upgrade pages without what the demo can't do.
-//
-// Failure list:
-// - "Try the demo" posts to /demo without an intent, with the page it is on as
-//   `redirectTo`, so a "demo is full" toast lands back there
-// - the login page carries a `redirectTo` (an invite, a deep link): a demo
-//   can't join a Household, so the button isn't offered there
-// - a second tap while the copy is being made posts again: the button is busy
-//   and disabled until the answer comes
-// - the banner's first paint is wrong when the browser's clock is off: it
-//   must show the server's time left, with no hydration error (production
-//   React reports one as a minified page error, not a console message)
-// - the banner stops at its first reading: it must count down without a
-//   reload
-// - time runs out with the page open: the banner says the demo has ended and
-//   still offers Sign up; the page asks the server once, not on every tick
-// - time runs out and the server has ended the session with it: the visitor
-//   is signed out, not left on a page that still says they're in a demo
-// - Sign up in the banner has no visible focus for a keyboard
-// - Sign up goes straight to /signup, which bounces a signed-in user: it must
-//   end the demo first (`intent=end`)
-// - Settings offers the account, Household and backup restore rows the demo
-//   blocks, or shows the demo's .invalid email
-// - Upgrade says nothing to a demo user about why there's no checkout
-// - the shared Recipe page pins its ingredients under a fixed header height,
-//   so the taller header with the banner covers their top on a desktop
-// - a real user sees the banner, the demo line in Settings, or the demo note on
-//   Upgrade
 import { type Page, type Request } from '@playwright/test'
 import { deleteAccount } from '#app/utils/account-deletion.server.ts'
 import { serializeDate } from '#app/utils/date.ts'

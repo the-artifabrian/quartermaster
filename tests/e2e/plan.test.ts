@@ -14,7 +14,10 @@ import { SHELL_UA } from '#tests/native-shell.ts'
 import {
 	browserToday,
 	expect,
+	expectThumbSized,
+	expectThumbTall,
 	hydrated,
+	tapUntil,
 	test,
 } from '#tests/playwright-utils.ts'
 
@@ -331,7 +334,7 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 		},
 	})
 
-	// Seed one planned Meal via DB — the planner reads Meal parents (#105)
+	// Seed one planned Meal in the database. The planner reads Meal parents.
 	const weekStart = getWeekStart(browserToday())
 	const weekDays = getWeekDays(weekStart)
 	const plannedDay =
@@ -1025,13 +1028,6 @@ test.describe('Picked day', () => {
 	})
 })
 
-function todayUTC() {
-	const today = new Date()
-	return new Date(
-		Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
-	)
-}
-
 /** "Thursday, Nov 19", as the Plan names a day. */
 function dayName(date: Date) {
 	return `${formatWeekdayName(date)}, ${formatMonthDay(date)}`
@@ -1114,30 +1110,6 @@ async function hitArea(control: Locator) {
 			width: right - left + 1,
 		}
 	})
-}
-
-async function expectThumbTall(control: Locator) {
-	await expect(control).toBeVisible()
-	const box = await control.boundingBox()
-	expect(box, 'control has a box').not.toBeNull()
-	expect(box!.height).toBeGreaterThanOrEqual(44)
-}
-
-async function expectThumbSized(control: Locator) {
-	await expectThumbTall(control)
-	expect((await control.boundingBox())!.width).toBeGreaterThanOrEqual(44)
-}
-
-/** Taps until the tap lands on a hydrated page and `then` holds. */
-async function tapUntil(
-	control: Locator,
-	then: () => Promise<void>,
-	timeout = 10_000,
-) {
-	await expect(async () => {
-		await control.tap()
-		await then()
-	}).toPass({ timeout })
 }
 
 async function box(locator: Locator) {
@@ -1239,7 +1211,7 @@ test.describe('in the iOS app on a phone', () => {
 
 		// Plan's + follows the day showing: pick a day that is neither today
 		// (shown first) nor the first of the week.
-		const today = todayUTC()
+		const today = browserToday()
 		const weekStart = getWeekStart(today)
 		const other =
 			serializeDate(today) === serializeDate(addDaysUTC(weekStart, 2))
@@ -1251,10 +1223,10 @@ test.describe('in the iOS app on a phone', () => {
 			.tap()
 		const plus = page.getByRole('button', { name: `Add Meal to ${otherName}` })
 		await expect(plus).toBeVisible()
-		// The day heading no longer carries an Add Meal of its own.
+		// The day heading has no Add Meal of its own.
 		await expect(page.getByRole('button', { name: /^Add Meal/ })).toHaveCount(1)
 
-		// The empty day points at the +, not at a button it no longer has.
+		// The empty day points at the +.
 		await expect(
 			page.getByText('Tap + to plan a Recipe, Menu, or note.'),
 		).toBeVisible()
@@ -1292,7 +1264,7 @@ test.describe('in the iOS app on a phone', () => {
 				householdId: user.householdId,
 			},
 		})
-		const weekStart = getWeekStart(todayUTC())
+		const weekStart = getWeekStart(browserToday())
 		const nextWeek = addDaysUTC(weekStart, 7)
 		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
 		const strip = page.locator('[data-slot="mobile-week-days"]')
@@ -1339,7 +1311,7 @@ test.describe('in the iOS app on a phone', () => {
 				}),
 			),
 		)
-		const today = todayUTC()
+		const today = browserToday()
 		const weekStart = getWeekStart(today)
 		await prisma.mealPlan.create({
 			data: {
@@ -1426,7 +1398,7 @@ test.describe('in the iOS app on a phone', () => {
 				}),
 			),
 		)
-		const today = todayUTC()
+		const today = browserToday()
 		const weekStart = getWeekStart(today)
 		await prisma.mealPlan.create({
 			data: {
@@ -1501,7 +1473,7 @@ test.describe('with a keyboard', () => {
 		await login()
 		await page.goto('/plan')
 		const next = page.getByRole('link', { name: 'Next week' })
-		const weekStart = getWeekStart(todayUTC())
+		const weekStart = getWeekStart(browserToday())
 		await next.focus()
 		await page.keyboard.press('Enter')
 		await expect(page).toHaveURL(
@@ -1573,7 +1545,7 @@ test.describe('on a phone', () => {
 			await recipe('Steamed Rice'),
 			await recipe('Pasta alla Norma'),
 		]
-		const today = todayUTC()
+		const today = browserToday()
 		const plan = await prisma.mealPlan.create({
 			data: { householdId: user.householdId, weekStart: getWeekStart(today) },
 		})
@@ -1711,7 +1683,7 @@ test.describe('a wide touch screen', () => {
 				householdId: user.householdId,
 			},
 		})
-		const today = todayUTC()
+		const today = browserToday()
 		await prisma.mealPlan.create({
 			data: {
 				householdId: user.householdId,
@@ -1781,7 +1753,7 @@ test.describe('the desktop agenda', () => {
 				householdId: user.householdId,
 			},
 		})
-		const today = todayUTC()
+		const today = browserToday()
 		await prisma.mealPlan.create({
 			data: {
 				householdId: user.householdId,

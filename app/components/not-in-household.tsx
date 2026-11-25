@@ -1,4 +1,4 @@
-import { isRouteErrorResponse, Link } from 'react-router'
+import { isRouteErrorResponse, Link, useRouteError } from 'react-router'
 import { OfflineErrorBoundary } from './offline-error-boundary.tsx'
 import { Icon } from './ui/icon.tsx'
 
@@ -9,10 +9,25 @@ const BACK: Record<Kind, { to: string; label: string }> = {
 	Menu: { to: '/recipes/menus', label: 'Back to Menus' },
 }
 
+// What the route's own loader throws when the Recipe or Menu is missing (404)
+// or in another Household (403). Any other 403 or 404, such as one from an
+// action on a page that is still there, goes to the usual boundary.
+const OWN_ERRORS: Record<Kind, string[]> = {
+	Recipe: ['Recipe not found', 'Not authorized'],
+	Menu: ['Menu not found', 'Not authorized'],
+}
+
+function isNotInHousehold(error: unknown, kind: Kind) {
+	return (
+		isRouteErrorResponse(error) &&
+		(error.status === 404 || error.status === 403) &&
+		OWN_ERRORS[kind].includes(String(error.data))
+	)
+}
+
 /**
  * What a link to a Recipe or Menu that isn't in the user's Household shows.
- * A deleted one and one from another Household read the same, so the page
- * says nothing about whether the id exists.
+ * A deleted one and one from another Household show the same page.
  */
 function NotInHousehold({ kind }: { kind: Kind }) {
 	const back = BACK[kind]
@@ -33,18 +48,27 @@ function NotInHousehold({ kind }: { kind: Kind }) {
 }
 
 /**
- * The boundary for a Recipe or Menu route: a 404, or the 403 for one in
- * another Household, says the thing isn't in this Household, inside the app with its tabs. Offline pages and other errors
- * work as they do for the rest of the tab.
+ * The boundary for a Recipe or Menu route. When the route's loader found no
+ * such Recipe or Menu in this Household, it says so inside the app, with its
+ * tabs. Offline pages and other errors work as they do for the rest of the
+ * tab.
  */
 export function NotInHouseholdBoundary({ kind }: { kind: Kind }) {
-	return <OfflineErrorBoundary notFound={<NotInHousehold kind={kind} />} />
+	const error = useRouteError()
+	return (
+		<OfflineErrorBoundary
+			notFound={
+				isNotInHousehold(error, kind) ? (
+					<NotInHousehold kind={kind} />
+				) : undefined
+			}
+		/>
+	)
 }
 
 /** The page title when the route's loader found no such Recipe or Menu here. */
 export function notFoundTitle(error: unknown, kind: Kind) {
-	return isRouteErrorResponse(error) &&
-		(error.status === 404 || error.status === 403)
+	return isNotInHousehold(error, kind)
 		? `${kind} not found | Quartermaster`
 		: null
 }

@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { useFetcher } from 'react-router'
+import { toast } from 'sonner'
 import { getHouseholdClientId } from '#app/utils/household-client.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import {
@@ -187,8 +189,13 @@ function AddIngredientToShopping({
 	const cartFetcher = useFetcher()
 
 	const cartData = cartFetcher.data as
-		{ addedSingle?: string; wasNew?: boolean } | undefined
+		{ addedSingle?: string; wasNew?: boolean; error?: string } | undefined
 	const addedToCart = cartData?.addedSingle === ingredientId
+	// An ingredient another member removed meanwhile says so.
+	const cartError = cartData?.error
+	useEffect(() => {
+		if (cartError) toast.error(cartError)
+	}, [cartData, cartError])
 
 	return (
 		<span

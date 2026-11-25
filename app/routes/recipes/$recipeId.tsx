@@ -11,6 +11,7 @@ import { recipeDetailNav } from '#app/utils/nav-back.ts'
 import { Img } from 'openimg/react'
 import { useState, useEffect, useRef } from 'react'
 import {
+	data,
 	useFetcher,
 	useLocation,
 	useNavigate,
@@ -335,7 +336,17 @@ export async function action({ request, params }: Route.ActionArgs) {
 			where: { id: ingredientId, recipeId },
 			select: { name: true, amount: true, unit: true },
 		})
-		invariantResponse(ingredient, 'Ingredient not found', { status: 404 })
+		// Removed by another member while this page was open. Thrown, the 404
+		// would replace the Recipe that is still here with the not-found page.
+		if (!ingredient) {
+			return data(
+				{
+					success: false,
+					error: 'That ingredient isn’t in this Recipe any more.',
+				},
+				{ status: 404 },
+			)
+		}
 
 		const amount = ingredient.amount
 			? scaleAmount(ingredient.amount, safeRatio, ingredient.unit)

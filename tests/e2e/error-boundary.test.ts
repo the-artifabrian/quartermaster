@@ -12,6 +12,9 @@
  *   loaded, opened from that list, still gets the raw line.
  * - The edit screens of a missing Recipe or Menu are left out.
  * - The way back goes somewhere other than the list it belongs to.
+ * - A 404 from an action on a Recipe that is still there (an ingredient
+ *   another member removed, then added to Shopping) shows the not-found page
+ *   over that Recipe.
  * - The Recipe boundary hides the offline notice for pages the device hasn't
  *   loaded (covered in offline-tabs.test.ts).
  */
@@ -130,4 +133,47 @@ test('a missing Menu says it isn’t in this Household and goes back to Menus', 
 	await waitForHydration(page)
 	await page.getByRole('link', { name: 'Back to Menus' }).click()
 	await expect(page).toHaveURL(/\/recipes\/menus$/)
+})
+
+test('adding an ingredient another member removed keeps the Recipe on screen', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Still here',
+			userId: user.id,
+			householdId: user.householdId,
+			ingredients: {
+				create: [
+					{ name: 'leeks', amount: '2', order: 0 },
+					{ name: 'butter', amount: '1', unit: 'tbsp', order: 1 },
+				],
+			},
+		},
+		include: { ingredients: true },
+	})
+	await page.setViewportSize({ width: 390, height: 844 })
+	await page.goto(`/recipes/${recipe.id}`)
+	await waitForHydration(page)
+	const leeks = page.getByRole('checkbox', { name: 'leeks', exact: true })
+	await expect(leeks).toBeVisible()
+	await prisma.ingredient.delete({
+		where: { id: recipe.ingredients.find((i) => i.name === 'leeks')!.id },
+	})
+
+	await leeks.getByRole('button', { name: 'Add to Shopping' }).click()
+	await expect(
+		page.getByText('That ingredient isn’t in this Recipe any more.'),
+	).toBeVisible()
+	await expect(page.getByRole('heading', { name: 'Still here' })).toBeVisible()
+	await expect(
+		page.getByRole('heading', { name: 'Recipe not found' }),
+	).toHaveCount(0)
+	expect(
+		await prisma.shoppingListItem.count({
+			where: { list: { householdId: user.householdId } },
+		}),
+	).toBe(0)
 })

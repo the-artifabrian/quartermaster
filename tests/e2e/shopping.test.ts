@@ -833,7 +833,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 	await closeStaplesSheet()
 
 	await page.getByRole('link', { name: 'Staples' }).click()
-	await expect(page).toHaveURL('/inventory')
+	await expect(page).toHaveURL('/staples')
 	await page.getByRole('link', { name: 'Shopping', exact: true }).click()
 	await expect(page).toHaveURL('/shopping')
 	await page.getByRole('button', { name: 'From Staples' }).click()

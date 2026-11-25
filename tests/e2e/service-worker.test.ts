@@ -72,7 +72,7 @@ function addItemInput(page: Page) {
 }
 
 async function takeControl(page: Page) {
-	await page.goto('/inventory')
+	await page.goto('/staples')
 	await page.evaluate(() => navigator.serviceWorker.ready)
 	// The worker deliberately does not claim the page that installed it. A first
 	// registration takes control at the next document boundary; existing
@@ -147,7 +147,7 @@ test('the installed worker waits for a document boundary and uses a build-scoped
 	await login()
 	// Chromium shows a first worker as `waiting` for a moment before it
 	// activates. That moment must not count as an update to apply.
-	await page.goto('/inventory')
+	await page.goto('/staples')
 	await page.evaluate(() => navigator.serviceWorker.ready)
 	expect(
 		await page.evaluate(() => Boolean(navigator.serviceWorker.controller)),
@@ -364,11 +364,11 @@ test('offline document launches use the safe app response', async ({
 
 	await context.setOffline(true)
 	try {
-		const pantryResponse = await page.goto('/inventory')
-		expect(pantryResponse?.fromServiceWorker()).toBe(true)
-		expect(pantryResponse?.status()).toBe(503)
-		expect(pantryResponse?.headers()['cache-control']).toBe('no-store')
-		expect(pantryResponse?.headers()['content-type']).toContain('text/html')
+		const staplesResponse = await page.goto('/staples')
+		expect(staplesResponse?.fromServiceWorker()).toBe(true)
+		expect(staplesResponse?.status()).toBe(503)
+		expect(staplesResponse?.headers()['cache-control']).toBe('no-store')
+		expect(staplesResponse?.headers()['content-type']).toContain('text/html')
 		await expect(
 			page.getByRole('heading', { name: /you.re offline/i }),
 		).toBeVisible()

@@ -40,7 +40,7 @@ async function setupActiveStaples() {
 async function post(session: { id: string }, fields: Record<string, string>) {
 	const cookie = await getSessionCookieHeader(session)
 	return action({
-		request: new Request(`${BASE_URL}/inventory`, {
+		request: new Request(`${BASE_URL}/staples`, {
 			method: 'POST',
 			headers: {
 				cookie,
@@ -50,8 +50,8 @@ async function post(session: { id: string }, fields: Record<string, string>) {
 		}),
 		params: {},
 		context: new RouterContextProvider(),
-		pattern: '/inventory',
-		url: new URL(`${BASE_URL}/inventory`),
+		pattern: '/staples',
+		url: new URL(`${BASE_URL}/staples`),
 	})
 }
 

@@ -200,6 +200,29 @@ describe('demoGuardMiddleware', () => {
 		expect(counter.reads()).toBe(0)
 	})
 
+	// /inventory runs the Staples action for pages still on an older build.
+	test("a demo user's post through the old /inventory address is treated as one to /staples", async () => {
+		const session = await demoUser()
+		const listed = (pattern: string) =>
+			pattern in DEMO_BLOCKED_ROUTES
+				? 'blocked'
+				: pattern in DEMO_ALLOWED_ROUTES
+					? 'allowed'
+					: 'unlisted'
+		const staples = await guard('staples', {
+			session,
+			path: '/staples.data?index',
+		})
+		const inventory = await guard('inventory', {
+			session,
+			path: '/inventory.data?index',
+		})
+
+		expect(listed('inventory')).toBe(listed('staples'))
+		expect(inventory.ran).toBe(staples.ran)
+		expect(inventory.response.status).toBe(staples.response.status)
+	})
+
 	test('PUT, PATCH and DELETE are refused like POST', async () => {
 		const session = await demoUser()
 		for (const method of ['PUT', 'PATCH', 'DELETE']) {

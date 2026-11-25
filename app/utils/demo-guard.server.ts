@@ -46,7 +46,9 @@ export const DEMO_ALLOWED_ROUTES = {
 	'recipes/menus/:menuId/edit': 'Menus.',
 	plan: 'The Plan.',
 	shopping: 'Shopping.',
-	inventory: 'Staples.',
+	staples: 'Staples.',
+	inventory:
+		'Runs the Staples action for pages still on the build before Staples moved.',
 	'resources/shopping-check': 'Checks Shopping rows.',
 	'resources/undo-delete': 'Deletes and restores Meals, Shopping and Staples.',
 	'resources/enhance-recipe': 'AI, under the demo caps.',

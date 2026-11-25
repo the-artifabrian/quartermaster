@@ -48,11 +48,11 @@ test('the Staples screen loads its Staples and nothing else', async () => {
 	const queryStart = observedQueries.length
 
 	const result = await loader({
-		request: new Request(`${BASE_URL}/inventory`, { headers: { cookie } }),
+		request: new Request(`${BASE_URL}/staples`, { headers: { cookie } }),
 		params: {},
 		context: new RouterContextProvider(),
-		pattern: '/inventory',
-		url: new URL(`${BASE_URL}/inventory`),
+		pattern: '/staples',
+		url: new URL(`${BASE_URL}/staples`),
 	})
 	const routeQueries = observedQueries.slice(queryStart).join('\n')
 

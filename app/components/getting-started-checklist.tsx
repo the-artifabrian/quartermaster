@@ -47,7 +47,7 @@ export function GettingStartedChecklist({
 			title: 'Choose your Staples',
 			description: 'Save what you normally keep, one tap from every shop',
 			icon: 'home',
-			href: '/inventory',
+			href: '/staples',
 			done: onboarding.hasStaples,
 		},
 		{

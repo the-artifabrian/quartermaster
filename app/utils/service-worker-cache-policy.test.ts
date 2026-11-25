@@ -915,7 +915,7 @@ describe('session-scoped Route data', () => {
 		'/recipes/recipe-123.data',
 		'/plan.data',
 		'/shopping.data',
-		'/inventory.data',
+		'/staples.data',
 	])(
 		'%s is handled while form and edit data routes are not',
 		async (pathname) => {
@@ -929,6 +929,22 @@ describe('session-scoped Route data', () => {
 			).toBeUndefined()
 		},
 	)
+
+	// Staples moved from /inventory. That address only redirects now, so the
+	// redirect has to reach the page, even with Staples cached under it.
+	test('/inventory.data is left to the network', async () => {
+		const worker = loadServiceWorker()
+		await worker.dispatchMessage({ type: 'qm-data-session', token: 'session' })
+		await worker.storage.seed(
+			'qm-data-test-build-session',
+			'/inventory.data',
+			new Response('STAPLES FROM THE OLD ADDRESS'),
+		)
+		worker.setFetch(async () => routeDataResponse('CURRENT'))
+
+		expect(await worker.dispatchFetch('/inventory.data')).toBeUndefined()
+		expect(worker.storage.puts).toEqual([])
+	})
 
 	test('with no page to ask, an unknown session is network-only and cannot use an existing cache', async () => {
 		const worker = loadServiceWorker({ cacheVersion: 'restart' })
@@ -1053,7 +1069,7 @@ describe('session-scoped Route data', () => {
 		})
 
 		const cached = await worker.dispatchFetch('/plan.data')
-		const miss = await worker.dispatchFetch('/inventory.data')
+		const miss = await worker.dispatchFetch('/staples.data')
 
 		expect(await cached?.text()).toBe('CURRENT SESSION FALLBACK')
 		expect(miss?.status).toBe(503)
@@ -1314,10 +1330,10 @@ describe('a restarted worker asks the page for its session', () => {
 		await worker.dispatchFetch('/plan.data', { clientId: PAGE })
 
 		worker.setFetch(async () => routeDataResponse('USER A FRESH'))
-		await worker.dispatchFetch('/inventory.data', { clientId: PAGE })
+		await worker.dispatchFetch('/staples.data', { clientId: PAGE })
 
 		expect(worker.storage.puts).toEqual([
-			{ cacheName: 'qm-data-restart-user-a', url: `${ORIGIN}/inventory.data` },
+			{ cacheName: 'qm-data-restart-user-a', url: `${ORIGIN}/staples.data` },
 		])
 		expect(worker.sessionRequests).toHaveLength(1)
 	})

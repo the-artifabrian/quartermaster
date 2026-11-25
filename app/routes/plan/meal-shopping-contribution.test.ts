@@ -149,7 +149,7 @@ async function runPlanLoader(session: { id: string }) {
  * A recipe whose ingredients exercise every availability path: a normal
  * line, a scalable line, a staple (stripped), an optional (excluded), a
  * heading (excluded), and one usually-in-stock line when the test seeds
- * matching Inventory.
+ * matching Staples.
  */
 async function setupRecipe(
 	userId: string,

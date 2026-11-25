@@ -15,12 +15,12 @@ const ROUTE_DELAY_MS = 300
 
 type Destination = {
 	label: 'Recipes' | 'Staples' | 'Plan' | 'Shopping'
-	path: '/recipes' | '/inventory' | '/plan' | '/shopping'
+	path: '/recipes' | '/staples' | '/plan' | '/shopping'
 }
 
 const destinations: Destination[] = [
 	{ label: 'Recipes', path: '/recipes' },
-	{ label: 'Staples', path: '/inventory' },
+	{ label: 'Staples', path: '/staples' },
 	{ label: 'Plan', path: '/plan' },
 	{ label: 'Shopping', path: '/shopping' },
 ]
@@ -42,7 +42,7 @@ type TransferTracker = {
 
 function dataPath(url: string) {
 	return new URL(url).pathname.match(
-		/^\/(recipes|inventory|plan|shopping)\.data$/,
+		/^\/(recipes|staples|plan|shopping)\.data$/,
 	)?.[1]
 }
 
@@ -276,7 +276,7 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 		}
 	})
 	await page.route(
-		/\/(recipes|inventory|plan|shopping)\.data(?:\?|$)/,
+		/\/(recipes|staples|plan|shopping)\.data(?:\?|$)/,
 		async (route) => {
 			const path = dataPath(route.request().url())
 			if (path) {
@@ -530,7 +530,7 @@ test.describe('pressing a tab', () => {
 	async function countDataRequests(page: Page, delayMs = 0) {
 		const counts = new Map<string, number>()
 		await page.route(
-			/\/(recipes|inventory|plan|shopping)\.data(?:\?|$)/,
+			/\/(recipes|staples|plan|shopping)\.data(?:\?|$)/,
 			async (route) => {
 				const path = new URL(route.request().url()).pathname
 				counts.set(path, (counts.get(path) ?? 0) + 1)

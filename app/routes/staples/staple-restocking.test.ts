@@ -9,8 +9,8 @@ import '#tests/setup/db-setup.ts'
 const ROUTE_ARGS = {
 	params: {},
 	context: new RouterContextProvider(),
-	pattern: '/inventory',
-	url: new URL(`${BASE_URL}/inventory`),
+	pattern: '/staples',
+	url: new URL(`${BASE_URL}/staples`),
 }
 
 async function setupHousehold(displayName = 'Salt') {
@@ -36,7 +36,7 @@ async function postAddToShop(
 ) {
 	const cookie = await getSessionCookieHeader(session)
 	return action({
-		request: new Request(`${BASE_URL}/inventory`, {
+		request: new Request(`${BASE_URL}/staples`, {
 			method: 'POST',
 			headers: {
 				cookie,

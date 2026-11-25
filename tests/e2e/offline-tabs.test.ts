@@ -115,7 +115,7 @@ test('offline, a tab keeps the app and its tab bar, and retries by itself once b
 	await expect(page.getByRole('heading', { name: /^Recipes \(/ })).toBeVisible()
 	await tab(page, 'Staples').click()
 	await expect(page.getByText('Oat milk')).toBeVisible()
-	await waitForCachedData(page, '/inventory.data')
+	await waitForCachedData(page, '/staples.data')
 
 	const navigations: string[] = []
 	const failedAssets: string[] = []
@@ -134,7 +134,7 @@ test('offline, a tab keeps the app and its tab bar, and retries by itself once b
 	await tab(page, 'Recipes').click()
 	await expect(page.getByRole('heading', { name: /^Recipes \(/ })).toBeVisible()
 	await tab(page, 'Staples').click()
-	await expect(page).toHaveURL('/inventory')
+	await expect(page).toHaveURL('/staples')
 	await expect(page.getByText('Oat milk')).toBeVisible()
 	await expect(bottomNav(page)).toBeVisible()
 
@@ -186,7 +186,7 @@ test('a restarted worker serves the page its own cached data offline', async ({
 	await waitForWarmWorker(page)
 	await tab(page, 'Staples').click()
 	await expect(page.getByText('Oat milk')).toBeVisible()
-	await waitForCachedData(page, '/inventory.data')
+	await waitForCachedData(page, '/staples.data')
 
 	// A document load empties the in-memory loader cache, so the next Staples
 	// tap must ask the worker. The worker's data cache survives it.
@@ -194,7 +194,7 @@ test('a restarted worker serves the page its own cached data offline', async ({
 	await expect(
 		page.getByRole('heading', { level: 1, name: 'Plan', exact: true }),
 	).toBeVisible()
-	await waitForCachedData(page, '/inventory.data')
+	await waitForCachedData(page, '/staples.data')
 
 	// The server's answer would now say Almond milk; only the worker's cache
 	// still says Oat milk.
@@ -222,7 +222,7 @@ test('a restarted worker serves the page its own cached data offline', async ({
 	await stopped
 
 	const dataResponse = page.waitForResponse(
-		(response) => new URL(response.url()).pathname === '/inventory.data',
+		(response) => new URL(response.url()).pathname === '/staples.data',
 	)
 	await tab(page, 'Staples').click()
 	const response = await dataResponse

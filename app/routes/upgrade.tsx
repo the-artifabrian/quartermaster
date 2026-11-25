@@ -42,7 +42,7 @@ export const handle: SEOHandle & NavBarHandle = {
 
 export const meta: Route.MetaFunction = ({ error }) => {
 	if (error) return [{ title: 'Quartermaster' }]
-	return [{ title: 'Upgrade | Quartermaster' }]
+	return [{ title: 'Free and Pro | Quartermaster' }]
 }
 
 // The iOS app may not point at buying Pro (ADR 0001), so there the page does
@@ -282,12 +282,15 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 						<p className="text-muted-foreground mt-1 text-sm">
 							A reference implementation of a paid tier
 						</p>
-						<p className="mt-3 text-2xl font-bold">
-							$35
-							<span className="text-muted-foreground text-sm font-normal">
-								/yr
-							</span>
-						</p>
+						{/* A price only means something while checkout is on. */}
+						{stripeConfigured ? (
+							<p className="mt-3 text-2xl font-bold">
+								$35
+								<span className="text-muted-foreground text-sm font-normal">
+									/yr
+								</span>
+							</p>
+						) : null}
 					</div>
 					<ul className="space-y-2">
 						{proFeatures.map((feature) => (
@@ -407,7 +410,7 @@ function ProButton({
 	}
 
 	// Stripe isn't configured: Pro isn't on sale. A visitor can try it in the
-	// demo; a signed-in user can't start one.
+	// demo. A signed-in user can't start a demo, so they get no pointer to it.
 	if (isLoggedIn) {
 		return (
 			<p className="text-muted-foreground text-sm">Pro isn&apos;t on sale.</p>

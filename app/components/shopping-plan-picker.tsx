@@ -60,7 +60,7 @@ type Picks = Map<string, Set<string>>
  * at 60vh showed eight lines of a hundred-line week. Decided at open time, so
  * the server never has to guess the viewport.
  */
-const PICKER_TITLE = 'Pick Meals to shop for'
+const PICKER_TITLE = 'Add from the Plan'
 const PICKER_DESCRIPTION = 'Pick the Meals and lines to add to Next shop.'
 type Presentation = 'popover' | 'sheet'
 

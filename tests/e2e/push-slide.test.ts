@@ -1109,7 +1109,7 @@ test.describe('in the iOS app', () => {
 				await ui.hapticsOf(() => page.keyboard.press('ArrowLeft')),
 			).toEqual(['selection'])
 			await expect(
-				page.getByRole('tab', { name: 'From URL', exact: true }),
+				page.getByRole('tab', { name: 'From link', exact: true }),
 			).toHaveAttribute('aria-selected', 'true')
 		})
 	})

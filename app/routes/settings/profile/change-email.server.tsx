@@ -161,9 +161,8 @@ function EmailChangeNoticeEmail() {
 				</p>
 				<p>
 					<E.Text>
-						If you didn’t, log in with your password and change your email back
-						in Settings. Then change your password, which logs out every other
-						device.
+						If you didn’t, change your password in Settings first. That logs out
+						every other device. Then change your email back.
 					</E.Text>
 				</p>
 			</E.Container>

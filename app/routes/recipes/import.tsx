@@ -380,7 +380,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					value={visibleTab}
 					onValueChange={setActiveTab}
 					options={[
-						{ value: 'url', label: 'From URL' },
+						{ value: 'url', label: 'From link' },
 						{ value: 'text', label: 'From text' },
 						...(hideAi
 							? []

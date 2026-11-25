@@ -358,7 +358,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	await page.setViewportSize({ width: 1280, height: 800 })
 	await page.getByRole('button', { name: /from plan/i }).click()
 	await expect(
-		page.getByRole('heading', { name: /pick meals to shop for/i }),
+		page.getByRole('heading', { name: /add from the plan/i }),
 	).toBeVisible()
 	for (const name of [/^broccoli/i, /^jasmine rice/i]) {
 		const line = page.getByRole('button', { name })
@@ -374,7 +374,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 
 	// 3. Only the picked lines land on the list.
 	await expect(
-		page.getByRole('heading', { name: /pick meals to shop for/i }),
+		page.getByRole('heading', { name: /add from the plan/i }),
 	).toBeHidden()
 	await expect(page.getByText('chicken breast')).toBeVisible()
 	await expect(page.getByText('spring onions')).toBeVisible()
@@ -751,7 +751,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 			.getByRole('button', { name: 'From Staples, reminder available' })
 			.click()
 		await expect(
-			page.getByRole('heading', { name: 'Pick Staples for this trip' }),
+			page.getByRole('heading', { name: 'Add from Staples' }),
 		).toBeVisible({ timeout: 2000 })
 	}).toPass({ timeout: 15_000 })
 	await expect(page.getByRole('button', { name: 'From Staples' })).toBeVisible()
@@ -769,7 +769,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 	await page.getByRole('button', { name: 'Add 2 to Next shop' }).click()
 
 	await expect(
-		page.getByRole('heading', { name: 'Pick Staples for this trip' }),
+		page.getByRole('heading', { name: 'Add from Staples' }),
 	).toBeHidden()
 	await expect(page.getByText('Milk', { exact: true })).toBeVisible()
 	await expect(page.getByText('Yogurt', { exact: true })).toBeVisible()
@@ -789,7 +789,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 
 	// On a phone the picker is a sheet; its Close shuts it.
 	const staplesSheet = page.getByRole('dialog', {
-		name: 'Pick Staples for this trip',
+		name: 'Add from Staples',
 	})
 	async function closeStaplesSheet() {
 		await staplesSheet

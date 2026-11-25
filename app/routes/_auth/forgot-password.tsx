@@ -125,7 +125,7 @@ export default function ForgotPasswordRoute() {
 					<p className="text-muted-foreground mt-3 text-lg">
 						{isSent
 							? 'Check your email.'
-							: "We'll email you a code to reset it."}
+							: "We'll email you a link to reset it."}
 					</p>
 				</div>
 				<div className="mx-auto mt-16 max-w-sm min-w-full sm:min-w-[368px]">
@@ -174,7 +174,7 @@ export default function ForgotPasswordRoute() {
 										type="submit"
 										disabled={forgotPassword.state !== 'idle'}
 									>
-										Email me a code
+										Email me a link
 									</StatusButton>
 								</div>
 							</forgotPassword.Form>

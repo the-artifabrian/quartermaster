@@ -42,7 +42,7 @@ export async function action({ request }: Route.ActionArgs) {
 				ctx.addIssue({
 					path: ['password'],
 					code: 'custom',
-					message: 'Password is too common',
+					message: 'That password is too common. Try another.',
 				})
 			}
 		}),

@@ -86,11 +86,11 @@ export default function PrivacyRoute() {
 						Analytics and session replay
 					</h2>
 					<p className="text-muted-foreground mt-2">
-						Quartermaster uses PostHog to capture anonymous pageviews, clicks,
-						and session recordings. A recording keeps the page&apos;s visible
-						text and hides what you type into form fields. This helps us see how
-						the app is used and find bugs. The app has no setting to turn this
-						off.
+						Quartermaster uses PostHog to capture pageviews, clicks and session
+						recordings, linked to your account once you log in. A recording
+						keeps the page&apos;s visible text and hides what you type into form
+						fields. This helps us see how the app is used and find bugs. The app
+						has no setting to turn this off.
 					</p>
 				</section>
 

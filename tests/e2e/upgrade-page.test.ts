@@ -15,6 +15,7 @@ import { expect, test } from '#tests/playwright-utils.ts'
 //   account and on Pro's features at once
 // - a free user sees "Current" on Pro, or on neither card
 // - the Free card still promises "Unlimited Recipes", a cap that doesn't exist
+// - Pro shows a price while nothing can be bought at it
 
 const NOT_ON_SALE = "Pro isn't on sale."
 const TRY_IN_DEMO =
@@ -46,6 +47,8 @@ test('a visitor learns Pro is not on sale and can try it in the demo', async ({
 	await expect(page.getByText('Coming Soon')).toHaveCount(0)
 	await expect(currentButtons(page)).toHaveCount(0)
 	await expect(page.getByText(/Unlimited/)).toHaveCount(0)
+	await expect(page.getByText('$35')).toHaveCount(0)
+	await expect(page).toHaveTitle('Free and Pro | Quartermaster')
 })
 
 test('a free user has Free as current and no pointer to the demo', async ({

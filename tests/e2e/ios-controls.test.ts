@@ -305,14 +305,14 @@ test('Import switches between URL and pasted text with a segmented control', asy
 	await page.goto('/recipes/import')
 	const tablist = page.getByRole('tablist', { name: 'Import from' })
 	const pill = tablist.locator('[data-slot="segmented-pill"]')
-	const fromUrl = await importTab(page, 'From URL')
+	const fromUrl = await importTab(page, 'From link')
 	const fromText = await importTab(page, 'From text')
 	const fromImage = await importTab(page, 'From image')
 	await expect(fromUrl).toHaveAttribute('aria-selected', 'true')
 	await expect(fromText).toHaveAttribute('aria-selected', 'false')
 	await expectThumbTall(fromText)
 	expect(await pillUnder(pill, fromUrl)).toBe(true)
-	await expect(page.getByRole('tabpanel', { name: 'From URL' })).toContainText(
+	await expect(page.getByRole('tabpanel', { name: 'From link' })).toContainText(
 		'Recipe link',
 	)
 
@@ -450,7 +450,7 @@ test('From Plan turns the week with thumb-sized chevrons', async ({
 	const previous = page.getByRole('button', { name: 'Previous week' })
 	// Measure once the sheet has finished sliding in: mid-slide its transform
 	// leaves the chevrons a fraction of a pixel short of 44.
-	const sheet = page.getByRole('dialog', { name: 'Pick Meals to shop for' })
+	const sheet = page.getByRole('dialog', { name: 'Add from the Plan' })
 	await sheet.evaluate((element) =>
 		Promise.all(element.getAnimations().map((a) => a.finished)),
 	)

@@ -147,7 +147,7 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 				{/* The iOS app shows no copy about Pro or its trial (ADR 0001). */}
 				{isNativeShell ? null : (
 					<p className="text-muted-foreground mt-1 text-sm">
-						New accounts get 14 days of Pro. No card needed.
+						Free to use. New accounts get 14 days of Pro.
 					</p>
 				)}
 			</div>

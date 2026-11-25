@@ -31,7 +31,7 @@ export function ProExpiryNudge() {
 					toast.warning(
 						`Your Pro access ends in ${days} day${days === 1 ? '' : 's'}`,
 						{
-							description: 'Then voice input and AI import turn off.',
+							description: 'Then the Pro features turn off.',
 							duration: 10000,
 							action: {
 								label: 'See Pro',
@@ -49,7 +49,7 @@ export function ProExpiryNudge() {
 					toast.info(shellNotice, { duration: 8000 })
 				} else {
 					toast.info(`Your Pro access ends in ${days} days`, {
-						description: 'Then voice input and AI import turn off.',
+						description: 'Then the Pro features turn off.',
 						duration: 8000,
 						action: {
 							label: 'See Pro',

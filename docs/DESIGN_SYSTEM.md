@@ -277,7 +277,7 @@ placeholder.
 - Cards show a thumbnail, title, useful time when known, and favorite state.
 - Do not show availability text, match percentages, cook counts, or hidden
   availability ordering.
-- Recently Updated is the real default sort.
+- Recently updated is the real default sort.
 - Search and visible filters keep the full library easy to reach.
 
 ### Recipe detail

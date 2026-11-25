@@ -506,7 +506,7 @@ test('From Staples is a sheet: picked Staples go to Next shop', async ({
 
 	await openShopping(page)
 	const sheet = page.getByRole('dialog', {
-		name: 'Pick Staples for this trip',
+		name: 'Add from Staples',
 	})
 	await tapUntil(page.getByRole('button', { name: /^From Staples/ }), () =>
 		expect(sheet).toBeVisible({ timeout: 1000 }),
@@ -1410,7 +1410,7 @@ test('Staples picked and added are not picked again after Shopping clears them',
 	await seedShopping(user, ['foil'])
 	await openShopping(page)
 	const sheet = page.getByRole('dialog', {
-		name: 'Pick Staples for this trip',
+		name: 'Add from Staples',
 	})
 	const fromStaples = page.getByRole('button', { name: /^From Staples/ })
 	await tapUntil(fromStaples, () =>

@@ -189,7 +189,7 @@ export async function handleVerification({
 		redirectWithToast('/login', {
 			type: 'error',
 			title: 'Log in again',
-			description: 'No login is waiting for this code. Log in and try again.',
+			description: 'No login is waiting for this code.',
 		})
 
 	const found = await findPendingSignIn(request)

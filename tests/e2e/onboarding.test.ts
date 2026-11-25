@@ -346,7 +346,7 @@ test('reset password with a link', async ({
 		page.getByRole('heading', { name: /forgot password/i }),
 	).toBeVisible()
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
-	await page.getByRole('button', { name: /email me a code/i }).click()
+	await page.getByRole('button', { name: /email me a link/i }).click()
 	await expect(page.getByText(/check your email/i)).toBeVisible()
 	await expect(page.getByText(/asked more than once\?/i)).toBeVisible()
 
@@ -438,7 +438,7 @@ test('an account with no password sets one with Forgot password', async ({
 		page.getByRole('heading', { name: /forgot password/i }),
 	).toBeVisible()
 	await page.getByRole('textbox', { name: /username/i }).fill(user.email)
-	await page.getByRole('button', { name: /email me a code/i }).click()
+	await page.getByRole('button', { name: /email me a link/i }).click()
 	await expect(page.getByText(/check your email/i)).toBeVisible()
 	const email = await waitFor(() => readEmail(user.email), {
 		errorMessage: 'Reset email was not sent',
@@ -577,7 +577,7 @@ test('a reset link opened while logged in as someone else resets the right accou
 	})
 	await navigate('/forgot-password')
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
-	await page.getByRole('button', { name: /email me a code/i }).click()
+	await page.getByRole('button', { name: /email me a link/i }).click()
 	await expect(page.getByText(/check your email/i)).toBeVisible()
 	const email = await waitFor(() => readEmail(user.email), {
 		errorMessage: 'Reset email was not sent',

@@ -485,7 +485,7 @@ function InviteRow({
 	return (
 		<div className="bg-muted/40 flex flex-col gap-3 rounded-lg p-3 sm:flex-row sm:flex-wrap sm:items-center">
 			<div className="min-w-0 flex-1">
-				<code className="text-xs">{invite.token.slice(0, 8)}...</code>
+				<code className="text-xs">{invite.token.slice(0, 8)}…</code>
 				<p className="text-muted-foreground text-xs">
 					Expires {new Date(invite.expiresAt).toLocaleDateString()}
 				</p>

@@ -222,7 +222,7 @@ const logInAgainToasts: Record<
 > = {
 	'nothing-pending': {
 		title: 'Log in again',
-		description: 'No login is waiting for this code. Log in and try again.',
+		description: 'No login is waiting for this code.',
 	},
 	ended: {
 		title: 'Login expired',

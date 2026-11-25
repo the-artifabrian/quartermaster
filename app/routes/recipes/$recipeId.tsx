@@ -312,7 +312,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 		) {
 			return {
 				success: false,
-				error: 'Total time must be at least active time.',
+				error:
+					'Total time can’t be shorter than active time. Untick one of them.',
 			}
 		}
 		await prisma.recipe.update({

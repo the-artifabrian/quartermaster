@@ -326,7 +326,8 @@ describe('recipe detail actions', () => {
 		})
 		expect(await action({ request, ...makeActionArgs(recipe.id) })).toEqual({
 			success: false,
-			error: 'Total time must be at least active time.',
+			error:
+				'Total time can’t be shorter than active time. Untick one of them.',
 		})
 
 		await expect(

@@ -55,7 +55,7 @@ export async function writeShoppingCheck(
 	if (!item)
 		return {
 			status: 'missing' as const,
-			message: 'This item is no longer on your list.',
+			message: 'This item isn’t on Shopping any more.',
 		}
 	const ownCommit =
 		item.checkVersion === observedVersion + 1 &&

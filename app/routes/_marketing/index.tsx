@@ -143,7 +143,7 @@ function Hero({ today }: { today: string }) {
 				</div>
 				{isNativeShell ? null : (
 					<p className="text-cream-muted mt-5 text-[15px]">
-						New accounts get 14 days of Pro. No card needed.
+						Free to use. New accounts get 14 days of Pro.
 					</p>
 				)}
 			</div>
@@ -265,7 +265,7 @@ function ClosingCta() {
 			</h2>
 			{isNativeShell ? null : (
 				<p className="text-cream/80 mx-auto mt-5 max-w-[28rem] text-lg leading-[1.55]">
-					Free to use, with 14 days of Pro to start.
+					It&apos;s free, and the first 14 days include Pro.
 				</p>
 			)}
 			<div className="mt-9 flex justify-center">

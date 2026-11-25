@@ -30,6 +30,7 @@ import {
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { RowCollapse } from '#app/components/ui/row-collapse.tsx'
+import { useFetcherSettled } from '#app/hooks/use-fetcher-settled.ts'
 import { MEAL_TYPES, MEAL_TYPE_LABELS, type MealType } from '#app/utils/date.ts'
 import { groupSnapshotEntries } from '#app/utils/menu-snapshot.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
@@ -355,19 +356,15 @@ function MealDetailsForm({
 		status: string
 		submission?: SubmissionResult
 	}>()
-	const wasSubmitting = useRef(false)
 	// Use the stored zone for an existing time; the browser names a new time.
 	const [timeZone] = useState(
 		() =>
 			meal.servingTimeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
 	)
 
-	useEffect(() => {
-		if (wasSubmitting.current && fetcher.state === 'idle') {
-			if (fetcher.data?.status === 'success') onDone()
-		}
-		wasSubmitting.current = fetcher.state !== 'idle'
-	}, [fetcher.state, fetcher.data, onDone])
+	useFetcherSettled(fetcher, (data) => {
+		if (data?.status === 'success') onDone()
+	})
 
 	const defaultTime =
 		meal.servingAt && meal.servingTimeZone
@@ -634,54 +631,45 @@ export function MealCard({
 
 	// Toast once Add to Shopping settles. The planner shows no other sign of
 	// the result.
-	const prevShoppingState = useRef(addToShoppingFetcher.state)
-	useEffect(() => {
-		if (
-			prevShoppingState.current !== 'idle' &&
-			addToShoppingFetcher.state === 'idle'
-		) {
-			const data = addToShoppingFetcher.data
-			// Someone deleted the Meal while this add ran; the Plan reloads
-			// without it.
-			if (data?.status === 'gone') toast.info('That Meal was just deleted.')
-			if (data?.status === 'success' && data.shopping) {
-				if (data.refreshed) {
-					const changed =
-						data.shopping.createdRowCount +
-						(data.shopping.attachedCount ?? 0) +
-						(data.shopping.updatedContributionCount ?? 0) +
-						(data.shopping.removedContributionCount ?? 0) +
-						(data.shopping.promotedRowCount ?? 0)
-					const skippedNames = data.shopping.skippedCheckedNames ?? []
-					if (changed > 0) {
-						toast.success(
-							skippedCheckedMessage(skippedNames, { afterChanges: true }) ??
-								'Shopping updated',
-						)
-					} else if (skippedNames.length > 0) {
-						toast.info(skippedCheckedMessage(skippedNames))
-					} else toast.info('Shopping is up to date')
-					prevShoppingState.current = addToShoppingFetcher.state
-					return
-				}
-				const { createdRowCount, attachedCount, alreadyContributedCount } =
-					data.shopping
-				if (createdRowCount > 0) {
+	useFetcherSettled(addToShoppingFetcher, (data) => {
+		// Someone deleted the Meal while this add ran; the Plan reloads
+		// without it.
+		if (data?.status === 'gone') toast.info('That Meal was just deleted.')
+		if (data?.status === 'success' && data.shopping) {
+			if (data.refreshed) {
+				const changed =
+					data.shopping.createdRowCount +
+					(data.shopping.attachedCount ?? 0) +
+					(data.shopping.updatedContributionCount ?? 0) +
+					(data.shopping.removedContributionCount ?? 0) +
+					(data.shopping.promotedRowCount ?? 0)
+				const skippedNames = data.shopping.skippedCheckedNames ?? []
+				if (changed > 0) {
 					toast.success(
-						`Added ${createdRowCount} item${createdRowCount === 1 ? '' : 's'} to Shopping`,
+						skippedCheckedMessage(skippedNames, { afterChanges: true }) ??
+							'Shopping updated',
 					)
-				} else if ((attachedCount ?? 0) > 0) {
-					// The amounts joined rows already there, which now show more.
-					toast.success(addedToExistingMessage(attachedCount ?? 0))
-				} else if ((alreadyContributedCount ?? 0) > 0) {
-					toast.info('This Meal is already on Shopping')
-				} else {
-					toast.info('Nothing to add to Shopping')
-				}
+				} else if (skippedNames.length > 0) {
+					toast.info(skippedCheckedMessage(skippedNames))
+				} else toast.info('Shopping is up to date')
+				return
+			}
+			const { createdRowCount, attachedCount, alreadyContributedCount } =
+				data.shopping
+			if (createdRowCount > 0) {
+				toast.success(
+					`Added ${createdRowCount} item${createdRowCount === 1 ? '' : 's'} to Shopping`,
+				)
+			} else if ((attachedCount ?? 0) > 0) {
+				// The amounts joined rows already there, which now show more.
+				toast.success(addedToExistingMessage(attachedCount ?? 0))
+			} else if ((alreadyContributedCount ?? 0) > 0) {
+				toast.info('This Meal is already on Shopping')
+			} else {
+				toast.info('Nothing to add to Shopping')
 			}
 		}
-		prevShoppingState.current = addToShoppingFetcher.state
-	}, [addToShoppingFetcher.state, addToShoppingFetcher.data])
+	})
 
 	const recipePicker =
 		choices.state.status === 'success' ? (

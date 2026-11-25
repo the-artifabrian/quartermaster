@@ -1,16 +1,5 @@
-// Failure list for the keys the storage writers produce (the image route
-// serves only keys of this shape, so a writer that strays breaks the photo):
-// - an upload's file name and type are the browser's (or a hand-made
-//   request's), so its name can have no dot, a space, a slash or anything
-//   else after its last dot; the key must not carry any of that, and its
-//   extension must be the one of the format the bytes are
-// - a copy names itself after its source, so a copy of a copy must not grow
-//   the key until it no longer fits
-// - an id that would break the shape must stop the write, so no page is
-//   left with an object it can't show
-// - an upload whose PUT never answers holds its caller forever; the hourly
-//   demo template build would then never run again, because maintenance
-//   skips a run while the last one is still going
+// The image route serves only keys of the shape the storage writers produce,
+// so a writer that strays breaks the photo.
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { delay, http } from 'msw'
@@ -42,6 +31,8 @@ async function checkedPhoto(name: string, type: string, bytes?: Buffer) {
 	return result.photo
 }
 
+// An upload's file name and type come from the browser or a hand-made request.
+// The key takes nothing from the name, and its extension follows the bytes.
 test.each([
 	['no dot', 'photo', 'image/jpeg', 'jpeg', '.jpg'],
 	['a space after the dot', 'photo.j pg', 'image/jpeg', 'jpeg', '.jpg'],
@@ -66,6 +57,7 @@ test.each([
 	},
 )
 
+// A copy names itself after its source.
 test('keeps a copy of a copy the same shape and length as an upload', async () => {
 	const photo = await checkedPhoto('photo.png', 'image/png')
 	const upload = await uploadRecipeImage(USER, 'recipe-1', photo)
@@ -78,6 +70,8 @@ test('keeps a copy of a copy the same shape and length as an upload', async () =
 	expect(path.basename(copyOfCopy)).toHaveLength(path.basename(upload).length)
 })
 
+// Stopping the write keeps any page from being left with an object it can't
+// show.
 test('refuses to store under an id that would break the key shape', async () => {
 	const photo = await checkedPhoto('photo.png', 'image/png')
 	const badUser = `${USER} 2`
@@ -94,6 +88,8 @@ test('refuses to store under an id that would break the key shape', async () => 
 	}
 })
 
+// A hung upload would stop the hourly demo template build for good, since
+// maintenance skips a run while the last one is still going.
 test('gives up on an upload that storage never answers', async () => {
 	const photo = await checkedPhoto('photo.png', 'image/png')
 	server.use(http.put('*', () => delay('infinite')))

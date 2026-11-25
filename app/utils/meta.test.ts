@@ -1,12 +1,8 @@
-// Failure list for the shared link preview tags:
-// - With the root loader's origin, og:image must be an absolute URL (Slack,
-//   LinkedIn and iMessage ignore a relative one) with its width and height.
-// - Without an origin (root's loader threw, so root renders its error page),
-//   the image tags must be left out, not written as a relative URL.
-// - Root and the marketing pages spread these tags after their own title and
-//   description, so the helper must not list any tag twice itself.
-// - The image must not be the old file in public. (That the URL carries the
-//   build's fingerprint is checked in tests/e2e/link-preview.test.ts.)
+// The shared link preview tags. Slack, LinkedIn and iMessage ignore a relative
+// og:image. Root and the marketing pages spread these tags after their own
+// title and description, so the helper must not list any tag twice itself.
+// tests/e2e/link-preview.test.ts checks that the image URL carries the build's
+// fingerprint.
 import { expect, test } from 'vitest'
 import { baseMetaTags } from './meta.ts'
 
@@ -51,7 +47,7 @@ test('lists each of its own tags once', () => {
 	expect(new Set(keys).size).toBe(keys.length)
 })
 
-test('no longer points at the old og-image.png in public', () => {
+test('points og:image at the built image, never /og-image.png in public', () => {
 	const tags = baseMetaTags(rootWith({ requestInfo: { origin } }))
 	const image = content(tags, 'og:image')
 	expect(image && 'content' in image && image.content).toContain('og-image')

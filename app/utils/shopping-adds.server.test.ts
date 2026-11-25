@@ -3,18 +3,6 @@
  * write in the same transaction as the write. (Add to Shopping and Update
  * Shopping on a Meal are tested through the Plan action, in
  * plan-actions.test.ts.)
- *
- * Failure list:
- * - From Plan: a picked Meal is deleted after its demand is read and before
- *   its write, which then points at a Meal that is gone and fails the whole
- *   request (a foreign key error, so a 500).
- * - From Plan: an item is marked cooked after the demand is read, and its
- *   amounts still land.
- * - From Plan: one Meal gone makes the other picked Meals fail too.
- * - Recipe line: two adds of the same line at once both find no row and make
- *   two rows.
- * - Recipe line: a row for the same ingredient added by someone else between
- *   the read and the write is missed, so a second row appears.
  */
 import { expect, test } from 'vitest'
 import { type PrismaClient } from '#app/generated/prisma/client.ts'

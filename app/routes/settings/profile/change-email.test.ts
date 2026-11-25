@@ -10,19 +10,7 @@ import { action } from './change-email.tsx'
 import '#tests/setup/db-setup.ts'
 import '#tests/setup/mocks-setup.ts'
 
-// Failure list for asking to change the email from Settings, which now needs
-// the current password:
-// 1. A wrong password sends nothing and stores no code, and the answer
-//    points at the password field without sending the password back.
-// 2. No password in the form: refused, nothing sent.
-// 3. An account with no password (it only ever logged in with Google) is
-//    refused on the server, whatever the form holds.
-// 4. A wrong password with an address another account already uses: the
-//    answer is about the password only, so it doesn't say the address is
-//    taken.
-// 5. The right password sends the code to the new address.
-// 6. With 2FA on and the last check over two hours old, the request goes to
-//    reverify before the password is looked at.
+// Asking to change the email from Settings takes the current password.
 
 const password = 'current-password-1234'
 
@@ -130,6 +118,7 @@ test('an account with no password is refused', async () => {
 	expect(await codesFor(user.id)).toBe(0)
 })
 
+// An answer about the address would tell a wrong guess that it is taken.
 test('a wrong password with a taken address only mentions the password', async () => {
 	const { cookie } = await signedIn()
 	const taken = await prisma.user.create({

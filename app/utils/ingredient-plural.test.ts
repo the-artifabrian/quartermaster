@@ -1,42 +1,6 @@
 /**
  * A scaled Recipe line or yield says "2 eggs", "2 pinches salt" and "Makes 2
  * loaves" instead of keeping the 1× wording ("2 egg", "2 pinch", "2 loaf").
- *
- * Failure list:
- * - A measured mass noun gets an s: "4 tbsp salts", "380 g plain flours".
- * - An abbreviated unit changes: "4 tbsps", "300 gs", "2 mls".
- * - A line with a count unit and a noun changes the noun as well as the unit:
- *   "2 pinches salts", or "2 cloves garlics".
- * - A count noun with no unit stays singular at 2× ("2 egg"), or stays plural
- *   when it scales down to one ("1 ripe bananas").
- * - An irregular plural comes out as "loafs", "leafs", "tomatos", "chillis".
- * - A line that is already plural gets a second s ("4 eggss").
- * - Half a lime reads "½ limes", or one and a half reads "1½ lime".
- * - A range ("1–2 eggs") is singularised from its low end, or crashes the
- *   count because it doesn't parse as one number.
- * - An unknown or non-English word is guessed at ("2 fetas", "4 huevoss").
- * - The note after a comma or in brackets is changed instead of the noun
- *   before it ("lime, cut into wedgess"), or the noun is missed because of it.
- * - At 1× the author's own wording changes, even a slip like "1 eggs".
- * - Capitals are lost ("Egg" turns into "eggs").
- * - An amount that isn't a number ("a few") throws or is read as one.
- * - A yield label isn't inflected the same way, or "slices of cake" turns into
- *   "slices of cakes".
- * - A container written into the name ("2 tins chopped tomatoes", which the
- *   parser leaves without a unit) is passed over and the noun after it
- *   changes instead ("1 tins chopped tomato").
- * - An amount kitchen rounding shows as a whole number (3 eggs at 0.34× shows
- *   "1") is counted from the unrounded value ("1 eggs").
- * - A container after a size or a word ("1 400g tin chopped tomatoes", "1
- *   large tin chopped tomatoes") is passed over and the noun after it changes
- *   ("1/2 400g tin chopped tomato").
- * - A line that names two things ("2 eggs or 1 flax egg", "1 apple or pear",
- *   "salt and pepper") or counts in dozens ("2 dozen eggs") changes one word
- *   of it ("1 flax eggs", "2 apple or pears", "1 dozen egg").
- * - The end of a hyphenated word is read as a word ("half-and-halves").
- * - "drop scone" or "pound cake" is read as a count of drops or pounds.
- * - A yield that kitchen rounding shows as 1 reads "Makes 1 loaves".
- * - "2 egg whites" at ½ reads "1 egg whites".
  */
 import { expect, test } from 'vitest'
 import { scaledLineWords, scaledYieldLabel } from './ingredient-plural.ts'

@@ -6,46 +6,10 @@ import {
 	warnIfEdgeSecretMissing,
 } from './client-address.server.ts'
 
-// Failure list: what could put unrelated visitors in one bucket, or let a
-// client pick its own bucket.
-//
 // Production is Cloudflare, then Fly. Fly sets fly-client-ip to the address
 // that connected to it, which is a Cloudflare edge for normal traffic. Our
-// zone's Transform Rule adds x-qm-edge with the shared secret.
-//
-// 1. Secret unset: cf-connecting-ip is ignored; the key is fly-client-ip.
-// 2. Secret set, header missing: the same.
-// 3. Secret set, header wrong: the same.
-// 4. A client sends its own x-qm-edge with a guessed value: the same.
-// 5. Secret set, header right: two visitors behind one edge get their own
-//    keys, taken from cf-connecting-ip.
-// 6. Header right but cf-connecting-ip missing or not one address: the key is
-//    fly-client-ip, never the raw header.
-// 7. IPv4-mapped IPv6 addresses, dotted or hex, key like the IPv4 address.
-// 8. Two IPv6 visitors in one /64 share a key, and visitors in different /64s
-//    don't, whichever header the address came from.
-// 9. No fly-client-ip (local runs): the key is req.ip, grouped the same way.
-// 10. fly-client-ip present but not one address (empty, a list, a word, an
-//     address with a zone id): one shared bucket, never req.ip, which comes
-//     from X-Forwarded-For.
-// 11. Nothing usable at all: one shared bucket, no throw.
-// 12. Production without the secret warns once at boot; with it, or outside
-//     production, nothing is logged.
-//
-// When the Cloudflare rule and the Fly secret drift apart, every visitor
-// quietly falls back to the edge's bucket, so the mismatch is logged:
-// 13. A request with both fly-client-ip and cf-connecting-ip whose x-qm-edge
-//     is missing or wrong is counted. The right secret, a request with no
-//     cf-connecting-ip (straight to fly.dev), one with no fly-client-ip
-//     (local runs), and an unset secret (the boot warning covers that) are
-//     not.
-// 14. Only requests for the app's own host count, in any case, with a port
-//     or a trailing dot. Anyone can reach the fly.dev host with both headers
-//     and no secret, and that must not raise the alarm.
-// 15. The first mismatch warns at once.
-// 16. Mismatches in the hour after a warning are only counted; the first one
-//     an hour or more later warns with the count since the last warning.
-// 17. The warning never holds the header's value.
+// zone's Transform Rule adds x-qm-edge with the shared secret. Nothing here may
+// put unrelated visitors in one bucket, or let a client pick its own bucket.
 
 const SECRET = 'edge-secret-for-tests'
 const visitorA = '203.0.113.7'
@@ -155,6 +119,7 @@ describe('client address key', () => {
 		expect(key({ ip: '2001:db8:1:2::a' })).toBe(key({ ip: '2001:db8:1:2::b' }))
 	})
 
+	// req.ip comes from X-Forwarded-For, which the client controls.
 	test.each(['', 'nonsense', '203.0.113.7, 198.51.100.23', 'fe80::1%eth0'])(
 		'a fly-client-ip of %j goes to the shared bucket, not req.ip',
 		(flyClientIp) => {
@@ -200,6 +165,8 @@ test('production without the edge secret warns once at boot', () => {
 	expect(warn).not.toHaveBeenCalled()
 })
 
+// When the Cloudflare rule and the Fly secret drift apart, every visitor
+// quietly falls back to the edge's bucket, so the mismatch is logged.
 describe('a secret that stops matching', () => {
 	const both = {
 		flyClientIp: edge,
@@ -224,6 +191,8 @@ describe('a secret that stops matching', () => {
 		expect(onEdgeMismatch).not.toHaveBeenCalled()
 	})
 
+	// Anyone can reach the fly.dev host with both headers and no secret, and that
+	// must not raise the alarm.
 	test('counts only requests for the app host', () => {
 		const onEdgeMismatch = vi.fn()
 		for (const host of ['quartermaster.fly.dev', 'other.example', '', null]) {

@@ -14,38 +14,8 @@ import { type VerifyFunctionArgs } from './verify.server.ts'
 import '#tests/setup/db-setup.ts'
 import '#tests/setup/mocks-setup.ts'
 
-// Failure list for resetting a forgotten password, from the verify step's
-// hand-off cookie to the new password:
-// 1. The user is signed in elsewhere, on several devices. Every one of their
-//    sessions ends.
-// 2. Another user's sessions are untouched.
-// 3. The account has no password yet (it signed up through Google). The reset
-//    gives it one instead of failing.
-// 4. A copy of the hand-off cookie kept after the reset has gone through can't
-//    set the password again, on the page or on submit.
-// 5. The hand-off is older than 10 minutes. Refused, even if the browser kept
-//    the cookie.
-// 6. The password changed after the code was used (in Settings, or any other
-//    way). The hand-off stops working.
-// 7. An account with no password gets one some other way after the code was
-//    used. The hand-off stops working.
-// 8. The email changed after the code was used. The hand-off stops working,
-//    like the reset codes do.
-// 9. The username changed after the code was used. The reset still goes to
-//    the same account.
-// 10. A cookie from before this change, holding only a username, is refused.
-//
-// The link opened on a device that is logged in (the iOS app always is):
-// 11. Logged in as the account being reset. The page opens, the reset goes
-//     through, every session of the account ends, and this device is logged
-//     out and lands on /login.
-// 12. Logged in as a different account. The reset goes to the account the
-//     code was for. This device's session of the other account ends and its
-//     cookie is cleared; that account's sessions elsewhere stay.
-// 13. The device's session cookie names a session that has gone. The reset
-//     route's own loader and action don't refuse or redirect because of it.
-//     (In a real request the root loader ends the dead session first; this
-//     checks only that the route adds no bounce of its own.)
+// Resetting a forgotten password, from the verify step's hand-off cookie to the
+// new password.
 
 const newPassword = 'new-password-5678'
 const url = `${BASE_URL}/reset-password`
@@ -266,6 +236,8 @@ function clearedCookies(response: unknown) {
 		.map((setCookie) => setCookie.split('=')[0])
 }
 
+// The reset link can open on a device that is logged in. The iOS app always
+// is.
 test('a reset opened while logged in as the same account logs this device out', async () => {
 	const user = await createAccount()
 	const here = await createSession(user.id)
@@ -313,6 +285,8 @@ test('a reset opened while logged in as another account resets the right one and
 	).toEqual([{ id: otherElsewhere.id }])
 })
 
+// In a real request the root loader ends the dead session first. This checks
+// only that the reset route adds no redirect of its own.
 test('the reset route works with a session cookie whose session has gone', async () => {
 	const user = await createAccount()
 	const gone = await createSession(user.id)

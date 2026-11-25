@@ -1,8 +1,6 @@
-// Failure list for the departure a join announces:
-// - someone leaves a shared Household by joining another: the people left
-//   behind must hear it, as they do when someone leaves
-// - a sole member joins another Household: their old one is gone, so there
-//   is nobody to tell and no departure to record
+// Joining another Household is a departure from the old one. The people left
+// behind hear it as they do when someone leaves. A sole member's old Household
+// is gone, so there is nobody to tell.
 import { RouterContextProvider } from 'react-router'
 import { expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'

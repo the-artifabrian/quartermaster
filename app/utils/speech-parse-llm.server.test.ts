@@ -104,8 +104,8 @@ describe('parseSpeechItemsWithLLM', () => {
 			}),
 		)
 
-		// A fenced response was scraped clean before structured outputs; now it
-		// fails, and the caller falls back to its own parsing.
+		// Structured outputs return bare JSON, so a fenced response fails, and the
+		// caller falls back to its own parsing.
 		expect(await parseSpeechItemsWithLLM('three apples')).toBeNull()
 	})
 

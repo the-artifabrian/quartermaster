@@ -9,13 +9,6 @@ import { expect, test } from 'vitest'
 import { ActiveStaples } from './active-staples.tsx'
 import { SUGGESTED_STAPLES, StapleSuggestions } from './staple-suggestions.tsx'
 
-// Failure list (#351):
-// 1. a tap posts the page's add-staple intent with that name
-// 2. a held name hides its suggestion, whatever its case and spacing
-// 3. every suggestion held → no section at all
-// 4. Staples present at load → no suggestions on the page
-// 5. none at load, then one added → the row stays, minus the added one
-
 function renderSuggestions(
 	held: string[],
 	action?: (formData: FormData) => void,

@@ -7,12 +7,8 @@ import { setOnboardingEmail } from './onboarding-email.server.ts'
 import '#tests/setup/db-setup.ts'
 import '#tests/setup/mocks-setup.ts'
 
-// Failure list for the verified email the signup form reads from the verify
-// cookie after an emailed code:
-// 1. Within 10 minutes the form opens with that address.
-// 2. A kept copy of the cookie older than 10 minutes is refused.
-// 3. A cookie from before the expiry was added, holding only the address, is
-//    refused.
+// The signup form reads the verified address from the verify cookie after an
+// emailed code. A kept copy older than 10 minutes is refused.
 
 afterEach(() => {
 	vi.useRealTimers()

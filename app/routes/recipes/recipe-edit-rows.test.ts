@@ -2,35 +2,6 @@
  * Editing a Recipe keeps the ids of the ingredient and step rows it keeps.
  * Cooking checks (use-cooking-progress.ts) and the one-ingredient Add to
  * Shopping are keyed on those ids.
- *
- * Failure list:
- * - Editing one step's text gives every row a new id (checks gone).
- * - Reordering rows, or moving an ingredient under another heading, gives
- *   them new ids or loses the new order.
- * - Removing a middle row removes, or renumbers, its neighbours.
- * - Adding a row reuses or disturbs an existing row.
- * - A submitted id from another Recipe (another Household's or this
- *   Household's) updates that row instead of saving a new one here.
- * - A submitted id whose row was deleted meanwhile fails the save, or brings
- *   the old id back.
- * - The same id submitted twice saves one row, or updates one row twice.
- * - A linked-Recipe ingredient loses its link or its id on an unrelated edit.
- * - A row another member added while the form was open is deleted by the
- *   save, or lands in the middle of the editor's order.
- * - A form from before the loaded-ids field (a tab open across a deploy)
- *   stops removing the rows it removed.
- * - New saves something different once the parser is shared, or takes a
- *   submitted id.
- * - A Save that reaches the server twice (the first answer was lost, so the
- *   form still shows "not saved" and the editor saves again) adds every new
- *   row twice.
- * - A new row's posted id that already belongs to another Recipe's row is
- *   used for the new row, or changes that row.
- * - A linked Recipe deleted while the form was open fails the Save with an
- *   error page, or saves part of it (Edit or New).
- * - A row added and saved, whose answer was lost, then removed in the form
- *   before Save is pressed again, stays as if another member had added it.
- * - A loaded row deleted meanwhile comes back under its old id.
  */
 import { createId } from '@paralleldrive/cuid2'
 import { RouterContextProvider } from 'react-router'
@@ -590,6 +561,7 @@ test('rows another member added while the form was open stay, after the saved ro
 	])
 })
 
+// A tab left open across a deploy posts the form without the loaded ids.
 test('a form posted without the loaded ids still removes the rows it left out', async () => {
 	const session = await setupUser()
 	const recipe = await createRecipe(session)
@@ -695,6 +667,8 @@ test('New saves the posted rows as they were and takes no posted id', async () =
 	})
 })
 
+// The first answer was lost, so the form still shows "not saved" and the
+// editor saves again.
 test('the same Save posted twice adds each new row once', async () => {
 	const session = await setupUser()
 	const recipe = await createRecipe(session)

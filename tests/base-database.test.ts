@@ -1,19 +1,6 @@
-// Failure list for `ensureBaseDatabase` (setup/base-database.ts), the cached
-// migrated database every Vitest worker copies:
-// - A new migration that only adds SQL (a CHECK, a trigger) leaves
-//   schema.prisma alone, and the cache keeps serving a database without it.
-// - An existing migration is edited, and the cache keeps the old one.
-// - Nothing changed, and every run rebuilds anyway (slow, but also a sign the
-//   key is unstable).
-// - schema.prisma is saved without changes, and that alone forces a rebuild.
-// - There is no cached database yet, or only its key is left behind.
-// - A database cached before the key existed has no key next to it, and is
-//   trusted as current.
-// - Two runs start at once: one copies `base.db` while the other is still
-//   migrating, and reads half a database.
-// - A run stops after moving its database in but before writing its key. The
-//   old key, still beside the new database, matches again once the sources go
-//   back (switching branches), and the wrong database is reused.
+// `ensureBaseDatabase` (setup/base-database.ts) keeps the cached migrated
+// database every Vitest worker copies. Its key must change with the
+// migrations, including one that only adds SQL and leaves schema.prisma alone.
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -87,6 +74,7 @@ test('builds the base database when there is none', async () => {
 	)
 })
 
+// A rebuild here would be slow, and a sign the key is unstable.
 test('reuses the base database when nothing changed', async () => {
 	await using sources = await setupSources()
 	await sources.ensure()
@@ -180,6 +168,8 @@ test('two runs at once never expose a half-built database', async () => {
 	expect(await sources.ensure('c')).toBe('reused')
 })
 
+// The old key beside the new database would match again once the sources go
+// back, as when switching branches, and the wrong database would be reused.
 test('a run stopped before writing its key leaves nothing to reuse', async () => {
 	await using sources = await setupSources()
 	await sources.ensure()

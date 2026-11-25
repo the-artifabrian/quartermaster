@@ -1,41 +1,9 @@
 /**
- * Failure list for the daily caps on paid AI calls, at the routes. A use comes
- * back only when the call failed in a way a user can't cause: no key, a bad
- * key or retired model (401, 403, 404), a 429, a 5xx, or a dropped
- * connection. Refunding anything else would let slow or bad input buy
- * unlimited paid calls.
- *
- * 1. Voice input has no cap, and every new signup gets a Pro trial. After 30
- *    uses in a day it must be refused before Whisper is called.
- * 2. A voice request without usable audio spends a use.
- * 3. Whisper answers 401, 403, 404, 429 or 503, or the connection drops: the
- *    use must come back.
- * 4. Whisper answers 400 for the audio it was sent: the use stays spent.
- * 5. Whisper times out: Groq may have finished and billed it, so the use
- *    stays spent.
- * 6. Whisper answers but the audio held nothing usable: the use stays spent.
- * 7. Text extraction gets a 503, or the connection drops: the use must come
- *    back.
- * 8. Text extraction times out: the use stays spent.
- * 9. The model refuses: the use stays spent.
- * 10. Screenshot import with a file that is not an image spends a use.
- * 11. An image that passes the byte check but can't be prepared: the user
- *     can send these at will and each costs us CPU, so the use stays spent.
- * 11a. An image that costs more to decode than a photo may: its header says
- *     so, so it must be refused before a use is spent or it is decoded.
- * 11c. A 24 MP photo of a cookbook page, small on disk as a flat baseline
- *     JPEG, is not refused that way: it shrinks as it loads.
- * 11b. An image over the limit that reaches the extraction anyway must not be
- *     decoded or sent to the model.
- * 12. Enhance on a Recipe that does not exist spends a use.
- * 13. Enhance on another household's Recipe spends a use.
- * 14. Enhance gets a 429: the use must come back.
- * 15. The use can't be recorded: the call must be refused with a 503 and a
- *     message that says to try again soon, without calling the model.
- * 16. A demo user gets a real user's cap on any of the three, or is refused
- *     without being told what the demo allows.
- * 17. A demo user is let through once the demo's shared uses for today are
- *     gone, or isn't told why.
+ * The daily caps on paid AI calls, at the routes. A use comes back only when
+ * the call failed in a way a user can't cause, such as no key, a bad key or
+ * retired model (401, 403, 404), a 429, a 5xx, or a dropped connection.
+ * Refunding anything else would let slow or bad input buy unlimited paid
+ * calls.
  */
 import { http, HttpResponse } from 'msw'
 import { RouterContextProvider } from 'react-router'
@@ -150,6 +118,7 @@ function uses(userId: string) {
 }
 
 describe('voice input', () => {
+	// Every new signup gets a Pro trial, so voice input needs a cap too.
 	test('is refused after 30 uses in a day, without calling Whisper', async () => {
 		using _groq = withEnv('GROQ_API_KEY', 'test-key')
 		using _anthropic = withEnv('ANTHROPIC_API_KEY', 'test-key')
@@ -258,6 +227,7 @@ describe('voice input', () => {
 		expect(await uses(session.userId)).toBe(1)
 	})
 
+	// Groq may have finished and billed the call.
 	test('a Whisper timeout keeps the use spent', async () => {
 		using _groq = withEnv('GROQ_API_KEY', 'test-key')
 		using _timeout = timeOutRequests()
@@ -398,6 +368,7 @@ describe('AI extraction', () => {
 	})
 })
 
+// A user can send these at will, and each one costs CPU.
 test('an image that can’t be prepared keeps the use spent', async () => {
 	using _anthropic = withEnv('ANTHROPIC_API_KEY', 'test-key')
 	consoleError.mockImplementation(() => {})
@@ -445,6 +416,7 @@ function screenshotOverCap() {
 		.toBuffer()
 }
 
+// Its header says what it would cost to decode.
 test('an image over the decoded-size limit is refused before it spends a use', async () => {
 	using _anthropic = withEnv('ANTHROPIC_API_KEY', 'test-key')
 	const session = await proUser()
@@ -499,6 +471,8 @@ test('the extraction refuses an image over the decoded-size limit without sendin
 	expect(modelCalls).toBe(0)
 })
 
+// The photo is small on disk as a flat baseline JPEG and shrinks as it loads,
+// so the decoded-size check lets it through.
 test('a 24 MP photo of a cookbook page reaches the model', async () => {
 	using _anthropic = withEnv('ANTHROPIC_API_KEY', 'test-key')
 	consoleError.mockImplementation(() => {})

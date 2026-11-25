@@ -266,7 +266,7 @@ describe('loadedToday', () => {
 		expect(loadedToday('2026-11-23')).toBe('2026-11-23')
 	})
 
-	test('is the local date when cached data from before the change has none', () => {
+	test('is the local date when older cached data has none', () => {
 		vi.useFakeTimers({ toFake: ['Date'] })
 		try {
 			vi.setSystemTime(new Date('2026-11-22T22:30:00Z'))

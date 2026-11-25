@@ -22,39 +22,7 @@ import {
 } from './utils.server.ts'
 import '#tests/setup/db-setup.ts'
 
-// Failure list for adding a passkey from Settings:
-// 1. No password sent. Refused, and no challenge is handed out.
-// 2. A wrong password. Refused with an error on the password, no challenge.
-// 3. The right password. Options come back with a challenge cookie. They ask
-//    for a discoverable passkey and exclude the passkeys already saved.
-// 4. An account with no password (it only ever logged in with Google).
-//    Refused with a pointer to Forgot password, no challenge.
-// 5. A 2FA user past the reverify window, with the right password. Sent to
-//    reverify and back to the Passkeys page, no challenge.
-// 6. A 2FA user inside the window gets options.
-// 7. Saving with no challenge cookie (the password step skipped). Nothing is
-//    saved and no email goes out.
-// 8. Saving with a challenge cookie handed to another account. Refused.
-// 9. Saving with a challenge cookie past its few minutes. Refused.
-// 10. Saving with the sign-in challenge cookie. Refused.
-// 11. Saving after the password step. The passkey is saved to this account and
-//     one notice goes to the account's email.
-// 12. A response that fails WebAuthn verification. Nothing saved, no email.
-// 13. A passkey that is already saved. No second row, no email.
-// 14. A signed-out request is sent to log in.
-// 15. A 2FA user past the window who opens the Passkeys page is sent to
-//     reverify before typing a password, and comes back to the page.
-// 16. The challenge cookie from one password check is sent again, by the
-//     same browser or a copy, to save a second passkey. Refused: one passkey,
-//     one notice.
-// 17. The saved passkey is checked against the challenge from the cookie,
-//     with user verification required and this app's origin and RP ID.
-// 18. Each refusal names its reason (password needed, already registered,
-//     not saved), so the page shows the right message.
-// 19. The account can't be read while saving. Nothing is saved, so no
-//     passkey exists without its notice.
-// 20. A save that worked is sent again (its answer was lost). It says the
-//     passkey is already registered, not that the password is needed.
+// Adding a passkey from Settings.
 
 vi.mock('@simplewebauthn/server', async (importOriginal) => ({
 	...(await importOriginal<typeof SimpleWebAuthnServer>()),
@@ -535,6 +503,7 @@ test('each refusal names its reason', async () => {
 	})
 })
 
+// Saving nothing means no passkey exists without its notice.
 test('when the account can’t be read while saving, no passkey is saved', async () => {
 	const { user, cookie } = await signedInUser()
 	const started = await startWithPassword(cookie)
@@ -550,6 +519,8 @@ test('when the account can’t be read while saving, no passkey is saved', async
 	expect(sendEmail).not.toHaveBeenCalled()
 })
 
+// The first answer was lost, so the browser sends the save again. It must not
+// say the password is needed.
 test('a save that worked, sent again, says the passkey is already registered', async () => {
 	const { user, cookie } = await signedInUser()
 	const started = await startWithPassword(cookie)

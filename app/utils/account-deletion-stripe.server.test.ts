@@ -1,21 +1,6 @@
-// Failure list for cancelling Pro when an account is deleted:
-// - the user has a live Stripe subscription: Stripe is asked to cancel that
-//   subscription, by the id the local row held before the delete removed it,
-//   and only once the account is gone
-// - the delete itself fails: Stripe is never asked, so nobody is left with an
-//   account whose Pro was cancelled under them
-// - Stripe refuses or errors: the account is still deleted, and the failure
-//   is logged and captured with the subscription id, so it can be cancelled
-//   by hand
-// - Stripe hangs: the request has a short timeout and at most one retry, so
-//   the delete doesn't wait out Stripe's defaults (80 seconds a try, retried
-//   twice, since a timeout counts as a reason to retry)
-// - no Subscription row, or one with no Stripe subscription (a trial, or one
-//   Stripe already ended): Stripe is never asked
-// - Stripe isn't configured but the row names a subscription: the account is
-//   still deleted, and the failure is logged and captured
-// - a member of a shared Household deletes: only their own subscription is
-//   cancelled, never the remaining member's
+// Cancelling Pro when an account is deleted. Stripe is asked only once the
+// account is gone, by the subscription id the local row held before the
+// delete removed it.
 import type Stripe from 'stripe'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
@@ -99,6 +84,7 @@ test('a live subscription is cancelled with Stripe once the account is gone', as
 	expect(goneWhenCancelled).toEqual([true])
 })
 
+// Nobody is left with an account whose Pro was cancelled under them.
 test('a delete that fails leaves the subscription alone', async () => {
 	const user = await userWithSubscription('sub_kept')
 	failingDelete.on = true
@@ -109,6 +95,8 @@ test('a delete that fails leaves the subscription alone', async () => {
 	expect(await userGone(user.id)).toBe(false)
 })
 
+// Stripe's defaults are 80 seconds a try, retried twice, since a timeout
+// counts as a reason to retry.
 test('a hung Stripe holds the delete for seconds, not minutes', async () => {
 	const user = await userWithSubscription('sub_live_two')
 
@@ -120,6 +108,7 @@ test('a hung Stripe holds the delete for seconds, not minutes', async () => {
 	expect(tries * options?.timeout).toBeLessThanOrEqual(12_000)
 })
 
+// The subscription id is captured so it can be cancelled by hand.
 test('a Stripe failure still deletes the account, and is logged and captured', async () => {
 	consoleError.mockImplementation(() => {})
 	cancel.mockRejectedValue(new Error('Stripe is down'))
@@ -155,6 +144,7 @@ test('without Stripe configured, the account is still deleted and the leftover s
 	)
 })
 
+// That covers no Subscription row, a trial, and one Stripe already ended.
 test('no Stripe subscription means Stripe is never asked', async () => {
 	const trial = await userWithSubscription(null)
 	const plain = await prisma.user.create({

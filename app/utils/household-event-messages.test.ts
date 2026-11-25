@@ -82,7 +82,7 @@ describe('formatEventMessage', () => {
 	})
 
 	test('a retired event type from an older release still reads sanely', () => {
-		// 'shopping_list_to_inventory' rows outlive the legacy Pantry (#289).
+		// 'shopping_list_to_inventory' rows can still be in a household's events.
 		const result = formatEventMessage(
 			'shopping_list_to_inventory' as never,
 			{ count: 3 },

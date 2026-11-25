@@ -26,48 +26,6 @@ import { action as checkAction } from './shopping-check.tsx'
 import { action } from './undo-delete.tsx'
 import '#tests/setup/db-setup.ts'
 
-// Failure list, written before undo-delete.server.ts:
-// shopping row — a delete removes the row and its Meal amounts at once and
-//   answers with both; Undo puts both back, same id, same checked state,
-//   amount and section; a second Undo changes nothing.
-// same name added again in the meantime — an unchecked row is not doubled:
-//   its Meal amounts join the row added since, which keeps its own amount;
-//   a checked row comes back beside it as a checked purchase.
-// a contribution's Meal deleted in the meantime — that amount is left out,
-//   the row still comes back.
-// Clear checked — clears only the rows it names that are still checked;
-//   Undo brings every one back checked; the household hears of a clear only
-//   when something was cleared.
-// the other member's check in flight on the deleted row — answers missing,
-//   not an error; once Undo has put the row back, checks work again.
-// gone — deleting or restoring what is not there (or another Household's)
-//   answers gone, never a bare 404.
-// trust — Undo's seal opens only for the member and Household that deleted,
-//   within its time, unaltered; a forged, tampered, borrowed or expired seal
-//   is refused and writes nothing. Even a sealed snapshot cannot reach past
-//   the Household: another Household's rows, Meals, Recipes, sections or
-//   orphaned amounts named in it are left alone.
-// Meal — delete takes sections, cards, notes and their lines; Undo puts all
-//   back and relinks its Shopping amounts; with "remove generated amount",
-//   rows only it asked for go and come back; a Recipe deleted since comes
-//   back as a missing card.
-// Recipe in a Meal — removed alone and put back; the last card takes its
-//   Meal and Undo brings the Meal back.
-// Staple — unmarked at once and marked again by Undo.
-// added with the review — a replay of a seal answers gone and doubles
-//   nothing, even when the row it merged into has been checked since; every
-//   restore that finds itself already back answers gone; nothing coming back
-//   sends no event; a restore whose transaction fails answers a clean
-//   conflict; Clear checked's restore reads as "put back N checked items"; a
-//   Meal's relinked amounts are announced; a removed row that is there again
-//   still gets its Meal amounts back; another Meal already holding a demand
-//   keeps it; the last two cards removed at once leave no empty Meal; a
-//   member of the same Household cannot use another member's seal; a seal
-//   signed with an older secret still opens, one without the undo-delete
-//   prefix or with an extra segment does not; Household scoping holds for
-//   Staples, Meal plans, a card's Meal, a card's section and Recipe, a
-//   Meal's Menu, and an amount's Meal.
-
 beforeEach(() => vi.mocked(emitHouseholdEvent).mockClear())
 
 async function setupUser() {
@@ -453,6 +411,8 @@ describe('gone', () => {
 	})
 })
 
+// Undo's seal opens only for the member and Household that deleted, within its
+// time and unaltered.
 describe('trust', () => {
 	async function deletedSalt(session: Session) {
 		const salt = await prisma.shoppingListItem.create({

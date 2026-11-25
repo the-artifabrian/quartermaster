@@ -163,7 +163,7 @@ async function getRows(householdId: string) {
 	})
 }
 
-describe('household Staple annotation at explicit Shopping actions (#116)', () => {
+describe('household Staple annotation at explicit Shopping actions', () => {
 	test('the Plan picker unticks each household\u2019s own Staples', async () => {
 		const stocked = await setupHousehold(['chicken'])
 		const unstocked = await setupHousehold([])

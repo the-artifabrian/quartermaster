@@ -1,20 +1,5 @@
-// Failure list for starting a Pro checkout:
-// - the form posts a price id of its own (another product, a cheaper price):
-//   the Checkout Session still uses the server's configured price
-// - the form names a plan the server doesn't have: refused, and Stripe is
-//   never asked
-// - a page cached before plans existed posts only a price id and no plan: it
-//   gets the server's yearly price, never the posted one
-// - Stripe isn't configured (no price id set): refused without calling Stripe
-// - nobody is signed in: sent to log in, and Stripe is never asked
-// - the upgrade page itself no longer hands the price id to the browser
-//
-// Failure list for coming back from checkout (`/upgrade?session_id=…`):
-// - a paid checkout session that names another user changes the signed-in
-//   user's subscription, or that other user's. Neither may change
-// - a demo user comes back with a paid checkout session in their name: the
-//   demo's subscription must stay as it is, without asking Stripe
-// - a real user back from their own paid checkout is still made Pro
+// Starting a Pro checkout, and coming back from one at
+// `/upgrade?session_id=…`.
 import { RouterContextProvider } from 'react-router'
 import type Stripe from 'stripe'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'

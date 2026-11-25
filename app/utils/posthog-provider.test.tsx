@@ -1,20 +1,6 @@
 /**
  * @vitest-environment jsdom
  */
-// Failure list for marking demo users (PostHogIdentify's `isDemo`):
-// - A demo user is identified with no `is_demo` person property.
-// - A demo user's browser events don't carry `is_demo`, or the first
-//   pageview goes out before it is registered.
-// - A real user is identified with `is_demo` (as false, or carried over),
-//   which changes existing filters.
-// - A browser that ran a demo loads again as a real user or signed out,
-//   with no in-page sign-out to reset it. The persisted super property goes
-//   on being sent unless it is removed.
-// - Signing out of a demo in the page keeps the flag for the next person.
-// - A demo ends outside the page (it expired, or the browser closed) and the
-//   next load is signed out: the SDK is still identified as the demo person,
-//   so anonymous events are filed under them, now without the flag. A
-//   visitor who never ran a demo must keep their anonymous id.
 import { act, render, waitFor } from '@testing-library/react'
 import { useEffect, useState } from 'react'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
@@ -464,6 +450,7 @@ async function loadIdentified(element: React.ReactNode) {
 	return { client, view }
 }
 
+// PostHogIdentify's `isDemo` marks demo users.
 test('a demo user is marked as one on their person and on every event', async () => {
 	using _environment = setupAnalyticsEnvironment()
 	const { client } = await loadIdentified(
@@ -490,6 +477,7 @@ test('a demo user is marked as one on their person and on every event', async ()
 	)
 })
 
+// An is_demo on a real user, even false, would change existing filters.
 test('a real user gets no is_demo at all, and loses one an earlier demo left', async () => {
 	using _environment = setupAnalyticsEnvironment()
 	const { client } = await loadIdentified(

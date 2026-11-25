@@ -1,26 +1,8 @@
 /**
  * The Plan's actions. Add to Shopping and Update Shopping decide what to
- * write from the Meal's demand, cooked state included, so another write
- * landing in between can break them ("Add to Shopping reads the Meal under
- * the write lock" below).
- *
- * Failure list for those:
- * - The Meal is deleted after its demand is read and before the Shopping
- *   write: the write points at a Meal that is gone and fails (a foreign key
- *   error, so a 500).
- * - The Meal is deleted after the Household check finds it and before the
- *   transaction starts: the add fails, or writes rows for a Meal that is
- *   gone.
- * - An item is marked cooked after the demand is read: its amounts still
- *   land, though a cooked item adds nothing.
- * - Update Shopping has the same gap as Add to Shopping.
- *
- * Failure list for an intent the page no longer sends (a tab still holding a
- * page from before Undo, whose deletes now go to resources/undo-delete):
- * - An old `removeItem` or `removeMeal` (even one asking to remove its
- *   Shopping amounts) gets a 400 the page reads as data, and the Meal, its
- *   cards, its Shopping row and the amount linking them all stay. Never a 200
- *   that saved nothing, a thrown error or a 500.
+ * write from the Meal's demand, cooked state included, so a delete or a cooked
+ * mark landing between that read and the write could break them. "Add to
+ * Shopping reads the Meal under the write lock" below covers those races.
  */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
@@ -734,7 +716,7 @@ describe('meal plan actions', () => {
 		expect(meal!.recipeItems[0]!.scaleMultiplier).toBe(1.5)
 	})
 
-	// #236: the action reports which Meal now holds the Recipe and the
+	// The action reports which Meal now holds the Recipe and the
 	// multiplier that Meal actually carries, so neither caller can imply a
 	// re-submitted scale was applied.
 	describe('addMeal feedback', () => {
@@ -914,13 +896,10 @@ describe('meal plan actions', () => {
 			setupRecipe(member.userId, member.householdId, 'Member Recipe'),
 		])
 
-		// Seven in-flight requests through the one shared client — production
-		// concurrency (one Node process on the LiteFS writer). The pre-#105
-		// version of this test hammered seven separate libsql connections, which
-		// single-statement legacy inserts tolerated; Meal creation is a
-		// transaction now, and cross-process writers are a scenario the deploy
-		// target cannot produce. The ensureMealPlan upsert race this test exists
-		// for is unchanged raw SQL and still asserted below (one plan row).
+		// Seven in-flight requests through the one shared client, as production runs
+		// (one Node process on the LiteFS writer). Writers in separate processes
+		// can't happen on the deploy target. The ensureMealPlan upsert race this test
+		// exists for is asserted below (one plan row).
 		const requests = await Promise.all(
 			Array.from({ length: 7 }, (_, index) => {
 				const session = index % 2 === 0 ? owner : member
@@ -1349,7 +1328,7 @@ describe('meal plan actions', () => {
 				.genericText,
 		).toBe('Takeout instead')
 
-		// Generic text and Recipe items stay mutually exclusive (#98).
+		// Generic text and Recipe items stay mutually exclusive.
 		await act(session, {
 			intent: 'updateMealDetails',
 			date: '2026-02-03',
@@ -1553,6 +1532,10 @@ describe('Add to Shopping reads the Meal under the write lock', () => {
 	)
 })
 
+// A tab holding an out-of-date page can still post `removeItem` or
+// `removeMeal`. Deletes go through resources/undo-delete, so these get a 400
+// the page reads as data, never a 200 that saved nothing, a thrown error or a
+// 500.
 test('an old page that deletes a Meal and its Shopping amounts gets a 400, and all of it stays', async () => {
 	const session = await setupUser()
 	const recipe = await setupRecipe(session.userId, session.householdId)

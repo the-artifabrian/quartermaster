@@ -1,20 +1,3 @@
-// Failure list for the demo expiry step:
-// - Expiry waits behind a slow template build, so expired demo users' rows
-//   and photos stay for the length of the build.
-// - One demo user that can't be deleted stops the rest from being deleted,
-//   or its failure goes unlogged and unreported.
-// - The step's counts aren't logged.
-// - A failed expiry step skips the template build or the other steps.
-//
-// Failure list for the demo template step:
-// - A failed build stops boot, or skips the prune and image-cache steps.
-// - A failed build is never retried, so the demo stays unavailable until the
-//   next deploy.
-// - The step's result isn't logged, so a build that keeps missing photos
-//   goes unnoticed.
-// - Demo AI uses from before today aren't pruned, or today's are.
-// - The build waits behind the other steps at startup, which leaves the
-//   demo unavailable for longer after a deploy.
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { prisma } from '#app/utils/db.server.ts'
 import { createUser } from '#tests/db-utils.ts'
@@ -371,6 +354,7 @@ describe('startScheduledMaintenance', () => {
 		clearInterval(timer)
 	})
 
+	// Without the log, a build that keeps missing photos would go unnoticed.
 	test('builds the demo template on every run and logs what it did', async () => {
 		vi.useFakeTimers()
 		const build = vi.fn(async () => ({
@@ -433,6 +417,9 @@ describe('startScheduledMaintenance', () => {
 	})
 })
 
+// A slow build must not hold up expiry, which removes expired demo users' rows
+// and photos. The build runs before the other steps so the demo is back
+// sooner after a deploy.
 test('expires demo users first, then builds the template, then the rest', async () => {
 	vi.useFakeTimers()
 	const order: string[] = []

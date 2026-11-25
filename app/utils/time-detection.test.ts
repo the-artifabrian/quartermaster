@@ -162,11 +162,11 @@ describe('detectTimes', () => {
 		expect(matches[0]!.label).toBe('2 hrs')
 	})
 
-	// Regression: a long run of digits used to take O(n³) time here, because
-	// the number pattern was `\d+[\d./…]*` — the trailing class also matches
-	// digits, so every split between the two quantifiers had to be tried before
-	// the match could fail. 5000 digits (the import cap for one instruction)
-	// took ~2.7 minutes and wedged production on 2026-09-11.
+	// A number pattern like `\d+[\d./…]*` takes O(n³) time on a long run of
+	// digits. The trailing class also matches digits, so every split between the
+	// two quantifiers is tried before the match can fail. 5000 digits (the import
+	// cap for one instruction) took about 2.7 minutes and wedged production on
+	// 2026-09-11.
 	test('a long digit run is scanned in bounded time', () => {
 		const started = Date.now()
 		expect(detectTimes('9'.repeat(1500))).toEqual([])

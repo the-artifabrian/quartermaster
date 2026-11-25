@@ -1,14 +1,5 @@
-// Failure list for the photo a Recipe form sends (the parser stops at the
-// size limit; a stored file the image route can't decode breaks every view):
-// - a photo over 3 MB gets a field error, on a new Recipe and an edit
-// - a file that isn't a photo, sent with a photo's type and name, gets a field
-//   error before anything is saved: no new Recipe, nothing in storage, and an
-//   edit keeps its old photo and fields
-// - the refusal keeps what was typed, and shows next to any other field error
-// - a photo too big to decode gets a field error that says so
-// - a real photo the browser labels with another type is saved, under the
-//   type of its bytes (the form used to drop it without a word)
-// - an import screenshot over the limit gets an error, not a crash
+// The photo a Recipe form sends. The parser stops at the size limit, and a
+// stored file the image route can't decode would break every view of it.
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { RouterContextProvider } from 'react-router'

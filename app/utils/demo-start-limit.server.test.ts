@@ -1,19 +1,6 @@
 /**
- * The limit on demo starts per client.
- *
- * Failure list:
- * - One client starts more than its share in the window and fills the
- *   live-demo cap on its own.
- * - One client's starts use up another client's.
- * - A client stays refused after the window is over.
- * - A client that keeps trying while refused stays refused past the end of
- *   its window.
- * - The client sets its own key with the header the server uses to pass
- *   the key on, and gets a fresh allowance with each request.
- * - A request with no key (one that didn't come through the server) isn't
- *   limited at all.
- * - Development and the Playwright run, where every test comes from one
- *   address, are limited like production.
+ * The limit on demo starts per client, so one client can't fill the live-demo
+ * cap on its own.
  */
 import { expect, test } from 'vitest'
 import {

@@ -2,17 +2,6 @@ import { expect, test } from 'vitest'
 import { z } from 'zod'
 import { getEnv, parseEnv } from './env.server.ts'
 
-// Failure list for APP_ORIGIN, the origin every absolute URL is built from:
-// 1. Missing in production: the deploy must fail rather than build links from
-//    the request.
-// 2. Present but empty in production (an emptied secret) fails the same way.
-// 3. MOCKS=true does not exempt production (Playwright runs production mode).
-// 4. A value that is not a bare origin (trailing slash, path, other scheme)
-//    fails: it would produce links like https://host//verify.
-// 5. A valid production env with it set passes (so the failures above are
-//    about APP_ORIGIN and not some other variable).
-// 6. Outside production it stays optional.
-
 function withCommitSha(commitSha: string | undefined) {
 	const original = process.env.COMMIT_SHA
 	if (commitSha) process.env.COMMIT_SHA = commitSha
@@ -55,6 +44,8 @@ function appOriginErrors(env: Record<string, string | undefined>) {
 	return z.flattenError(parsed.error).fieldErrors
 }
 
+// APP_ORIGIN is the origin every absolute URL is built from. This passing env
+// shows the failures below are about APP_ORIGIN and no other variable.
 test('a production env with APP_ORIGIN set passes validation', () => {
 	expect(appOriginErrors(productionEnv)).toBeNull()
 })
@@ -70,6 +61,7 @@ test('production with an empty APP_ORIGIN fails validation on APP_ORIGIN', () =>
 	).toEqual(['APP_ORIGIN'])
 })
 
+// Playwright runs production mode with MOCKS=true.
 test('MOCKS=true does not exempt production from APP_ORIGIN', () => {
 	const { APP_ORIGIN: _, ...env } = productionEnv
 	expect(Object.keys(appOriginErrors({ ...env, MOCKS: 'true' }) ?? {})).toEqual(
@@ -77,6 +69,7 @@ test('MOCKS=true does not exempt production from APP_ORIGIN', () => {
 	)
 })
 
+// A value that isn't a bare origin would make links like https://host//verify.
 test.each([
 	'https://app.example/',
 	'https://app.example/app',

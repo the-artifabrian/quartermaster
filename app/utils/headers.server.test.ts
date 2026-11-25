@@ -12,7 +12,7 @@ test('an explicit cache policy is preserved', () => {
 	expect(headers.get('Cache-Control')).toBe('public, max-age=300')
 })
 
-test('works for basic usecase', () => {
+test('merges several policies into the smallest ages, keeping private', () => {
 	const result = getConservativeCacheControl(
 		'max-age=3600',
 		'max-age=1800, s-maxage=600',

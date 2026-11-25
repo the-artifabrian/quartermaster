@@ -428,11 +428,8 @@ describe('parseTypedItem', () => {
 	})
 })
 
-// Failure list for long input (a long dictation, or text typed or pasted
-// into Shopping's add field): parsing must stay linear in its length.
-// - A long run of trailing punctuation marks before a last letter, for one
-//   item and for the split into items.
-// - The same run at the very end, which is stripped.
+// A long dictation, or text typed or pasted into Shopping's add field, must
+// parse in time linear in its length.
 describe('parsing stays linear on long input', () => {
 	const RUN = 2_000
 	test.each([

@@ -457,7 +457,7 @@ describe('buildShoppingDemand — ordinary note Shopping lines', () => {
 		expect(lines.map((line) => line.name)).toEqual(['candles'])
 	})
 
-	test('compatible note lines merge deterministically (#109)', () => {
+	test('compatible note lines merge deterministically', () => {
 		const lines = buildShoppingDemand({
 			noteLines: [
 				{ name: 'wine', quantity: '2', unit: 'bottles' },
@@ -527,7 +527,7 @@ describe('buildShoppingDemand — ordinary note Shopping lines', () => {
 	})
 })
 
-describe('combineRowDisplay — grouped display without rewriting identities (#109)', () => {
+describe('combineRowDisplay — grouped display without rewriting identities', () => {
 	test('a compatible manual row and generated contribution display one combined total', () => {
 		expect(
 			combineRowDisplay({
@@ -600,7 +600,7 @@ describe('combineRowDisplay — grouped display without rewriting identities (#1
 	})
 })
 
-describe('the canonical Levantine Meal (#109)', () => {
+describe('the canonical Levantine Meal', () => {
 	// Mirrors the dev DB's 'Levantine Feast' Menu: several Recipes at accepted
 	// multipliers plus a note card's ordinary Shopping lines. The acceptance
 	// bar is one comprehensible combined list: shared ingredients merge into

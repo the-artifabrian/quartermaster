@@ -1,8 +1,3 @@
-/**
- * Failure list for this change (Staples → Shopping):
- * - Tapping a Staple's Need emits a household event that carries the
- *   device's client id, so that device doesn't light its own Shopping dot.
- */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
@@ -81,6 +76,8 @@ async function postAddToShop(
 }
 
 describe('tapping a Staple restocks Next shop', () => {
+	// The event carries the device's client id, so that device doesn't light its
+	// own Shopping dot.
 	test('the event names the device that tapped', async () => {
 		const session = await setupHousehold()
 

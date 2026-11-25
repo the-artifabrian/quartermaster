@@ -1,61 +1,5 @@
 /**
- * Failure list for the Meal → Shopping writers (shopping-contribution.server.ts)
- *
- * Reads and writes in one transaction (Meal add, Update Shopping):
- * - A shopper checks the target row, with the version they saw, after the add
- *   reads the list and before it writes. The new demand must not end up
- *   counted on that checked row.
- * - The target row is deleted after the read and before the write. The add
- *   must not fail with a missing row.
- * - Two adds of the same Meal with different line sets run at once (the
- *   multiplier changed between them). Each line is recorded once, and the
- *   second add's new lines are not lost.
- * - Update Shopping races a check the same way.
- *
- * Rows added from Recipe detail (source 'recipe'):
- * - A Meal's demand joins a Recipe-detail row. The row shows both amounts
- *   summed, as a typed row does, not its own amount alone.
- * - Editing that row changes its own amount and keeps the Meal's share.
- * - Remove generated amount is offered and works on it.
- * - Legacy week-generated rows still show only their own amount.
- *
- * Checked rows on Update Shopping (left alone):
- * - This Meal's share on a checked row grew, shrank or was dropped. The
- *   row is not changed, nothing is added elsewhere for it, and Update
- *   reports the row as skipped.
- * - Unchanged demand on a checked row is left alone and not reported.
- * - Two of this Meal's shares on one checked row name that row once.
- * - A checked Meal row two Meals fed keeps its stored amount when one of
- *   them updates with unchanged demand.
- * - Update twice in a row changes nothing the second time.
- * - Once the row is unchecked, the next Update applies the new amount.
- * - A first add of a new Meal still goes beside a checked match (#226).
- * - After a skipped Update, deleting the Meal with its Shopping amounts and
- *   undoing it behave as before: the share still belongs to the Meal, so the
- *   checked Meal row goes with it and comes back with it.
- * - Uncheck, then Update with a dropped line, withdraws the share and
- *   deletes the Meal row it leaves empty.
- *
- * Undo of a Meal deleted with its Shopping amounts:
- * - The typed row its share sat on was checked meanwhile. Undo puts the
- *   share on an unchecked row of that ingredient, or a new one, and the
- *   checked row stays as it was.
-
- * Row Edit and Remove generated amount carry the version the person saw:
- * - Another Meal's demand joined the row after Edit opened. Saving must not
- *   delete that share; the save is refused as a conflict.
- * - Someone checked the row while it was being edited. The save is refused,
- *   and the checked row keeps the amount it was checked at.
- * - Remove generated amount on a row whose Meal share changed since it was
- *   shown is refused, and the shares stay.
- * - A row id from another Household, or one deleted meanwhile, answers
- *   missing and writes nothing.
- * - At the current version both still save.
- * - A check lands after Remove generated amount reads the row and before it
- *   deletes the share. The checked row never loses a share its shopper saw.
- * - Renaming a typed row that holds a Meal share moves the share to an
- *   unchecked row of the old name, never onto a checked one; with none, to a
- *   new unchecked row.
+ * The Meal → Shopping writers in shopping-contribution.server.ts.
  */
 import { describe, expect, test } from 'vitest'
 import { type Prisma, type PrismaClient } from '#app/generated/prisma/client.ts'
@@ -282,6 +226,7 @@ describe('Meal add reads and writes in one transaction', () => {
 		).toEqual([{ canonicalName: 'carrot' }])
 	})
 
+	// The multiplier changed between the two adds.
 	test('two adds of the same Meal with different lines keep every line', async () => {
 		await using database = await createWalDatabase()
 		const { db: wal } = database
@@ -357,6 +302,8 @@ describe('Meal add reads and writes in one transaction', () => {
 	})
 })
 
+// A row added from Recipe detail (source 'recipe') sums with a Meal's demand
+// as a typed row does.
 describe('rows added from Recipe detail', () => {
 	test('a Meal joining a Recipe-detail row shows the summed amount', async () => {
 		const { list, meal } = await seedHousehold(prisma)
@@ -581,7 +528,8 @@ describe('Update Shopping leaves checked rows alone', () => {
 		])
 	})
 
-	test('after a skipped Update, deleting the Meal with its amounts and Undo work as before', async () => {
+	// The share still belongs to the Meal after the skipped Update.
+	test('after a skipped Update, deleting the Meal with its amounts takes its checked row, and Undo brings it back', async () => {
 		const { household, list, mealA, add, update, setChecked } = await setup()
 		await add(mealA.id, [line('onion', '2', null)])
 		const [onion] = await displayed(prisma, list.id)

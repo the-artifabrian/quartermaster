@@ -8,45 +8,10 @@
  * not.
  *
  * Ingredient lines are cut at MAX_INGREDIENT_LINE_LENGTH, so the cases that
- * check patterns inside one ingredient line grow the line below that cap.
- *
- * Failure list:
- * - A paste line that starts with a section word and then runs on in spaces
- *   ("Ingredients      …x").
- * - A paste whose title line ends in a long run of spaces before other text.
- * - A paste description line "Serves      …x", "Serves 4 a      …x" or
- *   "Serves 4 a::::…x".
- * - A paste of "++[" over and over.
- * - A paste step that is one long run of digits, or of "1.", before a step
- *   that starts with a unit.
- * - Saved steps of digits, or of a number then spaces, shown with Metric on,
- *   which rewrites Fahrenheit in every step on each render.
- * - Ingredient lines with a run of spaces after the amount, unit or
- *   parenthetical that each pattern reads, before text that ends in a line
- *   separator once a stray ")" is dropped ("1      x\r)"). That reaches the
- *   name-and-notes part of the amount, mixed fraction, fluid ounce, can size,
- *   pack size and "juice of" patterns. The leading and embedded paren
- *   patterns read a name those have already matched, which holds no line
- *   separator, so the same part of theirs can't backtrack and has no case.
- * - Ingredient lines that start with a long run of thousands split by
- *   spaces, or with "1 000" and then a run of spaces, before a line
- *   separator.
- * - Ingredient lines with a run of spaces in the name before a paren.
- * - Ingredient lines with runs of spaces before text that never ends in
- *   "(…)", "(approx.)" or "to taste", including lines that hold "(approx."
- *   or end in "taste" somewhere else, or put a paren after the run.
- * - JSON-LD ingredient lines made of "[", "[a](", ",(" or "(".
- * - JSON-LD text that is one long run of "<".
- * - JSON-LD with far more ingredient lines than a Recipe holds: the work
- *   stays the same however many lines follow.
- * - An amount string far longer than any saved amount: the work stays the
- *   same however long it is.
- * - A line longer than the cap: the parse says it was cut, and import reports
- *   Ingredients as shortened. Link markup doesn't count towards the cap.
- * - A title longer than the save limit still gives up a trailing
- *   "(Serves 2)".
- * - JSON-LD with more ingredient rows than a Recipe holds reports Ingredients
- *   as shortened, counting rows the save keeps rather than lines.
+ * check patterns inside one ingredient line grow the line below that cap. The
+ * leading and embedded paren patterns read a name the other patterns have
+ * already matched, which holds no line separator, so they can't backtrack the
+ * same way and have no case.
  */
 import { describe, expect, test } from 'vitest'
 import {

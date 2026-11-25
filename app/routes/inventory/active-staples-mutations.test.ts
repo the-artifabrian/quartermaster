@@ -1,10 +1,3 @@
-/**
- * Failure list for an intent the Staples page no longer sends (a tab still
- * holding a page from before Undo, whose Staple delete now goes to
- * resources/undo-delete):
- * - An old `remove-staple` gets a 400 the page reads as data, and it stays a
- *   Staple. Never a 200, a thrown error or a 500.
- */
 import { RouterContextProvider } from 'react-router'
 import { afterEach, expect, test, vi } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
@@ -80,6 +73,9 @@ test('add returns a useful failure for the inline form', async () => {
 	})
 })
 
+// Deleting a Staple goes through resources/undo-delete. A tab holding an
+// out-of-date page can still post `remove-staple`, and it gets a 400 the page
+// reads as data, never a thrown error or a 500.
 test('an old page that deletes a Staple gets a 400, and it stays a Staple', async () => {
 	const session = await setupActiveStaples()
 

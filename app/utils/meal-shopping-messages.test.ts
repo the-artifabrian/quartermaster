@@ -1,15 +1,4 @@
-/**
- * Failure list for the Meal → Shopping toasts:
- * - One skipped checked row is named as stored, with wording that reads
- *   right for any name ("Lentils (red)", "Tomatoes, chopped", "molasses").
- * - Several skipped rows are counted, not listed.
- * - After other changes the toast leads with "Shopping updated".
- * - No skipped rows gives no message.
- * - The attach-only toast carries a count with the right plural.
- * - A refused Edit says what the row now shows. On a row with its own
- *   amount it also says how much is from Meals, whoever changed it. With no
- *   amount at all, a plain message.
- */
+// The toasts shown after a Meal → Shopping write.
 import { expect, test } from 'vitest'
 import {
 	addedToExistingMessage,

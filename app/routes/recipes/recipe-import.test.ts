@@ -688,8 +688,8 @@ test('image extraction saves the extracted structure and its notes with one prov
 				},
 			],
 			instructions: [{ content: 'Warm and serve.' }],
-			// The response now carries a group per dimension; this one suggests
-			// nothing, and the household has no values to match anyway.
+			// The response carries a group per dimension. This one suggests nothing, and
+			// the household has no values to match anyway.
 			metadata: { cuisine: [], season: [], course: [] },
 		}
 		server.use(

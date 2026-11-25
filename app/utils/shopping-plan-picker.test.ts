@@ -1,36 +1,5 @@
 /**
  * The From Plan picker's line statuses and tick rules.
- *
- * Failure list:
- * - A line this Meal already put on Shopping reads as merely sharing a name
- *   with a row, or as usually on hand, so it can be ticked again.
- * - A line whose name is on the list through a typed row, a Recipe row or
- *   another Meal reads as this Meal's own amount, so the household can't add
- *   this Meal's share to it.
- * - An added line is ticked by default, counts as picked, or is ticked by
- *   the Meal box's tick-all.
- * - The Meal box compares picks with every line, added ones included, so a
- *   Meal with added lines never reads as fully ticked, and its next tap
- *   ticks again instead of emptying.
- * - A Meal whose lines are all added reads as unticked, or its box ticks
- *   something.
- * - A stale pick of an added line (left from before the list changed)
- *   counts toward the Meal box.
- * - A Meal whose other lines are only usually on hand (salt next to lines on
- *   the list) reads as unticked instead of done.
- * - Ticking such an on-hand line leaves the box reading done, so the pick is
- *   hidden; unticking it doesn't bring done back.
- * - A Meal whose lines are all usually on hand, with none on the list,
- *   reads as done though nothing of it is on Shopping.
- * - A Meal with a line still to buy, or a name on the list without its
- *   amount, reads as done because the rest is on the list or on hand.
- * - A line whose amount on Shopping is no longer what the Meal needs (it
- *   was scaled after the add) reads as on the list, counts toward done, or
- *   can be ticked, though ticking would change nothing.
- * - A Meal with nothing left to tick but such a line reads as done.
- * - A line whose amount sits on a Later row reads as on the list, so it
- *   can't be moved to Next shop; or it is ticked by default, or makes a
- *   Meal done.
  */
 import { expect, test } from 'vitest'
 import {

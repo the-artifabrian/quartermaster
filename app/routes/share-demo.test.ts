@@ -1,43 +1,7 @@
 /**
- * Failure list for demo Households on the public share pages, which are open
- * to anyone with the link:
- *
- * 1. A Recipe in a demo user's Household shows at /share/:recipeId. It must
- *    answer as a missing Recipe does, signed in or not.
- * 2. A Menu in a demo Household shows at /share/menus/:menuId, or one of its
- *    Recipes at /share/menus/:menuId/recipes/:itemId. Both must answer as
- *    missing.
- * 3. A signed-in user saves a demo Recipe or Menu through the share page's
- *    Save, which reads the source the same way. It must answer as missing
- *    and copy nothing.
- * 4. A real Household's Recipe and Menu stop showing. They must still show.
- * 5. The demo template's Household (owned by a user under the template email
- *    domain, with no `demoExpiresAt`) shows, or its Recipe can be saved. It
- *    must answer as missing too.
- *
- * Failure list for a demo user saving a real shared Recipe or Menu:
- *
- * 6. The Save writes a new photo file under the demo user's key. It must
- *    point the copy at the source's photo instead, as demo copies share the
- *    template's. A real user still gets a file of their own.
- * 7. Deleting the source Recipe deletes the file the demo copy still shows,
- *    or removing the demo user deletes the file the source still shows.
- * 8. A demo user's Save that fails partway cleans up "its" photo, which is
- *    the source's file. It must leave it alone.
- *
- * A demo user's copy points at the source's file, so these orderings of a
- * Save against the source's owner must never leave a copy whose photo file
- * is gone:
- *
- * 9. The source Recipe is deleted after the Save read it and before the
- *    copy is written. Nothing showed the photo yet, so the delete removed
- *    the file, and the copy must not take its key. Same for a Menu's Save.
- * 10. The source's photo is replaced in the same window, which removes the
- *    old file. The copy must not take the old key.
- * 11. The Save runs while the source's delete is removing the photo file:
- *    the file is gone but the source's rows are still there for the Save to
- *    read. The delete must take the rows first, so the Save can't find a key
- *    whose file is about to go.
+ * The public share pages are open to anyone with the link, so a demo
+ * Household's Recipes and Menus, the template's included, answer there as
+ * missing ones do.
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -375,6 +339,9 @@ async function savedPhotoKeys(householdId: string) {
 	return images.map((image) => image.objectKey)
 }
 
+// Demo copies share the template's photo files, so a demo user's Save points
+// at the source's file too. These copies must never be left with a photo file
+// that is gone.
 test("a demo user's Save of a shared Recipe and Menu points at the source's photo", async () => {
 	await using source = await sharedWithPhoto()
 	const recipeSaver = await household({ demo: true })
@@ -535,6 +502,8 @@ function recipesIn(householdId: string) {
 	})
 }
 
+// Nothing showed the photo yet, so the delete removed the file, and the copy
+// must not take its key.
 test('a demo Save of a Recipe deleted while it saves copies it without the photo', async () => {
 	await using source = await sharedWithPhoto()
 	const demo = await household({ demo: true })
@@ -626,6 +595,8 @@ test('a demo Save of a Recipe whose photo is replaced while it saves shows the n
 	expect(await missingPhotos(demo.householdId)).toEqual([])
 })
 
+// The delete takes the rows first, so the Save can't find a key whose file is
+// about to go.
 test("a demo Save while the source's delete removes its photo finds the Recipe gone", async () => {
 	await using source = await sharedWithPhoto()
 	const demo = await household({ demo: true })

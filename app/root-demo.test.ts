@@ -1,12 +1,6 @@
-// Failure list for the demo fields on the root loader, which the banner draws
-// its first paint from:
-// - a real user, signed in: no demo fields at all, so no banner
-// - nobody signed in: no demo fields
-// - a demo user: when the demo ends, and the time left by the server's clock
-//   when the page was made, so a browser with a wrong clock still draws the
-//   right time
-// - a demo user whose time is up before expiry has deleted them: still a
-//   demo user, with no time left (never a negative time)
+// The demo banner draws its first paint from these root loader fields. The
+// time left comes from the server's clock, so a browser with a wrong clock
+// still shows the right time.
 import { RouterContextProvider } from 'react-router'
 import { expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'

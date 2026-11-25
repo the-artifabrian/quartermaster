@@ -31,67 +31,8 @@ import {
 import '#tests/setup/db-setup.ts'
 import '#tests/setup/mocks-setup.ts'
 
-// Failure list: what could let a code verify one account and act on another,
-// or lose a code the user still needs.
-//
-// 2FA sign-in (a pending session waits in the verify cookie):
-// 1. The pending session belongs to one user, and the code and target belong
-//    to another user with 2FA. The pending session must not be signed in.
-// 2. The pending session and the target are the same user. Signing in works.
-// Reverify (no pending session):
-// 3. The signed-in user differs from the target whose code was entered. Their
-//    session must not be marked as recently verified.
-// 4. Nobody is signed in and nothing is pending (the verify cookie expired).
-//    A valid code signs nobody in and sends the user back to sign in.
-// 5. The signed-in user enters their own code. Their session counts as
-//    recently verified.
-// Reverify window:
-// 6. Verified 90 minutes ago: no reverify yet.
-// 7. Verified 3 hours ago: reverify.
-// Change email:
-// 8. The signed-in user differs from the target. Neither account's email
-//    changes.
-// 9. The signed-in user is due to reverify. They are sent to reverify, and the
-//    change-email code survives.
-// 10. Request change, go stale, submit code, reverify, submit the code again:
-//     the email changes, which needs both the code and the new address kept
-//     through the reverify step. The used code then stops working.
-// Shared browser (someone starts a 2FA sign-in and walks away):
-// 11. Another person then signs in without 2FA. Their sign-in clears the
-//     pending state, and pages that need a recent verification open.
-// 12. The pending state is still there next to someone else's session (it
-//     arrived after they signed in). It doesn't make them reverify.
-// 13. That person has 2FA and is due to reverify. Their own code works.
-// 14. Signing out clears the pending state with the session, and so do the
-//     other ways a session ends here: deleting the account, and a session
-//     that has expired or gone.
-// 15. Pending state that belongs to the signed-in user still asks for 2FA,
-//     and the person who started the sign-in can still finish it (2).
-// A pending 2FA sign-in's limits (only someone with the password makes one):
-// 16. Older than 10 minutes, the right code doesn't finish it, its Session
-//     row is deleted, and it no longer asks the signed-in user for 2FA.
-// 17. Five wrong codes end it: the row goes, the answer sends the user to log
-//     in again, and the right code no longer works.
-// 18. Four wrong codes and then the right one still sign in.
-// 19. Wrong codes sent all at once each count.
-// 20. A code for an account that is neither pending on this browser nor
-//     signed in on it gets the same answer whether it is right or wrong.
-// 21. A finished sign-in gets a new session id, so a kept copy of the verify
-//     cookie can't end or reuse the signed-in session.
-// 22. A request that read the pending row just before another request ended
-//     it doesn't start counting again from 1.
-// The try count is on the pending Session row, so it holds across:
-// 23. A restart (a deploy) between two wrong codes. The count carries on, and
-//     the fifth code still ends the sign-in.
-// 24. Two wrong codes at once in WAL mode, as production runs. Each counts,
-//     one as the first try and one as the second.
-// 25. Two pending sign-ins of the same user, on two devices. Tries on one
-//     don't count against the other.
-// 26. A sign-in ended by five wrong codes. Logging in again starts a new
-//     count, so the owner isn't held to the old one.
-// 27. Codes sent at once are all counted before any is checked. Five wrong
-//     ones counted with their checks still running, then the right one: it
-//     is the sixth try and signs nobody in, though it is right.
+// These cases look for anything that lets a code verify one account and act on
+// another, or loses a code the user still needs.
 
 const twoHoursAgo = (extraMinutes: number) =>
 	Date.now() - 1000 * 60 * (120 + extraMinutes)
@@ -251,6 +192,9 @@ describe('2FA sign-in', () => {
 	})
 })
 
+// Only someone with the password can start a pending sign-in. Each one keeps
+// its try count on its own Session row, so the count survives a restart and
+// sees concurrent tries, and another device's sign-in has a count of its own.
 describe('pending 2FA sign-in limits', () => {
 	const pendingKey = 'unverified-session-id'
 
@@ -585,6 +529,7 @@ describe('reverify', () => {
 	})
 })
 
+// Someone starts a 2FA sign-in on a shared browser and walks away.
 describe('shared browser', () => {
 	const pendingKey = 'unverified-session-id'
 
@@ -890,6 +835,7 @@ describe('change email', () => {
 		).toEqual({ email: user.email })
 	})
 
+	// This needs both the code and the new address kept through the reverify step.
 	test('the email changes after a reverify in the middle, and the code is then spent', async () => {
 		const user = await createUserWithTwoFA()
 		const session = await createSession(user.id)

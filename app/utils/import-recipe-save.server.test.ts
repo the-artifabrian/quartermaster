@@ -1,14 +1,6 @@
 /**
  * Saving an import checks for a Recipe from the same link and creates the new
  * one in a single write transaction.
- *
- * Failure list:
- * - Two saves of one link at once (a shared link's automatic save and a tap)
- *   both find nothing and save two Recipes.
- * - The second save errors instead of answering with the Recipe the first
- *   one saved.
- * - Another Household's Recipe from the same link stops this Household from
- *   saving its own.
  */
 import { expect, test } from 'vitest'
 import { type PrismaClient } from '#app/generated/prisma/client.ts'
@@ -55,6 +47,7 @@ async function answer(response: Response | { data: unknown }) {
 	return response.data
 }
 
+// A shared link's automatic save and a tap can arrive together.
 test('two saves of the same link at once keep one Recipe and answer the second with it', async () => {
 	await using database = await createWalDatabase()
 	const { db } = database

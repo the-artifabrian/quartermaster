@@ -4,22 +4,9 @@ import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { backgroundWorkSettled } from './utils/background.server.ts'
 import { connectSources, handleError } from './entry.server.tsx'
 
-// Failure list for the server_error event sent when a loader or action
-// throws:
-// - a code, a token or an email address in the request's query string must
-//   not reach PostHog, also when it is nested in redirectTo
-// - the path and parameters that aren't secret stay, so the error can be
-//   found
-// - an aborted request sends nothing
-// - a request the app turns away is not a server error: React Router's own
-//   405 (a POST to a page with no action) and 404, a Response the app throws
-//   with a 4xx status, and the 400 for a body that isn't a form send nothing
-//   and print no stack, since the request log already has the status
-// - a 5xx error response, a thrown 5xx Response and a thrown value that isn't
-//   an Error still send server_error
-// - React Router's origin check answers 400 but hands over a plain Error. It
-//   stays reported on purpose: a mismatch can mean the proxy or its
-//   X-Forwarded-Host setup broke, which turns away every form on the site
+// handleError sends server_error to PostHog when a loader or action throws. A
+// request the app turns away sends nothing, since the request log already has
+// its status.
 
 const { captureServerEvent } = vi.hoisted(() => ({
 	captureServerEvent: vi.fn(),
@@ -113,6 +100,9 @@ test('a 5xx response and a thrown value that is not an Error still send server_e
 	])
 })
 
+// React Router's origin check answers 400 but hands over a plain Error. A
+// mismatch can mean the proxy or its X-Forwarded-Host setup broke, which turns
+// away every form on the site.
 test('a failed origin check is still reported, though it answers 400', async () => {
 	captureServerEvent.mockClear()
 	consoleError.mockImplementation(() => {})
@@ -125,13 +115,8 @@ test('a failed origin check is still reported, though it answers 400', async () 
 	expect(captureServerEvent.mock.calls[0]![1]).toBe('server_error')
 })
 
-// Failure list for connect-src:
-// - a PostHog proxy host (production's t.useqm.app) is both the API host and
-//   the asset host, so it must be listed once, also when POSTHOG_HOST is set
-//   with a trailing slash and the asset host comes back as a bare origin
-// - PostHog Cloud keeps both its API host and its assets host
-// - with no PostHog key only the app itself is listed, and development adds
-//   the websocket Vite reloads over
+// A PostHog proxy host such as t.useqm.app is both the API host and the asset
+// host, so it must be listed once.
 test('connect-src lists a PostHog proxy host once', () => {
 	const sources = connectSources({
 		mode: 'production',

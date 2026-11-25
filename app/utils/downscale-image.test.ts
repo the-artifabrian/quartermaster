@@ -1,11 +1,3 @@
-// Failure list for shrinking a picked photo in the browser (added for the
-// pixel limit; the byte-limit cases below came first):
-// - a photo small on disk but with more pixels than the server will decode
-//   is re-encoded, no larger than MAX_DOWNSCALED_EDGE
-// - a small photo exactly at the pixel limit is left as it is
-// - a small photo the browser can't decode is left for the server to judge
-// - a PNG, found by its first bytes, gets the lower PNG limit: one over it is
-//   re-encoded, one at it is left alone, and a JPEG of the same size stays
 import { describe, expect, test } from 'vitest'
 import {
 	downscaleImageToFit,
@@ -129,6 +121,8 @@ describe('downscaleImageToFit', () => {
 		expect(await downscaleImageToFit(file, 3 * MB, decode)).toBe(file)
 	})
 
+	// The server decodes only so many pixels, so a photo small on disk can still
+	// be too big.
 	test('re-encodes a photo small on disk with more pixels than the limit', async () => {
 		const file = photo(2 * MB, 'cookbook.jpg')
 		// 24 MP, the size of a flat page shot on a recent iPhone.

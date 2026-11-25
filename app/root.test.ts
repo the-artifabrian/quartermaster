@@ -162,8 +162,8 @@ test('an explicit same-URL revalidation re-runs the root loader', () => {
 
 test('a successful form submission re-runs the root loader', () => {
 	// After a successful action the router forces revalidation
-	// (isRevalidationRequired), so deferring to defaultShouldRevalidate keeps
-	// the old `if (formAction) return true` behavior for the success case.
+	// (isRevalidationRequired), so deferring to defaultShouldRevalidate re-runs
+	// the root loader after every successful form submission.
 	expect(
 		shouldRevalidate(
 			navigation({
@@ -177,8 +177,8 @@ test('a successful form submission re-runs the root loader', () => {
 
 test('a failed (4xx) action skips the root loader', () => {
 	// The router deliberately skips revalidation after 4xx action results
-	// (shouldSkipRevalidation). The old unconditional formAction branch
-	// overrode that and re-ran the root queries on every validation error.
+	// (shouldSkipRevalidation). Returning true for every form action would
+	// override that and re-run the root queries on every validation error.
 	expect(
 		shouldRevalidate(
 			navigation({

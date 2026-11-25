@@ -76,8 +76,8 @@ describe('parseEnhanceResponse', () => {
 	})
 
 	it('returns null for a fenced response', () => {
-		// Fences used to be scraped off. Structured outputs return bare JSON, so
-		// a fenced response is a failure now rather than something to repair.
+		// Structured outputs return bare JSON, so a fenced response is a failure
+		// and isn't repaired.
 		const text = '```json\n{"description": "A test recipe."}\n```'
 		expect(parseEnhanceResponse(text)).toBeNull()
 	})

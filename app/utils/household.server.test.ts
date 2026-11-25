@@ -460,8 +460,8 @@ describe('acceptInvite', () => {
 		const owner = await setupUser()
 		const joiner = await setupUserWithRecipe('Joiner Dinner')
 
-		// A colliding title, so the moved menu also gets re-suffixed — the
-		// move must preserve content, not just retitle (#102).
+		// A colliding title, so the moved menu also gets re-suffixed. The move must
+		// keep its content as well as retitle it.
 		await prisma.menu.create({
 			data: {
 				title: 'Feast',
@@ -643,7 +643,7 @@ describe('acceptInvite', () => {
 		).toBe(0)
 	})
 
-	test('sole member: a Menu snapshot Meal moves whole — sections, notes, lines, and source reference survive (#107)', async () => {
+	test('sole member: a Menu snapshot Meal moves whole — sections, notes, lines, and source reference survive', async () => {
 		const owner = await setupUserWithRecipe('Owner Dinner')
 		const joiner = await setupUserWithRecipe('Joiner Dinner')
 		const weekStart = new Date('2026-02-02T00:00:00.000Z')
@@ -1295,12 +1295,9 @@ describe('Recipe classification household moves', () => {
 	})
 })
 
-// Failure list for invites and the demo, the direction the demo guard can't
-// see because the person joining is a real user:
-// - an invite into a demo user's Household (none can be made through the
-//   app, but one could be left in the data) shows on the join page and lets
-//   a real user in. It must read as invalid, and the joiner stays where they
-//   were.
+// The demo guard can't see this direction, because the person joining is a
+// real user. The app can't make an invite into a demo Household, but one could
+// be left in the data.
 describe('an invite into a demo Household', () => {
 	test('reads as invalid and nobody joins', async () => {
 		const demo = await setupUser()

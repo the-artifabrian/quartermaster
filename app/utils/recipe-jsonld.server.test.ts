@@ -127,17 +127,9 @@ describe('yield', () => {
 		).toMatchObject({ yieldAmount: 4, yieldLabel: 'servings' })
 	})
 
-	// Failure list for the number in a yield, which parseAmount reads the way
-	// it reads an ingredient amount:
-	// - "1,000,000 cookies" is a million, not 1 with ",000 cookies" as label.
-	// - "1,000 cookies" has no single value (1 or 1000), so there is no yield.
-	// - "1 000 cookies", with a plain or no-break space, is a thousand.
-	// - A count before a size, "4 500 ml jars", "Serves 8 250 ml glasses",
-	//   "Makes 24 100g portions", "3 250 g jars", is that count; a group with
-	//   no single value falls back to its first number.
-	// - "6 100-calorie bars" never groups: a dash after the digits joins
-	//   them to the word that follows.
-	// - "1.5 litres" and "1,5 litres" are still 1.5.
+	// parseAmount reads the number in a yield the way it reads an ingredient
+	// amount. A count before a size ("4 500 ml jars") is that count, and a dash
+	// after the digits ("6 100-calorie bars") joins them to the word that follows.
 	test.each([
 		['1,000,000 cookies', 1_000_000, 'cookies'],
 		['1 000 cookies', 1000, 'cookies'],

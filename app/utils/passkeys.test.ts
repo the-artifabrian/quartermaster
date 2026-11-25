@@ -13,29 +13,7 @@ import {
 	unknownPasskeyError,
 } from './passkeys.ts'
 
-// Failure list for the browser-side passkey helpers:
-// 1. The browser has no PublicKeyCredential at all (an old browser, or the
-//    server render). Autofill reports false and neither signal throws.
-// 2. PublicKeyCredential exists without the Signal API (Firefox, Safari before
-//    26). Both signals do nothing and don't throw.
-// 3. getClientCapabilities says conditionalGet is false. No autofill, even
-//    when isConditionalMediationAvailable would say yes.
-// 4. getClientCapabilities is missing (iOS 16 to 17.3). The check falls back
-//    to isConditionalMediationAvailable.
-// 5. getClientCapabilities rejects. The check falls back instead of throwing.
-// 6. A signal call rejects. The rejection is swallowed with a warning.
-// 7. An id that isn't unpadded base64url. The signal is skipped, so the
-//    browser can't throw a TypeError on page load.
-// 8. A cancelled or timed-out prompt (NotAllowedError) and a prompt cancelled
-//    by the app (AbortError) count as dismissed, also when SimpleWebAuthn
-//    wraps them. InvalidStateError and other errors don't.
-// 9. A sign-in answer counts as "unknown passkey" only as a 404 with the
-//    route's own "Passkey not found" body. A 404 with another body (a proxy
-//    page, a missing route), a 400 with that message, or a body that isn't
-//    the route's JSON doesn't.
-// 10. Another tap after an unfinished prompt is offered while the options are
-//     fresh and stops before the server's five minutes run out. A clock that
-//     went backwards counts as stale.
+// The browser-side passkey helpers.
 
 afterEach(() => {
 	vi.unstubAllGlobals()
@@ -44,6 +22,7 @@ afterEach(() => {
 const handle = 'dXNlci0x'
 const credentialId = 'Y3JlZC0x'
 
+// An old browser, or the server render.
 test('with no PublicKeyCredential, autofill is off and the signals do nothing', async () => {
 	vi.stubGlobal('PublicKeyCredential', undefined)
 	await expect(supportsPasskeyAutofill()).resolves.toBe(false)
@@ -59,6 +38,7 @@ test('with no PublicKeyCredential, autofill is off and the signals do nothing', 
 	).resolves.toBeUndefined()
 })
 
+// Firefox, and Safari before 26.
 test('without the Signal API the signals do nothing', async () => {
 	vi.stubGlobal('PublicKeyCredential', class {})
 	await expect(
@@ -113,6 +93,7 @@ test('conditionalGet true turns autofill on', async () => {
 	await expect(supportsPasskeyAutofill()).resolves.toBe(true)
 })
 
+// iOS 16 to 17.3 has no getClientCapabilities.
 test('without getClientCapabilities, isConditionalMediationAvailable decides', async () => {
 	vi.stubGlobal('PublicKeyCredential', {
 		isConditionalMediationAvailable: async () => true,
@@ -159,6 +140,7 @@ test('a signal that rejects is swallowed with a warning', async () => {
 	expect(consoleWarn).toHaveBeenCalledTimes(2)
 })
 
+// Skipping the signal keeps the browser from throwing a TypeError on page load.
 test('ids that aren’t unpadded base64url skip the signal', async () => {
 	consoleWarn.mockImplementation(() => {})
 	const signalUnknownCredential = vi.fn(async () => {})
@@ -233,6 +215,8 @@ test('only a 404 with the route’s own body means the passkey is unknown', () =
 	expect(isUnknownPasskeyAnswer(404, null)).toBe(false)
 })
 
+// The window ends before the server's five minutes run out, and a clock that
+// went backwards counts as stale.
 test('another tap is offered only while the password check still holds', () => {
 	const receivedAt = 1_000_000
 	expect(isAddPasskeyRetryStale(receivedAt, receivedAt)).toBe(false)

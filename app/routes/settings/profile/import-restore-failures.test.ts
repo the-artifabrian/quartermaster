@@ -1,71 +1,6 @@
 /**
  * What a full restore does with tiers, with data that doesn't land, and with
- * files that are too big. Failure list:
- *
- * Tiers (Plan and Shopping are free features)
- * - A Free user's full restore skips the Plan and Shopping sections.
- * - A Free Household with one Meal never ticks "Plan a Meal" in Getting
- *   Started.
- *
- * Skipped means "already there"; anything else that didn't land is a failure
- * - A Recipe the Household already has gets counted as failed instead of
- *   skipped.
- * - A Meal already in the Plan gets counted as failed on a second restore.
- * - A Meal card with a title but an unknown ref (a missing Recipe card, kept
- *   on purpose) gets counted as failed.
- * - A Meal whose only card has neither a title nor a known ref vanishes as
- *   "skipped".
- * - A Meal whose Recipe is deleted while the restore runs vanishes as
- *   "skipped", or takes the rest of its week down with it.
- * - A Meal with an unreadable date vanishes as "skipped".
- * - A plan with an unreadable weekStart drops all its Meals uncounted while
- *   the result still reads as a success.
- *
- * Days in the file (a Plan shows a Meal on its stored UTC-midnight day, in the
- * plan whose Monday starts that week)
- * - A hand-edited weekStart on a Wednesday makes a plan that no week opens,
- *   and its Meals count as restored though they never show.
- * - A Meal date with an offset (`T00:00:00+09:00`) is stored as an instant on
- *   the day before, at 15:00, which no day shows.
- * - A date or week with junk after its ten characters restores.
- * - A Meal dated outside its plan's week restores where no day shows it, or
- *   fails under the same reason as a day that isn't one.
- * - A real export, whose days carry `T00:00:00.000Z`, stops restoring, or
- *   stops skipping its Meals on a second restore.
- * - A plain `yyyy-MM-dd` day stops restoring.
- * - Two plans in the file whose weeks start on the same Monday restore their
- *   shared Meal twice.
- * - A pre-#104 entry with an offset date lands on the wrong day.
- * - A pre-#104 entry whose Recipe isn't in the file vanishes as "skipped".
- * - A malformed Shopping item drops the whole Shopping section uncounted, or
- *   leaves Recipes half-restored.
- * - A database error that isn't one of the expected write failures is
- *   swallowed and the restore reports success, and a second run then
- *   duplicates what the first one saved.
- * - A failure is logged with the user's own text in it, or isn't logged,
- *   or reaches analytics as a server error.
- * - An unexpected error replaces the page with the root error screen.
- * - An unexpected Recipe error skips the sub-Recipe links of the Recipes
- *   already saved, and a rerun skips those Recipes, so the links are lost.
- * - A Meal deleted before its Shopping links are written fails the whole
- *   restore after everything else is saved.
- *
- * Size and count limits
- * - A body over the cap is read whole before anything checks its size, when
- *   it declares no Content-Length.
- * - A body that declares a Content-Length over the cap is read at all.
- * - A urlencoded body skips the cap that applies to the form's own encoding,
- *   and a tab on the old page gets no hint to reload.
- * - A file right at the cap, full of line breaks, grows on the way and gets
- *   refused.
- * - Nested empty arrays or objects within the size cap make JSON.parse build
- *   millions of values; brackets inside strings get counted as structure.
- * - Two restores run at once and hold two parsed files in memory.
- * - A file within every per-list limit still carries thousands of Meals,
- *   cards, lines, Shopping items or links, and keeps the server writing for
- *   minutes.
- * - A window-era plan's Meals are counted twice, once more as entries.
- * - A file right at a count cap gets refused.
+ * files that are too big.
  */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
@@ -237,6 +172,8 @@ describe('Plan and Shopping restore on every tier', () => {
 	})
 })
 
+// Skipped means already there. Anything else that didn't land counts as
+// failed.
 describe('skipped and failed', () => {
 	test('a Recipe the Household already has is still skipped, not failed', async () => {
 		const session = await setupUser()
@@ -414,6 +351,8 @@ describe('skipped and failed', () => {
 		expect(await countMeals(session)).toBe(1)
 	})
 
+	// A Plan shows a Meal on its stored UTC-midnight day, in the plan whose Monday
+	// starts that week.
 	test('a weekStart on a Wednesday restores into the week that Wednesday is in', async () => {
 		const session = await setupUser()
 		const { body } = await restore(
@@ -513,7 +452,7 @@ describe('skipped and failed', () => {
 		])
 	})
 
-	test('a pre-#104 entry with an offset date restores on the day it names', async () => {
+	test('a fixed-slot entry with an offset date restores on the day it names', async () => {
 		const session = await setupUser()
 		const { body } = await restore(
 			session,
@@ -539,7 +478,7 @@ describe('skipped and failed', () => {
 		])
 	})
 
-	test('a pre-#104 entry whose Recipe is not in the file counts as a failed Plan entry', async () => {
+	test('a fixed-slot entry whose Recipe is not in the file counts as a failed Plan entry', async () => {
 		// Each failure is logged; the logging test checks what the lines say.
 		consoleError.mockImplementation(() => {})
 		const session = await setupUser()

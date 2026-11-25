@@ -1,18 +1,6 @@
-// Failure list for the demo banner's countdown. The root loader sends the time
-// left by the server's clock (`demoMsLeft`); the page counts down from it with
-// the browser's clock.
-// - the browser's clock is hours ahead of or behind the server's: the time
-//   left still follows the server, because only time passed on the browser
-//   counts, never the browser's own date
-// - the tab sleeps and its timers stop, then wakes 50 minutes later: the next
-//   reading has lost those 50 minutes, because it measures the time passed
-//   rather than counting ticks
-// - the browser's clock is set back while the page is open: the time left
-//   never grows past what the server said
-// - the time runs out with the page open: zero and below read as ended,
-//   never "0 min" or a negative number
-// - under a minute left: it reads "1 min" until it ends (rounded up)
-// - whole hours read without minutes, and hours and minutes balance
+// The demo banner's countdown. The root loader sends the time left by the
+// server's clock (`demoMsLeft`), and the page counts down from it with the
+// browser's clock.
 import { expect, test } from 'vitest'
 import {
 	demoMsLeftNow,
@@ -34,6 +22,7 @@ test('a browser clock hours off the server still counts down from the server’s
 	}
 })
 
+// The countdown measures the time passed instead of counting timer ticks.
 test('after the tab sleeps, the next reading has lost the time it slept', () => {
 	const loadedAt = 1_000_000
 	expect(

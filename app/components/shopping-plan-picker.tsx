@@ -5,6 +5,7 @@ import { BottomSheet, opensAsSheet } from '#app/components/ui/bottom-sheet.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { PendingButton } from '#app/components/ui/pending-button.tsx'
+import { useFetcherSettled } from '#app/hooks/use-fetcher-settled.ts'
 import {
 	Popover,
 	PopoverContent,
@@ -113,7 +114,6 @@ function lineNote(line: PlanPickerLine) {
  */
 export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 	const fetcher = useFetcher<AddFromPlanResponse>()
-	const previousFetcherState = useRef(fetcher.state)
 	const choiceRequest = useRef<AbortController>(null)
 	const [open, setOpen] = useState(false)
 	const [presentation, setPresentation] = useState<Presentation>('popover')
@@ -212,18 +212,14 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 		0,
 	)
 
-	useEffect(() => {
-		if (
-			previousFetcherState.current !== 'idle' &&
-			fetcher.state === 'idle' &&
-			fetcher.data?.status === 'success'
-		) {
+	useFetcherSettled(fetcher, (data) => {
+		if (data?.status === 'success') {
 			const {
 				createdRowCount,
 				attachedCount,
 				alreadyContributedCount,
 				promotedRowCount,
-			} = fetcher.data
+			} = data
 			if (createdRowCount > 0) {
 				toast.success(
 					`Added ${createdRowCount} item${createdRowCount === 1 ? '' : 's'} to Next shop`,
@@ -242,8 +238,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 			}
 			setOpen(false)
 		}
-		previousFetcherState.current = fetcher.state
-	}, [fetcher.data, fetcher.state])
+	})
 
 	function toggleLine(mealId: string, canonicalName: string) {
 		setPicks((current) => {

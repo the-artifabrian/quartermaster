@@ -1,12 +1,6 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-	data,
-	Link,
-	useFetcher,
-	useFetchers,
-	useRevalidator,
-} from 'react-router'
+import { data, Link, useFetcher, useRevalidator } from 'react-router'
 import { toast } from 'sonner'
 import { OfflineErrorBoundary } from '#app/components/offline-error-boundary.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
@@ -25,6 +19,7 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { RowCollapse } from '#app/components/ui/row-collapse.tsx'
+import { usePendingShoppingItems } from '#app/hooks/use-pending-shopping-items.ts'
 import {
 	useSpeechToText,
 	type TranscribedItem,
@@ -46,13 +41,11 @@ import {
 import {
 	LATER,
 	NEXT_SHOP,
-	parseShoppingHorizon,
 	type ShoppingHorizon,
 } from '#app/utils/shopping-horizon.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import {
 	type DisplayShoppingItem,
-	makeOptimisticShoppingItem,
 	mergeOptimisticShoppingItems,
 } from '#app/utils/shopping-optimistic.ts'
 import { requireUserWithTier } from '#app/utils/subscription.server.ts'
@@ -194,63 +187,6 @@ export async function action({ request }: Route.ActionArgs) {
 	// tab opened before Undo (those go to resources/undo-delete). It saves
 	// nothing, and the status says so; a 200 would read as done.
 	return data({ status: 'error' as const }, { status: 400 })
-}
-
-/**
- * Optimistically render items from in-flight `add` / `bulk-add` submissions so a
- * newly added item appears instantly instead of waiting for the server round-trip
- * + revalidation. Reads every shopping fetcher via useFetchers, so it captures all
- * add entry points at once (desktop quick-add, mobile FAB, voice bulk-add). Items
- * show only while the fetcher is non-idle; by the time it returns to idle the
- * fetcher's own revalidation has landed the real row, and the merge dedups by name
- * to avoid a duplicate during any overlap (e.g. a concurrent SSE revalidation).
- */
-function usePendingShoppingItems(listId: string): DisplayShoppingItem[] {
-	const fetchers = useFetchers()
-	const pending: DisplayShoppingItem[] = []
-	for (const fetcher of fetchers) {
-		if (fetcher.state === 'idle' || !fetcher.formData) continue
-		const intent = fetcher.formData.get('intent')
-		if (intent === 'add') {
-			const name = String(fetcher.formData.get('name') ?? '')
-			if (!name.trim()) continue
-			pending.push(
-				makeOptimisticShoppingItem({
-					name,
-					quantity: fetcher.formData.get('quantity') as string | null,
-					unit: fetcher.formData.get('unit') as string | null,
-					listId,
-					horizon: parseShoppingHorizon(fetcher.formData.get('horizon')),
-				}),
-			)
-		} else if (intent === 'bulk-add') {
-			const raw = fetcher.formData.get('items')
-			const horizon = parseShoppingHorizon(fetcher.formData.get('horizon'))
-			if (typeof raw !== 'string') continue
-			try {
-				const items = JSON.parse(raw) as Array<{
-					name?: string
-					quantity?: string
-					unit?: string
-				}>
-				for (const item of items) {
-					if (!item?.name?.trim()) continue
-					pending.push(
-						makeOptimisticShoppingItem({
-							name: item.name,
-							quantity: item.quantity ?? null,
-							unit: item.unit ?? null,
-							listId,
-							horizon,
-						}),
-					)
-				}
-			} catch {
-				// Ignore malformed bulk payloads. The server rejects them too.
-			}
-		}
-	}
-	return pending
 }
 
 function LaterQuickAdd() {

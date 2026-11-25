@@ -16,6 +16,15 @@ describe('formatEventMessage', () => {
 		expect(result.url).toBe('/shopping')
 	})
 
+	test('shopping_list_generated with one item', () => {
+		const result = formatEventMessage(
+			'shopping_list_generated',
+			{ count: 1 },
+			'Alex',
+		)
+		expect(result.message).toBe('Alex updated Shopping (1 item)')
+	})
+
 	test('shopping_list_item_added', () => {
 		const result = formatEventMessage(
 			'shopping_list_item_added',

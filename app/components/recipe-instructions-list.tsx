@@ -65,7 +65,7 @@ export function RecipeInstructionsList({
 									// The width of an ingredient's checkbox, so steps and ingredients
 									// share their columns.
 									'flex h-8 w-6 shrink-0 items-center justify-center font-serif text-xl leading-none transition-colors print:size-5 print:text-sm',
-									isChecked ? 'text-primary/40' : 'text-muted-foreground',
+									isChecked ? 'text-faint' : 'text-muted-foreground',
 								)}
 							>
 								{isChecked ? (

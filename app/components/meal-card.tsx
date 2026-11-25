@@ -982,7 +982,7 @@ export function MealCard({
 								)}
 							>
 								{row.kind === 'heading' ? (
-									<h5 className="text-muted-foreground/80 pl-8 text-[10px] font-semibold tracking-wider uppercase">
+									<h5 className="text-muted-foreground pl-8 text-[10px] font-semibold tracking-wider uppercase">
 										{row.name}
 									</h5>
 								) : row.kind === 'recipe' ? (

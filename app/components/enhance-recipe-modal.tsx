@@ -264,10 +264,10 @@ function FieldRow({
 			<div className="min-w-0 flex-1">
 				<p className="text-sm font-medium">{label}</p>
 				<p className="text-muted-foreground mt-0.5 text-xs">
-					<span className="text-muted-foreground/70">Current:</span> {current}
+					<span className="text-muted-foreground">Current:</span> {current}
 				</p>
 				<p className="text-primary mt-0.5 text-xs">
-					<span className="text-primary/70">Suggested:</span> {suggested}
+					<span className="text-primary">Suggested:</span> {suggested}
 				</p>
 			</div>
 		</label>

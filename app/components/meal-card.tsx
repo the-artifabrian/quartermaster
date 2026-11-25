@@ -178,7 +178,7 @@ function ItemRow({
 							<Icon name="check" className="size-3" />
 						</span>
 					) : (
-						<span className="border-muted-foreground/30 hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
+						<span className="border-control-edge hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
 					)}
 				</button>
 			</cookedFetcher.Form>
@@ -191,7 +191,9 @@ function ItemRow({
 					<h4
 						className={cn(
 							'flex min-w-0 flex-1 font-serif text-[15px] leading-snug',
-							isCooked && 'text-faint line-through',
+							// Faint is too light on today's tint in the desktop week.
+							isCooked &&
+								'text-faint [[data-tinted]_&]:text-muted-foreground line-through',
 						)}
 					>
 						{item.recipe ? (
@@ -934,13 +936,14 @@ export function MealCard({
 								<Icon name="check" className="size-3" />
 							</span>
 						) : (
-							<span className="border-muted-foreground/30 hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
+							<span className="border-control-edge hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
 						)}
 					</button>
 					<p
 						className={cn(
 							'flex min-w-0 flex-1 font-serif text-[15px] leading-snug md:block',
-							isComplete && 'text-faint line-through',
+							isComplete &&
+								'text-faint [[data-tinted]_&]:text-muted-foreground line-through',
 						)}
 					>
 						{meal.genericText}

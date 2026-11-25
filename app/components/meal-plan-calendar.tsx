@@ -656,7 +656,8 @@ export function MealPlanCalendar({
 									!selected &&
 										!today &&
 										isPast(date, todayDate) &&
-										'text-faint',
+										// Faint is too light on the hover fill.
+										'text-faint hover:text-muted-foreground',
 								)}
 							>
 								<span className="text-[9px] font-semibold tracking-wide uppercase">
@@ -716,6 +717,8 @@ export function MealPlanCalendar({
 					return (
 						<section
 							key={dateStr}
+							// Text on the tint takes no faint color (meal-card.tsx).
+							data-tinted={isToday(date, todayDate) ? '' : undefined}
 							className={cn(
 								'border-border/80 grid grid-cols-[7.5rem_1fr] border-b last:border-b-0',
 								isToday(date, todayDate) &&

@@ -267,7 +267,7 @@ export function ShoppingStaplesPicker({
 											'flex size-5 shrink-0 items-center justify-center rounded border',
 											isSelected
 												? 'border-primary-fill bg-primary-fill text-primary-foreground'
-												: 'border-border bg-background',
+												: 'border-control-edge bg-background',
 										)}
 									>
 										{isSelected && <Icon name="check" size="xs" />}

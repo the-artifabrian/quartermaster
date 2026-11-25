@@ -668,7 +668,7 @@ function TickBox({
 					? 'border-muted-foreground/30 bg-muted text-muted-foreground'
 					: checked || partial
 						? 'border-primary-fill bg-primary-fill text-primary-foreground'
-						: 'border-border bg-background',
+						: 'border-control-edge bg-background',
 			)}
 		>
 			{checked || done ? (

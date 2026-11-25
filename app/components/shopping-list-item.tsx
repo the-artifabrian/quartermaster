@@ -380,7 +380,7 @@ export function ShoppingListItemCard({
 							className={`flex size-6 shrink-0 items-center justify-center rounded border-2 transition-[scale,background-color,border-color] duration-150 ease-(--ease-micro) group-enabled/check:group-active/check:scale-[0.97] ${
 								optimisticChecked
 									? 'border-primary-fill bg-primary-fill'
-									: 'border-border bg-muted/30'
+									: 'border-control-edge bg-muted/30'
 							}`}
 						>
 							{optimisticChecked && (

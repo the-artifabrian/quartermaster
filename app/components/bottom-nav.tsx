@@ -91,11 +91,13 @@ export function isNormalLinkActivation(
 	)
 }
 
-/** A page of one of the tabs, its own page or one pushed on it. */
-export function isTabPath(pathname: string) {
-	return navItems.some((item) =>
-		item.matchPaths?.some((path) => pathname.startsWith(path)),
-	)
+/**
+ * A tab's own page: the page its tab opens, or Menus, the Recipes tab's other
+ * library. Not a page pushed on a tab, nor a page not found under one.
+ */
+export function isTabRootPath(pathname: string) {
+	const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
+	return path === '/recipes/menus' || navItems.some((item) => item.to === path)
 }
 
 function pathIsInTab(path: string | undefined, tabPath: string) {

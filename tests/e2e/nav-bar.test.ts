@@ -600,6 +600,10 @@ test('a tab’s own page has no brand row on a phone; a pushed page has its bar,
 	await page.goto(`/recipes/${recipe.id}`)
 	await expect(backButton(page, 'Recipes')).toBeVisible()
 
+	// A page not found under a tab is no tab's own page: it keeps the brand.
+	await page.goto('/recipes/no-such/page')
+	await expect(brand(page)).toBeVisible()
+
 	// A signed-in page of no tab keeps the brand row, without Settings, which
 	// is in the tab bar.
 	await page.goto('/support')

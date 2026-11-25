@@ -3,6 +3,7 @@ import { Outlet, useMatches } from 'react-router'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { OfflineErrorBoundary } from '#app/components/offline-error-boundary.tsx'
 import { TabTitle } from '#app/components/ui/title-add-button.tsx'
+import { cn } from '#app/utils/misc.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { settingsPageNav } from '#app/utils/nav-back.ts'
 import { type Route } from './+types/_layout.tsx'
@@ -37,7 +38,14 @@ export default function SettingsLayout() {
 		.find(Boolean)
 
 	return (
-		<div className="container max-w-3xl pt-4 pb-24 md:pt-8">
+		<div
+			className={cn(
+				'container max-w-3xl pb-24',
+				// A tab's page starts its title near the top on a phone, as the
+				// other tabs do; its pushed pages keep their room under the bar.
+				pageTitle ? 'pt-8' : 'pt-4 md:pt-8',
+			)}
+		>
 			{pageTitle ? (
 				<h1 className="mb-6 font-serif text-2xl">{pageTitle}</h1>
 			) : (

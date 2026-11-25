@@ -19,7 +19,7 @@ import newsreaderFontUrl from './assets/fonts/newsreader-latin.woff2?url'
 import schibstedGroteskFontUrl from './assets/fonts/schibsted-grotesk-latin.woff2?url'
 import youngSerifFontUrl from './assets/fonts/young-serif-latin.woff2?url'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
-import { BottomNav, isTabPath, navItems } from './components/bottom-nav.tsx'
+import { BottomNav, isTabRootPath, navItems } from './components/bottom-nav.tsx'
 import { DemoBanner } from './components/demo.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
 import { useRefreshAfterTraversal } from './components/gone-item.tsx'
@@ -455,7 +455,7 @@ function App() {
 	const navBar = user ? navBarConfig : null
 	// A tab's own page has no brand row on phones: its big title is the top
 	// of the page, and the tab bar holds Settings.
-	const tabRoot = Boolean(user) && !navBar && isTabPath(pathname)
+	const tabRoot = Boolean(user) && !navBar && isTabRootPath(pathname)
 	// An edit screen (its route names the form the bar's Save submits) hides
 	// the tab bar, as an iOS edit screen does: Cancel and Save are the ways
 	// out. Its error page keeps it, an error after load included. The server

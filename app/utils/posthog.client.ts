@@ -7,7 +7,16 @@ const looksLikeUrl = /^(?:https?:\/\/|\/)/
 // Autocapture describes the clicked element and its ancestors in one string,
 // with each attribute as attr__name="..." and a link's address also as
 // href="...". A form's action holds the page's query string, tokens included.
-const attributeInChain = /((?:attr__[\w-]+|href)=")((?:[^"\\]|\\.)*)"/g
+const attributeInChain = /((attr__[\w-]+|href)=")((?:[^"\\]|\\.)*)"/g
+
+// Attributes that always hold an address, absolute or relative. Any other
+// attribute is redacted only when its value looks like a URL.
+const urlAttributes = new Set([
+	'href',
+	'attr__href',
+	'attr__action',
+	'attr__formaction',
+])
 
 // URLs inside free text, such as an error message: absolute ones, and paths
 // that carry a query string.
@@ -43,8 +52,8 @@ function redactUrlsIn(
 				set(
 					value.replace(
 						attributeInChain,
-						(_, start: string, attribute: string) =>
-							`${start}${looksLikeUrl.test(attribute) ? redactUrl(attribute) : attribute}"`,
+						(_, start: string, name: string, attribute: string) =>
+							`${start}${urlAttributes.has(name) || looksLikeUrl.test(attribute) ? redactUrl(attribute) : attribute}"`,
 					),
 				)
 			} else if (name === '$exception_message') {

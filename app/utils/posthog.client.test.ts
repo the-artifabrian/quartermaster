@@ -281,6 +281,21 @@ test('a link’s href keeps being redacted', () => {
 	)
 })
 
+test('a relative link, action or formaction is redacted too', () => {
+	expect(
+		sendChain(
+			'a:attr__href="join?token=invite-abc"href="?code=Q2W3E4"text="Join"',
+		),
+	).toBe('a:attr__href="join?token=redacted"href="?code=redacted"text="Join"')
+	expect(
+		sendChain(
+			'form:attr__action="?target=ada%40example.com"button:attr__formaction="verify?code=Q2W3E4"',
+		),
+	).toBe(
+		'form:attr__action="?target=redacted"button:attr__formaction="verify?code=redacted"',
+	)
+})
+
 test('an attribute that is not a URL is sent as it is', () => {
 	const chain =
 		'button.ph-no-capture:attr__aria-label="token=abc?code=1"attr__class="ph-no-capture"text="/join?token=shown"'

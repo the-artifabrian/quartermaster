@@ -826,7 +826,7 @@ function StaplesScreen() {
 
 const shoppingNext = [
 	{ name: 'Salmon fillets', amount: '4 fillets' },
-	{ name: 'Limes', amount: '3 · incl. meals' },
+	{ name: 'Limes', amount: '3' },
 	{ name: 'White miso', amount: '1 tub' },
 	{ name: 'Black beans', amount: '2 cans' },
 	{ name: 'Corn tortillas', amount: '12' },

@@ -185,8 +185,8 @@ test('a Meal joining a row added from Recipe detail shows the summed amount', as
 		.click()
 	const row = page.getByRole('group', { name: /^leeks? shopping item$/ })
 	await expect(row).toHaveCount(1)
-	await expect(row).toContainText('4')
-	await expect(row).toContainText('incl. meals')
+	// The amount line is the summed amount alone.
+	await expect(row.getByText('4', { exact: true })).toBeVisible()
 
 	// In the database the Recipe-detail row keeps its own 2, and the Meal's
 	// 2 is recorded against it.

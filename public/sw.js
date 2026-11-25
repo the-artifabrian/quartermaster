@@ -402,7 +402,7 @@ async function matchPreviousStaticAsset(request) {
  * Matches:
  *   /recipes.data
  *   /recipes/<id>.data (but not form/edit routes)
- *   /plan.data, /shopping.data, /inventory.data
+ *   /plan.data, /shopping.data, /staples.data
  */
 function isEligibleRouteData(url) {
 	const p = url.pathname
@@ -410,7 +410,7 @@ function isEligibleRouteData(url) {
 	if (p === '/recipes.data') return true
 	if (p === '/plan.data') return true
 	if (p === '/shopping.data') return true
-	if (p === '/inventory.data') return true
+	if (p === '/staples.data') return true
 
 	// Recipe detail data, excluding named form routes and deeper edit routes.
 	const recipeFormRoutes = new Set(['new', 'import', 'quick', 'bulk-import'])

@@ -295,13 +295,13 @@ describe('identity scoping', () => {
 	test('a response that lands after the identity changed is not stored for anyone', async () => {
 		const { cache } = setup()
 		const pending = deferred<{ household: string }>()
-		const load = navigate(cache, '/inventory', () => pending.promise)
+		const load = navigate(cache, '/staples', () => pending.promise)
 		cache.setIdentity('sam-home')
 		pending.resolve({ household: 'alex' })
 		await load
 
 		const fresh = { household: 'sam' }
-		expect(await navigate(cache, '/inventory', async () => fresh)).toBe(fresh)
+		expect(await navigate(cache, '/staples', async () => fresh)).toBe(fresh)
 	})
 
 	test('re-announcing the same identity keeps the entries', async () => {

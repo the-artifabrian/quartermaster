@@ -229,7 +229,7 @@ test('mobile auth, Recipes, Staples, Plan, and settings controls are zoom-safe',
 	await page.goto('/recipes/new')
 	await expectMobileEditableControlsToBeSafe(page)
 
-	await page.goto('/inventory')
+	await page.goto('/staples')
 	// Staples has no editable control of its own until the add form opens.
 	await page.getByRole('button', { name: 'Add Staple' }).click()
 	await expectMobileEditableControlsToBeSafe(page)

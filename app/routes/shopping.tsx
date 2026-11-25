@@ -278,7 +278,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 		// "2 lemons" typed into the bare input becomes qty 2 + "lemons".
 		// Only when no quantity came along: the Qty & unit fields win.
-		// Parsing happens before the duplicate/inventory checks so "2 lemons"
+		// Parsing happens before the duplicate check so "2 lemons"
 		// matches an existing "lemons" row.
 		let { name, quantity, unit } = submission.value
 		if (!quantity) {

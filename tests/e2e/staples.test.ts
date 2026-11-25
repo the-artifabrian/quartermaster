@@ -1,7 +1,7 @@
 import { type Locator, type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
 import { SHELL_UA } from '#tests/native-shell.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { expect, test, waitForHydration } from '#tests/playwright-utils.ts'
 
 async function waitForStaplesHydration(page: Page) {
 	const addButton = page.getByRole('button', { name: 'Add Staple' })
@@ -36,9 +36,9 @@ test('tapping a Staple adds it to Next shop from a phone', async ({
 	})
 
 	await page.setViewportSize({ width: 390, height: 844 })
-	await page.goto('/inventory')
+	await page.goto('/staples')
 	await waitForStaplesHydration(page)
-	await page.route('**/inventory*', async (route) => {
+	await page.route('**/staples*', async (route) => {
 		if (
 			route.request().method() === 'POST' &&
 			route.request().postData()?.includes('intent=add-staple-to-shop')
@@ -113,7 +113,7 @@ test('a failed restock reports it and leaves the Staple tappable', async ({
 
 	try {
 		await page.setViewportSize({ width: 390, height: 844 })
-		await page.goto('/inventory')
+		await page.goto('/staples')
 		await waitForStaplesHydration(page)
 		const saltRow = page
 			.getByRole('list', { name: 'Staples' })
@@ -241,7 +241,7 @@ test.describe('on a phone', () => {
 		login,
 	}) => {
 		const user = await login()
-		await page.goto('/inventory')
+		await page.goto('/staples')
 
 		await expect(
 			page.getByRole('heading', { name: 'No Staples yet' }),
@@ -271,7 +271,7 @@ test.describe('on a phone', () => {
 			.toEqual([{ displayName: 'garlic' }, { displayName: 'olive oil' }])
 
 		// A later visit with Staples present shows no suggestions.
-		await page.goto('/inventory')
+		await page.goto('/staples')
 		await expect(staples.getByText('garlic', { exact: true })).toBeVisible()
 		await expect(
 			page.getByRole('list', { name: 'Suggested Staples' }),
@@ -330,7 +330,7 @@ test.describe('with a finger', () => {
 		})
 
 		await page.setViewportSize({ width: 390, height: 844 })
-		await page.route('**/inventory*', async (route) => {
+		await page.route('**/staples*', async (route) => {
 			if (
 				route.request().method() === 'POST' &&
 				route.request().postData()?.includes('intent=add-staple-to-shop')
@@ -339,7 +339,7 @@ test.describe('with a finger', () => {
 			}
 			await route.continue()
 		})
-		await page.goto('/inventory')
+		await page.goto('/staples')
 		await waitForStaplesHydration(page)
 
 		const list = page.getByRole('list', { name: 'Staples' })
@@ -432,7 +432,7 @@ test.describe('in the iOS app on a phone', () => {
 	}) => {
 		const user = await login()
 		await seedStaples(user.householdId, ['Apples', 'Salt'])
-		await page.goto('/inventory')
+		await page.goto('/staples')
 
 		const salt = stapleRow(page, 'Salt')
 		// The spoken name starts with the words on the button (so Voice Control's
@@ -534,7 +534,7 @@ test.describe('in the iOS app on a phone', () => {
 				(_, i) => `Staple ${String(i).padStart(2, '0')}`,
 			),
 		)
-		await page.goto('/inventory')
+		await page.goto('/staples')
 		const row = stapleRow(page, 'Staple 03')
 		await expect(row).toBeVisible()
 		expect(await page.evaluate(() => window.scrollY)).toBe(0)
@@ -552,7 +552,7 @@ test.describe('in the iOS app on a phone', () => {
 	}) => {
 		const user = await login()
 		await seedStaples(user.householdId, ['Apples', 'Salt'])
-		await page.goto('/inventory')
+		await page.goto('/staples')
 
 		const salt = stapleRow(page, 'Salt')
 		const del = salt.getByRole('button', { name: 'Delete Salt' })
@@ -591,7 +591,7 @@ test.describe('in the iOS app on a phone', () => {
 	}) => {
 		const user = await login()
 		await seedStaples(user.householdId, ['Apples', 'Salt'])
-		await page.goto('/inventory')
+		await page.goto('/staples')
 		const salt = stapleRow(page, 'Salt')
 		const del = salt.getByRole('button', { name: 'Delete Salt' })
 		await page.getByRole('heading', { name: 'Staples', level: 1 }).click()
@@ -628,7 +628,7 @@ test.describe('with a mouse', () => {
 	}) => {
 		const user = await login()
 		await seedStaples(user.householdId, ['Salt'])
-		await page.goto('/inventory')
+		await page.goto('/staples')
 		const salt = stapleRow(page, 'Salt')
 		// One Delete, the trash in the row: the swipe's is not there.
 		const del = salt.getByRole('button', { name: 'Delete Salt' })
@@ -638,5 +638,123 @@ test.describe('with a mouse', () => {
 		await expect(page.getByText('Deleted Salt')).toBeVisible()
 		await expect(salt).toBeHidden()
 		await expect.poll(() => isStaple(user.householdId, 'salt')).toBe(false)
+	})
+})
+
+// Staples used to live at /inventory. Bookmarks, the iOS app's saved page and
+// tabs still running the build from before the move all ask for it there.
+test.describe('the old /inventory address', () => {
+	test('opening /inventory shows Staples at /staples, query and all', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seedStaples(user.householdId, ['Salt'])
+
+		const response = await page.goto('/inventory?from=bookmark')
+
+		await expect(page).toHaveURL('/staples?from=bookmark')
+		await expect(
+			page.getByRole('heading', { name: 'Staples', level: 1 }),
+		).toBeVisible()
+		await expect(stapleRow(page, 'Salt')).toBeVisible()
+		const hop = await response?.request().redirectedFrom()?.response()
+		expect(hop?.status()).toBe(301)
+	})
+
+	test('/inventory answers a permanent redirect without a session, for GET and HEAD', async ({
+		request,
+	}) => {
+		const get = await request.get('/inventory?a=1&b=two', { maxRedirects: 0 })
+		const head = await request.head('/inventory', { maxRedirects: 0 })
+
+		expect(get.status()).toBe(301)
+		expect(get.headers().location).toBe('/staples?a=1&b=two')
+		expect(head.status()).toBe(301)
+		expect(head.headers().location).toBe('/staples')
+	})
+
+	test('a data request from an older page, with its old route id, tells it to load /staples as a new page', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		// A tab switch leaves the root out, so the old page names only the
+		// Staples route it knew.
+		const partial = await page.request.get(
+			'/inventory.data?_routes=routes%2Finventory%2Findex&q=1',
+			{ maxRedirects: 0 },
+		)
+		const full = await page.request.get('/inventory.data', {
+			maxRedirects: 0,
+		})
+
+		for (const response of [partial, full]) {
+			expect(response.status()).toBe(202)
+			expect(response.headers()['x-remix-reload-document']).toBe('true')
+		}
+		const partialBody = await partial.text()
+		expect(partialBody).toContain('/staples?q=1')
+		expect(partialBody).not.toContain('_routes')
+		expect(partialBody).not.toContain('.data')
+		expect(await full.text()).toContain('/staples')
+	})
+
+	test('a form sent to /inventory from an older page sends it to /staples', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const form = { intent: 'add-staple', displayName: 'Pepper' }
+
+		const fromRouter = await page.request.post('/inventory.data?index', {
+			form,
+			maxRedirects: 0,
+		})
+		const withoutScript = await page.request.post('/inventory?index', {
+			form,
+			maxRedirects: 0,
+		})
+
+		expect(fromRouter.status()).toBe(202)
+		expect(fromRouter.headers()['x-remix-reload-document']).toBe('true')
+		expect(await fromRouter.text()).toContain('/staples')
+		expect(withoutScript.status()).toBe(301)
+		expect(withoutScript.headers().location).toBe('/staples')
+		// The redirect answers before the Staples action runs, so nothing is added.
+		expect(
+			await prisma.householdIngredient.count({
+				where: { householdId: user.householdId },
+			}),
+		).toBe(0)
+	})
+
+	test('a client-side navigation to /inventory loads Staples as a new page', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seedStaples(user.householdId, ['Salt'])
+		await page.goto('/recipes')
+		await waitForHydration(page)
+		await page.evaluate(() => {
+			;(window as { beforeNavigation?: boolean }).beforeNavigation = true
+		})
+
+		await page.evaluate(() =>
+			(
+				window as unknown as {
+					__reactRouterDataRouter: { navigate: (to: string) => unknown }
+				}
+			).__reactRouterDataRouter.navigate('/inventory'),
+		)
+
+		await expect(page).toHaveURL('/staples')
+		await expect(stapleRow(page, 'Salt')).toBeVisible()
+		expect(
+			await page.evaluate(
+				() => (window as { beforeNavigation?: boolean }).beforeNavigation,
+			),
+		).toBeUndefined()
 	})
 })

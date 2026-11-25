@@ -1186,7 +1186,7 @@ test.describe('in the iOS app on a phone', () => {
 		}
 
 		const recipes = await titlePlus('/recipes', 'New Recipe')
-		const staples = await titlePlus('/inventory', 'Add Staple')
+		const staples = await titlePlus('/staples', 'Add Staple')
 		const plan = await titlePlus('/plan', /^Add Meal to /)
 		expect(recipes).toMatchObject({
 			width: 44,

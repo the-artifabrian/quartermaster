@@ -455,8 +455,8 @@ function CopyLinkButton({ token }: { token: string }) {
 	return (
 		<div className="flex flex-col gap-2">
 			<div className="flex min-w-0 items-center gap-2">
-				{/* ph-no-capture keeps the token out of session replays, which
-				record the page's text. */}
+				{/* ph-no-capture keeps the token out of PostHog's click events,
+				which record the clicked element's text. */}
 				<code className="ph-no-capture bg-muted min-w-0 flex-1 truncate rounded px-2 py-1 text-sm">
 					{path}
 				</code>

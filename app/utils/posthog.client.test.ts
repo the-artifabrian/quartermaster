@@ -15,6 +15,7 @@ const posthog = vi.hoisted(() => ({
 	get_property: vi.fn(),
 	reset: vi.fn(),
 	getFeatureFlag: vi.fn(),
+	startSessionRecording: vi.fn(),
 }))
 
 vi.mock('posthog-js', () => ({ default: posthog }))
@@ -40,7 +41,7 @@ test('initializes the deferred SDK with the existing privacy and performance beh
 			person_profiles: 'identified_only',
 			persistence: 'localStorage+cookie',
 			capture_exceptions: true,
-			capture_performance: { web_vitals: true, network_timing: true },
+			capture_performance: { web_vitals: true },
 		}),
 	)
 
@@ -136,20 +137,9 @@ test('URLs sent to PostHog lose their codes, tokens and email addresses', () => 
 	expect(sent.properties.count).toBe(3)
 	expect(sent.properties.$elements_chain).toContain('text="Create an account"')
 	expect(sent.properties.$elements_chain).toContain('href="/signup?redirectTo=')
-
-	const sessionRecording = options.session_recording as {
-		maskCapturedNetworkRequestFn: (request: {
-			name: string
-		}) => { name: string } | null
-	}
-	expect(
-		sessionRecording.maskCapturedNetworkRequestFn({
-			name: 'https://useqm.app/verify.data?code=Q2W3E4',
-		})?.name,
-	).toBe('https://useqm.app/verify.data?code=redacted')
 })
 
-test('error messages and replay page addresses lose their codes and tokens', () => {
+test('error messages lose their codes and tokens', () => {
 	vi.clearAllMocks()
 	posthog.__loaded = false
 	initializePostHog({
@@ -184,35 +174,6 @@ test('error messages and replay page addresses lose their codes and tokens', () 
 		'Failed to fetch https://useqm.app/verify.data?code=redacted&type=onboarding',
 	)
 	expect(exceptionText).toContain('https://useqm.app/assets/root.js')
-
-	const snapshot = beforeSend({
-		event: '$snapshot',
-		properties: {
-			$snapshot_data: [
-				{
-					type: 4,
-					data: {
-						href: 'https://useqm.app/verify?target=ada%40example.com&code=Q2W3E4',
-						width: 390,
-					},
-				},
-				{
-					type: 5,
-					data: {
-						tag: '$pageview',
-						payload: {
-							href: 'https://useqm.app/household/join?token=invite-abc',
-						},
-					},
-				},
-				{ type: 2, data: 'compressed-full-snapshot', cv: '2024-10' },
-			],
-		},
-	})
-	const snapshotText = JSON.stringify(snapshot)
-	expect(snapshotText).not.toMatch(/Q2W3E4|invite-abc|example\.com/)
-	expect(snapshotText).toContain('compressed-full-snapshot')
-	expect(snapshotText).toContain('"width":390')
 })
 
 // Error messages are cleaned in the browser before an event is sent. A URL
@@ -259,43 +220,23 @@ test('a long error message is cut, so a token past the cut is not sent', () => {
 	expect(String(event.properties.$exception_message).length).toBeLessThan(3_000)
 })
 
-// Hidden inputs carry invite tokens and redirectTo values on the login,
-// signup, onboarding, verify and join forms. The SDK's "mask all inputs" list
-// leaves them out, and it replaces any list of our own, so it has to be off for
-// ours to count.
-test('replays mask every input type, hidden ones included', () => {
+test('session recording stays off whatever the PostHog project says, and clicks are still captured', () => {
 	vi.clearAllMocks()
 	posthog.__loaded = false
-	initializePostHog({
+	const client = initializePostHog({
 		apiKey: 'phc_test',
 		host: 'https://analytics.example.com',
 	})
-	const recording = posthog.init.mock.calls[0]![1].session_recording as {
-		maskAllInputs?: boolean
-		maskInputOptions?: Record<string, boolean>
-	}
-	expect(recording.maskAllInputs).toBe(false)
-	for (const type of [
-		'color',
-		'date',
-		'datetime-local',
-		'email',
-		'month',
-		'number',
-		'range',
-		'search',
-		'tel',
-		'text',
-		'time',
-		'url',
-		'week',
-		'textarea',
-		'select',
-		'password',
-		'hidden',
-	]) {
-		expect(recording.maskInputOptions?.[type], type).toBe(true)
-	}
+	const options = posthog.init.mock.calls[0]![1]
+	// The project's remote settings can start a recording unless this is set.
+	expect(options.disable_session_recording).toBe(true)
+	expect(options.autocapture).not.toBe(false)
+
+	client.capture('$pageview')
+	client.identify('user-1')
+	client.registerForSession({ display_mode: 'browser' })
+	client.reset()
+	expect(posthog.startSessionRecording).not.toHaveBeenCalled()
 })
 
 test('resetIfRegistered resets only a browser that has the super property', () => {

@@ -142,8 +142,8 @@ export default function TwoFactorRoute({
 	return (
 		<div>
 			<div className="flex flex-col items-center gap-4">
-				{/* ph-no-capture keeps the secret out of session replays, which
-				record the page's text and attributes. */}
+				{/* ph-no-capture keeps the secret out of PostHog's click events,
+				which record the clicked element's text and attributes. */}
 				<img
 					alt="qr code"
 					src={loaderData.qrCode}

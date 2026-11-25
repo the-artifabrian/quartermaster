@@ -2,7 +2,7 @@
  * Resource-timing attribution for a navigation's single-fetch `.data` request.
  *
  * Lets `nav_duration_ms` record WHY a navigation was slow (cold connection vs slow
- * server vs cache miss) in aggregate (a GROUP BY), not just on one session replay:
+ * server vs cache miss) in aggregate (a GROUP BY):
  *   - transfer_size === 0 ⇒ a service worker / HTTP cache response is likely
  *   - connect_ms > 0      ⇒ a fresh TCP/TLS connection was set up (cold-connection cost)
  *   - ttfb_ms             ⇒ server processing once the request was on the wire

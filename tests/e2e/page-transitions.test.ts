@@ -559,18 +559,20 @@ test.describe('in the iOS app', () => {
 		await expect(page.locator('[data-bottom-sheet]')).toHaveCount(0)
 	})
 
-	test('Settings and its pages slide in from the avatar', async ({
+	test('Settings is a tab that starts no slide, and its pages slide in from it', async ({
 		page,
 		login,
 	}) => {
 		const ui = await instrument(page)
 		await login()
 		await page.goto('/plan')
-		const avatar = page.getByRole('link', { name: 'Settings' })
-		await hydrated(avatar)
+		const settings = tabBar(page).getByRole('link', { name: 'Settings' })
+		await hydrated(settings)
 
-		await ui.expectSlide('forward', () => avatar.tap())
-		await expect(page).toHaveURL('/settings/profile')
+		await ui.expectNoTransition(
+			() => settings.tap(),
+			() => expect(page).toHaveURL('/settings/profile'),
+		)
 		await ui.expectSlide('forward', () =>
 			page.getByRole('link', { name: 'Household' }).tap(),
 		)
@@ -589,9 +591,6 @@ test.describe('in the iOS app', () => {
 		).toHaveCount(0)
 		await ui.expectSlide('back', () => backButton(page, 'Settings').tap())
 		await expect(page).toHaveURL('/settings/profile')
-
-		await ui.expectSlide('back', () => backButton(page, 'Plan').tap())
-		await expect(page).toHaveURL('/plan')
 
 		// Tab switches start none.
 		await ui.expectNoTransition(

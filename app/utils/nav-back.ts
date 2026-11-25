@@ -70,13 +70,18 @@ function isRecipesTab(pathname: string) {
 	return isInTab(pathname, '/recipes')
 }
 
-/** A page of one of the tab bar's tabs: not sign-in, marketing, or Settings. */
+/** A page of one of the tab bar's tabs, Settings included: not sign-in or
+ * marketing. */
 function isTabPage(pathname: string) {
 	return navItems.some((item) => isInTab(pathname, item.to))
 }
 
 function isSettingsSubpage(pathname: string) {
 	return pathname.startsWith('/settings/profile/')
+}
+
+function isSettingsTab(pathname: string) {
+	return isInTab(pathname, '/settings/profile')
 }
 
 /** The short name a Back button shows for a page. */
@@ -288,19 +293,10 @@ export const menuNewNav: NavRule = {
 	tab: isRecipesTab,
 }
 
-/**
- * Settings opens from the avatar: on a tab root on phones, on any page of a
- * tab on desktop. It goes back to the page it was opened from, over its own
- * pages and the code check a change of email passes through.
- */
-export const settingsRootNav: NavRule = {
-	parent: '/recipes',
-	returnsTo: isTabPage,
-	stepsOver: (p) => isSettingsSubpage(p) || p === '/verify',
-}
-
+/** Settings is a tab root; its pages go back to it, over each other. */
 export const settingsPageNav: NavRule = {
 	parent: '/settings/profile',
+	tab: isSettingsTab,
 	stepsOver: isSettingsSubpage,
 }
 

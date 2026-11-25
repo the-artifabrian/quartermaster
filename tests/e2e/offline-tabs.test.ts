@@ -162,7 +162,8 @@ test('offline, a tab keeps the app and its tab bar, and retries by itself once b
 	await retry.click({ force: true })
 	await expect(page.getByText(NOT_LOADED_YET)).toBeVisible()
 	await expect(bottomNav(page)).toBeVisible()
-	await expect(page.getByRole('banner')).toBeVisible()
+	// The tab's title, in the page the app drew around the notice.
+	await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
 	// Back online, the notice retries by itself.
 	await context.setOffline(false)
@@ -276,7 +277,8 @@ test('the Retry button loads the tab once the network is really back', async ({
 		.toBe(1 + 3)
 	await expect(page.getByText(NOT_LOADED_YET)).toBeVisible()
 	await expect(bottomNav(page)).toBeVisible()
-	await expect(page.getByRole('banner')).toBeVisible()
+	// The tab's title, in the page the app drew around the notice.
+	await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
 	await context.setOffline(false)
 	const retry = page.getByRole('button', { name: 'Retry', exact: true })

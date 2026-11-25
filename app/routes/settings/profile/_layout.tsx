@@ -1,6 +1,7 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Outlet, useMatches } from 'react-router'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
+import { TabTitle } from '#app/components/ui/title-add-button.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { settingsPageNav } from '#app/utils/nav-back.ts'
 import { type Route } from './+types/_layout.tsx'
@@ -8,7 +9,7 @@ import { type Route } from './+types/_layout.tsx'
 export type SettingsPageHandle = { pageTitle: string }
 
 // Every page under Settings goes back to Settings; Settings itself (the
-// index route) declares its own.
+// index route) is a tab root and declares none.
 export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
 	nav: settingsPageNav,
@@ -31,10 +32,12 @@ export default function SettingsLayout() {
 		.find(Boolean)
 
 	return (
-		<div className="container max-w-3xl pt-8 pb-24">
-			<h1 className="mb-6 font-serif text-2xl font-normal">
-				{pageTitle ?? 'Settings'}
-			</h1>
+		<div className="container max-w-3xl pt-4 pb-24 md:pt-8">
+			{pageTitle ? (
+				<h1 className="mb-6 font-serif text-2xl">{pageTitle}</h1>
+			) : (
+				<TabTitle className="mb-6">Settings</TabTitle>
+			)}
 			<Outlet />
 		</div>
 	)

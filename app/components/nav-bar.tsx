@@ -38,10 +38,11 @@ import { Icon } from './ui/icon.tsx'
 /**
  * A pushed page declares its nav bar in its route `handle`: the rule for
  * Back (nav-back.ts) and, on an edit screen, the id of the form the bar's
- * Save submits. Tab roots declare nothing and keep the brand header.
+ * Save submits. Tab roots declare nothing; one inside a layout that declares
+ * a bar for its other pages (Settings) declares `nav: null`.
  */
 export type NavBarHandle = {
-	nav: NavRule | ((match: { params: Params }) => NavRule)
+	nav: NavRule | ((match: { params: Params }) => NavRule) | null
 	/** Edit screens: Cancel replaces Back, and Save submits this form. */
 	navForm?: string
 }
@@ -66,6 +67,7 @@ export function useNavBarConfig(): NavBarConfig | null {
 		const match = matches[i]!
 		const handle = readNavHandle(match.handle)
 		if (!handle) continue
+		if (handle.nav === null) return null
 		const rule =
 			typeof handle.nav === 'function'
 				? handle.nav({ params: match.params })

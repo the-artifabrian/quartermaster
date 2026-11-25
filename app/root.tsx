@@ -19,7 +19,7 @@ import newsreaderFontUrl from './assets/fonts/newsreader-latin.woff2?url'
 import schibstedGroteskFontUrl from './assets/fonts/schibsted-grotesk-latin.woff2?url'
 import youngSerifFontUrl from './assets/fonts/young-serif-latin.woff2?url'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
-import { BottomNav, navItems } from './components/bottom-nav.tsx'
+import { BottomNav, isTabPath, navItems } from './components/bottom-nav.tsx'
 import { DemoBanner } from './components/demo.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
 import { useRefreshAfterTraversal } from './components/gone-item.tsx'
@@ -444,9 +444,12 @@ function App() {
 	useRecordHistory()
 	useRefreshAfterTraversal()
 	// Pushed pages (route handle `nav`) swap the brand header for a nav bar
-	// on phones; tab roots keep it. Only signed-in pages have one.
+	// on phones. Only signed-in pages have one.
 	const navBarConfig = useNavBarConfig()
 	const navBar = user ? navBarConfig : null
+	// A tab's own page has no brand row on phones: its big title is the top
+	// of the page, and the tab bar holds Settings.
+	const tabRoot = Boolean(user) && !navBar && isTabPath(pathname)
 	// An edit screen (its route names the form the bar's Save submits) hides
 	// the tab bar, as an iOS edit screen does: Cancel and Save are the ways
 	// out. Its error page keeps it, an error after load included. The server
@@ -488,12 +491,16 @@ function App() {
 					data-chrome={chrome}
 				>
 					{isNativeShell ? (
-						// Content scrolls under the status bar behind the same opaque
-						// background as the bottom tab bar.
+						// Content scrolls under the status bar behind an opaque strip
+						// the color of what sits under it: the header or nav bar, or
+						// on a phone's tab page, the page itself.
 						<div
 							aria-hidden="true"
 							data-status-bar-backdrop=""
-							className="bg-card pointer-events-none fixed inset-x-0 top-0 z-50 h-(--safe-top) print:hidden"
+							className={cn(
+								'bg-card pointer-events-none fixed inset-x-0 top-0 z-50 h-(--safe-top) print:hidden',
+								tabRoot && 'max-md:bg-background',
+							)}
 						/>
 					) : null}
 					<header
@@ -505,18 +512,21 @@ function App() {
 						className={cn(
 							'border-border/50 z-40 border-b',
 							navBar ? 'bg-card sticky top-0' : 'bg-card md:sticky md:top-0',
+							// Only the demo banner (and the status bar inset in the iOS
+							// app) is left of it there.
+							tabRoot && 'max-md:border-b-0 max-md:bg-transparent',
 						)}
 					>
 						<DemoBanner />
 						<nav
 							aria-label="Main"
 							// Signed in, the iOS app's row is as tall as a native nav bar
-							// (44pt): the Settings link is 44pt itself.
+							// (44pt), as is the Settings link in it.
 							className={cn(
 								'container flex flex-wrap items-center justify-between gap-4 sm:flex-nowrap md:gap-8',
-								isNativeShell && user ? 'py-0' : 'py-3',
+								isNativeShell && user ? 'min-h-11 py-0' : 'py-3',
 								// Phones have the tab bar; the desktop header keeps its links.
-								navBar && 'max-md:hidden',
+								(navBar || tabRoot) && 'max-md:hidden',
 							)}
 						>
 							<Logo />
@@ -524,18 +534,22 @@ function App() {
 								{user ? (
 									<>
 										<div className="hidden items-center gap-2 md:flex">
-											{navItems.map((item) => (
-												<NavLink
-													key={item.to}
-													to={item.to}
-													prefetch="intent"
-													className={headerNavLinkClass}
-												>
-													{item.label}
-												</NavLink>
-											))}
+											{navItems
+												// Settings is the avatar beside them.
+												.filter((item) => !('initial' in item))
+												.map((item) => (
+													<NavLink
+														key={item.to}
+														to={item.to}
+														prefetch="intent"
+														className={headerNavLinkClass}
+													>
+														{item.label}
+													</NavLink>
+												))}
 										</div>
-										<UserDropdown />
+										{/* On a phone Settings is a tab. */}
+										<UserDropdown className="max-md:hidden" />
 									</>
 								) : (
 									<HeaderAuthButton />

@@ -283,11 +283,19 @@ test.describe('the tab bar in the iOS app', () => {
 		expect(
 			(await page.locator('[data-status-bar-backdrop]').boundingBox())?.height,
 		).toBe(59)
-		// The 44pt row, its 1px border, and the status bar above it.
-		expect((await page.getByRole('banner').boundingBox())?.height).toBe(104)
+		// A tab's page has no brand row: the header is the status bar's
+		// height, and the title starts under it.
+		expect((await page.getByRole('banner').boundingBox())?.height).toBe(59)
+		expect(
+			(await page.getByRole('heading', { level: 1 }).boundingBox())!.y,
+		).toBeGreaterThanOrEqual(59)
 		expect(
 			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
 		).toBe(73)
+		// A pushed page: the 44pt nav bar, its 1px border, and the status bar
+		// above it.
+		await page.goto('/settings/profile/household')
+		expect((await page.getByRole('banner').boundingBox())?.height).toBe(104)
 	})
 
 	test("the larger of env() and the shell's inset wins, so a stale shell value cannot shrink the layout", async ({
@@ -316,17 +324,22 @@ test.describe('the tab bar in the iOS app', () => {
 		await expectSheetCoversTabBar(page, 0)
 	})
 
-	test('the header is as tall as a native nav bar', async ({ page, login }) => {
+	test('the brand row is as tall as a native nav bar, and Settings is a tab', async ({
+		page,
+		login,
+	}) => {
 		await login()
-		await page.goto('/plan')
+		// A signed-in page of no tab keeps the brand row.
+		await page.goto('/support')
 		// Playwright has no status bar, so the header is the 44pt row and its
 		// 1px bottom border.
 		expect((await page.getByRole('banner').boundingBox())?.height).toBe(45)
-		const settings = await page
-			.getByRole('banner')
-			.getByRole('link', { name: 'Settings' })
-			.boundingBox()
-		expect([settings?.width, settings?.height]).toEqual([44, 44])
+		await expect(
+			page.getByRole('banner').getByRole('link', { name: 'Settings' }),
+		).toBeHidden()
+		await expect(
+			page.locator('[data-bottom-nav]').getByRole('link', { name: 'Settings' }),
+		).toBeVisible()
 	})
 
 	test('signed out, the header keeps its padding around Sign up', async ({
@@ -382,8 +395,12 @@ test.describe('in a browser', () => {
 		await page.setViewportSize({ width: 390, height: 844 })
 		await setHomeIndicatorInset(page, 34)
 		await login()
+		// The brand row on a page of no tab (the logo and 12px above and below
+		// it, and its border); a tab's page has none.
+		await page.goto('/support')
+		expect((await page.getByRole('banner').boundingBox())?.height).toBe(53)
 		await page.goto('/plan')
-		expect((await page.getByRole('banner').boundingBox())?.height).toBe(67)
+		expect((await page.getByRole('banner').boundingBox())?.height).toBe(0)
 		// The 64px row, its 1px top border, and the whole 34pt inset.
 		expect(
 			(await page.locator('[data-bottom-nav]').boundingBox())?.height,
@@ -411,23 +428,37 @@ test.describe('in the iOS app on a phone', () => {
 		userAgent: SHELL_UA,
 	})
 
-	test('the header is opaque, so the page never shows through it', async ({
+	test('the nav bar and the status bar strip are opaque, the strip the color of what is under it', async ({
 		page,
 		login,
 	}) => {
+		const opaque = (background: string) =>
+			// Every colour syntax writes transparency as a fourth value: rgba(…, a)
+			// or "/ a" in the newer ones. An opaque colour has none, or 1.
+			(/\/\s*([\d.]+%?)\s*\)$/.exec(background)?.[1] ??
+				/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/.exec(background)?.[1] ??
+				'1') === '1'
+		const colors = () =>
+			page.evaluate(() => {
+				const bg = (selector: string) =>
+					getComputedStyle(document.querySelector(selector)!).backgroundColor
+				return {
+					header: bg('[data-site-header]'),
+					strip: bg('[data-status-bar-backdrop]'),
+					page: bg('body'),
+				}
+			})
 		await login()
+		// A pushed page: the strip is the nav bar's color.
+		await page.goto('/settings/profile/household')
+		const pushed = await colors()
+		expect(opaque(pushed.header)).toBe(true)
+		expect(pushed.strip).toBe(pushed.header)
+
+		// A tab's page has no brand row: the strip is the page's color.
 		await page.goto('/plan')
-		const header = page.locator('[data-site-header]')
-		await expect(header).toHaveCount(1)
-		const background = await header.evaluate(
-			(node) => getComputedStyle(node).backgroundColor,
-		)
-		// Every colour syntax writes transparency as a fourth value: rgba(…, a)
-		// or "/ a" in the newer ones. An opaque colour has none, or 1.
-		const alpha =
-			/\/\s*([\d.]+%?)\s*\)$/.exec(background)?.[1] ??
-			/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/.exec(background)?.[1] ??
-			'1'
-		expect({ background, alpha }).toEqual({ background, alpha: '1' })
+		const tab = await colors()
+		expect(opaque(tab.strip)).toBe(true)
+		expect(tab.strip).toBe(tab.page)
 	})
 })

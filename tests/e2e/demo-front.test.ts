@@ -331,6 +331,33 @@ test('Settings leaves out what the demo blocks and keeps export and theme', asyn
 	await expect(main.getByRole('button', { name: 'Log out' })).toBeVisible()
 })
 
+test('on a phone the banner keeps its own row above a tab’s title, and Settings is a tab', async ({
+	page,
+	signInDemoUser,
+}) => {
+	await page.setViewportSize({ width: 390, height: 844 })
+	await signInDemoUser()
+	for (const path of ['/recipes', '/settings/profile']) {
+		await page.goto(path)
+		const title = page.getByRole('heading', { level: 1 })
+		await expect(banner(page)).toBeVisible()
+		await expect(title).toBeVisible()
+		const bannerBox = (await banner(page).boundingBox())!
+		expect(bannerBox.y).toBe(0)
+		expect((await title.boundingBox())!.y).toBeGreaterThanOrEqual(
+			bannerBox.y + bannerBox.height,
+		)
+		await expect(
+			page.getByRole('banner').getByRole('link', { name: 'Quartermaster' }),
+		).toBeHidden()
+	}
+	await expect(
+		page
+			.getByRole('navigation', { name: 'Main' })
+			.getByRole('link', { name: 'Settings' }),
+	).toHaveAttribute('aria-current', 'page')
+})
+
 test('Upgrade explains to a demo user why there is no checkout', async ({
 	page,
 	signInDemoUser,

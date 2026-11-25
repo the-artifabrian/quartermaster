@@ -16,6 +16,7 @@ import { ShoppingStaplesPicker } from '#app/components/shopping-staples-picker.t
 import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
+import { useFetcherSettled } from '#app/hooks/use-fetcher-settled.ts'
 import { usePendingShoppingItems } from '#app/hooks/use-pending-shopping-items.ts'
 import { useShoppingChecks } from '#app/hooks/use-shopping-checks.tsx'
 import {
@@ -68,41 +69,37 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 	const revalidator = useRevalidator()
 
 	// Revalidate after bulk-add completes so the new items appear
-	const prevBulkState = useRef(bulkAddFetcher.state)
-	useEffect(() => {
-		if (prevBulkState.current !== 'idle' && bulkAddFetcher.state === 'idle') {
-			void revalidator.revalidate()
-			const result = bulkAddFetcher.data as
-				| { addedCount?: number; moveItemIds?: string[]; message?: string }
-				| undefined
-			if (result?.message) toast.error(result.message)
-			const moveItemIds = result?.moveItemIds ?? []
-			if (typeof result?.addedCount === 'number' && result.addedCount > 0) {
-				toast.success(
-					`Added ${result.addedCount} item${result.addedCount === 1 ? '' : 's'}`,
-				)
-			}
-			if (moveItemIds.length > 0) {
-				toast.info(
-					`${moveItemIds.length} item${moveItemIds.length === 1 ? ' is' : 's are'} already in Later`,
-					{
-						action: {
-							label: 'Move to Next shop',
-							onClick: () => {
-								const data = new FormData()
-								data.set('originClientId', getHouseholdClientId())
-								data.set('intent', 'move-items')
-								data.set('itemIds', JSON.stringify(moveItemIds))
-								data.set('horizon', NEXT_SHOP)
-								void moveItemsFetcher.submit(data, { method: 'POST' })
-							},
+	useFetcherSettled(bulkAddFetcher, (answer) => {
+		void revalidator.revalidate()
+		const result = answer as
+			| { addedCount?: number; moveItemIds?: string[]; message?: string }
+			| undefined
+		if (result?.message) toast.error(result.message)
+		const moveItemIds = result?.moveItemIds ?? []
+		if (typeof result?.addedCount === 'number' && result.addedCount > 0) {
+			toast.success(
+				`Added ${result.addedCount} item${result.addedCount === 1 ? '' : 's'}`,
+			)
+		}
+		if (moveItemIds.length > 0) {
+			toast.info(
+				`${moveItemIds.length} item${moveItemIds.length === 1 ? ' is' : 's are'} already in Later`,
+				{
+					action: {
+						label: 'Move to Next shop',
+						onClick: () => {
+							const data = new FormData()
+							data.set('originClientId', getHouseholdClientId())
+							data.set('intent', 'move-items')
+							data.set('itemIds', JSON.stringify(moveItemIds))
+							data.set('horizon', NEXT_SHOP)
+							void moveItemsFetcher.submit(data, { method: 'POST' })
 						},
 					},
-				)
-			}
+				},
+			)
 		}
-		prevBulkState.current = bulkAddFetcher.state
-	}, [bulkAddFetcher.state, bulkAddFetcher.data, moveItemsFetcher, revalidator])
+	})
 
 	const handleSpeechResult = useCallback(
 		(items: TranscribedItem[], transcription: string | null) => {
@@ -157,21 +154,15 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 		})
 
 	// Reset quick-add on success, preserve values on warning
-	const prevQaState = useRef(quickAddFetcher.state)
-	useEffect(() => {
-		if (
-			prevQaState.current !== 'idle' &&
-			quickAddFetcher.state === 'idle' &&
-			quickAddFetcher.data?.status === 'success'
-		) {
+	useFetcherSettled(quickAddFetcher, (data) => {
+		if (data?.status === 'success') {
 			setQaName('')
 			setQaQuantity('')
 			setQaUnit('')
 			setWarningDismissed(false)
 			qaInputRef.current?.focus()
 		}
-		prevQaState.current = quickAddFetcher.state
-	}, [quickAddFetcher.state, quickAddFetcher.data])
+	})
 
 	const pendingAddedItems = usePendingShoppingItems(shoppingList.id)
 	// Rows deleted with Undo still waiting stay in the lists, collapsed, so

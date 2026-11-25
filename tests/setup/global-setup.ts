@@ -5,6 +5,7 @@ import path from 'node:path'
 import 'dotenv/config'
 import '#app/utils/env.server.ts'
 import { type TestProject } from 'vitest/node'
+import { ensureBaseDatabase } from './base-database.ts'
 import { BASE_DATABASE_PATH, RUNS_DIRECTORY } from './database-paths.ts'
 
 /**
@@ -22,15 +23,6 @@ declare module 'vitest' {
 
 let runDirectory: string | undefined
 
-async function pathExists(target: string) {
-	try {
-		await fs.access(target)
-		return true
-	} catch {
-		return false
-	}
-}
-
 function run(
 	cmd: string,
 	args: Array<string>,
@@ -46,35 +38,16 @@ function run(
 	})
 }
 
-async function moveDatabase(from: string, to: string) {
-	// SQLite sidecars belong to the database they were created next to, so they
-	// travel with it. A clean close usually removes them; rename what is left.
-	for (const suffix of ['-wal', '-shm']) {
-		await fs.rm(`${to}${suffix}`, { force: true })
-		if (await pathExists(`${from}${suffix}`)) {
-			await fs.rename(`${from}${suffix}`, `${to}${suffix}`)
-		}
-	}
-	await fs.rename(from, to)
-}
-
-async function ensureBaseDatabase(pendingPath: string) {
-	if (await pathExists(BASE_DATABASE_PATH)) {
-		const databaseLastModifiedAt = (await fs.stat(BASE_DATABASE_PATH)).mtime
-		const prismaSchemaLastModifiedAt = (await fs.stat('./prisma/schema.prisma'))
-			.mtime
-
-		if (prismaSchemaLastModifiedAt < databaseLastModifiedAt) {
-			return
-		}
-	}
-
-	// Build into this run's own file and rename it into place, so a run that is
-	// already copying `base.db` never reads a half-migrated database.
-	await run('bunx', ['prisma', 'migrate', 'reset', '--force'], {
-		env: { ...process.env, DATABASE_URL: `file:${pendingPath}` },
+function migrateDatabase(databasePath: string) {
+	return run('bunx', ['prisma', 'migrate', 'reset', '--force'], {
+		env: {
+			...process.env,
+			DATABASE_URL: `file:${databasePath}`,
+			// Prisma asks for this before it resets a database when it thinks an
+			// AI agent is running it. This file is a throwaway test database.
+			PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION: 'yes',
+		},
 	})
-	await moveDatabase(pendingPath, BASE_DATABASE_PATH)
 }
 
 async function removeAbandonedRunDirectories() {
@@ -99,7 +72,13 @@ export async function setup(project: TestProject) {
 	project.provide('databaseRunDirectory', runDirectory)
 
 	await removeAbandonedRunDirectories()
-	await ensureBaseDatabase(path.join(runDirectory, 'base.pending.db'))
+	await ensureBaseDatabase({
+		basePath: BASE_DATABASE_PATH,
+		pendingPath: path.join(runDirectory, 'base.pending.db'),
+		schemaPath: './prisma/schema.prisma',
+		migrationsDirectory: './prisma/migrations',
+		build: migrateDatabase,
+	})
 }
 
 export async function teardown() {

@@ -597,7 +597,7 @@ test('a Recipe removed from a Meal is removed at once and collapses; Undo puts i
 	await openPlanDay(page)
 	const riceLink = page.getByRole('link', { name: 'Rice', exact: true })
 	const removeRice = page.getByRole('button', {
-		name: 'Remove Rice from this meal',
+		name: 'Remove Rice from this Meal',
 	})
 
 	await removeRice.click()
@@ -605,7 +605,7 @@ test('a Recipe removed from a Meal is removed at once and collapses; Undo puts i
 	await expect(toastOf(undoButton(page))).toContainText('Removed Rice')
 	// The last Recipe left goes with its Meal, so it offers no remove.
 	await expect(
-		page.getByRole('button', { name: 'Remove Dal from this meal' }),
+		page.getByRole('button', { name: 'Remove Dal from this Meal' }),
 	).toBeHidden()
 	await expect.poll(riceSaved).toBe(0)
 
@@ -613,7 +613,7 @@ test('a Recipe removed from a Meal is removed at once and collapses; Undo puts i
 	await expect(riceLink).toBeVisible()
 	await expect.poll(riceSaved).toBe(1)
 	await expect(
-		page.getByRole('button', { name: 'Remove Dal from this meal' }),
+		page.getByRole('button', { name: 'Remove Dal from this Meal' }),
 	).toBeVisible()
 })
 
@@ -645,7 +645,7 @@ test('the first card showing loses the hairline above it', async ({
 	const lineAbove = () =>
 		riceWrapper.evaluate((element) => getComputedStyle(element).borderTopColor)
 	expect(await lineAbove()).not.toBe('rgba(0, 0, 0, 0)')
-	await page.getByRole('button', { name: 'Remove Dal from this meal' }).click()
+	await page.getByRole('button', { name: 'Remove Dal from this Meal' }).click()
 	await expect.poll(lineAbove).toBe('rgba(0, 0, 0, 0)')
 })
 

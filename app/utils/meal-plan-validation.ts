@@ -39,7 +39,7 @@ export const AddTextMealSchema = z.object({
 	text: z
 		.string({
 			error: (issue) =>
-				issue.input === undefined ? 'Text is required' : undefined,
+				issue.input === undefined ? 'Write what you’re having' : undefined,
 		})
 		.trim()
 		.min(1, { message: 'Write what you’re having' })

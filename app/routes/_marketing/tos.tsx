@@ -46,8 +46,10 @@ export default function TermsOfServiceRoute() {
 						Using Quartermaster
 					</h2>
 					<p className="text-muted-foreground mt-2">
-						Quartermaster is an app for a household&apos;s Recipes, Plan and
-						Shopping. By creating an account, you agree to use it for that.
+						Quartermaster is a personal recipe management service. By creating
+						an account, you agree to use the service for its intended purpose:
+						storing and organizing Recipes, building Menus, planning Meals,
+						keeping Household Staples, and managing Shopping.
 					</p>
 				</section>
 

@@ -13,7 +13,7 @@ export function menuTitleKey(title: string) {
 export const MenuTitleSchema = z
 	.string({
 		error: (issue) =>
-			issue.input === undefined ? 'Title is required' : undefined,
+			issue.input === undefined ? 'Name this Menu' : undefined,
 	})
 	.trim()
 	.min(1, { message: 'Name this Menu' })
@@ -42,7 +42,9 @@ export const MenuSchema = z.object({
 export const ScaleMultiplierSchema = z
 	.string({
 		error: (issue) =>
-			issue.input === undefined ? 'Multiplier is required' : undefined,
+			issue.input === undefined
+				? 'Enter a multiplier, like 1 or 1.5'
+				: undefined,
 	})
 	.trim()
 	.regex(/^\d{1,3}([.,]\d{1,2})?$/, {
@@ -56,8 +58,8 @@ export const ScaleMultiplierSchema = z
 		message: 'Multiplier must be 100 or less',
 	})
 
-export const NOTE_TEXT_REQUIRED_MESSAGE = 'Note text is required'
-export const LINE_NAME_REQUIRED_MESSAGE = 'Line name is required'
+export const NOTE_TEXT_REQUIRED_MESSAGE = 'Write the note, or remove it'
+export const LINE_NAME_REQUIRED_MESSAGE = 'Name this line, or remove it'
 
 /**
  * An ordinary Shopping line on a note card: required name, optional free-text

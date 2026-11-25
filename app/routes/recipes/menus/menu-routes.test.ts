@@ -1622,7 +1622,7 @@ describe('menu note cards', () => {
 		})) as any
 		expect(noText.init?.status).toBe(400)
 		expect(noText.data.result.error['sections[0].items[0].text']).toEqual([
-			'Note text is required',
+			'Write the note, or remove it',
 		])
 
 		const noLineName = (await saveMenu(session, menu.id, {
@@ -1636,7 +1636,7 @@ describe('menu note cards', () => {
 			noLineName.data.result.error[
 				'sections[0].items[0].shoppingLines[0].name'
 			],
-		).toEqual(['Line name is required'])
+		).toEqual(['Name this line, or remove it'])
 
 		expect(await menuItems(menu.id)).toHaveLength(0)
 	})

@@ -6,8 +6,7 @@ export const MAX_RECIPE_TITLE_LENGTH = 100
 
 export const RecipeTitleSchema = z
 	.string({
-		error: (issue) =>
-			issue.input === undefined ? 'Title is required' : undefined,
+		error: (issue) => (issue.input === undefined ? 'Add a title' : undefined),
 	})
 	.min(1, { message: 'Add a title' })
 	.max(MAX_RECIPE_TITLE_LENGTH, { message: 'Title is too long' })

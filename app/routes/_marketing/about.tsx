@@ -71,8 +71,8 @@ export default function AboutRoute() {
 					/>
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">Keep Recipes.</span>{' '}
-						Import one from a link, pasted text or a screenshot, or write your
-						own with a photo.
+						Import one from a link or pasted text, or write your own with a
+						photo. On Pro, AI can read screenshots too.
 					</p>
 				</div>
 				<div className="flex gap-3">

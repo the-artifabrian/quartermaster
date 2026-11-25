@@ -460,7 +460,9 @@ test('an account with no password sets one with Forgot password', async ({
 
 	await expect(page).toHaveURL('/reset-password')
 	// Login asks for the username, which someone who used Google may not know.
-	await expect(page.getByText(`Hi, ${user.username}.`)).toBeVisible()
+	await expect(
+		page.getByText(`For ${user.username}`, { exact: true }),
+	).toBeVisible()
 	const newPassword = faker.internet.password()
 	await page.getByLabel(/^new password$/i).fill(newPassword)
 	await page.getByLabel(/^confirm password$/i).fill(newPassword)
@@ -598,7 +600,9 @@ test('a reset link opened while logged in as someone else resets the right accou
 		.click()
 
 	await expect(page).toHaveURL('/reset-password')
-	await expect(page.getByText(`Hi, ${user.username}.`)).toBeVisible()
+	await expect(
+		page.getByText(`For ${user.username}`, { exact: true }),
+	).toBeVisible()
 	await expect(page.getByText(/logs this device out/i)).toBeVisible()
 	const newPassword = faker.internet.password()
 	await page.getByLabel(/^new password$/i).fill(newPassword)

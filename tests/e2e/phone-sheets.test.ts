@@ -1259,7 +1259,7 @@ test('removing the first Recipe of a Meal takes the inset line above the next on
 	expect(await drawsInsetLine(riceRow)).toBe(true)
 	await holdPlanReloads(page)
 	await tapUntil(
-		mobile.getByRole('button', { name: 'Remove Dal from this meal' }),
+		mobile.getByRole('button', { name: 'Remove Dal from this Meal' }),
 		() =>
 			expect(mobile.getByRole('link', { name: 'Dal', exact: true })).toBeHidden(
 				{ timeout: 1000 },
@@ -1299,7 +1299,7 @@ test('removing the first Recipe under a Menu heading leaves no line under the he
 	expect(await drawsInsetLine(riceRow)).toBe(true)
 	await holdPlanReloads(page)
 	await tapUntil(
-		mobile.getByRole('button', { name: 'Remove Dal from this meal' }),
+		mobile.getByRole('button', { name: 'Remove Dal from this Meal' }),
 		() =>
 			expect(mobile.getByRole('link', { name: 'Dal', exact: true })).toBeHidden(
 				{ timeout: 1000 },

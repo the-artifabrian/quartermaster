@@ -358,7 +358,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	await page.setViewportSize({ width: 1280, height: 800 })
 	await page.getByRole('button', { name: /from plan/i }).click()
 	await expect(
-		page.getByRole('heading', { name: /what are we buying for/i }),
+		page.getByRole('heading', { name: /pick meals to shop for/i }),
 	).toBeVisible()
 	for (const name of [/^broccoli/i, /^jasmine rice/i]) {
 		const line = page.getByRole('button', { name })
@@ -374,7 +374,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 
 	// 3. Only the picked lines land on the list.
 	await expect(
-		page.getByRole('heading', { name: /what are we buying for/i }),
+		page.getByRole('heading', { name: /pick meals to shop for/i }),
 	).toBeHidden()
 	await expect(page.getByText('chicken breast')).toBeVisible()
 	await expect(page.getByText('spring onions')).toBeVisible()

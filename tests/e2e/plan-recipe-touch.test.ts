@@ -283,9 +283,9 @@ test('a Meal with two Recipes gives each remove button a thumb-sized target', as
 	await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
 	const mobile = page.getByTestId('mobile-plan')
 	await expectThumbSized(
-		mobile.getByRole('button', { name: 'Remove Steamed Rice from this meal' }),
+		mobile.getByRole('button', { name: 'Remove Steamed Rice from this Meal' }),
 	)
 	await expectThumbSized(
-		mobile.getByRole('button', { name: 'Remove Miso Soup from this meal' }),
+		mobile.getByRole('button', { name: 'Remove Miso Soup from this Meal' }),
 	)
 })

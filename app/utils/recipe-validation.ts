@@ -126,25 +126,6 @@ const recipeTimeYieldFields = {
 	yieldLabel: optionalYieldLabel,
 }
 
-export const RecipeTimeYieldSchema = z
-	.object(recipeTimeYieldFields)
-	.superRefine((recipe, context) => {
-		if (recipe.yieldAmount != null && recipe.yieldLabel == null) {
-			context.addIssue({
-				code: 'custom',
-				path: ['yieldLabel'],
-				message: 'Say what the recipe makes',
-			})
-		}
-		if (recipe.yieldLabel != null && recipe.yieldAmount == null) {
-			context.addIssue({
-				code: 'custom',
-				path: ['yieldAmount'],
-				message: 'Add how many the recipe makes',
-			})
-		}
-	})
-
 export const RecipeSchema = z
 	.object({
 		title: RecipeTitleSchema,
@@ -182,8 +163,6 @@ export const RecipeSchema = z
 			})
 		}
 	})
-
-export type RecipeFormData = z.infer<typeof RecipeSchema>
 
 export type RecipeFormIngredient = {
 	id?: string

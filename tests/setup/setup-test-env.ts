@@ -1,14 +1,14 @@
 import 'dotenv/config'
 import './test-database.ts'
 import '#app/utils/env.server.ts'
-// we need these to be imported first 👆
+// The three imports above come first: they set up the environment the rest
+// reads.
 
 import { beforeEach, vi, type MockInstance } from 'vitest'
-import './custom-matchers.ts'
 import { installNetworkGuard } from './network-guard.ts'
 
-// Everything in this file is paid for by all ~120 test files, so it stays
-// cheap. The expensive setup is opt-in and lives next door:
+// Every test file pays for everything in this file, so it stays cheap. The
+// expensive setup is opt-in and lives next door:
 //   - `db-setup.ts` for tests that use the database
 //   - `mocks-setup.ts` for tests that call a third-party API
 //   - `dom-setup.ts`, loaded below for `@vitest-environment jsdom` files

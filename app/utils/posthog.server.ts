@@ -59,17 +59,3 @@ export async function getFeatureFlag(
 		),
 	])
 }
-
-export async function getFeatureFlags(
-	userId: string,
-): Promise<Record<string, string | boolean> | undefined> {
-	const client = getPostHogClient()
-	if (!client) return undefined
-
-	return Promise.race([
-		client.getAllFlags(userId) as Promise<Record<string, string | boolean>>,
-		new Promise<undefined>((resolve) =>
-			setTimeout(() => resolve(undefined), FLAG_TIMEOUT_MS),
-		),
-	])
-}

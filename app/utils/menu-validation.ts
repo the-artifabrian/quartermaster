@@ -33,8 +33,6 @@ export const MenuSchema = z.object({
 		.optional(),
 })
 
-export type MenuFormData = z.infer<typeof MenuSchema>
-
 /**
  * Positive decimal ingredient batches for one Recipe card ("1×" = one batch of
  * the Recipe's stored ingredient list). Entered as text so phone keyboards and

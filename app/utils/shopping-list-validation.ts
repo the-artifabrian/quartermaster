@@ -28,8 +28,6 @@ export const ShoppingListItemSchema = z.object({
 		.optional(),
 })
 
-export type ShoppingListItemFormData = z.infer<typeof ShoppingListItemSchema>
-
 /**
  * Editing a row. A row's name may be as long as a Staple's, since the
  * Staples picker and bulk add put those on Shopping as they are.

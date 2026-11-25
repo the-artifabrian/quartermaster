@@ -15,8 +15,3 @@ export function useDaysUntilExpiry() {
 	const tierInfo = useSubscriptionTier()
 	return tierInfo?.daysUntilExpiry ?? null
 }
-
-export function useWasProPreviously() {
-	const tierInfo = useSubscriptionTier()
-	return tierInfo?.wasProPreviously ?? false
-}

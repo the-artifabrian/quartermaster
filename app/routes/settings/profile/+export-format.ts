@@ -168,7 +168,7 @@ const ImportRecipeSchema = z
 		}
 	})
 
-const ImportHouseholdIngredientSchema = z
+export const ImportHouseholdIngredientSchema = z
 	.object({
 		displayName: z
 			.string()

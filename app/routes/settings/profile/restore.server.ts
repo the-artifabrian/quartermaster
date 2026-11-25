@@ -18,6 +18,7 @@ import {
 	type RestoreFailure,
 } from './restore-results.server.ts'
 import { importShopping } from './restore-shopping.server.ts'
+import { importHouseholdIngredients } from './restore-staples.server.ts'
 
 /**
  * Writes a parsed export into the Household, section by section. Each item is
@@ -113,27 +114,11 @@ export async function restore(
 		sharedMenuIdsByTitleKey = imported.sharedMenuIdsByTitleKey
 	}
 
-	// Household ingredients (Staples included): rows the Household already has
-	// win, so a restore never rewrites a choice the Household has already made.
 	if (fullData?.householdIngredients !== undefined) {
-		await writeTransaction(prisma, async (tx) => {
-			const existing = await tx.householdIngredient.findMany({
-				where: { householdId },
-				select: { canonicalKey: true },
-			})
-			const existingKeys = new Set(existing.map((item) => item.canonicalKey))
-			for (const ingredient of fullData.householdIngredients ?? []) {
-				if (existingKeys.has(ingredient.canonicalKey)) {
-					results.householdIngredients.skipped++
-					continue
-				}
-				await tx.householdIngredient.create({
-					data: { ...ingredient, householdId },
-				})
-				existingKeys.add(ingredient.canonicalKey)
-				results.householdIngredients.created++
-			}
-		})
+		results.householdIngredients = await importHouseholdIngredients(
+			fullData.householdIngredients,
+			householdId,
+		)
 	}
 
 	let mealIdByRef = new Map<string, string>()

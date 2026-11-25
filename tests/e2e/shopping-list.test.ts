@@ -1115,6 +1115,9 @@ test('the phone add sheet opens empty after each way of closing it, and still ad
 	const unit = sheet.getByPlaceholder('Unit')
 
 	await addItem.click()
+	// The sheet moves focus to the name a moment after it opens; typing
+	// before then would land there.
+	await expect(name).toBeFocused()
 	await sheet.getByRole('button', { name: '+ Qty & unit' }).click()
 	const closeWays: Array<[string, () => Promise<void>]> = [
 		[
@@ -1133,6 +1136,7 @@ test('the phone add sheet opens empty after each way of closing it, and still ad
 		await expect(sheet, `closed with ${way}`).toBeHidden()
 		// Leaving, the sheet showed what was typed; it clears on the next open.
 		await addItem.click()
+		await expect(name).toBeFocused()
 		await expect(name, `reopened after ${way}`).toHaveValue('')
 		await expect(quantity, `reopened after ${way}`).toHaveValue('')
 		await expect(unit, `reopened after ${way}`).toHaveValue('')

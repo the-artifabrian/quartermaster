@@ -181,8 +181,6 @@ export function createLoaderCache({ maxEntries = 32 } = {}) {
 	}
 }
 
-export type LoaderCache = ReturnType<typeof createLoaderCache>
-
 export const loaderCache = createLoaderCache()
 
 /**

@@ -328,14 +328,3 @@ export async function handleSubscriptionDeleted(
 		},
 	})
 }
-
-/**
- * Looks up a user by their Stripe customer ID.
- */
-export async function getUserByStripeCustomerId(customerId: string) {
-	const subscription = await prisma.subscription.findUnique({
-		where: { stripeCustomerId: customerId },
-		select: { userId: true },
-	})
-	return subscription?.userId ?? null
-}

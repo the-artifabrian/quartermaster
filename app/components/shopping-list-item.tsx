@@ -443,12 +443,6 @@ export function ShoppingListItemCard({
 										quantity={display.quantity}
 										unit={display.unit}
 									/>
-									{display.combined && (
-										<span className="text-muted-foreground/60">
-											{' '}
-											· incl. meals
-										</span>
-									)}
 								</p>
 							)}
 						</div>

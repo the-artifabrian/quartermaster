@@ -199,11 +199,6 @@ export function usePostHog(): AnalyticsClient {
 	return useContext(PostHogContext).client
 }
 
-export function useFeatureFlag(key: string): string | boolean | undefined {
-	const { client, ready } = useContext(PostHogContext)
-	return ready ? client.getFeatureFlag(key) : undefined
-}
-
 function capturePersistedPwaEvent(
 	posthog: AnalyticsClient,
 	event: string,

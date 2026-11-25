@@ -100,10 +100,10 @@ export function releaseWhenSettled(transaction: Transaction): Transaction {
 }
 
 export function createPrismaClient(databaseUrl = process.env.DATABASE_URL) {
-	// NOTE: if you change anything in this function you'll need to restart
-	// the dev server to see your changes.
+	// The dev server keeps one client across reloads (`remember` below), so a
+	// change here needs a restart.
 
-	// Feel free to change this log threshold to something that makes sense for you
+	// Queries slower than this many milliseconds are logged.
 	const logThreshold = 20
 
 	// Configure the driver rather than one connection via PRAGMA. libSQL can

@@ -987,7 +987,7 @@ Shopping `checkVersion` triggers, since Prisma would drop them silently if it
 rebuilt those tables.
 
 A test file opts into the setup it needs: `import '#tests/setup/db-setup.ts'`
-for a freshly seeded database before each test,
+for a freshly migrated database before each test,
 `import '#tests/setup/mocks-setup.ts'` for the MSW handlers, and the
 `@vitest-environment jsdom` docblock for a DOM. Files needing none of those pay
 for none of them, and a query or an outbound request made without the matching

@@ -22,7 +22,7 @@ export const PasswordSchema = z
 			issue.input === undefined ? 'Password is required' : undefined,
 	})
 	.min(6, { error: 'Password is too short' })
-	// NOTE: bcrypt has a limit of 72 bytes (which should be plenty long)
+	// bcrypt reads only the first 72 bytes.
 	// https://github.com/epicweb-dev/epic-stack/issues/918
 	.refine((val) => new TextEncoder().encode(val).length <= 72, {
 		error: 'Password is too long',

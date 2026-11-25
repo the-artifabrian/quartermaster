@@ -185,8 +185,9 @@ test('a Meal joining a row added from Recipe detail shows the summed amount', as
 		.click()
 	const row = page.getByRole('group', { name: /^leeks? shopping item$/ })
 	await expect(row).toHaveCount(1)
-	await expect(row).toContainText('4')
-	await expect(row).toContainText('incl. meals')
+	// The amount line is the summed amount alone.
+	await expect(row.getByText('4', { exact: true })).toBeVisible()
+	await expect(row).not.toContainText('incl. meals')
 
 	// In the database the Recipe-detail row keeps its own 2, and the Meal's
 	// 2 is recorded against it.
@@ -1092,4 +1093,123 @@ test('the old Shopping address still opens Shopping, and a form posted to it sav
 	await expect(
 		page.getByRole('heading', { level: 1, name: /^Shopping/ }),
 	).toBeVisible()
+})
+
+// Failure list for the phone add sheet keeping what was typed:
+// - Close, the backdrop or Escape leaves the name, amount or unit in the
+//   fields, so the next open shows them and new typing runs on from the old
+//   text.
+// - Clearing on open breaks the add that follows, or leaves its text behind.
+test('the phone add sheet opens empty after each way of closing it, and still adds an item', async ({
+	page,
+	login,
+}) => {
+	// Four opens and closes of a sliding sheet.
+	test.setTimeout(30_000)
+	const user = await login()
+	await prisma.shoppingList.create({
+		data: { userId: user.id, householdId: user.householdId },
+	})
+	await page.setViewportSize({ width: 390, height: 844 })
+	await openShopping(page)
+	const addItem = page.getByRole('button', { name: 'Add item' })
+	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
+	const name = sheet.getByPlaceholder('Add an item...')
+	const quantity = sheet.getByPlaceholder('Qty')
+	const unit = sheet.getByPlaceholder('Unit')
+
+	await addItem.click()
+	// The sheet moves focus to the name a moment after it opens; typing
+	// before then would land there.
+	await expect(name).toBeFocused()
+	await sheet.getByRole('button', { name: '+ Qty & unit' }).click()
+	const closeWays: Array<[string, () => Promise<void>]> = [
+		[
+			'Close',
+			() => sheet.getByRole('button', { name: 'Close', exact: true }).click(),
+		],
+		// The backdrop, above the sheet.
+		['the backdrop', () => page.mouse.click(195, 200)],
+		['Escape', () => page.keyboard.press('Escape')],
+	]
+	for (const [way, close] of closeWays) {
+		await name.fill('butter')
+		await quantity.fill('2')
+		await unit.fill('kg')
+		await close()
+		await expect(sheet, `closed with ${way}`).toBeHidden()
+		// Leaving, the sheet showed what was typed; it clears on the next open.
+		await addItem.click()
+		await expect(name).toBeFocused()
+		await expect(name, `reopened after ${way}`).toHaveValue('')
+		await expect(quantity, `reopened after ${way}`).toHaveValue('')
+		await expect(unit, `reopened after ${way}`).toHaveValue('')
+	}
+
+	await name.fill('Butter')
+	await quantity.fill('250')
+	await unit.fill('g')
+	await sheet.getByRole('button', { name: 'Add to Next shop' }).click()
+	await expect(
+		page.getByRole('group', { name: 'Butter shopping item' }),
+	).toBeVisible()
+	await expect(name).toHaveValue('')
+	await expect
+		.poll(() =>
+			prisma.shoppingListItem.findMany({
+				where: { list: { householdId: user.householdId } },
+				select: { name: true, quantity: true, unit: true },
+			}),
+		)
+		.toEqual([{ name: 'Butter', quantity: '250', unit: 'g' }])
+})
+
+// Failure list for the add sheet's duplicate warning across a close:
+// - The warning for the last item is still showing when the sheet opens
+//   again, above an empty field.
+// - Its "add anyway" stays armed, so the next item is added without being
+//   checked against the list.
+// - Add anyway on the fresh warning no longer adds.
+test('the phone add sheet opens without the last item’s warning, and checks the next add again', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await prisma.shoppingList.create({
+		data: {
+			userId: user.id,
+			householdId: user.householdId,
+			items: { create: { name: 'Milk' } },
+		},
+	})
+	await page.setViewportSize({ width: 390, height: 844 })
+	await openShopping(page)
+	const addItem = page.getByRole('button', { name: 'Add item' })
+	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
+	const name = sheet.getByPlaceholder('Add an item...')
+	const warning = sheet.getByText('Milk is already on your list')
+
+	await addItem.click()
+	await expect(name).toBeFocused()
+	await name.fill('Milk')
+	await sheet.getByRole('button', { name: 'Add to Next shop' }).click()
+	await expect(warning).toBeVisible()
+	await sheet.getByRole('button', { name: 'Close', exact: true }).click()
+	await expect(sheet).toBeHidden()
+
+	await addItem.click()
+	await expect(name).toBeFocused()
+	await expect(warning).toBeHidden()
+	await name.fill('Milk')
+	await sheet.getByRole('button', { name: 'Add to Next shop' }).click()
+	await expect(warning).toBeVisible()
+	const milkRows = () =>
+		prisma.shoppingListItem.count({
+			where: { list: { householdId: user.householdId }, name: 'Milk' },
+		})
+	expect(await milkRows()).toBe(1)
+
+	await sheet.getByRole('button', { name: 'Add anyway' }).click()
+	await expect(warning).toBeHidden()
+	await expect.poll(milkRows).toBe(2)
 })

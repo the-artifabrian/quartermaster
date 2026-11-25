@@ -190,5 +190,3 @@ export function createUndoStore({
 		},
 	}
 }
-
-export type UndoStore = ReturnType<typeof createUndoStore>

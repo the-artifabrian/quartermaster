@@ -146,13 +146,9 @@ export function init() {
 }
 
 /**
- * This is used in both `entry.server.ts` and `root.tsx` to ensure that
- * the environment variables are set and globally available before the app is
- * started.
- *
- * NOTE: Do *not* add any environment variables in here that you do not wish to
- * be included in the client.
- * @returns all public ENV variables
+ * The environment variables the browser sees, as `window.ENV` (root.tsx) and
+ * `global.ENV` on the server (entry.server.tsx). Everything returned here is
+ * sent to the client, so add nothing secret.
  */
 export function getEnv() {
 	const commitSha = process.env.COMMIT_SHA?.trim()

@@ -47,11 +47,11 @@ for (const { theme, viewport } of checks) {
 		await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`))
 		await expect(page.locator('html')).toHaveCSS(
 			'background-color',
-			theme === 'light' ? 'rgb(246, 241, 235)' : 'rgb(26, 24, 22)',
+			theme === 'light' ? 'rgb(251, 251, 248)' : 'rgb(21, 21, 19)',
 		)
 		await expect(page.locator('body')).toHaveCSS(
 			'background-color',
-			theme === 'light' ? 'rgb(246, 241, 235)' : 'rgb(26, 24, 22)',
+			theme === 'light' ? 'rgb(251, 251, 248)' : 'rgb(21, 21, 19)',
 		)
 
 		const criticalStyle = page.locator('style[data-pwa-launch-theme]')

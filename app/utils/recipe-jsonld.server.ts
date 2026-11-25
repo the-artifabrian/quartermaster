@@ -310,6 +310,13 @@ function readDimension(value: unknown): number | null {
  */
 const MAX_IMAGE_ENTRIES = 20
 
+/**
+ * A sized photo whose shorter side is under this is a thumbnail or a thin
+ * crop, so it ranks after photos with no size, any of which may be the full
+ * one.
+ */
+const MIN_PHOTO_SIDE = 400
+
 function firstString(value: unknown): string | null {
 	if (typeof value === 'string') return value
 	if (Array.isArray(value)) {
@@ -321,10 +328,12 @@ function firstString(value: unknown): string | null {
 /**
  * The photo URLs a Recipe's `image` names, best first. `image` may be a URL,
  * an ImageObject, or a list of either. Only an ImageObject's width and height
- * say how big a photo is, so those come first, largest first, and the rest
- * follow in the page's order (a WP Recipe Maker list starts with its largest
- * crop). Relative URLs resolve against the page, and anything that isn't an
- * http(s) URL is left out.
+ * say how big a photo is. Sized photos at least `MIN_PHOTO_SIDE` on both
+ * sides come first, largest first. Then come those with no size, in the
+ * page's order (a WP Recipe Maker list starts with its largest crop), and
+ * last the small sized ones, largest first. Entities decode as they do in
+ * text (WordPress writes `&#038;` in a query), relative URLs resolve against
+ * the page, and anything that isn't an http(s) URL is left out.
  */
 export function recipePhotoUrls(
 	jsonLd: Record<string, unknown>,
@@ -333,34 +342,41 @@ export function recipePhotoUrls(
 	const entries = Array.isArray(jsonLd.image)
 		? jsonLd.image.slice(0, MAX_IMAGE_ENTRIES)
 		: [jsonLd.image]
-	const candidates: Array<{ url: string; area: number | null }> = []
+	const candidates: Array<{ url: string; tier: number; area: number }> = []
 	const seen = new Set<string>()
 	for (const entry of entries) {
 		let raw: string | null = null
-		let area: number | null = null
+		let width: number | null = null
+		let height: number | null = null
 		if (typeof entry === 'string') {
 			raw = entry
 		} else if (entry && typeof entry === 'object') {
 			const image = entry as Record<string, unknown>
 			raw = firstString(image.url) ?? firstString(image.contentUrl)
-			const width = readDimension(image.width)
-			const height = readDimension(image.height)
-			area = width && height ? width * height : null
+			width = readDimension(image.width)
+			height = readDimension(image.height)
 		}
-		if (!raw?.trim()) continue
+		const cleaned = raw ? cleanJsonLdText(raw) : ''
+		if (!cleaned) continue
 		let url: URL
 		try {
-			url = new URL(raw.trim(), pageUrl)
+			url = new URL(cleaned, pageUrl)
 		} catch {
 			continue
 		}
 		if (url.protocol !== 'http:' && url.protocol !== 'https:') continue
 		if (seen.has(url.href)) continue
 		seen.add(url.href)
-		candidates.push({ url: url.href, area })
+		let tier = 1
+		let area = 0
+		if (width !== null && height !== null) {
+			area = width * height
+			tier = Math.min(width, height) >= MIN_PHOTO_SIDE ? 0 : 2
+		}
+		candidates.push({ url: url.href, tier, area })
 	}
-	// A stable sort keeps the page's order among equals and among the unsized.
+	// A stable sort keeps the page's order among the unsized.
 	return candidates
-		.sort((a, b) => (b.area ?? -1) - (a.area ?? -1))
+		.sort((a, b) => a.tier - b.tier || b.area - a.area)
 		.map((candidate) => candidate.url)
 }

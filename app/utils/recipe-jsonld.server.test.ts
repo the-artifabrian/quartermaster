@@ -381,7 +381,7 @@ describe('photo', () => {
 		).toEqual(['https://cdn.example.com/b.jpg'])
 	})
 
-	test('ImageObjects with a size come largest first, and ones without a size after them', () => {
+	test('ImageObjects with a size come largest first, and ones without a size after the large ones', () => {
 		expect(
 			photos([
 				{ '@type': 'ImageObject', url: 'https://cdn.example.com/no-size.jpg' },
@@ -401,9 +401,37 @@ describe('photo', () => {
 			]),
 		).toEqual([
 			'https://cdn.example.com/large.jpg',
-			'https://cdn.example.com/small.jpg',
 			'https://cdn.example.com/no-size.jpg',
 			'https://cdn.example.com/plain.jpg',
+			'https://cdn.example.com/small.jpg',
+		])
+	})
+
+	test('a sized thumbnail comes after a photo with no size, which may be the full one', () => {
+		expect(
+			photos([
+				{ url: 'https://cdn.example.com/thumb.jpg', width: 150, height: 150 },
+				{ url: 'https://cdn.example.com/wide.jpg', width: 1200, height: 300 },
+				'https://cdn.example.com/full.jpg',
+				{ url: 'https://cdn.example.com/large.jpg', width: 800, height: 600 },
+			]),
+		).toEqual([
+			'https://cdn.example.com/large.jpg',
+			'https://cdn.example.com/full.jpg',
+			'https://cdn.example.com/wide.jpg',
+			'https://cdn.example.com/thumb.jpg',
+		])
+	})
+
+	test('HTML entities in a URL decode, as WordPress writes an ampersand', () => {
+		expect(
+			photos([
+				'https://cdn.example.com/chili.jpg?w=1200&#038;h=900',
+				{ url: 'https://cdn.example.com/stew.jpg?w=800&amp;h=600' },
+			]),
+		).toEqual([
+			'https://cdn.example.com/chili.jpg?w=1200&h=900',
+			'https://cdn.example.com/stew.jpg?w=800&h=600',
 		])
 	})
 
@@ -453,8 +481,8 @@ describe('photo', () => {
 				{ url: 'https://cdn.example.com/b.jpg', width: 10, height: 10 },
 			]),
 		).toEqual([
-			'https://cdn.example.com/b.jpg',
 			'https://cdn.example.com/a.jpg',
+			'https://cdn.example.com/b.jpg',
 		])
 	})
 

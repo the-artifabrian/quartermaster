@@ -11,12 +11,12 @@ import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader as recipesLoader } from '../../recipes/index.tsx'
 import { z } from 'zod'
 import {
-	action,
 	boundedArray,
-	RESTORE_JSON_LIMITS,
 	RESTORE_LIMITS,
 	RESTORE_MAX_FILE_BYTES,
-} from './import.tsx'
+} from './+backup-format.ts'
+import { action } from './import.tsx'
+import { RESTORE_JSON_LIMITS } from './restore-file.server.ts'
 import '#tests/setup/db-setup.ts'
 
 const posthog = vi.hoisted(() => ({

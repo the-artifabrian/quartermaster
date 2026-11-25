@@ -7,6 +7,7 @@ import {
 	TooltipTrigger,
 } from '#app/components/ui/tooltip.tsx'
 import { scaleAmountKitchen } from '#app/utils/fractions.ts'
+import { scaledLineWords } from '#app/utils/ingredient-plural.ts'
 import {
 	convertToMetric,
 	formatMetricAmount,
@@ -58,6 +59,8 @@ export function IngredientList({
 					}
 
 					const isChecked = checkedIngredients.has(ingredient.id)
+					// "2 eggs" and "2 pinches salt" once scaled, not "2 egg".
+					const words = scaledLineWords(ingredient, ratio)
 
 					return (
 						<li
@@ -130,7 +133,7 @@ export function IngredientList({
 													{kitchen.display}{' '}
 												</span>
 											)}
-											{ingredient.unit && <span>{ingredient.unit} </span>}
+											{words.unit && <span>{words.unit} </span>}
 										</>
 									)
 								})()}
@@ -140,10 +143,10 @@ export function IngredientList({
 										className="text-primary decoration-primary/30 hover:decoration-primary/60 underline underline-offset-2"
 										onClick={(e) => e.stopPropagation()}
 									>
-										{ingredient.name}
+										{words.name}
 									</PushLink>
 								) : (
-									<span>{ingredient.name}</span>
+									<span>{words.name}</span>
 								)}
 								{ingredient.notes && (
 									<span className={isChecked ? '' : 'text-muted-foreground'}>

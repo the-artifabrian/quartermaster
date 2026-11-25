@@ -4,6 +4,7 @@ import { data, Link, redirect } from 'react-router'
 import { TryDemoButton } from '#app/components/demo.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
+import { scaledLineWords } from '#app/utils/ingredient-plural.ts'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
 import { baseMetaTags } from '#app/utils/meta.ts'
 import { cn } from '#app/utils/misc.tsx'
@@ -723,7 +724,7 @@ function RecipesScreen() {
 										)}
 									>
 										<span className="font-medium">{scaled(item.amount)} </span>
-										{item.name}
+										{scaledName(item)}
 										{item.notes ? (
 											<span className={item.checked ? '' : 'text-cream-muted'}>
 												, {item.notes}
@@ -764,7 +765,19 @@ function RecipesScreen() {
 
 /** Doubles the leading number of an amount string ("3 tbsp" → "6 tbsp"). */
 function scaled(amount: string) {
-	return amount.replace(/^\d+/, (n) => String(Number(n) * 2))
+	const [count = '', unit] = amount.split(' ')
+	const doubled = String(Number(count) * 2)
+	const words = scaledLineWords(
+		{ amount: count, unit: unit ?? null, name: '' },
+		2,
+	)
+	return words.unit ? `${doubled} ${words.unit}` : doubled
+}
+
+/** The name as the app shows it at 2× ("1 lime" → "2 limes"). */
+function scaledName({ amount, name }: { amount: string; name: string }) {
+	const [count = '', unit] = amount.split(' ')
+	return scaledLineWords({ amount: count, unit: unit ?? null, name }, 2).name
 }
 
 const staples = [

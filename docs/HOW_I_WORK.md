@@ -10,8 +10,8 @@ it fits together, and I say when it's ready.
   from that. Real use takes features out as well as putting them in. Cook
   logging and AI quantity planning both shipped and were later taken out.
 - **The architecture.** SQLite on one machine, a thin Swift shell around the
-  web app, AI that transcribes and suggests and leaves the decisions to people.
-  The bigger calls are in the [ADRs](adr), with their reasons.
+  web app, AI that suggests while people decide. The iOS calls are written up
+  in the [ADRs](adr), with their reasons.
 - **The process.** The loop below is my design, and the rules in
   [AGENTS.md](../AGENTS.md) are mine. They grow whenever an agent finds a new
   way to get something wrong.

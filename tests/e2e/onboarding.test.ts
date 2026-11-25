@@ -111,7 +111,7 @@ test('onboarding with link', async ({ page, navigate, getOnboardingData }) => {
 	await emailTextbox.click()
 	await emailTextbox.fill(onboardingData.email)
 
-	await page.getByRole('button', { name: /submit/i }).click()
+	await page.getByRole('button', { name: /email me a code/i }).click()
 	await expect(page.getByText(/check your email/i)).toBeVisible()
 	await expect(page.getByText(/asked more than once\?/i)).toBeVisible()
 
@@ -119,7 +119,7 @@ test('onboarding with link', async ({ page, navigate, getOnboardingData }) => {
 	invariant(email, 'Email not found')
 	expect(email.to).toBe(onboardingData.email.toLowerCase())
 	expect(email.from).toBe('hello@useqm.app')
-	expect(email.subject).toMatch(/welcome/i)
+	expect(email.subject).toMatch(/sign-up code/i)
 	const onboardingUrl = extractUrl(email.text) as AppPages
 	invariant(onboardingUrl, 'Onboarding URL not found')
 	expect(new URL(onboardingUrl).searchParams.get('code')).toBeNull()
@@ -187,14 +187,14 @@ test('onboarding with a short code', async ({
 	await emailTextbox.click()
 	await emailTextbox.fill(onboardingData.email)
 
-	await page.getByRole('button', { name: /submit/i }).click()
+	await page.getByRole('button', { name: /email me a code/i }).click()
 	await expect(page.getByText(/check your email/i)).toBeVisible()
 
 	const email = await readEmail(onboardingData.email)
 	invariant(email, 'Email not found')
 	expect(email.to).toBe(onboardingData.email.toLowerCase())
 	expect(email.from).toBe('hello@useqm.app')
-	expect(email.subject).toMatch(/welcome/i)
+	expect(email.subject).toMatch(/sign-up code/i)
 	const codeMatch = email.text.match(CODE_REGEX)
 	const code = codeMatch?.groups?.code
 	invariant(code, 'Onboarding code not found')
@@ -235,7 +235,7 @@ test('the signup form explains a bad username, then signs up', async ({
 	const onboardingData = getOnboardingData()
 	await navigate('/signup')
 	await page.getByRole('textbox', { name: /email/i }).fill(onboardingData.email)
-	await page.getByRole('button', { name: /submit/i }).click()
+	await page.getByRole('button', { name: /email me a code/i }).click()
 	await expect(page.getByText(/check your email/i)).toBeVisible()
 	const email = await readEmail(onboardingData.email)
 	invariant(email, 'Email not found')
@@ -245,7 +245,7 @@ test('the signup form explains a bad username, then signs up', async ({
 	await page.getByRole('button', { name: /submit/i }).click()
 	await expect(page).toHaveURL('/onboarding')
 	await expect(
-		page.getByText(new RegExp(`welcome aboard ${onboardingData.email}`, 'i')),
+		page.getByText(new RegExp(`signing up as ${onboardingData.email}`, 'i')),
 	).toBeVisible()
 
 	await page.getByRole('textbox', { name: /^name/i }).fill(onboardingData.name)
@@ -264,26 +264,24 @@ test('the signup form explains a bad username, then signs up', async ({
 	await createAccountButton.click()
 	await expect(createAccountButton.getByRole('status')).toBeVisible()
 	await expect(
-		page.getByText(
-			/username can only include letters, numbers, and underscores/i,
-		),
+		page.getByText(/use only letters, numbers and underscores/i),
 	).toBeVisible()
 	await expect(
 		page.getByText(
-			/you must agree to the terms of service and privacy policy/i,
+			/agree to the terms of service and privacy policy to carry on/i,
 		),
 	).toBeVisible()
 	await expect(page).toHaveURL('/onboarding')
 
 	await usernameInput.fill('')
 	await createAccountButton.click()
-	await expect(page.getByText(/username is required/i)).toBeVisible()
+	await expect(page.getByText(/enter a username/i)).toBeVisible()
 
 	await usernameInput.fill(
 		faker.string.alphanumeric({ length: USERNAME_MIN_LENGTH - 1 }),
 	)
 	await createAccountButton.click()
-	await expect(page.getByText(/username is too short/i)).toBeVisible()
+	await expect(page.getByText(/use at least 3 characters/i)).toBeVisible()
 
 	// The field stops at the longest allowed username.
 	await usernameInput.fill(
@@ -291,17 +289,19 @@ test('the signup form explains a bad username, then signs up', async ({
 	)
 	expect(await usernameInput.inputValue()).toHaveLength(USERNAME_MAX_LENGTH)
 	await createAccountButton.click()
-	await expect(page.getByText(/username is too long/i)).not.toBeVisible()
+	await expect(page.getByText(/use 20 characters or fewer/i)).not.toBeVisible()
 
 	await usernameInput.fill(onboardingData.username)
 	await createAccountButton.click()
 	await expect(
-		page.getByText(/must agree to the terms of service and privacy policy/i),
+		page.getByText(
+			/agree to the terms of service and privacy policy to carry on/i,
+		),
 	).toBeVisible()
 	await expect(page).toHaveURL('/onboarding')
 
 	await page
-		.getByLabel(/do you agree to our terms of service and privacy policy/i)
+		.getByLabel(/i agree to the terms of service and privacy policy/i)
 		.check()
 	await createAccountButton.click()
 	await expect(page).toHaveURL('/recipes')
@@ -346,7 +346,7 @@ test('reset password with a link', async ({
 		page.getByRole('heading', { name: /forgot password/i }),
 	).toBeVisible()
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
-	await page.getByRole('button', { name: /recover password/i }).click()
+	await page.getByRole('button', { name: /email me a link/i }).click()
 	await expect(page.getByText(/check your email/i)).toBeVisible()
 	await expect(page.getByText(/asked more than once\?/i)).toBeVisible()
 
@@ -354,7 +354,7 @@ test('reset password with a link', async ({
 	const email = await waitFor(() => readEmail(user.email), {
 		errorMessage: 'Reset email was not sent',
 	})
-	expect(email.subject).toMatch(/password reset/i)
+	expect(email.subject).toMatch(/reset your quartermaster password/i)
 	expect(email.to).toBe(user.email.toLowerCase())
 	expect(email.from).toBe('hello@useqm.app')
 	const resetPasswordUrl = extractUrl(email.text) as AppPages
@@ -438,7 +438,7 @@ test('an account with no password sets one with Forgot password', async ({
 		page.getByRole('heading', { name: /forgot password/i }),
 	).toBeVisible()
 	await page.getByRole('textbox', { name: /username/i }).fill(user.email)
-	await page.getByRole('button', { name: /recover password/i }).click()
+	await page.getByRole('button', { name: /email me a link/i }).click()
 	await expect(page.getByText(/check your email/i)).toBeVisible()
 	const email = await waitFor(() => readEmail(user.email), {
 		errorMessage: 'Reset email was not sent',
@@ -460,7 +460,9 @@ test('an account with no password sets one with Forgot password', async ({
 
 	await expect(page).toHaveURL('/reset-password')
 	// Login asks for the username, which someone who used Google may not know.
-	await expect(page.getByText(`Hi, ${user.username}.`)).toBeVisible()
+	await expect(
+		page.getByText(`For ${user.username}`, { exact: true }),
+	).toBeVisible()
 	const newPassword = faker.internet.password()
 	await page.getByLabel(/^new password$/i).fill(newPassword)
 	await page.getByLabel(/^confirm password$/i).fill(newPassword)
@@ -487,7 +489,9 @@ test('login and signup offer no Google, and its old pages are gone', async ({
 	await expect(page.getByText(/google/i)).toHaveCount(0)
 
 	await navigate('/signup')
-	await expect(page.getByRole('button', { name: /submit/i })).toBeVisible()
+	await expect(
+		page.getByRole('button', { name: /email me a code/i }),
+	).toBeVisible()
 	await expect(page.getByRole('button', { name: /google/i })).toHaveCount(0)
 
 	const gone = [
@@ -527,7 +531,7 @@ test('a signup link opened while logged in waits for a log out, then works', asy
 	const onboardingData = getOnboardingData()
 	await navigate('/signup')
 	await page.getByRole('textbox', { name: /email/i }).fill(onboardingData.email)
-	await page.getByRole('button', { name: /submit/i }).click()
+	await page.getByRole('button', { name: /email me a code/i }).click()
 	await expect(page.getByText(/check your email/i)).toBeVisible()
 	const email = await readEmail(onboardingData.email)
 	invariant(email, 'Email not found')
@@ -573,7 +577,7 @@ test('a reset link opened while logged in as someone else resets the right accou
 	})
 	await navigate('/forgot-password')
 	await page.getByRole('textbox', { name: /username/i }).fill(user.username)
-	await page.getByRole('button', { name: /recover password/i }).click()
+	await page.getByRole('button', { name: /email me a link/i }).click()
 	await expect(page.getByText(/check your email/i)).toBeVisible()
 	const email = await waitFor(() => readEmail(user.email), {
 		errorMessage: 'Reset email was not sent',
@@ -596,7 +600,9 @@ test('a reset link opened while logged in as someone else resets the right accou
 		.click()
 
 	await expect(page).toHaveURL('/reset-password')
-	await expect(page.getByText(`Hi, ${user.username}.`)).toBeVisible()
+	await expect(
+		page.getByText(`For ${user.username}`, { exact: true }),
+	).toBeVisible()
 	await expect(page.getByText(/logs this device out/i)).toBeVisible()
 	const newPassword = faker.internet.password()
 	await page.getByLabel(/^new password$/i).fill(newPassword)

@@ -393,7 +393,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 							inputMode="decimal"
 							enterKeyHint="done"
 							placeholder="4"
-							aria-label="Amount this recipe makes"
+							aria-label="Amount this Recipe makes"
 							aria-invalid={
 								fields.yieldAmount.errors?.length ? true : undefined
 							}
@@ -405,15 +405,15 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 							{...yieldLabelProps}
 							list="yield-label-suggestions"
 							placeholder="servings, dough balls, loaves…"
-							aria-label="What this recipe makes"
+							aria-label="What this Recipe makes"
 							aria-invalid={fields.yieldLabel.errors?.length ? true : undefined}
 							aria-describedby={fields.yieldLabel.errorId}
 							className="min-w-0 flex-1"
 						/>
 					</div>
 					<p className="text-muted-foreground text-xs">
-						Optional—for example, 4 servings or 2 dough balls. Leave both blank
-						if unknown.
+						Optional, like 4 servings or 2 dough balls. Leave both blank if
+						you&apos;re not sure.
 					</p>
 					<ErrorList
 						id={fields.yieldAmount.errorId}
@@ -566,7 +566,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 						labelProps={{ children: 'Description' }}
 						textareaProps={{
 							...getInputProps(fields.description, { type: 'text' }),
-							placeholder: 'A brief description of this recipe',
+							placeholder: 'A line or two about the dish',
 							rows: 3,
 						}}
 						errors={fields.description.errors}
@@ -582,10 +582,10 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 					/>
 
 					<TextareaField
-						labelProps={{ children: 'My Notes' }}
+						labelProps={{ children: 'My notes' }}
 						textareaProps={{
 							...getInputProps(fields.notes, { type: 'text' }),
-							placeholder: 'Personal reminders, tips, or modifications...',
+							placeholder: 'What you’d change next time',
 							rows: 3,
 						}}
 						errors={fields.notes.errors}
@@ -594,7 +594,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 						<div>
 							<Field
-								labelProps={{ children: 'Active Time (min)' }}
+								labelProps={{ children: 'Active time (min)' }}
 								inputProps={{
 									...getInputProps(fields.activeTime, {
 										type: 'number',
@@ -615,7 +615,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 						</div>
 						<div>
 							<Field
-								labelProps={{ children: 'Total Time (min)' }}
+								labelProps={{ children: 'Total time (min)' }}
 								inputProps={{
 									...getInputProps(fields.totalTime, {
 										type: 'number',

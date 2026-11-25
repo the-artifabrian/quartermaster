@@ -42,7 +42,7 @@ export async function action({ request }: Route.ActionArgs) {
 				ctx.addIssue({
 					path: ['password'],
 					code: 'custom',
-					message: 'Password is too common',
+					message: 'That password is too common. Try another.',
 				})
 			}
 		}),
@@ -67,7 +67,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Reset Password | Quartermaster' }]
+	return [{ title: 'Reset password | Quartermaster' }]
 }
 
 export default function ResetPasswordPage({
@@ -89,9 +89,9 @@ export default function ResetPasswordPage({
 	return (
 		<div className="container flex flex-col justify-center pt-20 pb-32">
 			<div className="text-center">
-				<h1 className="font-serif text-2xl">Password Reset</h1>
+				<h1 className="font-serif text-2xl">Choose a new password</h1>
 				<p className="text-muted-foreground mt-3 text-lg">
-					Hi, {loaderData.username}. No worries. It happens all the time.
+					For {loaderData.username}
 				</p>
 				{loaderData.loggedIn ? (
 					<p className="text-muted-foreground mt-2">
@@ -104,7 +104,7 @@ export default function ResetPasswordPage({
 					<Field
 						labelProps={{
 							htmlFor: fields.password.id,
-							children: 'New Password',
+							children: 'New password',
 						}}
 						inputProps={{
 							...getInputProps(fields.password, { type: 'password' }),
@@ -116,7 +116,7 @@ export default function ResetPasswordPage({
 					<Field
 						labelProps={{
 							htmlFor: fields.confirmPassword.id,
-							children: 'Confirm Password',
+							children: 'Confirm password',
 						}}
 						inputProps={{
 							...getInputProps(fields.confirmPassword, { type: 'password' }),

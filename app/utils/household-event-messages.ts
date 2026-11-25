@@ -34,7 +34,7 @@ export function formatEventBatch(
 
 	return [
 		{
-			message: `${formatted.length} household updates while you were away`,
+			message: `${formatted.length} Household updates while you were away`,
 			url: sharedUrl,
 		},
 	]
@@ -83,17 +83,17 @@ export function formatEventMessage(
 			}
 		case 'household_member_joined':
 			return {
-				message: `${username} joined the household`,
+				message: `${username} joined the Household`,
 				url: null,
 			}
 		case 'household_member_left':
 			return {
-				message: `${username} left the household`,
+				message: `${username} left the Household`,
 				url: null,
 			}
 		default:
 			return {
-				message: `${username} performed an action`,
+				message: `${username} made a change`,
 				url: null,
 			}
 	}

@@ -28,7 +28,7 @@ export async function importFromUrl(
 ) {
 	const submission = parseWithZod(formData, { schema: ImportUrlSchema })
 	if (submission.status !== 'success') {
-		return importFailure('fetch', 'Please enter a valid URL.')
+		return importFailure('fetch', 'Enter the full link, starting with https://')
 	}
 
 	const { url } = submission.value
@@ -58,7 +58,7 @@ export async function importFromUrl(
 		if (!response) {
 			return importFailure(
 				'fetch',
-				'This URL cannot be imported. Please use a public HTTP(S) URL.',
+				'This link can’t be imported. Use a link to a public web page.',
 			)
 		}
 
@@ -66,7 +66,10 @@ export async function importFromUrl(
 		// never read pulls all of it into memory. The abort in `finally`
 		// releases the connection instead.
 		if (!response.ok) {
-			return importFailure('fetch', `Failed to fetch URL (${response.status})`)
+			return importFailure(
+				'fetch',
+				`Couldn’t open that page (error ${response.status})`,
+			)
 		}
 
 		// Content-Length is the size on the wire, before decompression, so the
@@ -92,7 +95,7 @@ export async function importFromUrl(
 		if (!recipeData) {
 			return importFailure(
 				'fetch',
-				'No recipe data found on this page. The site may not use structured recipe data (JSON-LD).',
+				'This page has no Recipe Quartermaster can read. Paste the Recipe’s text instead.',
 			)
 		}
 
@@ -103,7 +106,7 @@ export async function importFromUrl(
 			if (!(error instanceof RecipeShapeError)) throw error
 			return importFailure(
 				'fetch',
-				'The recipe data on this page could not be read.',
+				'The Recipe on this page couldn’t be read. Paste its text instead.',
 			)
 		}
 
@@ -111,12 +114,12 @@ export async function importFromUrl(
 	} catch (error) {
 		const message =
 			error instanceof BodyTooLargeError
-				? 'Page is too large to import.'
+				? 'This page is too big to import.'
 				: error instanceof UnsupportedEncodingError
-					? 'The site sent the page in an encoding that cannot be imported.'
+					? 'This page couldn’t be read. Paste the Recipe’s text instead.'
 					: error instanceof Error && error.name === 'AbortError'
-						? 'Request timed out. The site took too long to respond.'
-						: 'Failed to fetch the URL. Please check the address and try again.'
+						? 'The site took too long to answer. Try again.'
+						: 'Couldn’t open that link. Check it and try again.'
 		return importFailure('fetch', message)
 	} finally {
 		clearTimeout(timeout)

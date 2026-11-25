@@ -97,7 +97,7 @@ test('selects available Staples in one batch and quietly dismisses the empty-lis
 	)
 	expect(screen.getByRole('button', { name: 'From Staples' })).toBeVisible()
 	expect(
-		screen.getByRole('heading', { name: 'What do you need this trip?' }),
+		screen.getByRole('heading', { name: 'Add from Staples' }),
 	).toBeVisible()
 	expect(
 		await screen.findByRole('button', { name: /Salt.*On list/ }),
@@ -117,7 +117,7 @@ test('selects available Staples in one batch and quietly dismisses the empty-lis
 	)
 	await waitFor(() =>
 		expect(
-			screen.queryByRole('heading', { name: 'What do you need this trip?' }),
+			screen.queryByRole('heading', { name: 'Add from Staples' }),
 		).not.toBeInTheDocument(),
 	)
 })

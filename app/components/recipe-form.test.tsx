@@ -31,16 +31,16 @@ test('Recipe form reopens explicit time and typed yield values for editing', () 
 	fireEvent.click(screen.getByText('Details', { exact: true }))
 
 	expect(
-		screen.getByRole('spinbutton', { name: 'Active Time (min)' }),
+		screen.getByRole('spinbutton', { name: 'Active time (min)' }),
 	).toHaveValue(25)
 	expect(
-		screen.getByRole('spinbutton', { name: 'Total Time (min)' }),
+		screen.getByRole('spinbutton', { name: 'Total time (min)' }),
 	).toHaveValue(180)
 	expect(
-		screen.getByRole('spinbutton', { name: 'Amount this recipe makes' }),
+		screen.getByRole('spinbutton', { name: 'Amount this Recipe makes' }),
 	).toHaveValue(2.5)
 	expect(
-		screen.getByRole('combobox', { name: 'What this recipe makes' }),
+		screen.getByRole('combobox', { name: 'What this Recipe makes' }),
 	).toHaveValue('large braided loaves')
 })
 

@@ -262,7 +262,7 @@ test.describe('errors that hold Save back', () => {
 		await saveButton(page).tap()
 
 		const error = page.getByText(
-			'One or more Recipe classifications are not available in this household.',
+			'One or more Recipe classifications are not available in this Household.',
 		)
 		await expect(error).toBeVisible()
 		const message = page.locator('[data-error-target]').first()
@@ -291,7 +291,9 @@ test.describe('errors that hold Save back', () => {
 		await page.evaluate(() => window.scrollTo(0, 0))
 		await saveButton(page).tap()
 
-		const message = page.getByText('A note can hold at most 20 shopping lines')
+		const message = page.getByText(
+			'A note can hold at most 20 lines for Shopping',
+		)
 		await expect(message).toBeVisible()
 		const target = page.locator('[data-error-target]', { has: message })
 		await expect(target).toBeFocused()
@@ -374,7 +376,7 @@ test.describe('no tab bar on edit screens', () => {
 		const positions = (target: Page) =>
 			Promise.all(
 				[
-					target.getByRole('button', { name: 'Add Step' }),
+					target.getByRole('button', { name: 'Add step' }),
 					target.getByRole('button', { name: 'Delete Recipe' }),
 				].map((control) =>
 					control.evaluate(
@@ -794,7 +796,7 @@ test.describe('history after Save and Delete', () => {
 			.tap()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^My Recipes/ }),
+			page.getByRole('heading', { name: /^Recipes \(/ }),
 		).toBeVisible()
 		expect(await historyIdx(page)).toBe(0)
 
@@ -894,7 +896,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await page.goBack()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^My Recipes/ }),
+			page.getByRole('heading', { name: /^Recipes \(/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 	})
@@ -919,7 +921,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await page.goBack()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^My Recipes/ }),
+			page.getByRole('heading', { name: /^Recipes \(/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 	})
@@ -943,7 +945,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await page.goBack()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^My Recipes/ }),
+			page.getByRole('heading', { name: /^Recipes \(/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 	})
@@ -991,7 +993,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await page.goBack()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^My Recipes/ }),
+			page.getByRole('heading', { name: /^Recipes \(/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 		await prisma.household.delete({ where: { id: elsewhere.id } })
@@ -1012,7 +1014,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await page.goBack()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^My Recipes/ }),
+			page.getByRole('heading', { name: /^Recipes \(/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 	})
@@ -1039,7 +1041,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await context.setOffline(false)
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^My Recipes/ }),
+			page.getByRole('heading', { name: /^Recipes \(/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 	})
@@ -1255,7 +1257,7 @@ test.describe('a Save that cannot go through keeps the form', () => {
 		await expect(page.getByLabel('Title')).toHaveValue('Chicken noodle soup')
 		expect(await recipeTitle(soup.id)).toBe('Chicken soup')
 
-		await page.getByRole('button', { name: 'Remove recipe link' }).tap()
+		await page.getByRole('button', { name: 'Remove Recipe link' }).tap()
 		await expect(message).toBeHidden()
 		await saveButton(page).tap()
 		await expect(page).toHaveURL(`/recipes/${soup.id}`)

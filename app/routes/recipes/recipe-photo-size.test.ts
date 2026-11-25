@@ -294,7 +294,7 @@ test('an import screenshot over the limit gets an error, not a crash', async () 
 		init: { status: 400 },
 		data: {
 			intent: 'extract-image',
-			error: 'One or more images are too large. Maximum size is 5MB each.',
+			error: 'Each image can be up to 5 MB. Choose a smaller one.',
 		},
 	})
 })

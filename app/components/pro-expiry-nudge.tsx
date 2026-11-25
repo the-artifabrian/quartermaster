@@ -29,12 +29,12 @@ export function ProExpiryNudge() {
 					toast.warning(shellNotice, { duration: 10000 })
 				} else {
 					toast.warning(
-						`Your Pro access expires in ${days} day${days === 1 ? '' : 's'}`,
+						`Your Pro access ends in ${days} day${days === 1 ? '' : 's'}`,
 						{
-							description: 'Subscribe to keep Pro features.',
+							description: 'Then the Pro features turn off.',
 							duration: 10000,
 							action: {
-								label: 'Upgrade',
+								label: 'See Pro',
 								onClick: () => navigate('/upgrade'),
 							},
 						},
@@ -48,11 +48,11 @@ export function ProExpiryNudge() {
 				if (isNativeShell) {
 					toast.info(shellNotice, { duration: 8000 })
 				} else {
-					toast.info(`Pro access expires in ${days} days`, {
-						description: 'Subscribe to continue.',
+					toast.info(`Your Pro access ends in ${days} days`, {
+						description: 'Then the Pro features turn off.',
 						duration: 8000,
 						action: {
-							label: 'Upgrade',
+							label: 'See Pro',
 							onClick: () => navigate('/upgrade'),
 						},
 					})

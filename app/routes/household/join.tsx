@@ -45,7 +45,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 	if (existingMember) {
 		throw await redirectWithToast('/settings/profile/household', {
 			type: 'message',
-			description: 'You are already a member of this household',
+			description: 'You’re already in this Household',
 		})
 	}
 
@@ -95,20 +95,21 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 		return redirectWithToast('/recipes', {
 			type: 'success',
-			title: 'Joined household!',
-			description: 'You are now a member of the household',
+			description: 'You’ve joined the Household.',
 		})
 	} catch (error) {
 		const knownMessages = [
 			'Invalid or expired invite',
-			'Already a member of this household',
+			'You’re already in this Household',
 		]
 		const isKnown =
 			error instanceof Error && knownMessages.includes(error.message)
 		if (!isKnown) {
 			console.error('Failed to join household', { userId }, error)
 		}
-		const message = isKnown ? error.message : 'Failed to join household'
+		const message = isKnown
+			? error.message
+			: 'Couldn’t join the Household. Try again.'
 		return redirectWithToast('/', {
 			type: 'error',
 			description: message,

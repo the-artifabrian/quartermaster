@@ -28,8 +28,7 @@ export async function action({ request }: Route.ActionArgs) {
 		where: { target_type: { target: userId, type: twoFAVerificationType } },
 	})
 	return redirectWithToast('/settings/profile/two-factor', {
-		title: '2FA Disabled',
-		description: 'Two factor authentication has been disabled.',
+		description: 'Two-factor authentication is off.',
 	})
 }
 
@@ -41,10 +40,7 @@ export default function TwoFactorDisableRoute() {
 	return (
 		<div className="mx-auto max-w-sm">
 			<disable2FAFetcher.Form method="POST" id="disable-2fa">
-				<p>
-					Disabling two factor authentication is not recommended. However, if
-					you would like to do so, click here:
-				</p>
+				<p>With 2FA off, anyone with your password can log in.</p>
 				<StatusButton
 					type="button"
 					variant="destructive"

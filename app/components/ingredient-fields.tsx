@@ -633,7 +633,7 @@ function RecipeLinkPicker({
 				type="button"
 				onClick={onUnlink}
 				className="text-muted-foreground hover:text-foreground-destructive -my-2 -mr-2 flex size-11 shrink-0 items-center justify-center"
-				aria-label="Remove recipe link"
+				aria-label="Remove Recipe link"
 			>
 				<Icon name="cross-1" size="sm" />
 			</button>
@@ -644,8 +644,8 @@ function RecipeLinkPicker({
 		<>
 			<Input
 				ref={inputRef}
-				placeholder="Search recipes..."
-				aria-label="Search recipes"
+				placeholder="Search Recipes…"
+				aria-label="Search Recipes"
 				inputMode="search"
 				enterKeyHint="search"
 				value={query}
@@ -657,15 +657,15 @@ function RecipeLinkPicker({
 			/>
 			{query.length < 2 ? (
 				<p className="text-muted-foreground px-2 py-3 text-center text-xs">
-					Type to search your recipes
+					Type to search your Recipes
 				</p>
 			) : fetcher.state !== 'idle' ? (
 				<p className="text-muted-foreground px-2 py-3 text-center text-xs">
-					Searching...
+					Searching…
 				</p>
 			) : results.length === 0 ? (
 				<p className="text-muted-foreground px-2 py-3 text-center text-xs">
-					No recipes found
+					No Recipes found
 				</p>
 			) : (
 				<ul className={cn(!inSheet && 'max-h-48 overflow-y-auto')}>
@@ -717,7 +717,7 @@ function RecipeLinkPicker({
 							className="text-muted-foreground hover:text-foreground relative flex items-center gap-1.5 rounded-md px-1 py-1 text-xs transition-colors before:absolute before:inset-x-0 before:-top-2 before:-bottom-3 before:content-['']"
 						>
 							<Icon name="link-2" size="sm" />
-							Link recipe
+							Link Recipe
 						</button>
 					</PopoverTrigger>
 					<PopoverContent align="start" className="w-72 p-2">

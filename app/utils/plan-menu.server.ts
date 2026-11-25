@@ -8,6 +8,10 @@ import {
 	snapshotHasContent,
 } from '#app/utils/menu-snapshot.ts'
 
+/** What both planning paths say when a Menu has nothing to plan. */
+export const EMPTY_MENU_MESSAGE =
+	'This Menu has nothing to plan yet. Add a Recipe or note first.'
+
 /**
  * Plan one household Menu as a stable Meal snapshot.
  *

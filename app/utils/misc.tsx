@@ -59,7 +59,7 @@ export function getErrorMessage(error: unknown) {
 		return error.message
 	}
 	console.error('Unable to get error message for error', error)
-	return 'Unknown Error'
+	return 'Something went wrong'
 }
 
 export function cn(...inputs: ClassValue[]) {

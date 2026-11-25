@@ -270,7 +270,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 									</p>
 									{weekStart !== currentWeek && (
 										<Button asChild variant="link" size="sm">
-											<Link to="/plan">This Week</Link>
+											<Link to="/plan">This week</Link>
 										</Button>
 									)}
 								</div>

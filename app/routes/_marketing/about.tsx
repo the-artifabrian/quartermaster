@@ -4,6 +4,7 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
 import { baseMetaTags } from '#app/utils/meta.ts'
+import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { type Route } from './+types/about.ts'
 
 export const handle: SEOHandle = {
@@ -11,7 +12,7 @@ export const handle: SEOHandle = {
 }
 
 const description =
-	'I had 100+ recipes scattered across Apple Notes and no idea what was for dinner. So I built one place for my recipes, my Staples, and my week.'
+	'I built Quartermaster because 100 recipes in Apple Notes is not a meal plan. My partner and I use it every day.'
 
 export const meta: Route.MetaFunction = ({ matches }) => {
 	return [
@@ -32,6 +33,8 @@ export function loader() {
 export const headers: Route.HeadersFunction = pipeHeaders
 
 export default function AboutRoute() {
+	// The iOS app shows no copy about Pro (ADR 0001).
+	const isNativeShell = useIsNativeShell()
 	return (
 		<div className="container max-w-2xl py-12">
 			<h1 className="font-serif text-[2.25rem] leading-[1.15] tracking-[-0.02em]">
@@ -40,21 +43,16 @@ export default function AboutRoute() {
 
 			<div className="text-muted-foreground mt-6 space-y-4 text-base/7">
 				<p>
-					I had 100+ recipes scattered across bookmarks, screenshots, Apple
-					Notes, and half-remembered conversations. "What should we have for
-					dinner?" shouldn't be a 30-minute research project every night.
+					I built Quartermaster because 100 recipes in Apple Notes is not a meal
+					plan. My partner and I use it every day on our phones.
 				</p>
 				<p>
-					So I built the tool I wanted. One place for your Recipes, your
-					Staples, your Plan, and your Shopping. Quartermaster helps you choose
-					a Recipe, plan the week, and write Shopping when you're ready.
+					We put the week&apos;s dinners on the Plan, and when it&apos;s time to
+					shop, their ingredients land on one list.
 				</p>
 				<p>
-					It's built for people who actually cook at home, not food bloggers or
-					professional chefs. Just anyone who'd rather eat than plan.
-				</p>
-				<p>
-					The code is open source, and you can{' '}
+					It&apos;s also my portfolio project. The code is open source, and you
+					can{' '}
 					<a
 						href="https://github.com/the-artifabrian/quartermaster"
 						className="text-foreground underline underline-offset-2"
@@ -75,17 +73,18 @@ export default function AboutRoute() {
 						className="text-primary mt-0.5 size-5 shrink-0"
 					/>
 					<p className="text-muted-foreground text-sm">
-						<span className="text-foreground font-medium">Store recipes.</span>{' '}
-						Import from a URL, paste text, or upload screenshots. You can also
-						write a Recipe with ingredients, instructions, and a photo.
+						<span className="text-foreground font-medium">Keep Recipes.</span>{' '}
+						Import one from a link or pasted text, or write your own with a
+						photo.
+						{isNativeShell ? null : ' On Pro, AI can read screenshots too.'}
 					</p>
 				</div>
 				<div className="flex gap-3">
 					<Icon name="home" className="text-primary mt-0.5 size-5 shrink-0" />
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">Keep Staples.</span>{' '}
-						Save the ingredients your household normally has. Shopping includes
-						every non-Staple; a Staple you do need is one tap away.
+						Save the ingredients your Household normally has. Shopping leaves
+						them out, and one tap puts any of them back.
 					</p>
 				</div>
 				<div className="flex gap-3">
@@ -111,20 +110,13 @@ export default function AboutRoute() {
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">Cook together.</span>{' '}
 						Invite your partner or housemates to share Recipes, Staples, the
-						Plan, and Shopping. Changes sync in real time.
+						Plan and Shopping.
+						{isNativeShell
+							? null
+							: ' On Pro, Shopping updates live on every phone.'}
 					</p>
 				</div>
 			</div>
-
-			<h2 className="mt-10 font-serif text-[1.5rem] leading-[1.3] tracking-[-0.01em]">
-				Built for messy hands
-			</h2>
-			<p className="text-muted-foreground mt-3 text-base/7">
-				Most recipe apps are great for browsing but terrible for actually
-				cooking. Quartermaster is the opposite: tap ingredients and steps to
-				cross them off, spot cooking times and temperatures at a glance, and
-				scale ingredient quantities on the fly.
-			</p>
 
 			<div className="mt-10">
 				<Button asChild size="lg">

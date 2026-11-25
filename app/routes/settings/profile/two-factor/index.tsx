@@ -12,7 +12,7 @@ import { twoFAVerifyVerificationType } from './verify.tsx'
 import { PushLink } from '#app/components/push-link.tsx'
 
 export const handle: SettingsPageHandle & SEOHandle = {
-	pageTitle: 'Two-Factor Auth',
+	pageTitle: 'Two-factor auth',
 	getSitemapEntries: () => null,
 }
 
@@ -51,9 +51,7 @@ export default function TwoFactorRoute({ loaderData }: Route.ComponentProps) {
 			{loaderData.is2FAEnabled ? (
 				<>
 					<p className="text-lg">
-						<Icon name="check">
-							You have enabled two-factor authentication.
-						</Icon>
+						<Icon name="check">Two-factor authentication is on.</Icon>
 					</p>
 					<PushLink to="disable">
 						<Icon name="lock-open-1">Disable 2FA</Icon>
@@ -62,18 +60,15 @@ export default function TwoFactorRoute({ loaderData }: Route.ComponentProps) {
 			) : (
 				<>
 					<p>
-						<Icon name="lock-open-1">
-							You have not enabled two-factor authentication yet.
-						</Icon>
+						<Icon name="lock-open-1">Two-factor authentication is off.</Icon>
 					</p>
 					<p className="text-sm">
-						Two factor authentication adds an extra layer of security to your
-						account. You will need to enter a code from an authenticator app
-						like{' '}
+						With it on, logging in also asks for a code from an authenticator
+						app such as{' '}
 						<a className="underline" href="https://1password.com/">
 							1Password
-						</a>{' '}
-						to log in.
+						</a>
+						.
 					</p>
 					<enable2FAFetcher.Form method="POST">
 						<StatusButton

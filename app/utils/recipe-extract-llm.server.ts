@@ -527,14 +527,15 @@ export async function extractRecipeFromImages(
 			)
 		) {
 			return {
-				error: 'Unsupported image format. Please use JPEG, PNG, or WebP.',
+				error: 'We can’t use one of the images. Choose a JPG, PNG or WebP.',
 				refundable: false,
 			}
 		}
 	}
 	if (!isAnthropicConfigured()) {
 		return {
-			error: 'AI features are not configured. Contact support.',
+			error:
+				'AI isn’t set up on this server. Paste the Recipe’s link or text instead.',
 			refundable: true,
 		}
 	}
@@ -555,8 +556,7 @@ export async function extractRecipeFromImages(
 		}
 		console.error('Image preparation error:', error)
 		return {
-			error:
-				'Could not process the image(s). Please try different images or formats.',
+			error: 'We couldn’t read these images. Try other screenshots.',
 			// A broken upload is the user's to cause, and preparing it costs us
 			// CPU, so the use stays spent.
 			refundable: false,
@@ -604,25 +604,25 @@ function extractionError(
 ): string {
 	switch (failure.kind) {
 		case 'configuration':
-			return 'AI features are not configured. Contact support.'
+			return 'AI isn’t set up on this server. Paste the Recipe’s link or text instead.'
 		case 'rate-limit':
-			return 'Recipe extraction hit a rate limit. Please wait a moment and try again.'
+			return 'Too many AI imports at once. Wait a moment and try again.'
 		case 'timeout':
-			return 'Recipe extraction timed out. Please try again.'
+			return 'Reading the Recipe took too long. Try again.'
 		case 'empty-response':
-			return 'Recipe extraction returned an empty response. Please try again.'
+			return 'The AI sent nothing back. Try again.'
 		case 'max-tokens':
 			return mode === 'text'
-				? 'This recipe was too long to extract in one go. Try pasting just the recipe card, or splitting it in two.'
-				: 'This recipe was too long to extract in one go. Try fewer images at a time.'
+				? 'This Recipe is too long to read in one go. Paste only the Recipe, or split it in two.'
+				: 'This Recipe is too long to read in one go. Try fewer screenshots at a time.'
 		case 'parse':
 		case 'schema':
 			return mode === 'text'
-				? "Couldn't find a recipe in the provided text. Try including ingredients or instructions."
-				: "Couldn't find a recipe in the provided image(s). Make sure the image contains recipe text or ingredients."
+				? 'Couldn’t find a Recipe in the text. Include its ingredients or steps.'
+				: 'Couldn’t find a Recipe in the screenshots. Use ones that show its ingredients or steps.'
 		case 'provider':
 		case 'network':
 		case 'refusal':
-			return 'Recipe extraction failed — the AI service returned an error. Please try again later.'
+			return 'The AI service isn’t answering. Try again later.'
 	}
 }

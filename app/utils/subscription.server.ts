@@ -147,14 +147,13 @@ export async function requireProTierOrNativeShellNull(request: Request) {
 		if (tierInfo.wasProPreviously) {
 			throw await redirectWithToast('/upgrade', {
 				type: 'message',
-				title: 'Pro access ended',
-				description: 'Your data is safe. Subscribe to continue.',
+				title: 'Your Pro access has ended',
+				description: 'Everything you saved is still here.',
 			})
 		}
 		throw await redirectWithToast('/upgrade', {
 			type: 'message',
-			title: 'Pro feature',
-			description: 'Upgrade to Pro to access this feature.',
+			description: 'That needs Pro.',
 		})
 	}
 

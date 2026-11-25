@@ -39,7 +39,7 @@ const SignupFormSchema = z
 		agreeToTermsOfServiceAndPrivacyPolicy: z.boolean({
 			error: (issue) =>
 				issue.input === undefined
-					? 'You must agree to the terms of service and privacy policy'
+					? 'Agree to the Terms of Service and Privacy Policy to carry on'
 					: undefined,
 		}),
 		remember: z.boolean().optional(),
@@ -76,7 +76,7 @@ export async function action({ request }: Route.ActionArgs) {
 					ctx.addIssue({
 						path: ['username'],
 						code: z.ZodIssueCode.custom,
-						message: 'A user already exists with this username',
+						message: 'That username is taken. Try another.',
 					})
 					return
 				}
@@ -85,7 +85,7 @@ export async function action({ request }: Route.ActionArgs) {
 					ctx.addIssue({
 						path: ['password'],
 						code: 'custom',
-						message: 'Password is too common',
+						message: 'That password is too common. Try another.',
 					})
 				}
 			}).transform(async (data) => {
@@ -130,18 +130,17 @@ export async function action({ request }: Route.ActionArgs) {
 	return redirectWithToast(
 		safeRedirect(redirectTo, '/recipes'),
 		{
-			title: 'Welcome',
 			// The iOS app shows no copy about Pro (ADR 0001).
 			description: isNativeShell(request)
 				? 'Your account is ready.'
-				: 'You have 14 days of full Pro access — explore everything!',
+				: 'Your account is ready. You have 14 days of Pro.',
 		},
 		{ headers },
 	)
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Setup Quartermaster Account' }]
+	return [{ title: 'Set up your account | Quartermaster' }]
 }
 
 export default function OnboardingRoute({
@@ -169,11 +168,9 @@ export default function OnboardingRoute({
 		<div className="container flex min-h-full flex-col justify-center pt-20 pb-32">
 			<div className="mx-auto w-full max-w-lg">
 				<div className="flex flex-col gap-3 text-center">
-					<h1 className="font-serif text-2xl">
-						Welcome aboard {loaderData.email}!
-					</h1>
+					<h1 className="font-serif text-2xl">Set up your account</h1>
 					<p className="text-muted-foreground text-lg">
-						Please enter your details.
+						Signing up as {loaderData.email}
 					</p>
 				</div>
 				<Spacer size="3xs" />
@@ -211,7 +208,7 @@ export default function OnboardingRoute({
 					<Field
 						labelProps={{
 							htmlFor: fields.confirmPassword.id,
-							children: 'Confirm Password',
+							children: 'Confirm password',
 						}}
 						inputProps={{
 							...getInputProps(fields.confirmPassword, { type: 'password' }),
@@ -224,8 +221,7 @@ export default function OnboardingRoute({
 						className="pt-2"
 						labelProps={{
 							htmlFor: fields.agreeToTermsOfServiceAndPrivacyPolicy.id,
-							children:
-								'Do you agree to our Terms of Service and Privacy Policy?',
+							children: 'I agree to the Terms of Service and Privacy Policy',
 						}}
 						buttonProps={getInputProps(
 							fields.agreeToTermsOfServiceAndPrivacyPolicy,

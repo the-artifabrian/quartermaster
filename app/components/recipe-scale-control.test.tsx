@@ -100,7 +100,7 @@ test('step buttons provide half-batch adjustments', async () => {
 
 	await user.click(screen.getByRole('button', { name: 'Scale 1×' }))
 	await user.click(
-		screen.getByRole('button', { name: 'Increase recipe scale' }),
+		screen.getByRole('button', { name: 'Increase Recipe scale' }),
 	)
 	expect(onChange).toHaveBeenCalledWith(1.5)
 })

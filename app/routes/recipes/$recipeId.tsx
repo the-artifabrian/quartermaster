@@ -312,7 +312,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 		) {
 			return {
 				success: false,
-				error: 'Total time must be at least active time.',
+				error:
+					'Total time can’t be shorter than active time. Untick one of them.',
 			}
 		}
 		await prisma.recipe.update({
@@ -707,10 +708,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			})
 			if (outcome === 'copied') {
 				toast.success('Public link copied', {
-					description: 'Anyone with this link can view the recipe.',
+					description: 'Anyone with this link can see the Recipe.',
 				})
 			} else if (outcome === 'copy-failed') {
-				toast.error('Unable to copy — try copying the URL manually')
+				toast.error('Couldn’t copy the link. Try again.')
 			}
 		} finally {
 			shareInFlight.current = false
@@ -722,7 +723,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			await navigator.clipboard.writeText(formatRecipeForCopy(recipe, ratio))
 			toast.success('Copied')
 		} catch {
-			toast.error('Unable to copy recipe')
+			toast.error('Couldn’t copy the Recipe')
 		}
 	}
 
@@ -785,7 +786,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				onClick={handleAddToPlanSubmit}
 				disabled={planFetcher.state !== 'idle'}
 			>
-				{planFetcher.state !== 'idle' ? 'Adding...' : 'Add to Plan'}
+				{planFetcher.state !== 'idle' ? 'Adding…' : 'Add to Plan'}
 			</Button>
 		</>
 	)

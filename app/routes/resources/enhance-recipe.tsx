@@ -24,7 +24,8 @@ export async function action({ request }: Route.ActionArgs) {
 	if (!proTier) {
 		return data(
 			{
-				error: 'Recipe enhancement is not available.',
+				error:
+					'Suggestions aren’t available on your account. Edit the Recipe to add these yourself.',
 				suggestions: null as EnhanceableFields | null,
 			},
 			{ status: 403 },

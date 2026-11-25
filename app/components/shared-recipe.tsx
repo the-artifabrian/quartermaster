@@ -220,8 +220,7 @@ export function SharedRecipeView({
 								<>
 									<p className="font-serif text-lg">Like this Recipe?</p>
 									<p className="text-muted-foreground mt-1 text-sm">
-										Save it to your Recipes to cook later, add it to your Plan,
-										and more.
+										Save it to your Recipes, then put it on your Plan.
 									</p>
 									<div className="mt-4 flex justify-center">
 										{alreadySaved ? (
@@ -234,7 +233,7 @@ export function SharedRecipeView({
 													type="submit"
 													disabled={saveFetcher.state !== 'idle'}
 												>
-													<Icon name="plus">Save to My Recipes</Icon>
+													<Icon name="plus">Save to your Recipes</Icon>
 												</Button>
 											</saveFetcher.Form>
 										)}
@@ -244,8 +243,8 @@ export function SharedRecipeView({
 								<>
 									<p className="font-serif text-lg">Like this Recipe?</p>
 									<p className="text-muted-foreground mt-1 text-sm">
-										Sign up for Quartermaster to save Recipes, plan Meals, and
-										keep household Staples.
+										Sign up to save it to your own Recipes and plan it for the
+										week.
 									</p>
 									<div className="mt-4 flex justify-center gap-3">
 										<Button asChild>

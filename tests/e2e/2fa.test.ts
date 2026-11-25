@@ -60,7 +60,7 @@ test('Users can add 2FA to their account and use it when logging in', async ({
 	)
 	await main.getByRole('button', { name: /submit/i }).click()
 
-	await expect(main).toHaveText(/You have enabled two-factor authentication./i)
+	await expect(main).toHaveText(/Two-factor authentication is on./i)
 	await expect(main.getByRole('link', { name: /disable 2fa/i })).toBeVisible()
 
 	await navigate('/settings/profile')
@@ -121,7 +121,7 @@ test('Reverifying from Settings lands on the page the user opened, not its data'
 	await page.getByRole('button', { name: /submit/i }).click()
 
 	await expect(page).toHaveURL('/settings/profile/change-email')
-	await expect(page.getByRole('textbox', { name: 'New Email' })).toBeVisible()
+	await expect(page.getByRole('textbox', { name: 'New email' })).toBeVisible()
 	await expect(page.getByText(user.email)).toBeVisible()
 })
 
@@ -249,7 +249,7 @@ test('A 2FA sign-in left at the code step does not hold up the next person on th
 
 		await navigate('/settings/profile/change-email')
 		await expect(page).toHaveURL('/settings/profile/change-email')
-		await expect(page.getByRole('textbox', { name: 'New Email' })).toBeVisible()
+		await expect(page.getByRole('textbox', { name: 'New email' })).toBeVisible()
 		expect(
 			(await page.context().cookies()).some(
 				(cookie) => cookie.name === 'en_verification',

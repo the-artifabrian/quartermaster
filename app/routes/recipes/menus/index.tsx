@@ -18,7 +18,7 @@ export const handle: SEOHandle = {
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'My Menus | Quartermaster' }]
+	return [{ title: 'Menus | Quartermaster' }]
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -77,7 +77,7 @@ export default function MenusIndex({ loaderData }: Route.ComponentProps) {
 			<div className="border-border/50 border-b">
 				<TitleRow className="container-grid py-3 md:py-4">
 					<h1 className="font-serif text-2xl font-normal">
-						My Menus{' '}
+						Menus{' '}
 						<span className="text-muted-foreground text-base font-normal">
 							({menus.length})
 						</span>

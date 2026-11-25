@@ -60,7 +60,7 @@ test('recipe form buttons, remove and classification chips are thumb-sized', asy
 	await expectThumbTall(
 		page.getByRole('button', { name: 'Ingredient', exact: true }),
 	)
-	await expectThumbTall(page.getByRole('button', { name: 'Add Step' }))
+	await expectThumbTall(page.getByRole('button', { name: 'Add step' }))
 	await expectThumbSized(
 		page.getByRole('button', { name: 'Remove ingredient' }).first(),
 	)
@@ -88,7 +88,7 @@ test('Add a meal names its label chips as Add to Plan does, at thumb size', asyn
 	const addMeal = page.getByRole('button', { name: /^Add Meal to/ }).first()
 	await expectThumbTall(addMeal)
 	const label = page
-		.getByRole('dialog', { name: 'Add a Meal' })
+		.getByRole('dialog', { name: 'Add Meal' })
 		.getByRole('group', { name: 'Label (optional)' })
 	await tapUntil(addMeal, () => expect(label).toBeVisible({ timeout: 2000 }))
 	const lunch = label.getByRole('button', { name: 'Lunch' })
@@ -231,7 +231,7 @@ test('Keep screen awake is a switch that holds its setting', async ({
 	)
 	await page.goto('/settings/profile')
 	const keepAwake = page.getByRole('switch', {
-		name: 'Keep screen awake while a recipe is open',
+		name: 'Keep screen awake while a Recipe is open',
 	})
 	const track = keepAwake.locator('[data-slot="switch-track"]')
 	const thumb = keepAwake.locator('[data-slot="switch-thumb"]')
@@ -305,15 +305,15 @@ test('Import switches between URL and pasted text with a segmented control', asy
 	await page.goto('/recipes/import')
 	const tablist = page.getByRole('tablist', { name: 'Import from' })
 	const pill = tablist.locator('[data-slot="segmented-pill"]')
-	const fromUrl = await importTab(page, 'From URL')
-	const fromText = await importTab(page, 'From Text')
-	const fromImage = await importTab(page, 'From Image')
+	const fromUrl = await importTab(page, 'From link')
+	const fromText = await importTab(page, 'From text')
+	const fromImage = await importTab(page, 'From image')
 	await expect(fromUrl).toHaveAttribute('aria-selected', 'true')
 	await expect(fromText).toHaveAttribute('aria-selected', 'false')
 	await expectThumbTall(fromText)
 	expect(await pillUnder(pill, fromUrl)).toBe(true)
-	await expect(page.getByRole('tabpanel', { name: 'From URL' })).toContainText(
-		'Recipe URL',
+	await expect(page.getByRole('tabpanel', { name: 'From link' })).toContainText(
+		'Recipe link',
 	)
 
 	await tapUntil(fromText, () =>
@@ -321,14 +321,14 @@ test('Import switches between URL and pasted text with a segmented control', asy
 	)
 	await expect(fromText).toHaveAttribute('aria-selected', 'true')
 	await expect(fromUrl).toHaveAttribute('aria-selected', 'false')
-	await expect(page.getByLabel('Recipe URL')).toHaveCount(0)
-	await expect(page.getByRole('tabpanel', { name: 'From Text' })).toContainText(
+	await expect(page.getByLabel('Recipe link')).toHaveCount(0)
+	await expect(page.getByRole('tabpanel', { name: 'From text' })).toContainText(
 		'Recipe text',
 	)
 	await expect.poll(() => pillUnder(pill, fromText)).toBe(true)
 
 	await fromUrl.tap()
-	await expect(page.getByLabel('Recipe URL')).toBeVisible()
+	await expect(page.getByLabel('Recipe link')).toBeVisible()
 	await expect(fromUrl).toHaveAttribute('aria-selected', 'true')
 	await expect.poll(() => pillUnder(pill, fromUrl)).toBe(true)
 
@@ -450,7 +450,7 @@ test('From Plan turns the week with thumb-sized chevrons', async ({
 	const previous = page.getByRole('button', { name: 'Previous week' })
 	// Measure once the sheet has finished sliding in: mid-slide its transform
 	// leaves the chevrons a fraction of a pixel short of 44.
-	const sheet = page.getByRole('dialog', { name: 'What are we buying for?' })
+	const sheet = page.getByRole('dialog', { name: 'Add from the Plan' })
 	await sheet.evaluate((element) =>
 		Promise.all(element.getAnimations().map((a) => a.finished)),
 	)

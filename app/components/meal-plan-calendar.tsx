@@ -302,7 +302,7 @@ function AddMealControl({
 								if (event.key === 'Enter') submitText()
 								if (event.key === 'Escape') close()
 							}}
-							placeholder="Leftovers, takeout, dinner out..."
+							placeholder="Leftovers, dinner out…"
 							enterKeyHint="done"
 							maxLength={200}
 							aria-label="Meal text"
@@ -396,7 +396,7 @@ function AddMealControl({
 						open={open}
 						onClose={close}
 						labelledBy={`add-meal-${serializeDate(date)}-title`}
-						title="Add a Meal"
+						title="Add Meal"
 						description={`${formatWeekdayName(date)} · ${formatMonthDay(date)}`}
 					>
 						{fields}

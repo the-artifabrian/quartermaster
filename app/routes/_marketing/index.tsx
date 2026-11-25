@@ -78,7 +78,7 @@ export default function Index() {
 				index={1}
 				id="how-it-works"
 				heading="Your Recipes, in one place"
-				body="Paste a link or the text of a recipe, or type one in. Scale up for guests and check off ingredients as you cook."
+				body="Paste a link or the text of a Recipe, or type one in. Scale up for guests and check off ingredients as you cook."
 				screenSide="left"
 				screen={<RecipesScreen />}
 			/>
@@ -143,7 +143,7 @@ function Hero({ today }: { today: string }) {
 				</div>
 				{isNativeShell ? null : (
 					<p className="text-cream-muted mt-5 text-[15px]">
-						Free for 14 days. No credit card needed.
+						Free to use. New accounts get 14 days of Pro.
 					</p>
 				)}
 			</div>
@@ -265,7 +265,7 @@ function ClosingCta() {
 			</h2>
 			{isNativeShell ? null : (
 				<p className="text-cream/80 mx-auto mt-5 max-w-[28rem] text-lg leading-[1.55]">
-					Free for 14 days. Your Recipes stay on the free plan.
+					It&apos;s free, and the first 14 days include Pro.
 				</p>
 			)}
 			<div className="mt-9 flex justify-center">
@@ -640,7 +640,7 @@ function PlanScreen({ today }: { today: string }) {
 					</span>
 					<div className="text-center">
 						<p className="font-serif text-lg">{range}</p>
-						<p className="text-sage text-sm font-medium">This Week</p>
+						<p className="text-sage text-sm font-medium">This week</p>
 					</div>
 					<span className="flex size-9 items-center justify-center rounded-full">
 						<Icon name="chevron-right" size="md" />

@@ -11,46 +11,46 @@ export const handle: SEOHandle = {
 }
 
 const pageDescription =
-	'Got a question about Quartermaster? Answers to the most common ones: importing recipes, sharing with your household, meal planning, exporting your data.'
+	'Answers to common questions about Quartermaster, from importing Recipes to exporting your data.'
 
 const faqs = [
 	{
-		question: 'How do I import recipes?',
+		question: 'How do I import Recipes?',
 		answer:
-			'Open New Recipe > Import to paste a URL or recipe text. Pro also includes AI extraction from pasted text and screenshots. Choose Write a Recipe to enter one manually. Restore a Quartermaster JSON export from Settings > Data.',
+			'Open New Recipe > Import to paste a link or a Recipe’s text. On Pro, AI can also read pasted text and screenshots. Choose Write a Recipe to type one in yourself. To restore a Quartermaster JSON export, go to Settings > Data.',
 		// The iOS app shows no copy about Pro (ADR 0001).
 		nativeShellAnswer:
-			'Open New Recipe > Import to paste a URL. Choose Write a Recipe to enter one manually. Restore a Quartermaster JSON export from Settings > Data.',
+			'Open New Recipe > Import to paste a link. Choose Write a Recipe to type one in yourself. To restore a Quartermaster JSON export, go to Settings > Data.',
 	},
 	{
 		question: 'What lands on Shopping when I add a Meal?',
 		answer:
-			'Every ingredient except optional ones and those matching your household Staples, which are the things you usually have. Amounts that cannot be resolved stay on the list as written instead of being guessed away. Any single ingredient, Staple or not, can be added from its row on the Recipe.',
+			'Every ingredient except optional ones and those matching your Household’s Staples, the things you usually have. An amount the app can’t work out stays on the list as written. You can add any single ingredient, Staple or not, from its row on the Recipe.',
 	},
 	{
-		question: 'Can I share with my partner or household?',
+		question: 'Can I share with my partner or Household?',
 		answer:
-			'Yes. Go to Settings > Household to invite members via a link. Everyone in the household shares the same Recipes, Staples, Plan, and Shopping, with real-time sync.',
+			'Yes. Go to Settings > Household and send them an invite link. Everyone in the Household shares the same Recipes, Staples, Plan and Shopping.',
 	},
 	{
 		question: 'Can I export my data?',
 		answer:
-			'Yes. Go to Settings > Data to export your profile and household Recipes, classifications, Staples, Menus, Plans, and Shopping as JSON. Recipe images are referenced rather than embedded. You can import the export back in.',
+			'Yes. Go to Settings > Data to export your profile and your Household’s Recipes, classifications, Staples, Menus, Plan and Shopping as JSON. The file links to Recipe images and doesn’t include them. You can import the export back in.',
 	},
 	{
 		question: 'How does the Plan work?',
 		answer:
-			'The Plan shows an ordered week of Meals made from Recipes, Menu snapshots, or simple notes. When you\u2019re ready, open From Plan on Shopping: every Meal and line arrives ticked except things usually on hand, such as your Staples and salt, things already on the list from somewhere else, and days that have passed. A line the Meal already put on Shopping shows as on the list. Untick what you do not need and add the rest.',
+			'The Plan shows an ordered week of Meals made from Recipes, Menu snapshots, or simple notes. When you\u2019re ready, open From Plan on Shopping: every Meal and line arrives ticked except things usually on hand, such as your Staples and salt, things already on the list from somewhere else, and days that have passed. A line the Meal already put on Shopping shows as On Shopping. Untick what you do not need and add the rest.',
 	},
 	{
 		question: 'Which features use AI?',
 		answer:
-			'AI Recipe import and Recipe enhancement send the content you choose to Anthropic. Voice input sends audio to Groq for transcription, then may send the transcript to Anthropic to parse Shopping items. These tools are optional; the manual Recipe, Plan, and Shopping paths still work without them.',
+			'AI import and Suggest description & times send the content you choose to Anthropic. Voice input sends audio to Groq for transcription, then may send the transcript to Anthropic to pick out Shopping items. These tools are optional, and everything else works without them.',
 	},
 	{
 		question: 'How do I delete my account?',
 		answer:
-			'Go to Settings > Profile where you can manage your account. You can download a JSON export first from Settings > Data; Recipe images are not included in the file.',
+			'Open Settings and tap Delete my account at the bottom. You can download a JSON export first from Settings > Data. Recipe images aren’t in the file.',
 	},
 ]
 

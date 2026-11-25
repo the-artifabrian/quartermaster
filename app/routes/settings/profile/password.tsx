@@ -38,7 +38,7 @@ const ChangePasswordForm = z
 			ctx.addIssue({
 				path: ['confirmNewPassword'],
 				code: z.ZodIssueCode.custom,
-				message: 'The passwords must match',
+				message: 'Enter the same password twice',
 			})
 		}
 	})
@@ -87,7 +87,7 @@ export async function action({ request }: Route.ActionArgs) {
 						ctx.addIssue({
 							path: ['newPassword'],
 							code: 'custom',
-							message: 'Password is too common',
+							message: 'That password is too common. Try another.',
 						})
 					}
 				}
@@ -126,8 +126,7 @@ export async function action({ request }: Route.ActionArgs) {
 		`/settings/profile`,
 		{
 			type: 'success',
-			title: 'Password Changed',
-			description: 'Your password has been changed.',
+			description: 'Password changed.',
 		},
 		{ status: 302 },
 	)
@@ -151,7 +150,7 @@ export default function ChangePasswordRoute({
 	return (
 		<Form method="POST" {...getFormProps(form)} className="mx-auto max-w-md">
 			<Field
-				labelProps={{ children: 'Current Password' }}
+				labelProps={{ children: 'Current password' }}
 				inputProps={{
 					...getInputProps(fields.currentPassword, { type: 'password' }),
 					autoComplete: 'current-password',
@@ -159,7 +158,7 @@ export default function ChangePasswordRoute({
 				errors={fields.currentPassword.errors}
 			/>
 			<Field
-				labelProps={{ children: 'New Password' }}
+				labelProps={{ children: 'New password' }}
 				inputProps={{
 					...getInputProps(fields.newPassword, { type: 'password' }),
 					autoComplete: 'new-password',
@@ -167,7 +166,7 @@ export default function ChangePasswordRoute({
 				errors={fields.newPassword.errors}
 			/>
 			<Field
-				labelProps={{ children: 'Confirm New Password' }}
+				labelProps={{ children: 'Confirm new password' }}
 				inputProps={{
 					...getInputProps(fields.confirmNewPassword, {
 						type: 'password',
@@ -183,7 +182,7 @@ export default function ChangePasswordRoute({
 					type="submit"
 					status={isPending ? 'pending' : (form.status ?? 'idle')}
 				>
-					Change Password
+					Change password
 				</StatusButton>
 			</div>
 		</Form>

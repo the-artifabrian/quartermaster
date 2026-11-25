@@ -160,7 +160,7 @@ export async function saveSharedMenu({
 			})
 			invariantResponse(
 				member,
-				'Your household changed. Reload this Menu and try again.',
+				'Your Household changed. Reload this Menu and try again.',
 				{ status: 403 },
 			)
 			const saved = await findSavedMenu(householdId, menuId, tx)

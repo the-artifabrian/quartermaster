@@ -53,7 +53,7 @@ test('a saved shared Recipe keeps its picture after the source deletes theirs', 
 		})
 
 		await page.goto(`/share/${recipe.id}`)
-		await page.getByRole('button', { name: 'Save to My Recipes' }).click()
+		await page.getByRole('button', { name: 'Save to your Recipes' }).click()
 		await expect(page).toHaveURL(/\/recipes\/[a-z0-9]+$/)
 
 		const saved = await prisma.recipe.findFirstOrThrow({

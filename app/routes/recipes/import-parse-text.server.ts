@@ -19,13 +19,13 @@ export async function importFromText(
 	const rawText = (formData.get('rawText') as string) || ''
 
 	if (!rawText.trim()) {
-		return importFailure('parse-text', 'Please paste some recipe text.')
+		return importFailure('parse-text', 'Paste the Recipe’s text first.')
 	}
 
 	if (rawText.length > MAX_RAW_TEXT_LENGTH) {
 		return importFailure(
 			'parse-text',
-			'Text is too long. Please shorten it and try again.',
+			'That’s too much text. Paste only the Recipe.',
 		)
 	}
 

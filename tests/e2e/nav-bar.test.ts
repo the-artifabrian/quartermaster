@@ -110,7 +110,7 @@ test('Back from a deep-linked Recipe opens Recipes in its place', async ({
 	await backButton(page, 'Recipes').tap()
 	await expect(page).toHaveURL('/recipes')
 	await expect(
-		page.getByRole('heading', { level: 1, name: /My Recipes/ }),
+		page.getByRole('heading', { level: 1, name: /^Recipes \(/ }),
 	).toBeVisible()
 	// Replaced, so the Recipe is not left behind the list.
 	expect(await page.evaluate(() => window.history.length)).toBe(lengthBefore)
@@ -505,7 +505,7 @@ test('a title error after Save shows its field below the bar, not under it', asy
 		.getByRole('button', { name: 'Save' })
 		.tap()
 
-	const error = page.getByText('Title is required')
+	const error = page.getByText('Add a title')
 	await expect(error).toBeVisible()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
 	await expect(page.getByLabel('Title')).toBeFocused()
@@ -887,7 +887,7 @@ test('changing the scale keeps the Recipe where it was, small title and all', as
 		requestAnimationFrame(sample)
 	})
 	await scale.tap()
-	await page.getByRole('button', { name: 'Increase recipe scale' }).tap()
+	await page.getByRole('button', { name: 'Increase Recipe scale' }).tap()
 	await expect(page).toHaveURL(/scale=/)
 	await page.waitForTimeout(300)
 	expect(Math.abs((await scrollY(page)) - before)).toBeLessThan(5)

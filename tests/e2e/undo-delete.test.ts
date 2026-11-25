@@ -383,7 +383,7 @@ test('Undo after the item was added again in the meantime does not double it', a
 	await openShopping(other)
 	await other.getByRole('button', { name: 'Add item' }).click()
 	const sheet = other.getByRole('dialog', { name: 'Add to Shopping' })
-	await sheet.getByPlaceholder('Add an item...').fill('2 milk')
+	await sheet.getByPlaceholder('Add an item…').fill('2 milk')
 	await sheet.getByRole('button', { name: 'Add to Next shop' }).click()
 	await expect
 		.poll(() => savedNames(user.householdId))
@@ -419,7 +419,7 @@ test('opening a sheet closes the Undo toast, so it never covers the sheet', asyn
 		Promise.all(element.getAnimations().map((a) => a.finished)),
 	)
 	await expect(undoButton(page)).toBeHidden()
-	const input = sheet.getByPlaceholder('Add an item...')
+	const input = sheet.getByPlaceholder('Add an item…')
 	const box = (await input.boundingBox())!
 	expect(
 		await page.evaluate(
@@ -427,7 +427,7 @@ test('opening a sheet closes the Undo toast, so it never covers the sheet', asyn
 				document.elementFromPoint(x, y)?.getAttribute('placeholder'),
 			{ x: box.x + box.width - 8, y: box.y + box.height / 2 },
 		),
-	).toBe('Add an item...')
+	).toBe('Add an item…')
 	expect(await savedNames(user.householdId)).toEqual(['eggs'])
 })
 
@@ -597,7 +597,7 @@ test('a Recipe removed from a Meal is removed at once and collapses; Undo puts i
 	await openPlanDay(page)
 	const riceLink = page.getByRole('link', { name: 'Rice', exact: true })
 	const removeRice = page.getByRole('button', {
-		name: 'Remove Rice from this meal',
+		name: 'Remove Rice from this Meal',
 	})
 
 	await removeRice.click()
@@ -605,7 +605,7 @@ test('a Recipe removed from a Meal is removed at once and collapses; Undo puts i
 	await expect(toastOf(undoButton(page))).toContainText('Removed Rice')
 	// The last Recipe left goes with its Meal, so it offers no remove.
 	await expect(
-		page.getByRole('button', { name: 'Remove Dal from this meal' }),
+		page.getByRole('button', { name: 'Remove Dal from this Meal' }),
 	).toBeHidden()
 	await expect.poll(riceSaved).toBe(0)
 
@@ -613,7 +613,7 @@ test('a Recipe removed from a Meal is removed at once and collapses; Undo puts i
 	await expect(riceLink).toBeVisible()
 	await expect.poll(riceSaved).toBe(1)
 	await expect(
-		page.getByRole('button', { name: 'Remove Dal from this meal' }),
+		page.getByRole('button', { name: 'Remove Dal from this Meal' }),
 	).toBeVisible()
 })
 
@@ -645,7 +645,7 @@ test('the first card showing loses the hairline above it', async ({
 	const lineAbove = () =>
 		riceWrapper.evaluate((element) => getComputedStyle(element).borderTopColor)
 	expect(await lineAbove()).not.toBe('rgba(0, 0, 0, 0)')
-	await page.getByRole('button', { name: 'Remove Dal from this meal' }).click()
+	await page.getByRole('button', { name: 'Remove Dal from this Meal' }).click()
 	await expect.poll(lineAbove).toBe('rgba(0, 0, 0, 0)')
 })
 
@@ -676,7 +676,7 @@ test('Delete · remove generated amount takes its Shopping amounts; Undo brings 
 
 	await actions.click()
 	await page
-		.getByRole('menuitem', { name: 'Delete · remove generated amount' })
+		.getByRole('menuitem', { name: 'Delete with its Shopping amounts' })
 		.click()
 	await expect(actions).toBeHidden()
 	await expect.poll(() => savedNames(user.householdId)).toEqual([])

@@ -56,7 +56,7 @@
 		<string>LaunchLogo</string>
 	</dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Quartermaster uses the microphone when you tap the voice button on your Shopping list, so you can say items instead of typing them.</string>
+	<string>Quartermaster uses the microphone when you tap the voice button on Shopping, so you can say items instead of typing them.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Quartermaster uses the camera when you choose to take a photo for a Recipe, or a photo of a printed Recipe to import.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

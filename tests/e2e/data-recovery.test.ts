@@ -43,7 +43,7 @@ test('a Recipe restored from its export keeps its heading out of checks and Shop
 		buffer: exportFile,
 	})
 	await page.getByRole('button', { name: 'Import', exact: true }).click()
-	await expect(page.getByRole('link', { name: 'View recipes' })).toBeVisible()
+	await expect(page.getByRole('link', { name: 'View Recipes' })).toBeVisible()
 
 	const restored = await prisma.recipe.findFirstOrThrow({
 		where: { householdId: user.householdId, title: 'Roast chicken' },
@@ -156,7 +156,7 @@ test('a Recipe restored from its export still opens its sub-Recipe', async ({
 
 	await page.goto('/settings/profile')
 	const downloading = page.waitForEvent('download')
-	await page.getByRole('link', { name: 'Export All Data' }).click()
+	await page.getByRole('link', { name: 'Export all data' }).click()
 	const download = await downloading
 	const exportFile = await readFile(await download.path())
 
@@ -171,7 +171,7 @@ test('a Recipe restored from its export still opens its sub-Recipe', async ({
 		buffer: exportFile,
 	})
 	await page.getByRole('button', { name: 'Import', exact: true }).click()
-	await expect(page.getByRole('link', { name: 'View recipes' })).toBeVisible()
+	await expect(page.getByRole('link', { name: 'View Recipes' })).toBeVisible()
 
 	const restoredSalsa = await prisma.recipe.findFirstOrThrow({
 		where: { householdId: user.householdId, title: 'Salsa verde' },
@@ -246,7 +246,7 @@ test('a Free user restores Plan and Shopping from a full export, and sees which 
 		buffer: Buffer.from(exportFile),
 	})
 	await page.getByRole('button', { name: 'Import', exact: true }).click()
-	await expect(page.getByRole('link', { name: 'View recipes' })).toBeVisible()
+	await expect(page.getByRole('link', { name: 'View Recipes' })).toBeVisible()
 	const mealsRow = page.getByText('Meals', { exact: true }).locator('..')
 	await expect(mealsRow).toContainText('1 imported')
 	await expect(mealsRow).toContainText('1 failed')

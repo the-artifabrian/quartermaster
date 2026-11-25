@@ -238,7 +238,7 @@ function AddIngredientToShopping({
 					{addedToCart
 						? cartData?.wasNew === false
 							? 'Already on Shopping'
-							: 'Added!'
+							: 'Added to Shopping'
 						: 'Add to Shopping'}
 				</TooltipContent>
 			</Tooltip>

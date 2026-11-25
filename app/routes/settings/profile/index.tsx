@@ -199,7 +199,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 					<SettingsRow
 						to="two-factor"
 						icon={loaderData.isTwoFactorEnabled ? 'lock-closed' : 'lock-open-1'}
-						label="Two-Factor Auth"
+						label="Two-factor auth"
 						value={loaderData.isTwoFactorEnabled ? 'On' : 'Off'}
 					/>
 					<SettingsRow to="passkeys" icon="passkey" label="Passkeys" />
@@ -209,13 +209,13 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 			{/* Data */}
 			<SettingsSection label="Data">
 				{isDemo ? null : (
-					<SettingsRow to="import" icon="update" label="Import Data" />
+					<SettingsRow to="import" icon="update" label="Import data" />
 				)}
 				<SettingsRow
 					href="/resources/export-all-data"
 					download
 					icon="download"
-					label="Export All Data"
+					label="Export all data"
 				/>
 				<SettingsRow
 					href="/resources/export-recipes"
@@ -276,7 +276,7 @@ function KeepAwakeSwitch() {
 		<Switch
 			checked={enabled}
 			onCheckedChange={handleChange}
-			aria-label="Keep screen awake while a recipe is open"
+			aria-label="Keep screen awake while a Recipe is open"
 			disabled={!hydrated}
 		/>
 	)

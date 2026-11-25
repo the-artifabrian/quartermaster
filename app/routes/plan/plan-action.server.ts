@@ -22,7 +22,7 @@ import {
 	setMealCooked,
 } from '#app/utils/meal.server.ts'
 import { ScaleMultiplierSchema } from '#app/utils/menu-validation.ts'
-import { planMenu } from '#app/utils/plan-menu.server.ts'
+import { EMPTY_MENU_MESSAGE, planMenu } from '#app/utils/plan-menu.server.ts'
 import {
 	servingInstantFromWallTime,
 	servingWallTime,
@@ -144,8 +144,7 @@ export function createPlanAction(
 			if (!result.created) {
 				return {
 					status: 'error' as const,
-					menuError:
-						'This Menu has nothing to plan yet—add a Recipe or note first.',
+					menuError: EMPTY_MENU_MESSAGE,
 				}
 			}
 			return { status: 'success' as const }

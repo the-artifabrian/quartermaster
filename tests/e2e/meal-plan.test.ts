@@ -138,7 +138,7 @@ test.describe('Move a Meal', () => {
 		await expect(movedCard).toContainText('Extra lemon at the table')
 		await expect(movedCard.getByLabel('Scale multiplier')).toHaveValue('1.5')
 		await expect(
-			movedCard.getByRole('button', { name: 'Mark Lemon Pasta as not cooked' }),
+			movedCard.getByRole('button', { name: 'Mark Lemon Pasta not cooked' }),
 		).toBeVisible()
 		await expect(mobile.locator('[data-slot="meal-group"]')).toHaveText([
 			/Lunch out/,
@@ -422,7 +422,7 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 			.first()
 			.click()
 		await expect(
-			page.getByPlaceholder('Search Recipes and Menus...').first(),
+			page.getByPlaceholder('Search Recipes and Menus…').first(),
 		).toBeVisible({ timeout: 2000 })
 		await expect(page.getByRole('dialog')).toHaveCount(0)
 	}).toPass()
@@ -447,9 +447,7 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 		.getByRole('button', { name: /add meal/i })
 		.first()
 		.click()
-	const planSearch = page
-		.getByPlaceholder('Search Recipes and Menus...')
-		.first()
+	const planSearch = page.getByPlaceholder('Search Recipes and Menus…').first()
 	await planSearch.fill('garlic flatbrad')
 	await expect(page.getByText('Menus', { exact: true }).first()).toBeVisible()
 	await page
@@ -473,13 +471,13 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 
 	// 5. Mark as cooked (plain toggle — no confirmation dialog)
 	await desktopPlan
-		.getByRole('button', { name: 'Mark Test Stir Fry as cooked' })
+		.getByRole('button', { name: 'Mark Test Stir Fry cooked' })
 		.click()
 
 	// 6. Verify cooked state (toggle label flips optimistically)
 	await expect(
 		desktopPlan.getByRole('button', {
-			name: 'Mark Test Stir Fry as not cooked',
+			name: 'Mark Test Stir Fry not cooked',
 		}),
 	).toBeVisible()
 
@@ -488,7 +486,7 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 	await page.reload()
 	await expect(
 		desktopPlan.getByRole('button', {
-			name: 'Mark Test Stir Fry as not cooked',
+			name: 'Mark Test Stir Fry not cooked',
 		}),
 	).toBeVisible()
 
@@ -613,14 +611,14 @@ test.describe('Plan quick-add failure', () => {
 				.first()
 				.click()
 			await expect(
-				page.getByPlaceholder('Search Recipes and Menus...').first(),
+				page.getByPlaceholder('Search Recipes and Menus…').first(),
 			).toBeVisible({ timeout: 2000 })
 		}).toPass()
 		await page.getByRole('button', { name: /herb salad/i }).click()
 
 		// The picker still closes at once, and the failure follows as a toast.
 		await expect(
-			page.getByPlaceholder('Search Recipes and Menus...'),
+			page.getByPlaceholder('Search Recipes and Menus…'),
 		).toHaveCount(0)
 		const announcements = page.getByRole('region', { name: /Notifications/ })
 		await expect(
@@ -706,14 +704,14 @@ test('Narrowing the phone Plan picker keeps the sheet height, so the input stays
 	await page.goto('/plan')
 	const mobile = page.getByTestId('mobile-plan')
 	// On a phone the composer is a sheet over the page.
-	const composer = page.getByRole('dialog', { name: 'Add a Meal' })
+	const composer = page.getByRole('dialog', { name: 'Add Meal' })
 	await expect(async () => {
 		if (!(await composer.isVisible())) {
 			await page.getByRole('button', { name: /^Add Meal to/ }).click()
 		}
 		await expect(composer).toBeVisible({ timeout: 1000 })
 	}).toPass()
-	const search = composer.getByPlaceholder('Search Recipes and Menus...')
+	const search = composer.getByPlaceholder('Search Recipes and Menus…')
 	await expect(search).toBeVisible()
 	await expect(
 		composer.getByRole('button', { name: /Herb Omelette/ }),

@@ -128,8 +128,8 @@ export async function sendEmail({
 		const resendError = {
 			name: timedOut ? 'EmailTimeoutError' : 'EmailDeliveryError',
 			message: timedOut
-				? 'The email request timed out — please try again'
-				: 'We could not reach the email service — please try again',
+				? 'Sending the email took too long. Try again.'
+				: 'We couldn’t reach the email service. Try again.',
 			statusCode: timedOut ? 504 : 502,
 		} satisfies ResendError
 		reportEmailFailure(email, resendError, error)

@@ -278,7 +278,7 @@ describe('menu create', () => {
 		})) as any
 		expect(duplicate.init?.status).toBe(400)
 		expect(duplicate.data.result.error.title).toEqual([
-			'A menu with this title already exists',
+			'You already have a Menu with this title',
 		])
 		expect(
 			await prisma.menu.count({ where: { householdId: session.householdId } }),
@@ -419,7 +419,7 @@ describe('menu edit and delete', () => {
 		})) as any
 		expect(result.init?.status).toBe(400)
 		expect(result.data.result.error.title).toEqual([
-			'A menu with this title already exists',
+			'You already have a Menu with this title',
 		])
 
 		const unchanged = await prisma.menu.findUniqueOrThrow({
@@ -619,7 +619,7 @@ describe('menu recipe items', () => {
 		})) as any
 		expect(result.init?.status).toBe(400)
 		expect(result.data.result.error['']).toEqual([
-			'That recipe is no longer in your library',
+			'That Recipe isn’t in your Recipes any more',
 		])
 		expect(await menuItems(menu.id)).toEqual([])
 	})
@@ -737,7 +737,7 @@ describe('menu recipe items', () => {
 		})) as any
 		expect(result.init?.status).toBe(400)
 		expect(result.data.result.error.title).toEqual([
-			'A menu with this title already exists',
+			'You already have a Menu with this title',
 		])
 
 		const unchanged = await menuItems(menu.id)
@@ -1622,7 +1622,7 @@ describe('menu note cards', () => {
 		})) as any
 		expect(noText.init?.status).toBe(400)
 		expect(noText.data.result.error['sections[0].items[0].text']).toEqual([
-			'Note text is required',
+			'Write the note, or remove it',
 		])
 
 		const noLineName = (await saveMenu(session, menu.id, {
@@ -1636,7 +1636,7 @@ describe('menu note cards', () => {
 			noLineName.data.result.error[
 				'sections[0].items[0].shoppingLines[0].name'
 			],
-		).toEqual(['Line name is required'])
+		).toEqual(['Name this line, or remove it'])
 
 		expect(await menuItems(menu.id)).toHaveLength(0)
 	})

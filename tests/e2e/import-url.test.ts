@@ -44,7 +44,7 @@ test('a shared URL waits for a tap, saves once and opens the Recipe; back skips 
 	await expect(
 		page.getByRole('heading', { name: 'Import this Recipe?' }),
 	).toBeVisible()
-	await expect(page.getByLabel('Recipe URL', { exact: true })).toBeHidden()
+	await expect(page.getByLabel('Recipe link', { exact: true })).toBeHidden()
 	expect(count.fetches).toBe(0)
 	expect(await prisma.recipe.count({ where: { userId: user.id } })).toBe(0)
 	await page.getByRole('button', { name: 'Import', exact: true }).click()
@@ -91,7 +91,7 @@ test('a shared URL waits for a tap, saves once and opens the Recipe; back skips 
 	await expect(
 		page.getByRole('heading', { name: 'Import this Recipe?' }),
 	).toHaveCount(0)
-	await expect(page.getByLabel('Recipe URL', { exact: true })).toHaveValue('')
+	await expect(page.getByLabel('Recipe link', { exact: true })).toHaveValue('')
 	expect(count.fetches).toBe(1)
 	expect(await prisma.recipe.count({ where: { userId: user.id } })).toBe(1)
 	await page.getByRole('link', { name: 'Open it', exact: true }).click()
@@ -105,8 +105,10 @@ test('a shared URL that fails to fetch stays on the filled URL tab', async ({
 	const user = await login()
 	const count = countFetches(page)
 	await importSharedLink(page, E2E_MISSING_URL)
-	await expect(page.getByText('Failed to fetch URL (404)')).toBeVisible()
-	await expect(page.getByLabel('Recipe URL', { exact: true })).toHaveValue(
+	await expect(
+		page.getByText('Couldn’t open that page (error 404)'),
+	).toBeVisible()
+	await expect(page.getByLabel('Recipe link', { exact: true })).toHaveValue(
 		E2E_MISSING_URL,
 	)
 	await expect(page).toHaveURL(/\/recipes\/import$/)

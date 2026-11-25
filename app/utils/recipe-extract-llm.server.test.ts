@@ -578,7 +578,7 @@ describe('extractRecipeFromText', () => {
 		delete process.env.ANTHROPIC_API_KEY
 		const result = await extractRecipeFromText('some recipe text')
 		expect(result).toEqual({
-			error: expect.stringContaining('not configured'),
+			error: expect.stringContaining('isn’t set up'),
 			refundable: true,
 		})
 	})
@@ -628,7 +628,7 @@ describe('extractRecipeFromText', () => {
 		const result = await extractRecipeFromText('random non-recipe text')
 		expect(result).toHaveProperty('error')
 		expect((result as { error: string }).error).toContain(
-			"Couldn't find a recipe",
+			'Couldn’t find a Recipe',
 		)
 	})
 
@@ -639,7 +639,7 @@ describe('extractRecipeFromText', () => {
 		)
 
 		const result = await extractRecipeFromText('some text')
-		expect((result as { error: string }).error).toContain('rate limit')
+		expect((result as { error: string }).error).toContain('Too many AI imports')
 	})
 
 	test('reports a truncated answer as too long, not as no recipe found', async () => {
@@ -663,8 +663,8 @@ describe('extractRecipeFromText', () => {
 		const error = (await extractRecipeFromText('a very long recipe')) as {
 			error: string
 		}
-		expect(error.error).toContain('too long to extract')
-		expect(error.error).not.toContain("Couldn't find a recipe")
+		expect(error.error).toContain('too long to read in one go')
+		expect(error.error).not.toContain('Couldn’t find a Recipe')
 	})
 
 	test('asks for enough output tokens to carry a full recipe', async () => {
@@ -741,7 +741,7 @@ describe('extractRecipeFromText', () => {
 
 		const result = await extractRecipeFromText('a page about nothing')
 		expect((result as { error: string }).error).toContain(
-			"Couldn't find a recipe",
+			'Couldn’t find a Recipe',
 		)
 		// Without a branch for it, a constrained response would have to be a
 		// recipe, and a page with none would come back invented.
@@ -949,7 +949,9 @@ describe('extractRecipeFromImages', () => {
 			{ base64: 'base64', mediaType: 'image/gif' },
 		])
 		expect(result).toHaveProperty('error')
-		expect((result as { error: string }).error).toContain('Unsupported')
+		expect((result as { error: string }).error).toContain(
+			'Choose a JPG, PNG or WebP',
+		)
 		expect(fetchSpy).not.toHaveBeenCalled()
 	})
 
@@ -970,7 +972,7 @@ describe('extractRecipeFromImages', () => {
 			{ base64: 'base64', mediaType: 'image/png' },
 		])
 		expect(result).toEqual({
-			error: expect.stringContaining('not configured'),
+			error: expect.stringContaining('isn’t set up'),
 			refundable: true,
 		})
 	})

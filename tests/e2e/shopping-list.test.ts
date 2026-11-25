@@ -358,7 +358,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	await page.setViewportSize({ width: 1280, height: 800 })
 	await page.getByRole('button', { name: /from plan/i }).click()
 	await expect(
-		page.getByRole('heading', { name: /what are we buying for/i }),
+		page.getByRole('heading', { name: /add from the plan/i }),
 	).toBeVisible()
 	for (const name of [/^broccoli/i, /^jasmine rice/i]) {
 		const line = page.getByRole('button', { name })
@@ -374,7 +374,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 
 	// 3. Only the picked lines land on the list.
 	await expect(
-		page.getByRole('heading', { name: /what are we buying for/i }),
+		page.getByRole('heading', { name: /add from the plan/i }),
 	).toBeHidden()
 	await expect(page.getByText('chicken breast')).toBeVisible()
 	await expect(page.getByText('spring onions')).toBeVisible()
@@ -584,7 +584,7 @@ test('From Plan shows what a Meal already put on Shopping as on the list, and th
 	for (const name of ['chicken thighs', 'lemon']) {
 		await expect(
 			picker.getByText(new RegExp(`^${name} ·`)).locator('..'),
-		).toContainText('On the list')
+		).toContainText('On Shopping')
 		await expect(lineButton(name)).toHaveCount(0)
 	}
 	await expect(lineButton('broccoli')).toHaveAttribute('aria-pressed', 'true')
@@ -607,9 +607,9 @@ test('From Plan shows what a Meal already put on Shopping as on the list, and th
 	const mealBoxes = picker.getByRole('button', {
 		name: /tick .*Chicken traybake/i,
 	})
-	await expect(picker.getByText('On the list', { exact: true })).toHaveCount(3)
+	await expect(picker.getByText('On Shopping', { exact: true })).toHaveCount(3)
 	await expect(
-		picker.getByText('Everything to buy is on the list'),
+		picker.getByText('Everything to buy is on Shopping'),
 	).toBeAttached()
 	await expect(mealBoxes).toHaveCount(0)
 	await expect(addButton).toHaveText('Add to Next shop')
@@ -619,7 +619,7 @@ test('From Plan shows what a Meal already put on Shopping as on the list, and th
 	// through, who never reaches the hidden text on its own.
 	const disclosure = picker.locator('[aria-controls^="plan-picker-"]')
 	await expect(disclosure).toHaveAccessibleDescription(
-		'Everything to buy is on the list',
+		'Everything to buy is on Shopping',
 	)
 
 	// Salt can still be ticked on its own. The Meal box comes back while it
@@ -641,7 +641,7 @@ test('From Plan shows what a Meal already put on Shopping as on the list, and th
 	await expect(mealBoxes).toHaveCount(0)
 	await expect(disclosure).toBeFocused()
 	await expect(disclosure).toHaveAccessibleDescription(
-		'Everything to buy is on the list',
+		'Everything to buy is on Shopping',
 	)
 	expect(
 		await prisma.shoppingListItem.count({
@@ -751,7 +751,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 			.getByRole('button', { name: 'From Staples, reminder available' })
 			.click()
 		await expect(
-			page.getByRole('heading', { name: 'What do you need this trip?' }),
+			page.getByRole('heading', { name: 'Add from Staples' }),
 		).toBeVisible({ timeout: 2000 })
 	}).toPass({ timeout: 15_000 })
 	await expect(page.getByRole('button', { name: 'From Staples' })).toBeVisible()
@@ -769,7 +769,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 	await page.getByRole('button', { name: 'Add 2 to Next shop' }).click()
 
 	await expect(
-		page.getByRole('heading', { name: 'What do you need this trip?' }),
+		page.getByRole('heading', { name: 'Add from Staples' }),
 	).toBeHidden()
 	await expect(page.getByText('Milk', { exact: true })).toBeVisible()
 	await expect(page.getByText('Yogurt', { exact: true })).toBeVisible()
@@ -789,7 +789,7 @@ test('household Staples can be added together from the quiet Shopping picker', a
 
 	// On a phone the picker is a sheet; its Close shuts it.
 	const staplesSheet = page.getByRole('dialog', {
-		name: 'What do you need this trip?',
+		name: 'Add from Staples',
 	})
 	async function closeStaplesSheet() {
 		await staplesSheet
@@ -905,7 +905,7 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 
 		await laterToggle.click()
 		await expect(laterToggle).toHaveAttribute('aria-expanded', 'true')
-		await expect(page.getByPlaceholder('Add to Later...')).toBeVisible()
+		await expect(page.getByPlaceholder('Add to Later…')).toBeVisible()
 		const laterGroup = page.getByRole('group', {
 			name: `${itemName} shopping item`,
 		})
@@ -938,7 +938,7 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 		// A search reveals a collapsed Later match without changing the stored
 		// expansion preference; clearing it collapses Later again.
 		await page.goto('/shopping')
-		const search = page.getByPlaceholder('Search Shopping...')
+		const search = page.getByPlaceholder('Search Shopping…')
 		await search.fill('Solar eclipse glasses')
 		await expect(
 			page.getByText('Solar eclipse glasses', { exact: true }),
@@ -1048,7 +1048,7 @@ test('a comma decimal reads as one number on the Recipe, when scaled, and in the
 	await page.getByRole('button', { name: /from plan/i }).click()
 	const flourLine = page.getByRole('button', { name: /^flour/i })
 	await expect(flourLine).toHaveAttribute('aria-pressed', 'false')
-	await expect(flourLine).toContainText('On the list, not this Meal’s amount')
+	await expect(flourLine).toContainText('On Shopping, not this Meal’s amount')
 	await flourLine.click()
 	await expect(flourLine).toHaveAttribute('aria-pressed', 'true')
 	await page.getByRole('button', { name: /add 1 from 1 meal/i }).click()
@@ -1114,7 +1114,7 @@ test('the phone add sheet opens empty after each way of closing it, and still ad
 	await openShopping(page)
 	const addItem = page.getByRole('button', { name: 'Add item' })
 	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
-	const name = sheet.getByPlaceholder('Add an item...')
+	const name = sheet.getByPlaceholder('Add an item…')
 	const quantity = sheet.getByPlaceholder('Qty')
 	const unit = sheet.getByPlaceholder('Unit')
 
@@ -1186,8 +1186,8 @@ test('the phone add sheet opens without the last item’s warning, and checks th
 	await openShopping(page)
 	const addItem = page.getByRole('button', { name: 'Add item' })
 	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
-	const name = sheet.getByPlaceholder('Add an item...')
-	const warning = sheet.getByText('Milk is already on your list')
+	const name = sheet.getByPlaceholder('Add an item…')
+	const warning = sheet.getByText('Milk is already on Shopping')
 
 	await addItem.click()
 	await expect(name).toBeFocused()

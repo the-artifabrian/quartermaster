@@ -49,7 +49,7 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	const visibleButton = (name: string | RegExp) =>
 		page.getByRole('button', { name }).filter({ visible: true })
 	const pickerSearch = () =>
-		page.getByPlaceholder('Search recipes...').filter({ visible: true }).last()
+		page.getByPlaceholder('Search Recipes…').filter({ visible: true }).last()
 	const pickerOption = (name: string) => visibleButton(name).last()
 
 	// 1. The Recipes / Menus library switch
@@ -85,7 +85,7 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 		await pickerSearch().fill(title)
 		await pickerOption(title).click()
 		await expect(
-			page.getByRole('button', { name: `Remove ${title} from menu` }),
+			page.getByRole('button', { name: `Remove ${title} from Menu` }),
 		).toBeVisible()
 	}
 	// Every Recipe edits the same multiplier; known yield remains explanatory.
@@ -101,7 +101,7 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	await pickerSearch().fill('Orange Cake')
 	await pickerOption('Orange Cake').click()
 	await expect(
-		page.getByRole('button', { name: 'Remove Orange Cake from menu' }),
+		page.getByRole('button', { name: 'Remove Orange Cake from Menu' }),
 	).toBeVisible()
 
 	// 4. A note card with one ordinary Shopping line
@@ -185,7 +185,9 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	await page.reload()
 	await expect(page.getByText('Chicken Kofta')).toBeVisible()
 	await expect(
-		page.getByText('No longer in your recipe library', { exact: false }),
+		page.getByText('This Recipe isn’t in your Recipes any more', {
+			exact: false,
+		}),
 	).toBeVisible()
 
 	// 9. Recovery: export, lose the menu, import the file, get it all back
@@ -201,9 +203,9 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 		mimeType: 'application/json',
 		buffer: Buffer.from(exportBody),
 	})
-	await expect(page.getByRole('heading', { name: 'Full Export' })).toBeVisible()
+	await expect(page.getByRole('heading', { name: 'Full export' })).toBeVisible()
 	await page.getByRole('button', { name: 'Import', exact: true }).click()
-	await expect(page.getByText('Import Complete')).toBeVisible()
+	await expect(page.getByText('Import complete')).toBeVisible()
 
 	await page.goto('/recipes/menus')
 	await page.getByRole('link', { name: /Levantine Terrace Dinner/ }).click()
@@ -219,7 +221,7 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	await expect(restoredCards.nth(1)).toContainText('6 bowls')
 	await expect(restoredCards.nth(2)).toContainText('Chicken Kofta')
 	await expect(restoredCards.nth(2)).toContainText(
-		'No longer in your recipe library',
+		'This Recipe isn’t in your Recipes any more',
 	)
 	await expect(restoredCards.nth(3)).toContainText('2 bunches')
 	await expect(page.getByRole('heading', { name: 'Dessert' })).toBeVisible()

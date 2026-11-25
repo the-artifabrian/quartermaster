@@ -27,9 +27,11 @@ test('pasted text saves at once and opens with a notice; Undo deletes it and ret
 	await page.setViewportSize({ width: 390, height: 844 })
 	await page.goto('/recipes')
 	await page.goto('/recipes/import')
-	await page.getByRole('tab', { name: 'From Text', exact: true }).click()
+	await page.getByRole('tab', { name: 'From text', exact: true }).click()
 	await page.getByLabel('Recipe text', { exact: true }).fill(original)
-	await page.getByRole('button', { name: 'Parse Recipe', exact: true }).click()
+	await page
+		.getByRole('button', { name: 'Read as written', exact: true })
+		.click()
 
 	await expect(page).toHaveURL(savedRecipeUrl)
 	await expect(
@@ -90,9 +92,11 @@ test('the notice shows once: not on the Recipe it links to, after Back, or on a 
 	})
 	await page.goto('/recipes')
 	await page.goto('/recipes/import')
-	await page.getByRole('tab', { name: 'From Text', exact: true }).click()
+	await page.getByRole('tab', { name: 'From text', exact: true }).click()
 	await page.getByLabel('Recipe text', { exact: true }).fill(original)
-	await page.getByRole('button', { name: 'Parse Recipe', exact: true }).click()
+	await page
+		.getByRole('button', { name: 'Read as written', exact: true })
+		.click()
 	const notice = page.getByRole('region', { name: 'Saved to your Recipes' })
 	await expect(notice).toBeVisible()
 	const saved = await prisma.recipe.findFirstOrThrow({
@@ -138,11 +142,13 @@ test('an import missing its steps saves, says so, and Edit adds them; the notice
 }) => {
 	const user = await login()
 	await page.goto('/recipes/import')
-	await page.getByRole('tab', { name: 'From Text', exact: true }).click()
+	await page.getByRole('tab', { name: 'From text', exact: true }).click()
 	await page
 		.getByLabel('Recipe text', { exact: true })
 		.fill('Lemon\nIngredients\n1 lemon')
-	await page.getByRole('button', { name: 'Parse Recipe', exact: true }).click()
+	await page
+		.getByRole('button', { name: 'Read as written', exact: true })
+		.click()
 
 	await expect(page).toHaveURL(savedRecipeUrl)
 	const notice = page.getByRole('region', { name: 'Saved to your Recipes' })
@@ -167,11 +173,13 @@ test('an import missing its steps saves, says so, and Edit adds them; the notice
 	})
 
 	await page.goto('/recipes/import')
-	await page.getByRole('tab', { name: 'From Text', exact: true }).click()
+	await page.getByRole('tab', { name: 'From text', exact: true }).click()
 	await page
 		.getByLabel('Recipe text', { exact: true })
 		.fill('Toast\nIngredients\n1 slice bread')
-	await page.getByRole('button', { name: 'Parse Recipe', exact: true }).click()
+	await page
+		.getByRole('button', { name: 'Read as written', exact: true })
+		.click()
 	await expect(page).toHaveURL(savedRecipeUrl)
 	await expect(notice).toContainText('We couldn’t find the instructions.')
 	await notice.getByRole('button', { name: 'Dismiss' }).click()
@@ -201,11 +209,13 @@ test('a clean import just opens the Recipe: no notice, one saved haptic', async 
 	})
 	const user = await login()
 	await page.goto('/recipes/import')
-	await page.getByRole('tab', { name: 'From Text', exact: true }).click()
+	await page.getByRole('tab', { name: 'From text', exact: true }).click()
 	await page
 		.getByLabel('Recipe text', { exact: true })
 		.fill('Toast\nIngredients\n1 slice bread\nInstructions\nToast it.')
-	await page.getByRole('button', { name: 'Parse Recipe', exact: true }).click()
+	await page
+		.getByRole('button', { name: 'Read as written', exact: true })
+		.click()
 
 	await expect(page).toHaveURL(savedRecipeUrl)
 	await expect(
@@ -247,11 +257,13 @@ test('an import that had to shorten its title still shows the notice', async ({
 	const title = `Slow roasted tomato soup ${'with basil '.repeat(10)}`.trim()
 	expect(title.length).toBeGreaterThan(100)
 	await page.goto('/recipes/import')
-	await page.getByRole('tab', { name: 'From Text', exact: true }).click()
+	await page.getByRole('tab', { name: 'From text', exact: true }).click()
 	await page
 		.getByLabel('Recipe text', { exact: true })
 		.fill(`${title}\nIngredients\n4 tomatoes\nInstructions\nRoast them.`)
-	await page.getByRole('button', { name: 'Parse Recipe', exact: true }).click()
+	await page
+		.getByRole('button', { name: 'Read as written', exact: true })
+		.click()
 
 	await expect(page).toHaveURL(savedRecipeUrl)
 	await expect(
@@ -265,11 +277,13 @@ test('text with neither ingredients nor steps saves nothing and keeps what was p
 }) => {
 	const user = await login()
 	await page.goto('/recipes/import')
-	await page.getByRole('tab', { name: 'From Text', exact: true }).click()
+	await page.getByRole('tab', { name: 'From text', exact: true }).click()
 	const text = 'Family notes\nServe with whatever greens are left.'
 	await page.getByLabel('Recipe text', { exact: true }).fill(text)
-	await page.getByRole('button', { name: 'Parse Recipe', exact: true }).click()
-	await expect(page.getByText(/Could not find a recipe/)).toBeVisible()
+	await page
+		.getByRole('button', { name: 'Read as written', exact: true })
+		.click()
+	await expect(page.getByText(/Couldn’t find a Recipe/)).toBeVisible()
 	await expect(page.getByLabel('Recipe text', { exact: true })).toHaveValue(
 		text,
 	)
@@ -290,13 +304,13 @@ test('a Pro user out of AI imports for the day is told so and nothing is saved',
 	})
 	await page.goto('/recipes/import')
 	await expect(async () => {
-		await page.getByRole('tab', { name: 'From Text', exact: true }).click()
+		await page.getByRole('tab', { name: 'From text', exact: true }).click()
 		await expect(page.getByLabel('Recipe text', { exact: true })).toBeVisible({
 			timeout: 2000,
 		})
 	}).toPass({ timeout: 10_000 })
 	await page.getByLabel('Recipe text', { exact: true }).fill(original)
-	await page.getByRole('button', { name: 'Extract with AI' }).click()
+	await page.getByRole('button', { name: 'Read with AI' }).click()
 
 	await expect(
 		page.getByText("You've used today's 10 AI imports. Try again tomorrow."),

@@ -43,7 +43,7 @@ test('an owner who joins another Household leaves the other member in charge', a
 		await expect(page.getByText('The Hosts')).toBeVisible()
 		await page.getByRole('button', { name: 'Accept' }).click()
 		await expect(page).toHaveURL('/recipes')
-		await expect(page.getByText('Joined household!')).toBeVisible()
+		await expect(page.getByText('You’ve joined the Household.')).toBeVisible()
 
 		expect(
 			await prisma.householdMember.findMany({
@@ -68,7 +68,7 @@ test('an owner who joins another Household leaves the other member in charge', a
 		).toBeVisible()
 		await expect(page.getByText(`@${member!.username} · owner`)).toBeVisible()
 		await expect(
-			page.getByRole('button', { name: 'Leave household' }),
+			page.getByRole('button', { name: 'Leave Household' }),
 		).toHaveCount(0)
 	} finally {
 		await prisma.household.delete({ where: { id: elsewhere.id } })

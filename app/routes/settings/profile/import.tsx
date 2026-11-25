@@ -40,12 +40,12 @@ import { type Route } from './+types/import.ts'
 import { type SettingsPageHandle } from './_layout.tsx'
 
 export const handle: SettingsPageHandle & SEOHandle = {
-	pageTitle: 'Import Data',
+	pageTitle: 'Import data',
 	getSitemapEntries: () => null,
 }
 
 export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Import Data | Quartermaster' }]
+	return [{ title: 'Import data | Quartermaster' }]
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -606,7 +606,7 @@ function parseImportData(
 		return { type: 'recipe-only', data: result.data }
 	}
 
-	return { error: 'Unrecognized format. Expected a Quartermaster export file.' }
+	return { error: 'This isn’t a Quartermaster export file.' }
 }
 
 // --- Preview types ---
@@ -2258,7 +2258,9 @@ export default function ImportData() {
 			} else if (total > 0) {
 				toast.success(`Imported ${total} items`)
 			} else {
-				toast.info('Nothing new to import — all items already exist')
+				toast.info(
+					'Nothing new to import. Everything in the file is already here.',
+				)
 			}
 		}
 		if (fetcher.data.error) {
@@ -2275,7 +2277,7 @@ export default function ImportData() {
 		setExportFile(null)
 
 		if (!file.name.endsWith('.json')) {
-			setFileError('Please select a .json file')
+			setFileError('Choose a .json file')
 			return
 		}
 
@@ -2288,7 +2290,7 @@ export default function ImportData() {
 		reader.onload = (event) => {
 			const text = event.target?.result
 			if (typeof text !== 'string') {
-				setFileError('Could not read file')
+				setFileError('Couldn’t read that file')
 				return
 			}
 
@@ -2309,7 +2311,7 @@ export default function ImportData() {
 			setExportFile(file)
 			setPreview(previewData)
 		}
-		reader.onerror = () => setFileError('Could not read file')
+		reader.onerror = () => setFileError('Couldn’t read that file')
 		reader.readAsText(file)
 	}
 
@@ -2336,15 +2338,15 @@ export default function ImportData() {
 	return (
 		<div>
 			<p className="text-muted-foreground mb-6">
-				Import a previously exported Quartermaster file. Both full exports and
-				recipe-only exports are supported. Duplicates are automatically skipped.
+				Import a file you exported from Quartermaster, a full export or Recipes
+				only. Anything already here is skipped.
 			</p>
 
 			{/* Phase 3: Results */}
 			{results ? (
 				<div className="space-y-4">
 					<div className="bg-muted/40 rounded-lg p-6">
-						<h2 className="mb-4 text-lg font-semibold">Import Complete</h2>
+						<h2 className="mb-4 text-lg font-semibold">Import complete</h2>
 						<div className="space-y-3">
 							<ResultRow
 								label="Recipes"
@@ -2413,7 +2415,7 @@ export default function ImportData() {
 							Import another file
 						</Button>
 						<Button asChild>
-							<Link to="/recipes">View recipes</Link>
+							<Link to="/recipes">View Recipes</Link>
 						</Button>
 					</div>
 				</div>
@@ -2444,8 +2446,7 @@ export default function ImportData() {
 						)}
 
 						<p className="text-muted-foreground mt-4 text-xs">
-							Images are not included in exports and will be skipped during
-							import.
+							Exports don&apos;t include images, so none are imported.
 						</p>
 					</div>
 
@@ -2454,7 +2455,7 @@ export default function ImportData() {
 						<div className="mt-4 space-y-4">
 							<div className="bg-muted/40 rounded-lg p-6">
 								<h2 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase">
-									{preview.isFullExport ? 'Full Export' : 'Recipe-Only Export'}
+									{preview.isFullExport ? 'Full export' : 'Recipes-only export'}
 								</h2>
 								<div className="space-y-1.5 text-sm">
 									<PreviewRow label="Recipes" count={preview.recipes} />
@@ -2490,8 +2491,8 @@ export default function ImportData() {
 									)}
 								</div>
 								<p className="text-muted-foreground mt-3 text-xs">
-									Existing recipes and menus (matched by title) and Staples
-									(matched by name) will be automatically skipped.
+									Recipes and Menus with a title you already have, and Staples
+									with a name you already have, are skipped.
 								</p>
 							</div>
 
@@ -2505,7 +2506,7 @@ export default function ImportData() {
 									disabled={isSubmitting}
 									onClick={handleSubmit}
 								>
-									{isSubmitting ? 'Importing...' : 'Import'}
+									{isSubmitting ? 'Importing…' : 'Import'}
 								</StatusButton>
 							</div>
 						</div>

@@ -91,7 +91,7 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 
 	// Lands on the Recipes list, not back on /recipes/:id or its edit form
 	await expect(page).toHaveURL('/recipes')
-	await expect(page.getByRole('heading', { name: /^My Recipes/ })).toBeVisible()
+	await expect(page.getByRole('heading', { name: /^Recipes \(/ })).toBeVisible()
 	await expect(page.getByText('E2E Updated Pasta')).toHaveCount(0)
 	expect(await prisma.recipe.findUnique({ where: { id: recipeId } })).toBeNull()
 })
@@ -267,16 +267,12 @@ test('a Pro user can extract with AI from text and from an image', async ({
 	})
 
 	await page.goto('/recipes/import')
-	await page.getByRole('tab', { name: 'From Text' }).click()
+	await page.getByRole('tab', { name: 'From text' }).click()
 	await expect(page.getByLabel('Recipe text')).toBeVisible()
-	await expect(
-		page.getByRole('button', { name: 'Extract with AI' }),
-	).toBeVisible()
-	await page.getByRole('tab', { name: 'From Image' }).click()
+	await expect(page.getByRole('button', { name: 'Read with AI' })).toBeVisible()
+	await page.getByRole('tab', { name: 'From image' }).click()
 	await expect(page.getByLabel('Upload screenshots (up to 5)')).toBeVisible()
-	await expect(
-		page.getByRole('button', { name: 'Extract with AI' }),
-	).toBeVisible()
+	await expect(page.getByRole('button', { name: 'Read with AI' })).toBeVisible()
 })
 
 test('Recipe search and filter', async ({ page, login }) => {
@@ -553,12 +549,12 @@ test('long Recipe times read in hours and days on the card, detail and edit form
 
 	await page.goto(`/recipes/${recipe.id}/edit`)
 	await page.getByText('Details', { exact: true }).click()
-	const totalTime = page.getByRole('spinbutton', { name: 'Total Time (min)' })
+	const totalTime = page.getByRole('spinbutton', { name: 'Total time (min)' })
 	await expect(totalTime).toHaveValue('1140')
 	await expect(page.getByText('= 19 hr')).toBeVisible()
 	// Under an hour the minutes already read plainly, so there is no hint.
 	await expect(
-		page.getByRole('spinbutton', { name: 'Active Time (min)' }),
+		page.getByRole('spinbutton', { name: 'Active time (min)' }),
 	).toHaveValue('30')
 	await expect(page.getByText(/^= /)).toHaveCount(1)
 
@@ -1010,7 +1006,7 @@ Instructions
 	})
 	await page.getByRole('button', { name: 'Copy Recipe' }).click()
 	await expect(
-		announcements.getByText('Unable to copy recipe', { exact: true }),
+		announcements.getByText('Couldn’t copy the Recipe', { exact: true }),
 	).toBeVisible()
 })
 

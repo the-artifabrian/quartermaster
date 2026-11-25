@@ -114,8 +114,7 @@ export async function action({ request }: Route.ActionArgs) {
 			})
 			return redirectWithToast('/settings/profile/two-factor', {
 				type: 'success',
-				title: 'Enabled',
-				description: 'Two-factor authentication has been enabled.',
+				description: 'Two-factor authentication is on.',
 			})
 		}
 	}
@@ -152,8 +151,7 @@ export default function TwoFactorRoute({
 				/>
 				<p>Scan this QR code with your authenticator app.</p>
 				<p className="text-sm">
-					If you cannot scan the QR code, you can manually add this account to
-					your authenticator app using this code:
+					If you can&apos;t scan it, add this to the app by hand instead:
 				</p>
 				<div className="p-3">
 					<pre
@@ -164,11 +162,8 @@ export default function TwoFactorRoute({
 					</pre>
 				</div>
 				<p className="text-sm">
-					Once you've added the account, enter the code from your authenticator
-					app below. Once you enable 2FA, you will need to enter a code from
-					your authenticator app every time you log in or perform important
-					actions. Do not lose access to your authenticator app, or you will
-					lose access to your account.
+					Then enter the code the app shows. From now on, logging in asks for a
+					code too. If you lose the app, you lose access to your account.
 				</p>
 				<div className="flex w-full max-w-xs flex-col justify-center gap-4">
 					<Form method="POST" {...getFormProps(form)} className="flex-1">

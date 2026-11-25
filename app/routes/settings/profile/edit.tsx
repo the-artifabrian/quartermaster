@@ -12,7 +12,7 @@ import { type Route } from './+types/edit.ts'
 import { type SettingsPageHandle } from './_layout.tsx'
 
 export const handle: SettingsPageHandle & SEOHandle = {
-	pageTitle: 'Edit Profile',
+	pageTitle: 'Edit profile',
 	getSitemapEntries: () => null,
 }
 
@@ -56,7 +56,7 @@ export async function action({ request }: Route.ActionArgs) {
 				ctx.addIssue({
 					path: ['username'],
 					code: z.ZodIssueCode.custom,
-					message: 'A user already exists with this username',
+					message: 'That username is taken. Try another.',
 				})
 			}
 		}),

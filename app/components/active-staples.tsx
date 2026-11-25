@@ -231,14 +231,14 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 				<StapleSuggestions
 					held={heldNames}
 					heading="No Staples yet"
-					lead="Tap the ones your household usually has, or add your own. Each is one tap away from every shop."
+					lead="Tap the ones your Household usually has, or add your own. Tap Need on one to put it on Next shop."
 				/>
 			) : (
 				<div className="bg-muted/40 mt-5 rounded-lg p-6 text-center">
 					<h2 className="font-serif text-xl font-normal">No Staples yet</h2>
 					<p className="text-muted-foreground mt-1 text-sm">
-						Add something your household normally has, and it is one tap away
-						from every shop.
+						Add what your Household usually has. Tap Need on one to put it on
+						Next shop.
 					</p>
 				</div>
 			)}

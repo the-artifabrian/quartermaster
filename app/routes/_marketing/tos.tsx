@@ -10,7 +10,7 @@ export const handle: SEOHandle = {
 }
 
 const description =
-	'The rules of the road for using Quartermaster. You own your recipes, we keep the lights on.'
+	'The terms for using Quartermaster. You own the Recipes you add.'
 
 export const meta: Route.MetaFunction = ({ matches }) => {
 	return [
@@ -37,7 +37,7 @@ export default function TermsOfServiceRoute() {
 				Terms of Service
 			</h1>
 			<p className="text-muted-foreground mt-2 text-sm">
-				Last updated: September 3, 2026
+				Last updated: November 25, 2026
 			</p>
 
 			<div className="mt-8 space-y-6 text-sm/6">
@@ -49,7 +49,7 @@ export default function TermsOfServiceRoute() {
 						Quartermaster is a personal recipe management service. By creating
 						an account, you agree to use the service for its intended purpose:
 						storing and organizing Recipes, building Menus, planning Meals,
-						keeping household Staples, and managing Shopping.
+						keeping Household Staples, and managing Shopping.
 					</p>
 				</section>
 
@@ -58,11 +58,11 @@ export default function TermsOfServiceRoute() {
 						Optional AI and voice tools
 					</h2>
 					<p className="text-muted-foreground mt-2">
-						AI Recipe import and enhancement use Anthropic. Voice transcription
-						uses Groq, and its transcript may be parsed by Anthropic. You choose
-						when to use these tools and remain responsible for reviewing their
-						output before saving or acting on it. Only submit content you have
-						the right to use.
+						AI import and Suggest description &amp; times use Anthropic. Voice
+						transcription uses Groq, and its transcript may be parsed by
+						Anthropic. You choose when to use these tools and remain responsible
+						for reviewing their output before saving or acting on it. Only
+						submit content you have the right to use.
 					</p>
 				</section>
 
@@ -71,7 +71,7 @@ export default function TermsOfServiceRoute() {
 						Your content
 					</h2>
 					<p className="text-muted-foreground mt-2">
-						You own the recipes, images, and other content you add to
+						You own the Recipes, images and anything else you add to
 						Quartermaster. We do not claim any ownership or license over your
 						content beyond what is necessary to operate the service (storing,
 						displaying, and backing up your data).
@@ -84,8 +84,8 @@ export default function TermsOfServiceRoute() {
 					</h2>
 					<p className="text-muted-foreground mt-2">
 						You are responsible for keeping your login credentials secure. If
-						you suspect unauthorized access to your account, change your
-						password immediately or contact us.
+						you think someone else has got into your account, change your
+						password straight away.
 					</p>
 				</section>
 
@@ -106,9 +106,9 @@ export default function TermsOfServiceRoute() {
 						Service availability
 					</h2>
 					<p className="text-muted-foreground mt-2">
-						We strive to keep Quartermaster available and reliable, but we do
-						not guarantee uninterrupted access. The service may be temporarily
-						unavailable for maintenance or updates.
+						We try to keep Quartermaster running, but we can&apos;t promise it
+						will always be available. The service may be temporarily unavailable
+						for maintenance or updates.
 					</p>
 				</section>
 
@@ -117,9 +117,8 @@ export default function TermsOfServiceRoute() {
 						Changes
 					</h2>
 					<p className="text-muted-foreground mt-2">
-						We may update these terms as the service evolves. Continued use of
-						Quartermaster after changes constitutes acceptance of the updated
-						terms.
+						We may update these terms as the app changes. If you keep using
+						Quartermaster after a change, you accept the new terms.
 					</p>
 				</section>
 			</div>

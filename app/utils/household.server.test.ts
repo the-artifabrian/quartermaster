@@ -951,7 +951,7 @@ describe('acceptInvite', () => {
 		const invite = await createHouseholdInvite(owner.householdId, owner.id)
 
 		await expect(acceptInvite(invite.token, owner.id)).rejects.toThrow(
-			'Already a member',
+			'You’re already in this Household',
 		)
 	})
 

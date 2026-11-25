@@ -119,8 +119,8 @@ export async function importWithAi(
 			intentKey,
 			// The iOS app shows no copy about Pro (ADR 0001).
 			isNativeShell(request)
-				? 'AI extraction is not available.'
-				: 'AI extraction requires a Pro subscription.',
+				? 'AI import isn’t available on your account. Paste the Recipe’s link or text instead.'
+				: 'AI import needs Pro. Paste the Recipe’s link or text instead.',
 			403,
 		)
 	}
@@ -128,17 +128,17 @@ export async function importWithAi(
 	const rawText = (formData.get('rawText') as string) || ''
 
 	if (intentKey === 'extract-text' && !rawText.trim()) {
-		return importFailure(intentKey, 'Please paste some recipe text.')
+		return importFailure(intentKey, 'Paste the Recipe’s text first.')
 	}
 
 	if (intentKey === 'extract-image' && imageFiles.length === 0) {
-		return importFailure(intentKey, 'Please upload at least one image.')
+		return importFailure(intentKey, 'Choose at least one screenshot.')
 	}
 
 	if (rawText.length > MAX_RAW_TEXT_LENGTH) {
 		return importFailure(
 			intentKey,
-			'Text is too long. Please shorten it and try again.',
+			'That’s too much text. Paste only the Recipe.',
 		)
 	}
 
@@ -152,7 +152,7 @@ export async function importWithAi(
 			if (buffer.byteLength > MAX_IMAGE_SIZE) {
 				return importFailure(
 					intentKey,
-					'One or more images are too large. Maximum size is 5MB each.',
+					'Each image can be up to 5 MB. Choose a smaller one.',
 				)
 			}
 

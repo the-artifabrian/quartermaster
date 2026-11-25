@@ -13,10 +13,10 @@ export function menuTitleKey(title: string) {
 export const MenuTitleSchema = z
 	.string({
 		error: (issue) =>
-			issue.input === undefined ? 'Title is required' : undefined,
+			issue.input === undefined ? 'Name this Menu' : undefined,
 	})
 	.trim()
-	.min(1, { message: 'Title is required' })
+	.min(1, { message: 'Name this Menu' })
 	.max(100, { message: 'Title is too long' })
 
 export const MenuSchema = z.object({
@@ -42,7 +42,9 @@ export const MenuSchema = z.object({
 export const ScaleMultiplierSchema = z
 	.string({
 		error: (issue) =>
-			issue.input === undefined ? 'Multiplier is required' : undefined,
+			issue.input === undefined
+				? 'Enter a multiplier, like 1 or 1.5'
+				: undefined,
 	})
 	.trim()
 	.regex(/^\d{1,3}([.,]\d{1,2})?$/, {
@@ -56,8 +58,8 @@ export const ScaleMultiplierSchema = z
 		message: 'Multiplier must be 100 or less',
 	})
 
-export const NOTE_TEXT_REQUIRED_MESSAGE = 'Note text is required'
-export const LINE_NAME_REQUIRED_MESSAGE = 'Line name is required'
+export const NOTE_TEXT_REQUIRED_MESSAGE = 'Write the note, or remove it'
+export const LINE_NAME_REQUIRED_MESSAGE = 'Name this line, or remove it'
 
 /**
  * An ordinary Shopping line on a note card: required name, optional free-text
@@ -105,19 +107,19 @@ const MenuBuilderItemSchema = z
 			.optional(),
 		shoppingLines: z
 			.array(MenuShoppingLineSchema)
-			.max(20, { message: 'A note can hold at most 20 shopping lines' })
+			.max(20, { message: 'A note can hold at most 20 lines for Shopping' })
 			.optional(),
 	})
 	.superRefine((item, ctx) => {
 		if (item.kind === 'recipe') {
 			if (item.id == null && item.recipeId == null) {
-				ctx.addIssue({ code: 'custom', message: 'Pick a recipe for this card' })
+				ctx.addIssue({ code: 'custom', message: 'Pick a Recipe here' })
 			}
 			if (item.scaleMultiplier == null) {
 				ctx.addIssue({
 					code: 'custom',
 					path: ['scaleMultiplier'],
-					message: 'Multiplier is required',
+					message: 'Enter a multiplier, like 1 or 1.5',
 				})
 			}
 		} else if (item.text == null || item.text.length === 0) {
@@ -154,7 +156,7 @@ const MenuBuilderSectionSchema = z.object({
 export const MenuBuilderSchema = MenuSchema.extend({
 	sections: z
 		.array(MenuBuilderSectionSchema)
-		.max(20, { message: 'A menu can hold at most 20 sections' })
+		.max(20, { message: 'A Menu can hold at most 20 sections' })
 		.superRefine((sections, ctx) => {
 			const total = sections.reduce(
 				(count, section) => count + (section.items?.length ?? 0),
@@ -163,7 +165,7 @@ export const MenuBuilderSchema = MenuSchema.extend({
 			if (total > 100) {
 				ctx.addIssue({
 					code: 'custom',
-					message: 'A menu can hold at most 100 cards',
+					message: 'A Menu can hold at most 100 Recipes and notes',
 				})
 			}
 			// Two headingless blocks would read as one — the first blank name
@@ -213,4 +215,4 @@ export function isUniqueConstraintError(error: unknown): boolean {
 }
 
 export const DUPLICATE_MENU_TITLE_MESSAGE =
-	'A menu with this title already exists'
+	'You already have a Menu with this title'

@@ -228,7 +228,7 @@ export function MobileFabAdd({
 								setName(e.target.value)
 								setWarningDismissed(false)
 							}}
-							placeholder="Add an item..."
+							placeholder="Add an item…"
 							enterKeyHint="go"
 							autoCapitalize="none"
 							className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-11 min-w-0 flex-1 rounded-lg border bg-transparent px-3 text-sm outline-none focus:ring-1"
@@ -248,7 +248,7 @@ export function MobileFabAdd({
 									isRecording
 										? 'Stop recording'
 										: isTranscribing
-											? 'Transcribing...'
+											? 'Transcribing…'
 											: 'Voice input'
 								}
 							>

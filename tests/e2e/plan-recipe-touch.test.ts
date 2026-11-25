@@ -231,7 +231,7 @@ test('Plan meal and Add Meal controls take taps around their drawn edges', async
 	await expect(details).toBeHidden()
 
 	await page.getByRole('button', { name: /^Add Meal to/ }).click()
-	const composer = page.getByRole('dialog', { name: 'Add a Meal' })
+	const composer = page.getByRole('dialog', { name: 'Add Meal' })
 	// Measured once the sheet has finished sliding up into place.
 	await slidIn(composer)
 	const lunch = composer.getByRole('button', { name: 'Lunch' })
@@ -283,9 +283,9 @@ test('a Meal with two Recipes gives each remove button a thumb-sized target', as
 	await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
 	const mobile = page.getByTestId('mobile-plan')
 	await expectThumbSized(
-		mobile.getByRole('button', { name: 'Remove Steamed Rice from this meal' }),
+		mobile.getByRole('button', { name: 'Remove Steamed Rice from this Meal' }),
 	)
 	await expectThumbSized(
-		mobile.getByRole('button', { name: 'Remove Miso Soup from this meal' }),
+		mobile.getByRole('button', { name: 'Remove Miso Soup from this Meal' }),
 	)
 })

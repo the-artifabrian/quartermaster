@@ -49,7 +49,7 @@ export async function importAction(request: Request) {
 			}
 			return importFailure(
 				'extract-image',
-				'One or more images are too large. Maximum size is 5MB each.',
+				'Each image can be up to 5 MB. Choose a smaller one.',
 			)
 		}
 	} else {

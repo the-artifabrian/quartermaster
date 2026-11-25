@@ -412,7 +412,7 @@ test('an import with no ingredients or instructions to read saves nothing, so th
 		init: { status: 400 },
 		data: {
 			intent: 'fetch',
-			error: expect.stringContaining('no ingredients or instructions'),
+			error: expect.stringContaining('no ingredients or steps'),
 			existing: null,
 		},
 	}
@@ -534,7 +534,7 @@ test('URL extraction times out on a page that sends its headers and then stalls'
 			init: { status: 400 },
 			data: {
 				existing: null,
-				error: 'Request timed out. The site took too long to respond.',
+				error: 'The site took too long to answer. Try again.',
 			},
 		})
 	} finally {
@@ -574,7 +574,7 @@ test('URL extraction refuses a page that decodes past 5 MB whatever its Content-
 
 	expect(result).toMatchObject({
 		init: { status: 400 },
-		data: { existing: null, error: 'Page is too large to import.' },
+		data: { existing: null, error: 'This page is too big to import.' },
 	})
 	expect(servedBytes).toBeLessThan(6 * 1024 * 1024)
 	// Bun keeps downloading a cancelled body until its request is aborted.
@@ -607,7 +607,7 @@ test('URL extraction aborts a page that answers with an error status instead of 
 
 	expect(result).toMatchObject({
 		init: { status: 400 },
-		data: { existing: null, error: 'Failed to fetch URL (404)' },
+		data: { existing: null, error: 'Couldn’t open that page (error 404)' },
 	})
 	expect(pageRequest?.signal.aborted).toBe(true)
 })
@@ -638,7 +638,8 @@ test('URL extraction reports unreadable recipe data as a parse error, not a fetc
 		data: {
 			intent: 'fetch',
 			existing: null,
-			error: 'The recipe data on this page could not be read.',
+			error:
+				'The Recipe on this page couldn’t be read. Paste its text instead.',
 		},
 	})
 })
@@ -919,7 +920,7 @@ test('an AI import with only ingredients saves and leaves the steps to the cook;
 		expect(nothing).toMatchObject({
 			data: {
 				intent: 'extract-text',
-				error: expect.stringMatching(/Couldn't find a recipe/),
+				error: expect.stringMatching(/Couldn’t find a Recipe/),
 				existing: null,
 			},
 		})

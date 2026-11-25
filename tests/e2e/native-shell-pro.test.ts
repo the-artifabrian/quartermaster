@@ -33,7 +33,7 @@ async function openMoreActions(page: Page) {
 	}).toPass({ timeout: 10_000 })
 }
 
-const importTabs = ['From URL', 'From Text', 'From Image']
+const importTabs = ['From link', 'From text', 'From image']
 
 test.describe('in the iOS app', () => {
 	test.use({ userAgent: SHELL_UA })
@@ -48,7 +48,7 @@ test.describe('in the iOS app', () => {
 			page.getByRole('heading', { name: 'Page not found' }),
 		).toBeVisible()
 		await expect(
-			page.getByRole('heading', { name: 'Upgrade your kitchen' }),
+			page.getByRole('heading', { name: 'Free and Pro' }),
 		).toHaveCount(0)
 
 		await page.goto('/settings/profile')
@@ -60,22 +60,22 @@ test.describe('in the iOS app', () => {
 		// Parsing pasted text is free; extracting with AI is Pro.
 		await page.goto('/recipes/import')
 		await expect(
-			page.getByText('Paste a Recipe URL or its text.'),
+			page.getByText('Paste a Recipe’s link or its text.'),
 		).toBeVisible()
-		await expect(page.getByLabel('Recipe URL')).toBeVisible()
+		await expect(page.getByLabel('Recipe link')).toBeVisible()
 		await expect(
-			page.getByRole('tab', { name: 'From Image', exact: true }),
+			page.getByRole('tab', { name: 'From image', exact: true }),
 		).toHaveCount(0)
 		await expect(async () => {
-			await page.getByRole('tab', { name: 'From Text', exact: true }).click()
+			await page.getByRole('tab', { name: 'From text', exact: true }).click()
 			await expect(page.getByLabel('Recipe text')).toBeVisible({
 				timeout: 2000,
 			})
 		}).toPass({ timeout: 10_000 })
 		await expect(
-			page.getByRole('button', { name: 'Parse Recipe', exact: true }),
+			page.getByRole('button', { name: 'Read as written', exact: true }),
 		).toBeVisible()
-		await expect(page.getByText('Extract with AI')).toHaveCount(0)
+		await expect(page.getByText('Read with AI')).toHaveCount(0)
 		await expect(page.getByText(/\bPro\b/)).toHaveCount(0)
 		await expect(page.locator('a[href="/upgrade"]')).toHaveCount(0)
 		await expect(page.getByLabel(/Upload screenshots/)).toHaveCount(0)
@@ -83,7 +83,7 @@ test.describe('in the iOS app', () => {
 			.getByLabel('Recipe text')
 			.fill('Garlic toast\nIngredients\n2 slices bread\n1 clove garlic')
 		await page
-			.getByRole('button', { name: 'Parse Recipe', exact: true })
+			.getByRole('button', { name: 'Read as written', exact: true })
 			.click()
 		await expect(
 			page.getByRole('heading', { name: 'Garlic toast', exact: true }),
@@ -133,18 +133,18 @@ test.describe('in the iOS app', () => {
 			).toBeVisible()
 		}
 		await expect(async () => {
-			await page.getByRole('tab', { name: 'From Text', exact: true }).click()
+			await page.getByRole('tab', { name: 'From text', exact: true }).click()
 			await expect(page.getByLabel('Recipe text')).toBeVisible({
 				timeout: 2000,
 			})
 		}).toPass({ timeout: 10_000 })
 		await expect(
-			page.getByRole('button', { name: 'Extract with AI' }),
+			page.getByRole('button', { name: 'Read with AI' }),
 		).toBeVisible()
-		await page.getByRole('tab', { name: 'From Image', exact: true }).click()
+		await page.getByRole('tab', { name: 'From image', exact: true }).click()
 		await expect(page.getByLabel(/Upload screenshots/)).toBeVisible()
 		await expect(
-			page.getByRole('button', { name: 'Extract with AI' }),
+			page.getByRole('button', { name: 'Read with AI' }),
 		).toBeVisible()
 
 		await page.goto(`/recipes/${recipe.id}`)
@@ -180,7 +180,9 @@ test.describe('in the iOS app', () => {
 			.click()
 
 		await expect(
-			page.getByText('Recipe enhancement is not available.'),
+			page.getByText(
+				'Suggestions aren’t available on your account. Edit the Recipe to add these yourself.',
+			),
 		).toBeVisible()
 		await expect(
 			page.getByRole('heading', { name: 'Lemon rice', level: 1 }),
@@ -218,7 +220,7 @@ test.describe('in the iOS app', () => {
 	test('the logged-out pages say nothing about the trial or Pro', async ({
 		page,
 	}) => {
-		for (const path of ['/', '/signup']) {
+		for (const path of ['/', '/signup', '/about', '/support']) {
 			await page.goto(path)
 			await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 			await expect(
@@ -243,7 +245,7 @@ test.describe('in a browser', () => {
 		const upgrade = await page.goto('/upgrade')
 		expect(upgrade?.status()).toBe(200)
 		await expect(
-			page.getByRole('heading', { name: 'Upgrade your kitchen' }),
+			page.getByRole('heading', { name: 'Free and Pro' }),
 		).toBeVisible()
 
 		await page.goto('/settings/profile')
@@ -269,7 +271,7 @@ test.describe('in a browser', () => {
 		for (const path of ['/', '/signup']) {
 			await page.goto(path)
 			await expect(
-				page.getByText('Free for 14 days. No credit card needed.'),
+				page.getByText('Free to use. New accounts get 14 days of Pro.'),
 				path,
 			).toBeVisible()
 		}

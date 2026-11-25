@@ -616,13 +616,15 @@ test.describe('in the iOS app', () => {
 
 		await page.goto('/recipes')
 		await page.goto('/recipes/import')
-		await page.getByRole('tab', { name: 'From Text', exact: true }).tap()
+		await page.getByRole('tab', { name: 'From text', exact: true }).tap()
 		await page
 			.getByLabel('Recipe text', { exact: true })
 			.fill(
 				'Chickpea lunch\nIngredients\n1 lemon\nInstructions\nSqueeze the lemon.',
 			)
-		await page.getByRole('button', { name: 'Parse Recipe', exact: true }).tap()
+		await page
+			.getByRole('button', { name: 'Read as written', exact: true })
+			.tap()
 		const notice = page.getByRole('region', { name: 'Saved to your Recipes' })
 		await expect(notice).toBeVisible()
 		await ui.settled()
@@ -953,7 +955,7 @@ test.describe('in the iOS app', () => {
 					await expect(linkGone).toBeVisible()
 				}),
 			).toEqual([])
-			await page.getByRole('button', { name: 'Remove recipe link' }).tap()
+			await page.getByRole('button', { name: 'Remove Recipe link' }).tap()
 
 			await context.setOffline(true)
 			expect(
@@ -988,7 +990,7 @@ test.describe('in the iOS app', () => {
 				await ui.hapticsOf(async () => {
 					await saveButton(page).tap()
 					await expect(
-						page.getByText('A menu with this title already exists'),
+						page.getByText('You already have a Menu with this title'),
 					).toBeVisible()
 				}),
 			).toEqual([])
@@ -1037,7 +1039,7 @@ test.describe('in the iOS app', () => {
 			await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
 			const mobile = page.getByTestId('mobile-plan')
 			const circle = mobile.getByRole('button', {
-				name: 'Mark Lentil soup as cooked',
+				name: 'Mark Lentil soup cooked',
 			})
 			await hydrated(circle)
 			await ui.settled()
@@ -1048,7 +1050,7 @@ test.describe('in the iOS app', () => {
 			expect(
 				await ui.hapticsOf(() =>
 					mobile
-						.getByRole('button', { name: 'Mark Lentil soup as not cooked' })
+						.getByRole('button', { name: 'Mark Lentil soup not cooked' })
 						.tap(),
 				),
 			).toEqual(['selection'])
@@ -1084,7 +1086,7 @@ test.describe('in the iOS app', () => {
 			await login()
 			await page.goto('/settings/profile')
 			const keepAwake = page.getByRole('switch', {
-				name: 'Keep screen awake while a recipe is open',
+				name: 'Keep screen awake while a Recipe is open',
 			})
 			await expect(keepAwake).toBeEnabled()
 			await ui.settled()
@@ -1096,7 +1098,7 @@ test.describe('in the iOS app', () => {
 			await expect(keepAwake).toHaveAttribute('aria-checked', before!)
 
 			await page.goto('/recipes/import')
-			const fromText = page.getByRole('tab', { name: 'From Text', exact: true })
+			const fromText = page.getByRole('tab', { name: 'From text', exact: true })
 			await hydrated(fromText)
 			await ui.settled()
 			expect(await ui.hapticsOf(() => fromText.tap())).toEqual(['selection'])
@@ -1107,7 +1109,7 @@ test.describe('in the iOS app', () => {
 				await ui.hapticsOf(() => page.keyboard.press('ArrowLeft')),
 			).toEqual(['selection'])
 			await expect(
-				page.getByRole('tab', { name: 'From URL', exact: true }),
+				page.getByRole('tab', { name: 'From link', exact: true }),
 			).toHaveAttribute('aria-selected', 'true')
 		})
 	})

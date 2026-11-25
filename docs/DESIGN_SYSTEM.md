@@ -163,7 +163,7 @@ each screen:
   picked clears on the next open.
 - A phone is below `sm`, or a finger on a screen no taller than 500px (a phone
   on its side). On a phone nothing you type or pick in is a popover or a panel
-  that opens in place: Add a Meal, Add a Recipe to a Meal, Edit details, Edit
+  that opens in place: Add Meal, Add a Recipe to a Meal, Edit details, Edit
   item, Scale, From Staples, From Plan, Add to Plan and Link recipe open as
   sheets (`opensAsSheet`, read when they open). Wider screens keep their popover
   or inline panel.
@@ -277,7 +277,7 @@ placeholder.
 - Cards show a thumbnail, title, useful time when known, and favorite state.
 - Do not show availability text, match percentages, cook counts, or hidden
   availability ordering.
-- Recently Updated is the real default sort.
+- Recently updated is the real default sort.
 - Search and visible filters keep the full library easy to reach.
 
 ### Recipe detail
@@ -322,7 +322,7 @@ placeholder.
 - Dense Menu snapshots may need progressive disclosure; do not solve density by
   adding more card chrome.
 - Labels and serving times are context, not automatic sort keys.
-- On a phone the title's + adds a Meal to the day showing, in the Add a Meal
+- On a phone the title's + adds a Meal to the day showing, in the Add Meal
   sheet; the day itself has no Add Meal button. The desktop agenda keeps an Add
   Meal in each day.
 - On a phone a Recipe's title link and its scale field share one line, the field

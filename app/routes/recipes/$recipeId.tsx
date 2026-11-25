@@ -82,6 +82,7 @@ import { haptic } from '#app/utils/shell-bridge.ts'
 import { addRecipeLineToShopping } from '#app/utils/shopping-adds.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
 import { getUserTier } from '#app/utils/subscription.server.ts'
+import { useFetcherSettled } from '#app/hooks/use-fetcher-settled.ts'
 import { useCookingProgress } from '#app/utils/use-cooking-progress.ts'
 import { getKeepAwakePreference, useWakeLock } from '#app/utils/wake-lock.ts'
 import { staleWhileRevalidate } from '#app/utils/loader-cache.ts'
@@ -504,7 +505,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		suggestions: EnhanceableFields | null
 	}>({ key: 'enhance-recipe' })
 	const [showEnhanceModal, setShowEnhanceModal] = useState(false)
-	const prevEnhanceFetcherState = useRef(enhanceFetcher.state)
 	const [ingredientsExpanded, setIngredientsExpanded] = useState(true)
 	const [useMetric, setUseMetric] = useState(false)
 	useEffect(() => {
@@ -529,7 +529,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		status: 'success' | 'error'
 		meal?: PlannedMealResult
 	}>({ key: 'add-to-plan' })
-	const prevPlanFetcherState = useRef(planFetcher.state)
 	const submittedPlanRef = useRef<{ date: string; label: MealType | null }>({
 		date: '',
 		label: null,
@@ -587,34 +586,25 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const ratio = scaleParam.success ? scaleParam.data : 1
 
 	// Open enhance modal or show error when enhance fetch completes
-	useEffect(() => {
-		if (
-			prevEnhanceFetcherState.current !== 'idle' &&
-			enhanceFetcher.state === 'idle' &&
-			enhanceFetcher.data
-		) {
-			if (enhanceFetcher.data.suggestions) {
+	useFetcherSettled(enhanceFetcher, (data) => {
+		if (data) {
+			if (data.suggestions) {
 				setShowEnhanceModal(true)
-			} else if (enhanceFetcher.data.error) {
-				toast.error(enhanceFetcher.data.error)
+			} else if (data.error) {
+				toast.error(data.error)
 			}
 		}
-		prevEnhanceFetcherState.current = enhanceFetcher.state
-	}, [enhanceFetcher.state, enhanceFetcher.data])
+	})
 
 	// Close plan picker on success
-	useEffect(() => {
-		if (
-			prevPlanFetcherState.current !== 'idle' &&
-			planFetcher.state === 'idle' &&
-			planFetcher.data?.status === 'success'
-		) {
+	useFetcherSettled(planFetcher, (data) => {
+		if (data?.status === 'success') {
 			setPlanPickerOpen(false)
 			const { date, label } = submittedPlanRef.current
 			const d = parseDate(date)
 			const dayLabel = isToday(d, today) ? 'Today' : formatDayLabel(d)
 			const where = label ? `${dayLabel} ${MEAL_TYPE_LABELS[label]}` : dayLabel
-			const meal = planFetcher.data.meal
+			const meal = data.meal
 			if (meal && !meal.created) {
 				// The Meal that already holds this Recipe keeps its own multiplier,
 				// so name it, and point at the Meal to change it there.
@@ -626,15 +616,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			} else {
 				toast.success(`Added to ${where}`)
 			}
-		} else if (
-			prevPlanFetcherState.current !== 'idle' &&
-			planFetcher.state === 'idle' &&
-			planFetcher.data?.status === 'error'
-		) {
+		} else if (data?.status === 'error') {
 			toast.error(`Could not add ${recipe.title} to Plan`)
 		}
-		prevPlanFetcherState.current = planFetcher.state
-	}, [planFetcher.state, planFetcher.data, navigate, recipe.title, today])
+	})
 
 	function handleAddToPlanSubmit() {
 		submittedPlanRef.current = { date: planDate, label: planMealType }

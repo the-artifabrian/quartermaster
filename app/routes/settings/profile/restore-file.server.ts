@@ -8,7 +8,7 @@ import {
 	FILE_TOO_BIG,
 	RESTORE_LIMITS,
 	RESTORE_MAX_FILE_BYTES,
-} from './+export-format.ts'
+} from './+backup-format.ts'
 
 // Room for the multipart boundary and part headers around the file. The form
 // sends the file itself as the part, so its bytes arrive unchanged.

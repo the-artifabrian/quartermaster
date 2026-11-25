@@ -4,7 +4,7 @@ import { createId } from '@paralleldrive/cuid2'
 import { prisma } from '#app/utils/db.server.ts'
 import { ensureRecipeMetadataValues } from '#app/utils/recipe-metadata.server.ts'
 import { writeTransaction } from '#app/utils/write-transaction.server.ts'
-import { type ImportRecipe } from './+export-format.ts'
+import { type ImportRecipe } from './+backup-format.ts'
 import {
 	type RecordFailure,
 	refusedWriteCode,

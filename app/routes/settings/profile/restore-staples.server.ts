@@ -3,7 +3,7 @@
 import { type z } from 'zod'
 import { prisma } from '#app/utils/db.server.ts'
 import { writeTransaction } from '#app/utils/write-transaction.server.ts'
-import { type ImportHouseholdIngredientSchema } from './+export-format.ts'
+import { type ImportHouseholdIngredientSchema } from './+backup-format.ts'
 
 type ImportHouseholdIngredient = z.infer<typeof ImportHouseholdIngredientSchema>
 

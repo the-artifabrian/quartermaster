@@ -8,7 +8,7 @@ import {
 	recipeMetadataIdentity,
 } from '#app/utils/recipe-metadata.ts'
 import { writeTransaction } from '#app/utils/write-transaction.server.ts'
-import { type parseImportData } from './+export-format.ts'
+import { type parseImportData } from './+backup-format.ts'
 import { importMealPlans } from './restore-meals.server.ts'
 import { importMenus } from './restore-menus.server.ts'
 import { importRecipes, type RecipeIndex } from './restore-recipes.server.ts'

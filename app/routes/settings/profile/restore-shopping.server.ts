@@ -4,7 +4,7 @@ import { createId } from '@paralleldrive/cuid2'
 import { type z } from 'zod'
 import { prisma } from '#app/utils/db.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
-import { type ImportShoppingListSchema } from './+export-format.ts'
+import { type ImportShoppingListSchema } from './+backup-format.ts'
 import {
 	type RecordFailure,
 	refusedWriteCode,

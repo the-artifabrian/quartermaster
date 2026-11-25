@@ -13,7 +13,7 @@ import {
 	type ImportMealPlanSchema,
 	type ImportMealSchema,
 	type ImportRecipe,
-} from './+export-format.ts'
+} from './+backup-format.ts'
 import { type RecipeIndex } from './restore-recipes.server.ts'
 import {
 	type RecordFailure,

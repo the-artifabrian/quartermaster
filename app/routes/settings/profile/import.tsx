@@ -10,7 +10,7 @@ import {
 	FILE_TOO_BIG,
 	parseImportData,
 	RESTORE_MAX_FILE_BYTES,
-} from './+export-format.ts'
+} from './+backup-format.ts'
 import { type Route } from './+types/import.ts'
 import { type SettingsPageHandle } from './_layout.tsx'
 import { jsonShapeError, readRestoreFile } from './restore-file.server.ts'

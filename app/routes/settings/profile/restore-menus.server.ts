@@ -6,7 +6,7 @@ import { menuTitleKey } from '#app/utils/menu-validation.ts'
 import {
 	type ImportMenuItemSchema,
 	type ImportMenuSchema,
-} from './+export-format.ts'
+} from './+backup-format.ts'
 import { type RecipeIndex } from './restore-recipes.server.ts'
 import {
 	type RecordFailure,

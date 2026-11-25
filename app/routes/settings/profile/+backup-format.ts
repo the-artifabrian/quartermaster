@@ -1,4 +1,4 @@
-// The schemas and limits of the JSON export file, and its error messages.
+// The restore's schemas and limits. The export routes build this shape on their own.
 
 import { z } from 'zod'
 import {

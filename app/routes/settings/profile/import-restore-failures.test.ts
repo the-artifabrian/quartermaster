@@ -14,7 +14,7 @@ import {
 	boundedArray,
 	RESTORE_LIMITS,
 	RESTORE_MAX_FILE_BYTES,
-} from './+export-format.ts'
+} from './+backup-format.ts'
 import { action } from './import.tsx'
 import { RESTORE_JSON_LIMITS } from './restore-file.server.ts'
 import '#tests/setup/db-setup.ts'

@@ -7,6 +7,10 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { ACCEPT_ENCODING } from '#app/utils/bounded-body.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
+import {
+	MAX_WAITING_PHOTO_JOBS,
+	withPhotoSlot,
+} from '#app/utils/recipe-photo.server.ts'
 import { MAX_RECIPE_IMAGE_SIZE } from '#app/utils/recipe-validation.ts'
 import type * as Storage from '#app/utils/storage.server.ts'
 import type * as Dns from 'node:dns/promises'
@@ -18,10 +22,18 @@ import { action as importAction } from './import.tsx'
 import '#tests/setup/db-setup.ts'
 
 // The hosts here are fictional, so they resolve to one public address and
-// their pages and photos are mocked there.
+// their pages and photos are mocked there. One host's nameserver never
+// answers.
+const slowLookup = vi.hoisted(() => ({ started: () => {} }))
 vi.mock('node:dns/promises', async (importOriginal) => ({
 	...(await importOriginal<typeof Dns>()),
-	lookup: async () => [{ address: '93.184.216.34', family: 4 }],
+	lookup: async (hostname: string) => {
+		if (hostname !== 'slow-dns.example.test') {
+			return [{ address: '93.184.216.34', family: 4 }]
+		}
+		slowLookup.started()
+		return new Promise(() => {})
+	},
 }))
 const CHECKED_ORIGIN = 'https://93.184.216.34'
 const SITE = 'https://recipes.example.test'
@@ -356,6 +368,142 @@ test.each([
 	},
 )
 
+/** Runs `work` with fake timers, at the moment `started` resolves moved 5 s on. */
+async function atPhotoDeadline<T>(
+	started: Promise<void>,
+	work: () => Promise<T>,
+) {
+	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+	try {
+		const result = work()
+		await started
+		await vi.advanceTimersByTimeAsync(5_000)
+		return await result
+	} finally {
+		vi.useRealTimers()
+	}
+}
+
+test('a photo whose nameserver never answers is given up on at the deadline', async () => {
+	const session = await cook()
+	servePage('https://slow-dns.example.test/stew.jpg')
+	const started = new Promise<void>((resolve) => (slowLookup.started = resolve))
+
+	const { id, search } = await atPhotoDeadline(started, () =>
+		importStew(session),
+	)
+
+	expect(search).toBe('?imported=url')
+	expect(await prisma.recipeImage.count({ where: { recipeId: id } })).toBe(0)
+})
+
+test('an upload that storage never answers ends at the deadline, and what it stored is removed', async () => {
+	const session = await cook()
+	servePage(`${SITE}/stew.jpg`)
+	let putStarted!: () => void
+	const started = new Promise<void>((resolve) => (putStarted = resolve))
+	const bucket = `${process.env.AWS_ENDPOINT_URL_S3}/${process.env.BUCKET_NAME}`
+	server.use(
+		http.get(`${CHECKED_ORIGIN}/stew.jpg`, async () =>
+			photoResponse(await jpeg()),
+		),
+		// Storage keeps the bytes but never answers the request.
+		http.put(`${bucket}/*`, async ({ request }) => {
+			const key = decodeURIComponent(new URL(request.url).pathname).slice(
+				new URL(bucket).pathname.length + 1,
+			)
+			const file = path.join(UPLOADS_DIR, key)
+			await fs.mkdir(path.dirname(file), { recursive: true })
+			await fs.writeFile(file, Buffer.from(await request.arrayBuffer()))
+			putStarted()
+			return new Promise<never>(() => {})
+		}),
+	)
+
+	const { id, search } = await atPhotoDeadline(started, () =>
+		importStew(session),
+	)
+
+	expect(search).toBe('?imported=url')
+	expect(await prisma.recipeImage.count({ where: { recipeId: id } })).toBe(0)
+	await expect.poll(() => storedFiles(session.userId)).toEqual([])
+})
+
+test('no more than three candidates are tried', async () => {
+	const session = await cook()
+	servePage([1, 2, 3, 4].map((n) => `${SITE}/photos/missing-${n}.jpg`))
+	const requested: string[] = []
+	server.use(
+		http.get(`${CHECKED_ORIGIN}/photos/:name`, ({ params }) => {
+			requested.push(String(params.name))
+			return new HttpResponse(null, { status: 404 })
+		}),
+	)
+
+	const { id } = await importStew(session)
+
+	expect(requested).toEqual(['missing-1.jpg', 'missing-2.jpg', 'missing-3.jpg'])
+	expect(await prisma.recipeImage.count({ where: { recipeId: id } })).toBe(0)
+})
+
+test('a photo waiting for its turn at the photo check gives up at the deadline', async () => {
+	const session = await cook()
+	servePage(`${SITE}/stew.jpg`)
+	let photoServed!: () => void
+	const started = new Promise<void>((resolve) => (photoServed = resolve))
+	server.use(
+		http.get(`${CHECKED_ORIGIN}/stew.jpg`, async () => {
+			const response = photoResponse(await jpeg())
+			photoServed()
+			return response
+		}),
+	)
+	let release!: () => void
+	const holder = withPhotoSlot(
+		() => new Promise<void>((resolve) => (release = resolve)),
+	)
+	try {
+		const { id, search } = await atPhotoDeadline(started, () =>
+			importStew(session),
+		)
+
+		expect(search).toBe('?imported=url')
+		expect(await prisma.recipeImage.count({ where: { recipeId: id } })).toBe(0)
+	} finally {
+		release()
+		await holder
+	}
+})
+
+test('a full photo queue ends the photo at once, without trying the other candidates', async () => {
+	const session = await cook()
+	servePage([`${SITE}/photos/first.jpg`, `${SITE}/photos/second.jpg`])
+	const requested: string[] = []
+	server.use(
+		http.get(`${CHECKED_ORIGIN}/photos/:name`, async ({ params }) => {
+			requested.push(String(params.name))
+			return photoResponse(await jpeg())
+		}),
+	)
+	let release!: () => void
+	const holder = withPhotoSlot(
+		() => new Promise<void>((resolve) => (release = resolve)),
+	)
+	const waiting = Array.from({ length: MAX_WAITING_PHOTO_JOBS }, () =>
+		withPhotoSlot(async () => {}),
+	)
+	try {
+		const { id, search } = await importStew(session)
+
+		expect(search).toBe('?imported=url')
+		expect(requested).toEqual(['first.jpg'])
+		expect(await prisma.recipeImage.count({ where: { recipeId: id } })).toBe(0)
+	} finally {
+		release()
+		await Promise.all([holder, ...waiting])
+	}
+})
+
 test.each([
 	[
 		'is deleted',
@@ -394,7 +542,7 @@ test.each([
 		expect(await prisma.recipeImage.count({ where: { recipeId: id } })).toBe(
 			rows,
 		)
-		expect(await storedFiles(session.userId)).toEqual([])
+		await expect.poll(() => storedFiles(session.userId)).toEqual([])
 	},
 )
 

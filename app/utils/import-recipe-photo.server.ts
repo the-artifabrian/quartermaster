@@ -16,9 +16,12 @@ import { writeTransaction } from './write-transaction.server.ts'
 
 /**
  * How long a URL import spends on its photo, over every candidate: the
- * requests, their bodies and the wait for a turn at the photo check. The
- * cook is waiting on the import, so this is short. A recipe site's photo is
- * usually a few hundred KB from a CDN and arrives in well under a second.
+ * lookups, requests and bodies, the wait for a turn at the photo check, and
+ * the upload to storage. A photo check that already holds its turn can't be
+ * stopped and may run to sharp's own limit (PHOTO_JOB_SECONDS), though the
+ * 3 MB cap and the decode limits keep it short. The cook is waiting on the
+ * import, so the deadline is short. A recipe site's photo is usually a few
+ * hundred KB from a CDN and arrives in well under a second.
  */
 export const PHOTO_DEADLINE_MS = 5000
 
@@ -86,8 +89,11 @@ async function attachPhoto(
 	{ userId, recipeId }: { userId: string; recipeId: string },
 	photo: CheckedRecipePhoto,
 	db: PrismaClient,
+	signal: AbortSignal,
 ) {
-	const objectKey = await uploadRecipeImage(userId, recipeId, photo)
+	const objectKey = await uploadRecipeImage(userId, recipeId, photo, {
+		signal,
+	})
 	let attached = false
 	try {
 		// In one write transaction with the check, as a delete reads its photo
@@ -102,8 +108,9 @@ async function attachPhoto(
 			return true
 		})
 	} finally {
+		// In the background, so a slow storage delete never holds the import.
 		if (!attached) {
-			await deleteRecipeImage(objectKey).catch((error: unknown) => {
+			void deleteRecipeImage(objectKey).catch((error: unknown) => {
 				console.error('Left an unattached imported photo behind', error)
 			})
 		}
@@ -125,10 +132,12 @@ export async function importRecipePhoto(
 	const timer = setTimeout(() => deadline.abort(), PHOTO_DEADLINE_MS)
 	try {
 		const photo = await fetchFirstUsablePhoto(urls, deadline.signal)
-		clearTimeout(timer)
-		if (photo) await attachPhoto(recipe, photo, db)
+		if (photo) await attachPhoto(recipe, photo, db, deadline.signal)
 	} catch (error) {
-		console.error('Attaching an imported photo failed:', error)
+		// Running out of time is an expected end, like a slow photo.
+		if (!deadline.signal.aborted) {
+			console.error('Attaching an imported photo failed:', error)
+		}
 	} finally {
 		clearTimeout(timer)
 		deadline.abort()

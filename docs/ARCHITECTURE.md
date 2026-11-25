@@ -852,16 +852,20 @@ its 30 seconds.
 
 A URL import also brings the photo named by the `image` of the page's Recipe
 JSON-LD (`app/utils/import-recipe-photo.server.ts`). The Recipe is saved first;
-the photo is fetched before the new Recipe opens, so it shows on arrival. The
-largest ImageObject by its width and height goes first, then plain URLs in the
-page's order, and up to three are tried. Each goes through `fetchPublicUrl`,
-asks only for JPEG, PNG or WebP, may be up to the 3 MB upload limit, and must
-pass the upload check above. All of them share one 5-second deadline, which also
-ends a wait for the photo turn. A photo that fails any of this leaves the
-placeholder and changes nothing else about the import. A demo user's import
-fetches no photo. The photo is attached in a write transaction that first checks
-the Recipe still exists and has no photo, and the stored file is deleted when it
-doesn't.
+the photo is fetched before the new Recipe opens, so it shows on arrival. Only
+an ImageObject's width and height give a size. Sized photos at least 400 px on
+both sides go first, largest first, then every entry with no size in the page's
+order, then smaller sized ones. Up to three are tried. Each goes through
+`fetchPublicUrl`, asks only for JPEG, PNG or WebP, may be up to the 3 MB upload
+limit, and must pass the upload check above. One 5-second deadline covers all of
+it: the lookups, the requests and their bodies, the wait for the photo turn, and
+the upload to storage. A photo check that already has its turn can't be stopped
+and may run to sharp's 30-second limit, though the 3 MB cap and the decode
+limits keep it short. A photo that fails any of this leaves the placeholder and
+changes nothing else about the import. A demo user's import fetches no photo.
+The photo is attached in a write transaction that first checks the Recipe still
+exists and has no photo. When it doesn't, or the upload failed after it was
+sent, the stored file is deleted in the background.
 
 ### Serving resizes
 

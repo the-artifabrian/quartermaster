@@ -94,10 +94,34 @@ type CheckedUrl = {
 	addresses: Array<string>
 }
 
-/** Resolves the host once. Returns null unless the URL is public. */
+/**
+ * The lookup, or the signal's reason once it aborts. A page's own nameserver
+ * answers the lookup, so it could otherwise outlast the caller's deadline.
+ */
+function lookupUntilAborted(
+	resolveHost: ResolveHost,
+	hostname: string,
+	signal: AbortSignal | null | undefined,
+) {
+	if (!signal) return resolveHost(hostname)
+	return new Promise<Array<{ address: string }>>((resolve, reject) => {
+		const onAbort = () => reject(signal.reason)
+		if (signal.aborted) return onAbort()
+		signal.addEventListener('abort', onAbort, { once: true })
+		resolveHost(hostname)
+			.then(resolve, reject)
+			.finally(() => signal.removeEventListener('abort', onAbort))
+	})
+}
+
+/**
+ * Resolves the host once. Returns null unless the URL is public, and rejects
+ * with the signal's reason when it aborts during the lookup.
+ */
 async function checkUrl(
 	url: string | URL,
 	resolveHost: ResolveHost,
+	signal?: AbortSignal | null,
 ): Promise<CheckedUrl | null> {
 	let parsed: URL
 	try {
@@ -118,12 +142,13 @@ async function checkUrl(
 	if (!hostname.includes('.') || INTERNAL_NAME.test(hostname)) return null
 
 	try {
-		const addresses = (await resolveHost(hostname)).map(
-			({ address }) => address,
-		)
+		const addresses = (
+			await lookupUntilAborted(resolveHost, hostname, signal)
+		).map(({ address }) => address)
 		if (addresses.length === 0 || !addresses.every(isPublicAddress)) return null
 		return { url: parsed, hostname, addresses }
 	} catch {
+		if (signal?.aborted) throw signal.reason
 		return null
 	}
 }
@@ -219,7 +244,7 @@ export async function fetchPublicUrl(
 ): Promise<Response | null> {
 	let current = url
 	for (let hop = 0; hop <= maxRedirects; hop++) {
-		const target = await checkUrl(current, resolveHost)
+		const target = await checkUrl(current, resolveHost, init.signal)
 		if (!target) return null
 		const hopController = new AbortController()
 		const signal = init.signal

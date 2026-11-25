@@ -91,22 +91,38 @@ function newImageKey(userId: string, recipeId: string, extension: string) {
 /**
  * Store a photo that passed `checkRecipePhoto`. Its extension and type come
  * from its bytes, never the browser's type or file name.
+ *
+ * `signal` can end the upload early. An upload that fails or is stopped
+ * after it was sent may still have been written, so its key is deleted in
+ * the background; it was never attached to a Recipe.
  */
 export async function uploadRecipeImage(
 	userId: string,
 	recipeId: string,
 	photo: CheckedRecipePhoto,
+	{ signal }: { signal?: AbortSignal } = {},
 ) {
 	const file = new File([photo.bytes], `photo.${photo.extension}`, {
 		type: photo.type,
 	})
+	const key = newImageKey(userId, recipeId, photo.extension)
 	// As deletes and copies do: a PUT storage never answers would otherwise
 	// hold its caller, the hourly maintenance run included, for good.
-	return uploadToStorage(
-		file,
-		newImageKey(userId, recipeId, photo.extension),
-		AbortSignal.timeout(30_000),
-	)
+	const timeout = AbortSignal.timeout(30_000)
+	try {
+		return await uploadToStorage(
+			file,
+			key,
+			signal ? AbortSignal.any([signal, timeout]) : timeout,
+		)
+	} catch (error) {
+		if (isRecipeImageKey(key)) {
+			void deleteFromStorage(key).catch((cleanupError: unknown) => {
+				console.error('Left a failed photo upload behind', cleanupError)
+			})
+		}
+		throw error
+	}
 }
 
 /** Copy bytes to a recipient-owned key before committing a shared bundle. */

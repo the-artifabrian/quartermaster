@@ -460,6 +460,12 @@ test.describe('on a phone', () => {
 			await pillSlid.reset()
 			await (step === 'back' ? page.goBack() : page.goForward())
 			await expect(page).toHaveURL(url)
+			// The switch shows the entry once the router has committed it; only
+			// then would a slide have started.
+			await expect(step === 'back' ? menus : recipes).toHaveAttribute(
+				'aria-current',
+				'page',
+			)
 			await animationsFinished(page)
 			expect(await pillSlid.seen(), `no slide on ${step}`).toBe(false)
 		}

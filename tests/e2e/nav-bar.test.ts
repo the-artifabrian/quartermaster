@@ -888,6 +888,8 @@ test('changing the scale keeps the Recipe where it was, small title and all', as
 	await scale.tap()
 	await page.getByRole('button', { name: 'Increase Recipe scale' }).tap()
 	await expect(page).toHaveURL(/scale=/)
+	// The new scale has rendered, so anything it moves has started moving.
+	await expect(scale).toHaveCount(0)
 	await animationsFinished(page)
 	expect(Math.abs((await scrollY(page)) - before)).toBeLessThan(5)
 	const frames = await page.evaluate(

@@ -1184,15 +1184,20 @@ test.describe('Back in the iOS app', () => {
 	// (the navigation sets it there) and how long it stayed on screen.
 	async function recordTransitions(page: Page) {
 		await page.addInitScript(() => {
-			const w = window as unknown as { __slides: Array<Slide> }
+			const w = window as unknown as {
+				__slides: Array<Slide>
+				__slidesInFlight: number
+			}
 			type Slide = { direction: string; ms: number }
 			w.__slides = []
+			w.__slidesInFlight = 0
 			const start = document.startViewTransition?.bind(document)
 			if (!start) return
 			document.startViewTransition = ((
 				update?: ViewTransitionUpdateCallback,
 			) => {
 				const transition = start(update)
+				w.__slidesInFlight++
 				const began = performance.now()
 				let direction = '-'
 				void transition.updateCallbackDone.then(
@@ -1203,6 +1208,7 @@ test.describe('Back in the iOS app', () => {
 				)
 				void transition.finished.finally(() => {
 					w.__slides.push({ direction, ms: performance.now() - began })
+					w.__slidesInFlight--
 				})
 				return transition
 			}) as typeof document.startViewTransition
@@ -1216,7 +1222,10 @@ test.describe('Back in the iOS app', () => {
 		})
 	}
 
-	/** Waits until a slide has finished and nothing else is animating. */
+	/**
+	 * Waits until a slide has finished, nothing else is animating, and no
+	 * view transition is still in flight to record itself late.
+	 */
 	async function slideFinished(page: Page) {
 		await page.waitForFunction(() =>
 			(window as unknown as { __slides: Array<Slide> }).__slides.some(
@@ -1224,6 +1233,11 @@ test.describe('Back in the iOS app', () => {
 			),
 		)
 		await animationsFinished(page)
+		await page.waitForFunction(
+			() =>
+				(window as unknown as { __slidesInFlight: number }).__slidesInFlight ===
+				0,
+		)
 	}
 
 	function slidesThatMoved(slides: Array<Slide>) {

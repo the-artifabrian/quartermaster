@@ -35,6 +35,18 @@ export function MobileFabAdd({
 	const inputRef = useRef<HTMLInputElement>(null)
 	const qtyInputRef = useRef<HTMLInputElement>(null)
 
+	// What was typed clears when the sheet opens again. Not on close: the sheet
+	// leaves showing what it showed.
+	const [wasOpen, setWasOpen] = useState(open)
+	if (open !== wasOpen) {
+		setWasOpen(open)
+		if (open) {
+			setName('')
+			setQuantity('')
+			setUnit('')
+		}
+	}
+
 	useEffect(() => {
 		if (open) {
 			// The sheet is still sliding up: focusing must not scroll the page.

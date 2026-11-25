@@ -1093,3 +1093,65 @@ test('the old Shopping address still opens Shopping, and a form posted to it sav
 		page.getByRole('heading', { level: 1, name: /^Shopping/ }),
 	).toBeVisible()
 })
+
+// Failure list for the phone add sheet keeping what was typed:
+// - Close, the backdrop or Escape leaves the name, amount or unit in the
+//   fields, and the next open shows them (typing again gave "butterbutter").
+// - Clearing on open breaks the add that follows, or leaves its text behind.
+test('the phone add sheet opens empty after each way of closing it, and still adds an item', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await prisma.shoppingList.create({
+		data: { userId: user.id, householdId: user.householdId },
+	})
+	await page.setViewportSize({ width: 390, height: 844 })
+	await openShopping(page)
+	const addItem = page.getByRole('button', { name: 'Add item' })
+	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
+	const name = sheet.getByPlaceholder('Add an item...')
+	const quantity = sheet.getByPlaceholder('Qty')
+	const unit = sheet.getByPlaceholder('Unit')
+
+	await addItem.click()
+	await sheet.getByRole('button', { name: '+ Qty & unit' }).click()
+	const closeWays: Array<[string, () => Promise<void>]> = [
+		[
+			'Close',
+			() => sheet.getByRole('button', { name: 'Close', exact: true }).click(),
+		],
+		// The backdrop, above the sheet.
+		['the backdrop', () => page.mouse.click(195, 200)],
+		['Escape', () => page.keyboard.press('Escape')],
+	]
+	for (const [way, close] of closeWays) {
+		await name.fill('butter')
+		await quantity.fill('2')
+		await unit.fill('kg')
+		await close()
+		await expect(sheet, `closed with ${way}`).toBeHidden()
+		// Leaving, the sheet showed what was typed; it clears on the next open.
+		await addItem.click()
+		await expect(name, `reopened after ${way}`).toHaveValue('')
+		await expect(quantity, `reopened after ${way}`).toHaveValue('')
+		await expect(unit, `reopened after ${way}`).toHaveValue('')
+	}
+
+	await name.fill('Butter')
+	await quantity.fill('250')
+	await unit.fill('g')
+	await sheet.getByRole('button', { name: 'Add to Next shop' }).click()
+	await expect(
+		page.getByRole('group', { name: 'Butter shopping item' }),
+	).toBeVisible()
+	await expect(name).toHaveValue('')
+	await expect
+		.poll(() =>
+			prisma.shoppingListItem.findMany({
+				where: { list: { householdId: user.householdId } },
+				select: { name: true, quantity: true, unit: true },
+			}),
+		)
+		.toEqual([{ name: 'Butter', quantity: '250', unit: 'g' }])
+})

@@ -9,7 +9,7 @@ export const RecipeTitleSchema = z
 		error: (issue) =>
 			issue.input === undefined ? 'Title is required' : undefined,
 	})
-	.min(1, { message: 'Title is required' })
+	.min(1, { message: 'Add a title' })
 	.max(MAX_RECIPE_TITLE_LENGTH, { message: 'Title is too long' })
 
 export const MAX_RECIPE_DESCRIPTION_LENGTH = 500
@@ -114,7 +114,7 @@ const optionalYieldLabel = z.preprocess(
 		.string()
 		.trim()
 		.max(MAX_YIELD_LABEL_LENGTH, {
-			message: 'What the recipe makes is too long',
+			message: 'What the Recipe makes is too long',
 		})
 		.optional(),
 )
@@ -152,14 +152,14 @@ export const RecipeSchema = z
 			context.addIssue({
 				code: 'custom',
 				path: ['yieldLabel'],
-				message: 'Say what the recipe makes',
+				message: 'Say what the Recipe makes',
 			})
 		}
 		if (recipe.yieldLabel != null && recipe.yieldAmount == null) {
 			context.addIssue({
 				code: 'custom',
 				path: ['yieldAmount'],
-				message: 'Add how many the recipe makes',
+				message: 'Add how many the Recipe makes',
 			})
 		}
 	})
@@ -214,7 +214,7 @@ export function parseRecipeForm(formData: FormData) {
 
 export const ImportUrlSchema = z.object({
 	url: z
-		.url({ error: 'Please enter a valid URL' })
+		.url({ error: 'Enter the full link, starting with https://' })
 		.max(2000, 'URL is too long'),
 })
 

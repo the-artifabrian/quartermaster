@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 export const ShoppingListItemSchema = z.object({
-	name: z.string().min(1, { message: 'Item name is required' }).max(100),
+	name: z.string().min(1, { message: 'Name the item' }).max(100),
 	quantity: z
 		.string()
 		.max(50)
@@ -33,7 +33,7 @@ export const ShoppingListItemSchema = z.object({
  * Staples picker and bulk add put those on Shopping as they are.
  */
 export const EditShoppingItemSchema = ShoppingListItemSchema.extend({
-	name: z.string().min(1, { message: 'Item name is required' }).max(200),
+	name: z.string().min(1, { message: 'Name the item' }).max(200),
 })
 
 /**

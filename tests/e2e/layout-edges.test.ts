@@ -96,7 +96,7 @@ test('Plan rows share the page edges, and a Meal without a label has no empty he
 	)
 	for (const title of ['Miso Soup', 'Steamed Rice', 'Pasta alla Norma']) {
 		const circle = mobile
-			.getByRole('button', { name: `Mark ${title} as cooked` })
+			.getByRole('button', { name: `Mark ${title} cooked` })
 			.locator('span')
 			.first()
 		expectNear((await box(circle)).left, left)
@@ -122,7 +122,7 @@ test('Plan rows share the page edges, and a Meal without a label has no empty he
 
 	// Trailing: the trash and dots glyphs end on the content edge.
 	const trash = mobile
-		.getByRole('button', { name: 'Remove Miso Soup from this meal' })
+		.getByRole('button', { name: 'Remove Miso Soup from this Meal' })
 		.locator('svg')
 	expectNear((await box(trash)).right, right)
 	const dinnerDots = mobile
@@ -138,7 +138,7 @@ test('Plan rows share the page edges, and a Meal without a label has no empty he
 			.filter({ has: page.getByRole('link', { name: 'Pasta alla Norma' }) }),
 	)
 	const pastaToggle = await box(
-		mobile.getByRole('button', { name: 'Mark Pasta alla Norma as cooked' }),
+		mobile.getByRole('button', { name: 'Mark Pasta alla Norma cooked' }),
 	)
 	expect(pastaToggle.top - pastaMeal.top).toBeLessThanOrEqual(14)
 	// The labeled Meal keeps its header line above its first Recipe.
@@ -148,7 +148,7 @@ test('Plan rows share the page edges, and a Meal without a label has no empty he
 			.filter({ has: page.getByRole('link', { name: 'Miso Soup' }) }),
 	)
 	const soupToggle = await box(
-		mobile.getByRole('button', { name: 'Mark Miso Soup as cooked' }),
+		mobile.getByRole('button', { name: 'Mark Miso Soup cooked' }),
 	)
 	expect(soupToggle.top - dinnerMeal.top).toBeGreaterThan(30)
 	// Its actions end the row that holds Add Recipe.
@@ -309,7 +309,7 @@ test.describe('a wide touch screen', () => {
 			await page.evaluate(() => matchMedia('(pointer: coarse)').matches),
 		).toBe(true)
 		for (const control of [
-			agenda.getByRole('button', { name: 'Mark Miso Soup as cooked' }),
+			agenda.getByRole('button', { name: 'Mark Miso Soup cooked' }),
 			agenda.getByRole('button', { name: 'Add Recipe to Miso Soup' }),
 			agenda.getByRole('link', { name: 'Miso Soup' }),
 		]) {
@@ -318,7 +318,7 @@ test.describe('a wide touch screen', () => {
 			).toBeGreaterThanOrEqual(44)
 		}
 		const toggle = await box(
-			agenda.getByRole('button', { name: 'Mark Miso Soup as cooked' }),
+			agenda.getByRole('button', { name: 'Mark Miso Soup cooked' }),
 		)
 		expect(toggle.right - toggle.left).toBeGreaterThanOrEqual(44)
 		// The dots are 32px to the eye; a pseudo-element takes taps around them.

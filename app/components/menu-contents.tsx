@@ -185,7 +185,7 @@ function MenuRecipeCard({
 						<p className="text-foreground-destructive mt-0.5 text-xs">
 							{sharedMenuId
 								? 'Recipe unavailable'
-								: 'No longer in your recipe library — edit the menu to replace or remove it'}
+								: 'This Recipe isn’t in your Recipes any more. Edit the Menu to replace or remove it.'}
 						</p>
 					)}
 					{item.note ? (

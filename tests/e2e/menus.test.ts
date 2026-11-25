@@ -185,7 +185,9 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	await page.reload()
 	await expect(page.getByText('Chicken Kofta')).toBeVisible()
 	await expect(
-		page.getByText('No longer in your recipe library', { exact: false }),
+		page.getByText('This Recipe isn’t in your Recipes any more', {
+			exact: false,
+		}),
 	).toBeVisible()
 
 	// 9. Recovery: export, lose the menu, import the file, get it all back
@@ -219,7 +221,7 @@ test('Menu critical path: build, reorder, save, reopen, missing recipe, recover'
 	await expect(restoredCards.nth(1)).toContainText('6 bowls')
 	await expect(restoredCards.nth(2)).toContainText('Chicken Kofta')
 	await expect(restoredCards.nth(2)).toContainText(
-		'No longer in your recipe library',
+		'This Recipe isn’t in your Recipes any more',
 	)
 	await expect(restoredCards.nth(3)).toContainText('2 bunches')
 	await expect(page.getByRole('heading', { name: 'Dessert' })).toBeVisible()

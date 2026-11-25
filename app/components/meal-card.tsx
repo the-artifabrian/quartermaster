@@ -168,8 +168,8 @@ function ItemRow({
 					className={COOKED_TOGGLE}
 					aria-label={
 						isCooked
-							? `Mark ${item.recipeTitle} as not cooked`
-							: `Mark ${item.recipeTitle} as cooked`
+							? `Mark ${item.recipeTitle} not cooked`
+							: `Mark ${item.recipeTitle} cooked`
 					}
 				>
 					{isCooked ? (
@@ -243,7 +243,7 @@ function ItemRow({
 						'text-foreground-destructive hover:text-foreground-destructive p-0',
 						TRAILING_ICON_SLOT,
 					)}
-					aria-label={`Remove ${item.recipeTitle} from this meal`}
+					aria-label={`Remove ${item.recipeTitle} from this Meal`}
 					onClick={() =>
 						deleteWithUndo({
 							key: `meal-item:${item.id}`,
@@ -844,14 +844,14 @@ export function MealCard({
 							onSelect={() => deleteMeal(false)}
 						>
 							<Icon name="trash" size="sm" />
-							Delete · keep Shopping
+							Delete, keep Shopping as is
 						</DropdownMenuItem>
 						<DropdownMenuItem
 							variant="destructive"
 							onSelect={() => deleteMeal(true)}
 						>
 							<Icon name="trash" size="sm" />
-							Delete · remove generated amount
+							Delete with its Shopping amounts
 						</DropdownMenuItem>
 					</>
 				) : (
@@ -938,7 +938,11 @@ export function MealCard({
 						type="button"
 						onClick={() => submitMealCooked(!isComplete)}
 						className={COOKED_TOGGLE}
-						aria-label={isComplete ? 'Mark not cooked' : 'Mark cooked'}
+						aria-label={
+							isComplete
+								? `Mark ${mealActionName} not cooked`
+								: `Mark ${mealActionName} cooked`
+						}
 					>
 						{isComplete ? (
 							<span className="border-primary bg-primary text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">

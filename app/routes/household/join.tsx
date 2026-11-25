@@ -95,8 +95,7 @@ export async function action({ request }: Route.ActionArgs) {
 		}
 		return redirectWithToast('/recipes', {
 			type: 'success',
-			title: 'Joined household!',
-			description: 'You are now a member of the household',
+			description: 'You’ve joined the Household.',
 		})
 	} catch (error) {
 		const knownMessages = [

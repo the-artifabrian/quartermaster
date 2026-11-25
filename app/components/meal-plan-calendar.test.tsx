@@ -698,7 +698,7 @@ test('a Meal with snapshot notes can remove its only Recipe', () => {
 
 	expect(
 		within(desktop).getByRole('button', {
-			name: 'Remove Banana Bread from this meal',
+			name: 'Remove Banana Bread from this Meal',
 		}),
 	).toBeVisible()
 })

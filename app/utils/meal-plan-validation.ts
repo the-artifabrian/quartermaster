@@ -21,7 +21,7 @@ function mealDay(message: string) {
 
 export const AddMealSchema = z.object({
 	date: mealDay('Pick a valid date'),
-	recipeId: z.string().min(1, { message: 'Recipe is required' }),
+	recipeId: z.string().min(1, { message: 'Pick a Recipe' }),
 	// Conform strips empty inputs to undefined, so "no label" arrives absent.
 	label: MealLabelSchema.optional(),
 	multiplier: ScaleMultiplierSchema.optional(),
@@ -29,7 +29,7 @@ export const AddMealSchema = z.object({
 
 export const AddMenuSchema = z.object({
 	date: mealDay('Pick a valid date'),
-	menuId: z.string().min(1, { message: 'Menu is required' }),
+	menuId: z.string().min(1, { message: 'Pick a Menu' }),
 	label: MealLabelSchema.optional(),
 })
 
@@ -42,7 +42,7 @@ export const AddTextMealSchema = z.object({
 				issue.input === undefined ? 'Text is required' : undefined,
 		})
 		.trim()
-		.min(1, { message: 'Text is required' })
+		.min(1, { message: 'Write what you’re having' })
 		.max(GENERIC_TEXT_MAX_LENGTH, {
 			message: `Keep it under ${GENERIC_TEXT_MAX_LENGTH} characters`,
 		}),
@@ -58,7 +58,7 @@ const GuestCountSchema = z.coerce
 	.number()
 	.int()
 	.positive()
-	.max(999, { message: 'Guest count must be 999 or less' })
+	.max(999, { message: 'Use 999 guests or fewer' })
 
 /**
  * The edit-details form always submits every field, so an absent (empty)
@@ -77,7 +77,7 @@ export const MealDetailsSchema = z
 		text: z
 			.string()
 			.trim()
-			.min(1, { message: 'Text is required' })
+			.min(1, { message: 'Write what you’re having' })
 			.max(GENERIC_TEXT_MAX_LENGTH, {
 				message: `Keep it under ${GENERIC_TEXT_MAX_LENGTH} characters`,
 			})

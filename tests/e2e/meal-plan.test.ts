@@ -138,7 +138,7 @@ test.describe('Move a Meal', () => {
 		await expect(movedCard).toContainText('Extra lemon at the table')
 		await expect(movedCard.getByLabel('Scale multiplier')).toHaveValue('1.5')
 		await expect(
-			movedCard.getByRole('button', { name: 'Mark Lemon Pasta as not cooked' }),
+			movedCard.getByRole('button', { name: 'Mark Lemon Pasta not cooked' }),
 		).toBeVisible()
 		await expect(mobile.locator('[data-slot="meal-group"]')).toHaveText([
 			/Lunch out/,
@@ -473,13 +473,13 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 
 	// 5. Mark as cooked (plain toggle — no confirmation dialog)
 	await desktopPlan
-		.getByRole('button', { name: 'Mark Test Stir Fry as cooked' })
+		.getByRole('button', { name: 'Mark Test Stir Fry cooked' })
 		.click()
 
 	// 6. Verify cooked state (toggle label flips optimistically)
 	await expect(
 		desktopPlan.getByRole('button', {
-			name: 'Mark Test Stir Fry as not cooked',
+			name: 'Mark Test Stir Fry not cooked',
 		}),
 	).toBeVisible()
 
@@ -488,7 +488,7 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 	await page.reload()
 	await expect(
 		desktopPlan.getByRole('button', {
-			name: 'Mark Test Stir Fry as not cooked',
+			name: 'Mark Test Stir Fry not cooked',
 		}),
 	).toBeVisible()
 

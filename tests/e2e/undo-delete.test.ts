@@ -676,7 +676,7 @@ test('Delete · remove generated amount takes its Shopping amounts; Undo brings 
 
 	await actions.click()
 	await page
-		.getByRole('menuitem', { name: 'Delete · remove generated amount' })
+		.getByRole('menuitem', { name: 'Delete with its Shopping amounts' })
 		.click()
 	await expect(actions).toBeHidden()
 	await expect.poll(() => savedNames(user.householdId)).toEqual([])

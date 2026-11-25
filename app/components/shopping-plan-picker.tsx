@@ -90,10 +90,10 @@ function isPastDay(date: string, today: string) {
 
 const STATUS_NOTE: Record<PlanPickerLine['status'], string | null> = {
 	needed: null,
-	added: 'On the list',
-	changed: 'On the list',
+	added: 'On Shopping',
+	changed: 'On Shopping',
 	later: 'On Later',
-	'name-on-list': 'On the list, not this Meal’s amount',
+	'name-on-list': 'On Shopping, not this Meal’s amount',
 	'on-hand': 'Usually on hand',
 }
 
@@ -101,7 +101,7 @@ const STATUS_NOTE: Record<PlanPickerLine['status'], string | null> = {
 function lineNote(line: PlanPickerLine) {
 	if (line.status === 'changed' && line.contributed) {
 		const listed = lineAmount(line.contributed)
-		if (listed) return `${listed} on the list`
+		if (listed) return `${listed} on Shopping`
 	}
 	return STATUS_NOTE[line.status]
 }
@@ -236,7 +236,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 					`Moved ${promotedRowCount} item${promotedRowCount === 1 ? '' : 's'} to Next shop`,
 				)
 			} else if (alreadyContributedCount > 0) {
-				toast.info('Everything picked is already on your list')
+				toast.info('Everything picked is already on Shopping')
 			} else {
 				toast.info('Nothing to add')
 			}
@@ -499,7 +499,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 											// to a screen reader, folded or not, and describes
 											// the Meal's button for someone tabbing to it.
 											<span id={`${panelId}-done`} className="sr-only">
-												Everything to buy is on the list
+												Everything to buy is on Shopping
 											</span>
 										)}
 									</div>

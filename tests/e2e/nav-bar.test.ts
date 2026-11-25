@@ -505,7 +505,7 @@ test('a title error after Save shows its field below the bar, not under it', asy
 		.getByRole('button', { name: 'Save' })
 		.tap()
 
-	const error = page.getByText('Title is required')
+	const error = page.getByText('Add a title')
 	await expect(error).toBeVisible()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
 	await expect(page.getByLabel('Title')).toBeFocused()

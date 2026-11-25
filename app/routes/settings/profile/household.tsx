@@ -35,7 +35,7 @@ export const handle: SettingsPageHandle & SEOHandle = {
 }
 
 const RenameSchema = z.object({
-	name: z.string().min(1, 'Name is required').max(100),
+	name: z.string().min(1, 'Name the Household').max(100),
 })
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -119,7 +119,7 @@ export async function action({ request }: Route.ActionArgs) {
 	switch (intent) {
 		case 'rename-household': {
 			if (role !== 'owner') {
-				throw new Response('Only the owner can rename the household', {
+				throw new Response('Only the owner can rename the Household', {
 					status: 403,
 				})
 			}
@@ -192,8 +192,7 @@ export async function action({ request }: Route.ActionArgs) {
 			})
 			return redirectWithToast('/settings/profile/household', {
 				type: 'success',
-				description: 'You have left the household',
-				title: 'Left household',
+				description: 'You’ve left the Household.',
 			})
 		}
 		default: {
@@ -381,7 +380,7 @@ function InviteSection({
 			{newToken ? (
 				<div className="bg-primary/10 mt-4 rounded-md p-4">
 					<p className="mb-2 text-sm font-medium">
-						Invite link created! Share this link:
+						Send this link to the person you’re inviting:
 					</p>
 					<CopyLinkButton token={newToken} />
 				</div>
@@ -389,7 +388,7 @@ function InviteSection({
 
 			{invites.length > 0 ? (
 				<div className="mt-4 flex flex-col gap-2">
-					<p className="text-muted-foreground text-sm">Pending invites:</p>
+					<p className="text-muted-foreground text-sm">Open invites:</p>
 					{invites.map((invite) => (
 						<InviteRow key={invite.id} invite={invite} />
 					))}
@@ -533,9 +532,8 @@ function LeaveHousehold() {
 		<div>
 			<h3 className="mb-4 text-base font-medium">Leave Household</h3>
 			<p className="text-muted-foreground mb-4 text-sm">
-				Leaving will create a new solo household for you. Your recipes will be
-				copied, but shared Staples and the Plan will stay with the current
-				household.
+				You&apos;ll get a new Household of your own. Your Recipes are copied to
+				it, and the shared Staples and Plan stay here.
 			</p>
 			<fetcher.Form method="POST" id="leave-household">
 				<StatusButton
@@ -545,14 +543,14 @@ function LeaveHousehold() {
 					className="text-foreground-destructive hover:text-foreground-destructive"
 					status={fetcher.state !== 'idle' ? 'pending' : 'idle'}
 				>
-					<Icon name="exit">Leave household</Icon>
+					<Icon name="exit">Leave Household</Icon>
 				</StatusButton>
 				<ConfirmSheet
 					open={confirming}
 					onCancel={() => setConfirming(false)}
 					title="Leave this Household?"
 					description="Shared Staples and the Plan stay here; your Recipes come with you."
-					confirmLabel="Leave household"
+					confirmLabel="Leave Household"
 					formId="leave-household"
 					name="intent"
 					value="leave-household"

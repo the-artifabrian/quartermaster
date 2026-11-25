@@ -584,7 +584,7 @@ test('From Plan shows what a Meal already put on Shopping as on the list, and th
 	for (const name of ['chicken thighs', 'lemon']) {
 		await expect(
 			picker.getByText(new RegExp(`^${name} ·`)).locator('..'),
-		).toContainText('On the list')
+		).toContainText('On Shopping')
 		await expect(lineButton(name)).toHaveCount(0)
 	}
 	await expect(lineButton('broccoli')).toHaveAttribute('aria-pressed', 'true')
@@ -607,9 +607,9 @@ test('From Plan shows what a Meal already put on Shopping as on the list, and th
 	const mealBoxes = picker.getByRole('button', {
 		name: /tick .*Chicken traybake/i,
 	})
-	await expect(picker.getByText('On the list', { exact: true })).toHaveCount(3)
+	await expect(picker.getByText('On Shopping', { exact: true })).toHaveCount(3)
 	await expect(
-		picker.getByText('Everything to buy is on the list'),
+		picker.getByText('Everything to buy is on Shopping'),
 	).toBeAttached()
 	await expect(mealBoxes).toHaveCount(0)
 	await expect(addButton).toHaveText('Add to Next shop')
@@ -619,7 +619,7 @@ test('From Plan shows what a Meal already put on Shopping as on the list, and th
 	// through, who never reaches the hidden text on its own.
 	const disclosure = picker.locator('[aria-controls^="plan-picker-"]')
 	await expect(disclosure).toHaveAccessibleDescription(
-		'Everything to buy is on the list',
+		'Everything to buy is on Shopping',
 	)
 
 	// Salt can still be ticked on its own. The Meal box comes back while it
@@ -641,7 +641,7 @@ test('From Plan shows what a Meal already put on Shopping as on the list, and th
 	await expect(mealBoxes).toHaveCount(0)
 	await expect(disclosure).toBeFocused()
 	await expect(disclosure).toHaveAccessibleDescription(
-		'Everything to buy is on the list',
+		'Everything to buy is on Shopping',
 	)
 	expect(
 		await prisma.shoppingListItem.count({
@@ -1048,7 +1048,7 @@ test('a comma decimal reads as one number on the Recipe, when scaled, and in the
 	await page.getByRole('button', { name: /from plan/i }).click()
 	const flourLine = page.getByRole('button', { name: /^flour/i })
 	await expect(flourLine).toHaveAttribute('aria-pressed', 'false')
-	await expect(flourLine).toContainText('On the list, not this Meal’s amount')
+	await expect(flourLine).toContainText('On Shopping, not this Meal’s amount')
 	await flourLine.click()
 	await expect(flourLine).toHaveAttribute('aria-pressed', 'true')
 	await page.getByRole('button', { name: /add 1 from 1 meal/i }).click()
@@ -1187,7 +1187,7 @@ test('the phone add sheet opens without the last item’s warning, and checks th
 	const addItem = page.getByRole('button', { name: 'Add item' })
 	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
 	const name = sheet.getByPlaceholder('Add an item...')
-	const warning = sheet.getByText('Milk is already on your list')
+	const warning = sheet.getByText('Milk is already on Shopping')
 
 	await addItem.click()
 	await expect(name).toBeFocused()

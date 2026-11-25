@@ -534,7 +534,7 @@ export function ShoppingListItemCard({
 										}
 									>
 										<Icon name="reset" size="sm" />
-										Remove generated amount
+										Remove what the Plan added
 									</DropdownMenuItem>
 								)}
 								<DropdownMenuSeparator />

@@ -16,7 +16,7 @@ export const MenuTitleSchema = z
 			issue.input === undefined ? 'Title is required' : undefined,
 	})
 	.trim()
-	.min(1, { message: 'Title is required' })
+	.min(1, { message: 'Name this Menu' })
 	.max(100, { message: 'Title is too long' })
 
 export const MenuSchema = z.object({
@@ -105,19 +105,19 @@ const MenuBuilderItemSchema = z
 			.optional(),
 		shoppingLines: z
 			.array(MenuShoppingLineSchema)
-			.max(20, { message: 'A note can hold at most 20 shopping lines' })
+			.max(20, { message: 'A note can hold at most 20 lines for Shopping' })
 			.optional(),
 	})
 	.superRefine((item, ctx) => {
 		if (item.kind === 'recipe') {
 			if (item.id == null && item.recipeId == null) {
-				ctx.addIssue({ code: 'custom', message: 'Pick a recipe for this card' })
+				ctx.addIssue({ code: 'custom', message: 'Pick a Recipe here' })
 			}
 			if (item.scaleMultiplier == null) {
 				ctx.addIssue({
 					code: 'custom',
 					path: ['scaleMultiplier'],
-					message: 'Multiplier is required',
+					message: 'Enter a multiplier, like 1 or 1.5',
 				})
 			}
 		} else if (item.text == null || item.text.length === 0) {
@@ -154,7 +154,7 @@ const MenuBuilderSectionSchema = z.object({
 export const MenuBuilderSchema = MenuSchema.extend({
 	sections: z
 		.array(MenuBuilderSectionSchema)
-		.max(20, { message: 'A menu can hold at most 20 sections' })
+		.max(20, { message: 'A Menu can hold at most 20 sections' })
 		.superRefine((sections, ctx) => {
 			const total = sections.reduce(
 				(count, section) => count + (section.items?.length ?? 0),
@@ -163,7 +163,7 @@ export const MenuBuilderSchema = MenuSchema.extend({
 			if (total > 100) {
 				ctx.addIssue({
 					code: 'custom',
-					message: 'A menu can hold at most 100 cards',
+					message: 'A Menu can hold at most 100 Recipes and notes',
 				})
 			}
 			// Two headingless blocks would read as one — the first blank name

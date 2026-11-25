@@ -88,25 +88,25 @@ describe('formatEventMessage', () => {
 			{ count: 3 },
 			'Alex',
 		)
-		expect(result.message).toBe('Alex performed an action')
+		expect(result.message).toBe('Alex made a change')
 		expect(result.url).toBeNull()
 	})
 
 	test('household_member_joined', () => {
 		const result = formatEventMessage('household_member_joined', {}, 'Sam')
-		expect(result.message).toBe('Sam joined the household')
+		expect(result.message).toBe('Sam joined the Household')
 		expect(result.url).toBeNull()
 	})
 
 	test('household_member_left', () => {
 		const result = formatEventMessage('household_member_left', {}, 'Sam')
-		expect(result.message).toBe('Sam left the household')
+		expect(result.message).toBe('Sam left the Household')
 		expect(result.url).toBeNull()
 	})
 
 	test('unknown event type', () => {
 		const result = formatEventMessage('something_unknown', {}, 'Alex')
-		expect(result.message).toBe('Alex performed an action')
+		expect(result.message).toBe('Alex made a change')
 		expect(result.url).toBeNull()
 	})
 })
@@ -125,7 +125,7 @@ describe('formatEventBatch', () => {
 		])
 		expect(result).toHaveLength(2)
 		expect(result[0]?.message).toBe('Sam added Butter to Shopping')
-		expect(result[1]?.message).toBe('Sam joined the household')
+		expect(result[1]?.message).toBe('Sam joined the Household')
 	})
 
 	test('a batch at the cap is still one toast per event', () => {
@@ -141,7 +141,7 @@ describe('formatEventBatch', () => {
 		)
 		const result = formatEventBatch(events)
 		expect(result).toHaveLength(1)
-		expect(result[0]?.message).toBe('50 household updates while you were away')
+		expect(result[0]?.message).toBe('50 Household updates while you were away')
 		// Every event points at /shopping, so the summary can link there.
 		expect(result[0]?.url).toBe('/shopping')
 	})
@@ -154,7 +154,7 @@ describe('formatEventBatch', () => {
 			event('household_member_joined'),
 		])
 		expect(result).toHaveLength(1)
-		expect(result[0]?.message).toBe('4 household updates while you were away')
+		expect(result[0]?.message).toBe('4 Household updates while you were away')
 		expect(result[0]?.url).toBeNull()
 	})
 

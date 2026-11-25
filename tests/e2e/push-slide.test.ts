@@ -1039,7 +1039,7 @@ test.describe('in the iOS app', () => {
 			await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
 			const mobile = page.getByTestId('mobile-plan')
 			const circle = mobile.getByRole('button', {
-				name: 'Mark Lentil soup as cooked',
+				name: 'Mark Lentil soup cooked',
 			})
 			await hydrated(circle)
 			await ui.settled()
@@ -1050,7 +1050,7 @@ test.describe('in the iOS app', () => {
 			expect(
 				await ui.hapticsOf(() =>
 					mobile
-						.getByRole('button', { name: 'Mark Lentil soup as not cooked' })
+						.getByRole('button', { name: 'Mark Lentil soup not cooked' })
 						.tap(),
 				),
 			).toEqual(['selection'])

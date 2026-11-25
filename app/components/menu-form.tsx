@@ -267,7 +267,7 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 				labelProps={{ children: 'Description' }}
 				textareaProps={{
 					...getInputProps(fields.description, { type: 'text' }),
-					placeholder: 'The occasion or intent, so future you remembers',
+					placeholder: 'What it’s for, like a birthday or Sunday lunch',
 					rows: 3,
 				}}
 				errors={fields.description.errors}
@@ -470,8 +470,8 @@ function MenuSectionsBuilder({
 			/>
 			{sectionList.length > 1 ? (
 				<p className="text-muted-foreground mt-2 text-sm">
-					A section’s arrows move it as one block, cards and all. To move a
-					single card between sections, use its “Move to…”.
+					The arrows by a section move the whole section. To move one Recipe or
+					note to another section, use its Move to… button.
 				</p>
 			) : null}
 			<ul className="mt-3 space-y-6">
@@ -572,7 +572,7 @@ function MenuSectionCard({
 					<Input
 						key={nameKey}
 						{...nameProps}
-						placeholder="Section name (optional) — e.g. Dessert"
+						placeholder="Section name (optional), like Dessert"
 						aria-label="Section name"
 					/>
 					<ErrorList errors={section.name.errors} id={section.name.errorId} />
@@ -592,7 +592,7 @@ function MenuSectionCard({
 						variant="ghost"
 						size="icon"
 						onClick={() => onRemoveSection(sectionIndex)}
-						aria-label={`Remove ${label} — its cards stay on the menu`}
+						aria-label={`Remove ${label}, keeping its Recipes and notes`}
 					>
 						<Icon name="trash" size="sm" />
 					</Button>
@@ -822,7 +822,7 @@ function MenuItemRow({
 			<Input
 				key={noteKey}
 				{...noteProps}
-				placeholder="Note (optional) — e.g. serve at room temperature"
+				placeholder="Note (optional), like serve at room temperature"
 				aria-label={`Note for ${title}`}
 				className="mt-2"
 			/>
@@ -955,7 +955,7 @@ function MenuNoteRow({
 						key={textKey}
 						{...textProps}
 						rows={2}
-						placeholder="e.g. Lemonade with mint — mix just before serving"
+						placeholder="e.g. Lemonade with mint, mixed just before serving"
 						aria-label="Note text"
 					/>
 					<ErrorList errors={item.text.errors} id={item.text.errorId} />

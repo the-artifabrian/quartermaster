@@ -85,7 +85,7 @@ export function WarningBanner({
 				/>
 				<div className="flex-1 text-sm">
 					<p className="font-medium">
-						{actionData.existingName as string} is already on your list
+						{actionData.existingName as string} is already on Shopping
 						{qty ? ` (${qty})` : ''}.
 					</p>
 					<p className="text-muted-foreground mt-0.5">

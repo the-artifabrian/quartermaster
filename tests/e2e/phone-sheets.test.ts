@@ -835,11 +835,9 @@ test.describe('Plan Meals as flat rows', () => {
 		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
 		const mobile = page.getByTestId('mobile-plan')
 		await expect(async () => {
-			await mobile
-				.getByRole('button', { name: 'Mark Miso Soup as cooked' })
-				.tap()
+			await mobile.getByRole('button', { name: 'Mark Miso Soup cooked' }).tap()
 			await expect(
-				mobile.getByRole('button', { name: 'Mark Miso Soup as not cooked' }),
+				mobile.getByRole('button', { name: 'Mark Miso Soup not cooked' }),
 			).toBeVisible({ timeout: 1000 })
 		}).toPass()
 		await expect

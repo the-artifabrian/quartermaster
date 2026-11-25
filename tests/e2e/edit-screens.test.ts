@@ -291,7 +291,9 @@ test.describe('errors that hold Save back', () => {
 		await page.evaluate(() => window.scrollTo(0, 0))
 		await saveButton(page).tap()
 
-		const message = page.getByText('A note can hold at most 20 shopping lines')
+		const message = page.getByText(
+			'A note can hold at most 20 lines for Shopping',
+		)
 		await expect(message).toBeVisible()
 		const target = page.locator('[data-error-target]', { has: message })
 		await expect(target).toBeFocused()

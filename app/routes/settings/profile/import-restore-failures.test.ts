@@ -4,9 +4,8 @@
  */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
-import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold } from '#tests/db-utils.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader as recipesLoader } from '../../recipes/index.tsx'
@@ -47,27 +46,7 @@ const ARGS_BASE = {
 const IMPORT_URL = `${BASE_URL}/settings/profile/import`
 
 async function setupUser({ tier = 'pro' as string | null } = {}) {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: {
-					create: {
-						...createUser(),
-						...(tier ? { subscription: { create: { tier } } } : {}),
-					},
-				},
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Restore Household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-			},
-		})
-		return { ...session, householdId: household.id }
-	})
+	return createSignedInHousehold({ name: 'Restore Household', tier })
 }
 
 type Session = Awaited<ReturnType<typeof setupUser>>

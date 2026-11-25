@@ -4,10 +4,9 @@ import { describe, expect, test, vi } from 'vitest'
 vi.mock('#app/utils/household-events.server.ts', () => ({
 	emitHouseholdEvent: vi.fn(),
 }))
-import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { getWeekStart } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { action as shoppingCheckAction } from '../resources/shopping-check.tsx'
@@ -34,36 +33,18 @@ const SHOPPING_ARGS = {
 }
 
 async function setupUser() {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: {
-					create: {
-						...createUser(),
-						subscription: { create: { tier: 'pro' } },
-					},
-				},
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Test Household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-				// The availability seam knows only what the household saved, so the
-				// fixture's salt is a Staple.
-				householdIngredients: {
-					create: {
-						displayName: 'salt',
-						canonicalKey: 'salt',
-						isStaple: true,
-					},
-				},
-			},
-		})
-		return { ...session, householdId: household.id }
+	const user = await createSignedInHousehold({ tier: 'pro' })
+	// The availability seam knows only what the household saved, so the
+	// fixture's salt is a Staple.
+	await prisma.householdIngredient.create({
+		data: {
+			householdId: user.householdId,
+			displayName: 'salt',
+			canonicalKey: 'salt',
+			isStaple: true,
+		},
 	})
+	return user
 }
 
 async function makeRequest(

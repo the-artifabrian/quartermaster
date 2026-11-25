@@ -1,10 +1,9 @@
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test } from 'vitest'
-import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { MAX_RAW_TEXT_LENGTH } from '#app/utils/recipe-validation.ts'
 import { demandIdentity } from '#app/utils/shopping-demand.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold } from '#tests/db-utils.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader as exportLoader } from '../../resources/export-all-data.tsx'
@@ -28,41 +27,22 @@ function formWith(fields: Record<string, string>) {
 }
 
 async function setupUser({ tier = 'pro' as string | null } = {}) {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: {
-					create: {
-						...createUser(),
-						...(tier ? { subscription: { create: { tier } } } : {}),
-					},
+	const user = await createSignedInHousehold({ name: 'Import Household', tier })
+	await prisma.shoppingList.create({
+		data: {
+			userId: user.userId,
+			householdId: user.householdId,
+			items: {
+				create: {
+					name: 'Apples',
+					quantity: '2',
+					category: 'produce',
+					source: 'manual',
 				},
 			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Import Household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-			},
-		})
-		await tx.shoppingList.create({
-			data: {
-				userId: session.userId,
-				householdId: household.id,
-				items: {
-					create: {
-						name: 'Apples',
-						quantity: '2',
-						category: 'produce',
-						source: 'manual',
-					},
-				},
-			},
-		})
-		return { ...session, householdId: household.id }
+		},
 	})
+	return user
 }
 
 async function makeImportRequest(session: { id: string }) {

@@ -9,12 +9,11 @@ import { describe, expect, test, vi } from 'vitest'
 vi.mock('#app/utils/household-events.server.ts', () => ({
 	emitHouseholdEvent: vi.fn(),
 }))
-import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { getWeekStart } from '#app/utils/date.ts'
 import { createPrismaClient, prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { action as shoppingCheckAction } from '../resources/shopping-check.tsx'
 import { loader as shoppingStaplesLoader } from '../resources/shopping-staples.tsx'
@@ -35,29 +34,7 @@ const STAPLE_RESOURCE_ARGS_BASE = {
 	url: new URL(`${BASE_URL}/resources/shopping-staples`),
 }
 
-async function setupUser() {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: {
-					create: {
-						...createUser(),
-						subscription: { create: { tier: 'pro' } },
-					},
-				},
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Test Household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-			},
-		})
-		return { ...session, householdId: household.id }
-	})
-}
+const setupUser = () => createSignedInHousehold({ tier: 'pro' })
 
 async function setupMealPlanWithRecipe(userId: string, householdId: string) {
 	const recipe = await prisma.recipe.create({

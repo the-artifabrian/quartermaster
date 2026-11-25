@@ -1,30 +1,12 @@
 import { RouterContextProvider } from 'react-router'
 import { expect, test } from 'vitest'
-import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader } from './shopping-staples.tsx'
 import '#tests/setup/db-setup.ts'
 
-async function setupHousehold(name: string) {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: { create: createUser() },
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name,
-				members: { create: { userId: session.userId, role: 'owner' } },
-			},
-		})
-		return { ...session, householdId: household.id }
-	})
-}
+const setupHousehold = (name: string) => createSignedInHousehold({ name })
 
 test('Shopping Staple choices require an authenticated household', async () => {
 	const path = '/resources/shopping-staples'

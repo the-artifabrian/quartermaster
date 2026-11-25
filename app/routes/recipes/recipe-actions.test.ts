@@ -7,7 +7,7 @@ vi.mock('#app/utils/household-events.server.ts', () => ({
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold, createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { loader, action } from './$recipeId.tsx'
 import '#tests/setup/db-setup.ts'
@@ -21,29 +21,7 @@ function makeActionArgs(recipeId: string) {
 	}
 }
 
-async function setupUser() {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: {
-					create: {
-						...createUser(),
-						subscription: { create: { tier: 'pro' } },
-					},
-				},
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Test Household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-			},
-		})
-		return { ...session, householdId: household.id }
-	})
-}
+const setupUser = () => createSignedInHousehold({ tier: 'pro' })
 
 async function setupRecipe(
 	userId: string,

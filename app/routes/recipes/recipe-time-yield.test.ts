@@ -1,9 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import { RouterContextProvider } from 'react-router'
 import { expect, test, vi } from 'vitest'
-import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
-import { prisma } from '#app/utils/db.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold } from '#tests/db-utils.ts'
 import { server } from '#tests/setup/mocks-setup.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader as detailLoader } from './$recipeId.tsx'
@@ -32,24 +30,8 @@ function routeArgs<
 	}
 }
 
-async function setupUser() {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: { create: createUser() },
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Recipe metadata household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-			},
-		})
-		return { ...session, householdId: household.id }
-	})
-}
+const setupUser = () =>
+	createSignedInHousehold({ name: 'Recipe metadata household' })
 
 async function requestFor(
 	session: { id: string },

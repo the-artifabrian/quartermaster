@@ -17,7 +17,7 @@ import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
 import { servingWallTime } from '#app/utils/serving-time.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold, createUser } from '#tests/db-utils.ts'
 import {
 	createWalDatabase,
 	settlesWithin,
@@ -36,29 +36,7 @@ const ACTION_ARGS_BASE = {
 	url: new URL(`${BASE_URL}/plan`),
 }
 
-async function setupUser() {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: {
-					create: {
-						...createUser(),
-						subscription: { create: { tier: 'pro' } },
-					},
-				},
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Test Household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-			},
-		})
-		return { ...session, householdId: household.id }
-	})
-}
+const setupUser = () => createSignedInHousehold({ tier: 'pro' })
 
 async function setupHouseholdMember(householdId: string) {
 	return prisma.$transaction(async (tx) => {

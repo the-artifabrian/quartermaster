@@ -20,7 +20,7 @@ import {
 	restoreStaple,
 	UNDO_TOKEN_TTL_MS,
 } from '#app/utils/undo-delete.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold, createUser } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action as checkAction } from './shopping-check.tsx'
 import { action } from './undo-delete.tsx'
@@ -29,24 +29,12 @@ import '#tests/setup/db-setup.ts'
 beforeEach(() => vi.mocked(emitHouseholdEvent).mockClear())
 
 async function setupUser() {
-	const session = await prisma.session.create({
-		data: {
-			expirationDate: getSessionExpirationDate(),
-			user: { create: createUser() },
-		},
-		select: { id: true, userId: true },
-	})
-	const household = await prisma.household.create({
-		data: {
-			name: 'Undo',
-			members: { create: { userId: session.userId, role: 'owner' } },
-		},
-	})
+	const user = await createSignedInHousehold({ name: 'Undo' })
 	const list = await ensureShoppingList(prisma, {
-		userId: session.userId,
-		householdId: household.id,
+		userId: user.userId,
+		householdId: user.householdId,
 	})
-	return { ...session, householdId: household.id, listId: list.id }
+	return { ...user, listId: list.id }
 }
 
 type Session = Awaited<ReturnType<typeof setupUser>>

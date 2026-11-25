@@ -1,8 +1,7 @@
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test } from 'vitest'
-import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action } from './index.tsx'
 import '#tests/setup/db-setup.ts'
@@ -15,42 +14,20 @@ const ROUTE_ARGS = {
 }
 
 async function setupHousehold(displayName = 'Salt') {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: {
-					create: {
-						...createUser(),
-						subscription: { create: { tier: 'pro' } },
-					},
-				},
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Restocking Household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-				householdIngredients: {
-					create: {
-						displayName,
-						canonicalKey: displayName.toLowerCase(),
-						isStaple: true,
-					},
-				},
-			},
-			select: {
-				id: true,
-				householdIngredients: { select: { id: true } },
-			},
-		})
-		return {
-			...session,
-			householdId: household.id,
-			stapleId: household.householdIngredients[0]!.id,
-		}
+	const user = await createSignedInHousehold({
+		name: 'Restocking Household',
+		tier: 'pro',
 	})
+	const staple = await prisma.householdIngredient.create({
+		data: {
+			householdId: user.householdId,
+			displayName,
+			canonicalKey: displayName.toLowerCase(),
+			isStaple: true,
+		},
+		select: { id: true },
+	})
+	return { ...user, stapleId: staple.id }
 }
 
 async function postAddToShop(

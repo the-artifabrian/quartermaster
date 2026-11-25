@@ -23,6 +23,7 @@ import {
 	MAX_RECIPE_INSTRUCTIONS,
 	MAX_RECIPE_NOTES_LENGTH,
 	MAX_RECIPE_TITLE_LENGTH,
+	positiveMinutes,
 } from './recipe-validation.ts'
 import {
 	isTooBigToDecode,
@@ -322,14 +323,6 @@ function reconcileTimes(
 				? null
 				: totalTime,
 	}
-}
-
-function positiveMinutes(value: unknown): number | null {
-	if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-		return null
-	}
-	const minutes = Math.round(value)
-	return Number.isSafeInteger(minutes) && minutes > 0 ? minutes : null
 }
 
 // The Recipe is saved without a review step, so anything the model adds

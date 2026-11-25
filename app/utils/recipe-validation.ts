@@ -96,6 +96,18 @@ export const InstructionSchema = z.object({
 		.max(MAX_INSTRUCTION_LENGTH, { message: 'Instruction is too long' }),
 })
 
+/**
+ * A Recipe time as whole minutes, or null when the value can't be one. The
+ * model and the import both hand over times as loose numbers, so this rounds
+ * them and drops anything the save schema would refuse: not a number, zero or
+ * less once rounded, or too large to count exactly.
+ */
+export function positiveMinutes(value: unknown): number | null {
+	if (typeof value !== 'number' || !Number.isFinite(value)) return null
+	const minutes = Math.round(value)
+	return Number.isSafeInteger(minutes) && minutes > 0 ? minutes : null
+}
+
 const optionalPositiveInteger = z.preprocess(
 	(value) => (value === '' || value == null ? undefined : value),
 	z.coerce.number().int().positive().optional(),

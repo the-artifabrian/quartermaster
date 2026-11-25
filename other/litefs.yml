@@ -37,13 +37,19 @@ exec:
   # Local-only on purpose: boot must not wait on the network. The offsite copy
   # is the daily job in .github/workflows/backup.yml.
   #
+  # It dumps only when `prisma migrate deploy` has a migration to apply, read
+  # from the migrations folder and `_prisma_migrations` with sqlite3. The
+  # volume keeps the 3 newest dumps, so a machine that migrated and then
+  # crash-looped would otherwise lose the copy from before the migration
+  # within three restarts. If the check can't tell, it dumps.
+  #
   # This step fails the boot if it can't produce a verified snapshot: better a
   # machine that won't start than a migration with no way back. If a full
   # volume ever traps a deploy here, `fly secrets set SKIP_DB_BACKUP=true`
   # releases it; see docs/RESTORE.md.
   - cmd:
       bun /myapp/scripts/backup-db.ts --local-only --label pre-migration
-      --skip-if-missing
+      --skip-if-missing --only-if-migrations-pending
     if-candidate: true
 
   # Prisma's schema engine always opens SQLite with locking_mode=EXCLUSIVE

@@ -398,3 +398,144 @@ export async function runBackup({
 
 	return { archivePath, size, key, prunedLocal, prunedRemote }
 }
+
+type MigrationState = {
+	/** Folders `prisma migrate deploy` would apply, oldest first. */
+	pending: Array<string>
+	/** Why the boot dump runs or not, for the boot log. */
+	reason: string
+	/** True when the dump should run because the state couldn't be read. */
+	unknown?: boolean
+}
+
+/**
+ * Works out whether `prisma migrate deploy` is about to change the schema,
+ * from the same two things it compares: the folders in `prisma/migrations`
+ * and the rows in `_prisma_migrations`. Prisma's own `migrate status` would
+ * open the database through its schema engine, which LiteFS refuses until the
+ * journal mode switch further down the boot, and it costs a second or two.
+ */
+export async function readMigrationState({
+	databasePath,
+	migrationsDir,
+}: {
+	databasePath: string
+	migrationsDir: string
+}): Promise<MigrationState> {
+	let folders: Array<string>
+	try {
+		// Prisma treats every folder here as a migration and stops with an
+		// error at one with no migration.sql. Any real migrations still pending
+		// are counted below, so skipping such a folder only keeps it from making
+		// every boot dump.
+		const withSql = await Promise.all(
+			(await readdir(migrationsDir)).map((name) =>
+				stat(path.join(migrationsDir, name, 'migration.sql')).then(
+					() => name,
+					() => null,
+				),
+			),
+		)
+		folders = withSql.filter((name) => name !== null).sort()
+	} catch (error) {
+		return {
+			pending: [],
+			unknown: true,
+			reason: `can't read ${migrationsDir} (${String(error)})`,
+		}
+	}
+	// No folders means the path is wrong, not that there is nothing to apply.
+	if (folders.length === 0) {
+		return {
+			pending: [],
+			unknown: true,
+			reason: `no migrations found in ${migrationsDir}`,
+		}
+	}
+
+	// sqlite3 creates an empty database when handed a missing path.
+	await stat(databasePath)
+	type Row = { name: string; finished: number; rolledBack: number }
+	let rows: Array<Row>
+	try {
+		const output = await sqlite3([
+			'-json',
+			databasePath,
+			`SELECT migration_name AS name,
+				finished_at IS NOT NULL AS finished,
+				rolled_back_at IS NOT NULL AS rolledBack
+			FROM _prisma_migrations`,
+		])
+		rows = output ? (JSON.parse(output) as Array<Row>) : []
+	} catch (error) {
+		// execFile's message starts with the whole command line; sqlite's own
+		// complaint is on stderr.
+		const detail =
+			(error as { stderr?: string }).stderr?.trim() || String(error)
+		// A database Prisma has never migrated has no such table. Anything else
+		// means the check itself is broken, which the boot log should shout.
+		if (detail.includes('no such table')) {
+			return {
+				pending: folders,
+				reason: 'the database has never been migrated',
+			}
+		}
+		return {
+			pending: folders,
+			unknown: true,
+			reason: `can't read _prisma_migrations (${detail})`,
+		}
+	}
+
+	// A migration that failed partway leaves its row unfinished, and
+	// `migrate deploy` refuses to apply anything until someone resolves it, so
+	// this boot won't change the schema. Dumping here would replace the clean
+	// copy with the half-migrated one on every restart.
+	const failed = rows.find((row) => !row.finished && !row.rolledBack)
+	if (failed) {
+		return {
+			pending: [],
+			reason: `${failed.name} failed and blocks further migrations`,
+		}
+	}
+
+	// A row marked rolled back doesn't count: deploy applies that folder again.
+	const applied = new Set(
+		rows
+			.filter((row) => row.finished && !row.rolledBack)
+			.map((row) => row.name),
+	)
+	const pending = folders.filter((name) => !applied.has(name))
+	return {
+		pending,
+		reason: pending.length
+			? `${pending.length} pending migration(s): ${pending.join(', ')}`
+			: 'no pending migrations',
+	}
+}
+
+/**
+ * The boot-time dump, taken only when `prisma migrate deploy` has something
+ * to apply. A machine that migrates and then crash-loops boots again and
+ * again; a dump on each of those boots would be a copy of the migrated
+ * database, and local pruning would soon drop the copy from before the
+ * migration. When the state can't be read, it dumps anyway.
+ */
+export async function backupBeforeMigrations({
+	migrationsDir,
+	onCheck,
+	...options
+}: RunBackupOptions & {
+	migrationsDir: string
+	/** Called before any dump, so the boot log has the reason if it fails. */
+	onCheck?: (state: MigrationState) => void
+}) {
+	const state = await readMigrationState({
+		databasePath: options.sourcePath,
+		migrationsDir,
+	})
+	onCheck?.(state)
+	const shouldDump = state.unknown || state.pending.length > 0
+	const result = shouldDump ? await runBackup(options) : null
+	return { ...state, result }
+}

@@ -1,0 +1,58 @@
+name: 🩺 uptime check
+
+# Requests the production healthcheck and fails when it doesn't answer 200.
+# It goes to the Fly hostname, because Cloudflare answers 403 to GitHub's
+# runners on useqm.app. So it notices the machine or the app going down, and
+# misses an outage that is only at Cloudflare.
+# GitHub emails a failed scheduled run to whoever last changed the cron line
+# below. Fly's own health checks only stop routing traffic to a sick machine,
+# and they tell nobody.
+#
+# GitHub starts scheduled runs late when its queue is busy, sometimes by more
+# than the 15 minute interval, and can skip a run altogether. Expect to hear
+# about an outage half an hour or more after it starts. A long outage sends an
+# email for every failed run.
+#
+# GitHub turns off scheduled workflows in a public repository after 60 days
+# with no commits. This job stops then, and so do the daily backup in
+# backup.yml and memory-alert.yml. Turn them back on in the Actions tab (see
+# docs/RESTORE.md).
+on:
+  schedule:
+    # Every 15 minutes, off the top of the hour, when the queue is busiest.
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    name: 🩺 healthcheck answers 200
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: 🩺 Request the healthcheck
+        env:
+          URL: https://quartermaster-94e5.fly.dev/resources/healthcheck
+        run: |
+          # Two tries, so one dropped connection doesn't send an email. The
+          # route can take up to 7s when SQLite is busy (see fly.toml), so 20s
+          # is slow enough to count as down. Only 200 passes; a redirect fails.
+          for attempt in 1 2; do
+            result=$(curl --silent --output /dev/null \
+              --write-out '%{http_code} %header{server}' \
+              --connect-timeout 10 --max-time 20 "$URL") || true
+            status=${result%% *}
+            if [ "$status" = 200 ]; then
+              echo "Healthcheck answered 200 on try $attempt"
+              exit 0
+            fi
+            # curl reports 000 when nothing came back at all.
+            if [ "$status" = 000 ]; then status='no response'; fi
+            echo "Try $attempt: $status (server: ${result#* })"
+            if [ "$attempt" = 1 ]; then
+              sleep 30
+            fi
+          done
+          echo "::error::$URL did not answer 200 on either try"
+          exit 1

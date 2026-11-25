@@ -3,13 +3,19 @@
  * object storage bucket. Two callers:
  *
  *   - `.github/workflows/backup.yml`: daily, over `fly ssh console`.
- *   - `other/litefs.yml`: `--local-only --label pre-migration`, before
- *     `prisma migrate deploy` touches the schema at boot.
+ *   - `other/litefs.yml`: `--local-only --label pre-migration
+ *     --only-if-migrations-pending`, before `prisma migrate deploy` touches
+ *     the schema at boot. It dumps only when there is a migration to apply.
  *
  * Restoring is documented in `docs/RESTORE.md`.
  */
 import { existsSync } from 'node:fs'
-import { listBackups, runBackup } from '../server/backup.ts'
+import { fileURLToPath } from 'node:url'
+import {
+	backupBeforeMigrations,
+	listBackups,
+	runBackup,
+} from '../server/backup.ts'
 
 const args = process.argv.slice(2)
 
@@ -81,7 +87,7 @@ if (!existsSync(sourcePath)) {
 }
 
 const startedAt = Date.now()
-const result = await runBackup({
+const backupOptions = {
 	sourcePath,
 	localDir,
 	label,
@@ -90,7 +96,30 @@ const result = await runBackup({
 	keepLocal: numberFromEnv('BACKUP_KEEP_LOCAL', 3),
 	retentionDays: numberFromEnv('BACKUP_RETENTION_DAYS', 30),
 	keepRemoteMinimum: numberFromEnv('BACKUP_KEEP_MINIMUM', 7),
-})
+}
+
+let result
+if (flag('only-if-migrations-pending')) {
+	// Next to this script in the image, whatever directory LiteFS runs it from.
+	const migrationsDir = fileURLToPath(
+		new URL('../prisma/migrations', import.meta.url),
+	)
+	const boot = await backupBeforeMigrations({
+		...backupOptions,
+		migrationsDir,
+		onCheck: (state) => {
+			if (state.unknown) console.warn(`⚠️ Dumping anyway, ${state.reason}`)
+			else console.log(`Migration check: ${state.reason}`)
+		},
+	})
+	if (!boot.result) {
+		console.log('No pre-migration dump needed')
+		process.exit(0)
+	}
+	result = boot.result
+} else {
+	result = await runBackup(backupOptions)
+}
 
 const seconds = ((Date.now() - startedAt) / 1000).toFixed(1)
 if (result.prunedLocal.length) {

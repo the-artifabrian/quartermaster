@@ -40,12 +40,12 @@ export const navItems: NavItem[] = [
 		matchPaths: ['/recipes'],
 	},
 	{
-		to: '/inventory',
+		to: '/staples',
 		icon: 'file-text' as IconName,
 		iconFilled: 'file-text-filled' as IconName,
 		label: 'Staples',
 		destination: 'staples',
-		matchPaths: ['/inventory'],
+		matchPaths: ['/staples'],
 	},
 	{
 		to: '/plan',

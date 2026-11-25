@@ -42,7 +42,7 @@ const ONLINE_RETRY_DELAYS_MS = [0, 1000, 3000]
 
 const TAB_NAMES: Array<[prefix: string, name: string]> = [
 	['/recipes', 'Recipes'],
-	['/inventory', 'Staples'],
+	['/staples', 'Staples'],
 	['/plan', 'Plan'],
 	['/shopping', 'Shopping'],
 ]

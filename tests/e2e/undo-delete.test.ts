@@ -735,7 +735,7 @@ test.describe('with a mouse', () => {
 					select: { isStaple: true },
 				})
 				.then((staple) => staple.isStaple)
-		await page.goto('/inventory')
+		await page.goto('/staples')
 
 		const remove = page.getByRole('button', { name: 'Delete Salt' })
 		// No arming: one tap deletes.
@@ -768,7 +768,7 @@ test.describe('with a mouse', () => {
 				isStaple: true,
 			},
 		})
-		await page.goto('/inventory')
+		await page.goto('/staples')
 		const remove = page.getByRole('button', { name: 'Delete Salt' })
 		await context.setOffline(true)
 		await remove.click()

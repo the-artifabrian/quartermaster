@@ -5,6 +5,7 @@ import { BottomSheet, opensAsSheet } from '#app/components/ui/bottom-sheet.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
+import { useFetcherSettled } from '#app/hooks/use-fetcher-settled.ts'
 import {
 	Popover,
 	PopoverContent,
@@ -70,7 +71,6 @@ export function ShoppingStaplesPicker({
 }) {
 	const fetcher = useFetcher<BulkAddResponse>()
 	const moveFetcher = useFetcher()
-	const previousFetcherState = useRef(fetcher.state)
 	const choiceRequest = useRef<AbortController>(null)
 	const [choiceState, setChoiceState] = useState<ChoiceState>({
 		status: 'idle',
@@ -138,20 +138,12 @@ export function ShoppingStaplesPicker({
 			: staples
 	}, [search, staples])
 
-	useEffect(() => {
-		if (
-			previousFetcherState.current !== 'idle' &&
-			fetcher.state === 'idle' &&
-			fetcher.data?.status === 'error'
-		) {
+	useFetcherSettled(fetcher, (answer) => {
+		if (answer?.status === 'error') {
 			// The picks stay, so the person can pick fewer and try again.
-			toast.error(fetcher.data.message)
-		} else if (
-			previousFetcherState.current !== 'idle' &&
-			fetcher.state === 'idle' &&
-			fetcher.data?.status === 'success'
-		) {
-			const { addedCount, moveItemIds } = fetcher.data
+			toast.error(answer.message)
+		} else if (answer?.status === 'success') {
+			const { addedCount, moveItemIds } = answer
 			if (addedCount > 0) {
 				toast.success(`Added ${addedCount} item${addedCount === 1 ? '' : 's'}`)
 			} else if (moveItemIds.length === 0) {
@@ -179,8 +171,7 @@ export function ShoppingStaplesPicker({
 			clearPicksOnOpen.current = true
 			setOpen(false)
 		}
-		previousFetcherState.current = fetcher.state
-	}, [fetcher.data, fetcher.state, moveFetcher])
+	})
 
 	function toggleStaple(id: string) {
 		if (!availableIds.has(id)) return

@@ -37,7 +37,7 @@ export default function PrivacyRoute() {
 				Privacy Policy
 			</h1>
 			<p className="text-muted-foreground mt-2 text-sm">
-				Last updated: November 20, 2026
+				Last updated: November 25, 2026
 			</p>
 
 			<div className="mt-8 space-y-6 text-sm/6">
@@ -58,12 +58,12 @@ export default function PrivacyRoute() {
 						How we use your data
 					</h2>
 					<p className="text-muted-foreground mt-2">
-						Your data is used solely to provide and improve the Quartermaster
-						service. We use PostHog for product analytics to understand how
-						features are used and to fix bugs. We use your IP address briefly to
-						limit how many requests can come from one place, which slows down
-						password guessing; we don't keep it with your account. We do not
-						sell your data or use it for advertising.
+						Your data is used to run and improve Quartermaster. We use PostHog
+						for product analytics to understand how features are used and to fix
+						bugs. We use your IP address briefly to limit how many requests can
+						come from one place, which slows down password guessing; we don't
+						keep it with your account. We do not sell your data or use it for
+						advertising.
 					</p>
 				</section>
 
@@ -72,12 +72,12 @@ export default function PrivacyRoute() {
 						Optional AI and voice tools
 					</h2>
 					<p className="text-muted-foreground mt-2">
-						When you choose AI Recipe import, the text or images you provide are
-						sent to Anthropic. Recipe enhancement sends that Recipe&apos;s
-						title, description, ingredients, instructions, and existing times to
-						Anthropic. Voice input sends your audio to Groq for transcription;
-						the transcript may then be sent to Anthropic to parse Shopping
-						items. These tools run only when you choose them.
+						When you choose AI import, the text or images you provide are sent
+						to Anthropic. Suggest description &amp; times sends that
+						Recipe&apos;s title, description, ingredients, instructions and
+						existing times to Anthropic. Voice input sends your audio to Groq
+						for transcription; the transcript may then be sent to Anthropic to
+						parse Shopping items. These tools run only when you choose them.
 					</p>
 				</section>
 
@@ -87,14 +87,10 @@ export default function PrivacyRoute() {
 					</h2>
 					<p className="text-muted-foreground mt-2">
 						Quartermaster uses PostHog to capture anonymous pageviews, clicks,
-						and session recordings (DOM snapshots — visible page text is
-						recorded, but form input values are masked by default). This helps
-						us understand usage patterns and diagnose issues. You can opt out at
-						any time by running{' '}
-						<code className="bg-muted rounded px-1 py-0.5 text-xs">
-							posthog.opt_out_capturing()
-						</code>{' '}
-						in your browser console.
+						and session recordings. A recording keeps the page&apos;s visible
+						text and hides what you type into form fields. This helps us see how
+						the app is used and find bugs. The app has no setting to turn this
+						off.
 					</p>
 				</section>
 
@@ -130,12 +126,12 @@ export default function PrivacyRoute() {
 						Data export and deletion
 					</h2>
 					<p className="text-muted-foreground mt-2">
-						You can download a JSON export of your profile and household
-						Recipes, classifications, Staples, recovery data, Menus, Plans, and
-						Shopping. Recipe images are referenced rather than embedded. Go to
-						Settings &gt; Profile to export your data or delete your account.
-						Data belonging to a shared household may remain available to its
-						other members.
+						You can download a JSON export of your profile and your
+						Household&apos;s Recipes, classifications, Staples, recovery data,
+						Menus, Plan and Shopping. The file links to Recipe images and
+						doesn&apos;t include them. Export your data from Settings &gt; Data,
+						and delete your account from the bottom of Settings. Data in a
+						shared Household stays available to its other members.
 					</p>
 				</section>
 
@@ -144,8 +140,8 @@ export default function PrivacyRoute() {
 						Changes
 					</h2>
 					<p className="text-muted-foreground mt-2">
-						We may update this policy as the service evolves. Significant
-						changes will be communicated through the app.
+						We may update this policy as the app changes. We&apos;ll tell you
+						about big changes in the app.
 					</p>
 				</section>
 			</div>

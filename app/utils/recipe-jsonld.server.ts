@@ -295,14 +295,20 @@ export function extractRecipe(
 
 /** A width or height as sites write it: 1200, "1200", "1200px" or { value }. */
 function readDimension(value: unknown): number | null {
-	if (value && typeof value === 'object' && 'value' in value) {
-		return readDimension(value.value)
-	}
-	const number = typeof value === 'string' ? parseFloat(value) : value
+	// One level of QuantitativeValue, never deeper: a page decides the nesting.
+	const raw =
+		value && typeof value === 'object' && 'value' in value ? value.value : value
+	const number = typeof raw === 'string' ? parseFloat(raw) : raw
 	return typeof number === 'number' && Number.isFinite(number) && number > 0
 		? number
 		: null
 }
+
+/**
+ * How many `image` entries are read. Sites list a handful of crops; a page
+ * listing thousands would otherwise make the import parse every one.
+ */
+const MAX_IMAGE_ENTRIES = 20
 
 function firstString(value: unknown): string | null {
 	if (typeof value === 'string') return value
@@ -324,8 +330,11 @@ export function recipePhotoUrls(
 	jsonLd: Record<string, unknown>,
 	pageUrl: string,
 ): string[] {
-	const entries = Array.isArray(jsonLd.image) ? jsonLd.image : [jsonLd.image]
+	const entries = Array.isArray(jsonLd.image)
+		? jsonLd.image.slice(0, MAX_IMAGE_ENTRIES)
+		: [jsonLd.image]
 	const candidates: Array<{ url: string; area: number | null }> = []
+	const seen = new Set<string>()
 	for (const entry of entries) {
 		let raw: string | null = null
 		let area: number | null = null
@@ -346,7 +355,8 @@ export function recipePhotoUrls(
 			continue
 		}
 		if (url.protocol !== 'http:' && url.protocol !== 'https:') continue
-		if (candidates.some((candidate) => candidate.url === url.href)) continue
+		if (seen.has(url.href)) continue
+		seen.add(url.href)
 		candidates.push({ url: url.href, area })
 	}
 	// A stable sort keeps the page's order among equals and among the unsized.

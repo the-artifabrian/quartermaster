@@ -432,6 +432,32 @@ describe('photo', () => {
 		).toEqual(['https://example.com/images/chili.jpg'])
 	})
 
+	test('a page listing thousands of images is read only as far as its first few', () => {
+		const image = [
+			...Array.from({ length: 200_000 }, (_, i) => `/photos/${i}.jpg`),
+			{ url: '/photos/huge.jpg', width: 9000, height: 9000 },
+		]
+		const urls = photos(image)
+		expect(urls.length).toBeGreaterThan(0)
+		expect(urls.length).toBeLessThanOrEqual(20)
+		expect(urls[0]).toBe('https://example.com/photos/0.jpg')
+		expect(urls).not.toContain('https://example.com/photos/huge.jpg')
+	})
+
+	test('a size nested past one level of value is no size, and nothing throws', () => {
+		let width: Record<string, unknown> = { value: 1200 }
+		for (let i = 0; i < 100_000; i++) width = { value: width }
+		expect(
+			photos([
+				{ url: 'https://cdn.example.com/a.jpg', width, height: 900 },
+				{ url: 'https://cdn.example.com/b.jpg', width: 10, height: 10 },
+			]),
+		).toEqual([
+			'https://cdn.example.com/b.jpg',
+			'https://cdn.example.com/a.jpg',
+		])
+	})
+
 	test('no image, or nothing in it that is a web address, gives no photo', () => {
 		expect(recipePhotoUrls({ '@type': 'Recipe' }, SOURCE_URL)).toEqual([])
 		expect(photos(null)).toEqual([])

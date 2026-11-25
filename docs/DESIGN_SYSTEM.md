@@ -31,9 +31,7 @@ see [GLOSSARY.md](../GLOSSARY.md).
 
 All fonts are self-hosted: the files sit in `app/assets/fonts/` and
 `app/styles/fonts.css` declares them, so a face downloads only when a page uses
-it. `app/root.tsx` preloads the Young Serif and DM Sans latin files. Caveat is
-declared (`fonts.css`, and `--font-handwritten` in `app/styles/tailwind.css`),
-but no page uses it.
+it. `app/root.tsx` preloads the Young Serif and DM Sans latin files.
 
 Headings balance their lines (`text-wrap: balance` in
 `app/styles/tailwind.css`). Long reading text, such as a Recipe's description,
@@ -206,12 +204,13 @@ left, and a small centered title that fades in (150ms opacity, instant with
 reduced motion) once the page's big serif h1 has scrolled under the bar. The
 page declares its parent in its route `handle` (`nav`, rules in
 `app/utils/nav-back.ts`). Back undoes the last move: it pops history to the page
-that opened this one — the parent, a Recipe's Menu, a linked Recipe, or another
-tab (the Plan behind tonight's Recipe, labelled “‹ Plan”) — stepping over the
-form that led there. A page the tab bar restored goes back down its own stack,
-past the other tabs. With nothing to return to (a deep link, a cold start) Back
-opens the parent in the page's place. Settings and Upgrade go back to whatever
-page opened them. Pages do not add their own “Back to…”, arrow or Cancel links.
+that opened this one, stepping over the form that led there. That page can be
+the parent, a Recipe's Menu, a linked Recipe, or another tab (the Plan behind
+tonight's Recipe, labelled “‹ Plan”). A page the tab bar restored goes back down
+its own stack, past the other tabs. With nothing to return to (a deep link, a
+cold start) Back opens the parent in the page's place. Settings and Upgrade go
+back to whatever page opened them. Pages do not add their own “Back to…”, arrow
+or Cancel links.
 
 Edit screens (Recipe edit and new, Menu edit and new) put Cancel on the left of
 the bar and Save on the right (sage, semibold, dimmed while disabled, a spinner
@@ -256,12 +255,11 @@ Back, so it keeps the bar on every pushed page.
 
 A Recipe thumbnail shows either its photo or the deterministic warm-gradient
 monogram from `recipe-placeholder.ts`. Plan Meal rows are text-only on purpose
-and show no thumbnail (#178).
+and show no thumbnail.
 
 Typical square thumbnail sizes:
 
 - 64px in Recipe rows
-- 56–64px in “Up next”
 - 36–40px in pickers
 
 Recipe detail may use a full-bleed mobile hero and a side image on desktop.

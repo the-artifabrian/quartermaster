@@ -39,10 +39,8 @@ tool produces the web view. So we write the shell ourselves.
 
 ## Consequences
 
-- The server identifies the iOS app by a user-agent token and hides Pro
-  (ADR 0001) and Google sign-in there.
-- Google sign-in is unavailable in the app, since Google refuses OAuth in
-  embedded web views. Password and passkey login remain.
+- The server identifies the iOS app by a user-agent token and hides Pro there
+  (ADR 0001).
 - Android later can use a Trusted Web Activity, which Play accepts for PWAs
   without wrapper code.
 

@@ -678,8 +678,9 @@ the subscription id, to cancel by hand.
 inside `redirectTo`. These go through it:
 
 - the request log and the `server_error` event;
-- in the browser, every URL in a PostHog event's properties, the links
-  autocapture records, and URLs in error messages.
+- in the browser, every URL in a PostHog event's properties, every URL among the
+  element attributes autocapture records (a link's `href`, a form's `action`),
+  and URLs in error messages.
 
 `handleError` in `app/entry.server.tsx` sends `server_error` for 5xx responses
 and thrown errors only. A 4xx, such as a bot's POST to a page with no action, is
@@ -690,9 +691,10 @@ can't read gets a 400 from the root middleware in
 `app/utils/form-body.server.ts`, and upload routes map the multipart parser's
 errors to the same 400 with `rethrowUnreadableUpload`.
 
-PostHog captures pageviews, clicks and errors, and never records sessions.
-`disable_session_recording` in `app/utils/posthog.client.ts` keeps the PostHog
-project's recording settings from starting one. Click events keep the clicked
+PostHog records pageviews, clicks, errors and how fast pages load, and never
+records sessions or heatmaps. `disable_session_recording` and
+`capture_heatmaps: false` in `app/utils/posthog.client.ts` keep the PostHog
+project's settings from turning either on. Click events keep the clicked
 element's text, since `mask_all_text` is off, so a page that shows a secret
 marks it with PostHog's `ph-no-capture` class: the 2FA setup's QR code and URI,
 and the Household invite link.

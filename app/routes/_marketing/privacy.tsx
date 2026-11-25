@@ -86,10 +86,10 @@ export default function PrivacyRoute() {
 						Analytics
 					</h2>
 					<p className="text-muted-foreground mt-2">
-						Quartermaster uses PostHog to capture pageviews and clicks, linked
-						to your account once you log in. It doesn&apos;t record sessions.
-						This helps us see how the app is used and find bugs. The app has no
-						setting to turn this off.
+						Quartermaster uses PostHog to record pageviews, clicks, errors and
+						how fast pages load, linked to your account once you log in. It
+						doesn&apos;t record sessions. This helps us see how the app is used
+						and find bugs. The app has no setting to turn this off.
 					</p>
 				</section>
 
@@ -111,12 +111,9 @@ export default function PrivacyRoute() {
 					</h2>
 					<p className="text-muted-foreground mt-2">
 						We use a single httpOnly session cookie for authentication and a
-						theme preference cookie. PostHog sets an analytics cookie for
-						identified users (only created after you log in, per our{' '}
-						<code className="bg-muted rounded px-1 py-0.5 text-xs">
-							person_profiles: &apos;identified_only&apos;
-						</code>{' '}
-						configuration). We do not use advertising cookies.
+						theme preference cookie. PostHog stores an anonymous ID in a cookie
+						and in local storage to group your visits, and links it to your
+						account when you log in. We do not use advertising cookies.
 					</p>
 				</section>
 

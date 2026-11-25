@@ -3,6 +3,7 @@
  * loaves" instead of keeping the 1× wording ("2 egg", "2 pinch", "2 loaf").
  */
 import { expect, test } from 'vitest'
+import { parseIngredient } from './ingredient-parser.ts'
 import { scaledLineWords, scaledYieldLabel } from './ingredient-plural.ts'
 
 function line(amount: string | null, unit: string | null, name: string) {
@@ -141,6 +142,27 @@ test('a container at the start of the name is what gets counted', () => {
 	expect(
 		scaledLineWords(line('1', null, 'punnet cherry tomatoes'), 0.5).name,
 	).toBe('punnet cherry tomatoes')
+})
+
+test('a parsed line in tins scales its unit', () => {
+	const parsed = parseIngredient('2 tins chopped tomatoes')!
+	const halved = scaledLineWords(
+		{ amount: parsed.amount!, unit: parsed.unit ?? null, name: parsed.name },
+		0.5,
+	)
+	expect(`${halved.unit ?? ''} ${halved.name}`.trim()).toBe(
+		'tin chopped tomatoes',
+	)
+})
+
+test.each([
+	['bar', 'bars'],
+	['case', 'cases'],
+	['container', 'containers'],
+	['tube', 'tubes'],
+])('the unit %s scales to %s and back', (one, many) => {
+	expect(scaledLineWords(line('1', one, 'chocolate'), 2).unit).toBe(many)
+	expect(scaledLineWords(line('2', many, 'chocolate'), 0.5).unit).toBe(one)
 })
 
 test('an amount that shows as a whole number counts as that number', () => {

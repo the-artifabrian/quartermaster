@@ -255,6 +255,41 @@ describe('parseSpeechItem', () => {
 		})
 	})
 
+	describe('units the recipe parser already knew', () => {
+		test.each([
+			['2 l of milk', 'l'],
+			['500 mg of vitamin c', 'mg'],
+			['500 milligrams of vitamin c', 'mg'],
+			['200 milliliters of cream', 'ml'],
+			['200 millilitres of cream', 'ml'],
+			['200 mls of cream', 'ml'],
+			['8 ozs of cheese', 'oz'],
+			['2 kgs of potatoes', 'kg'],
+			['1 gal of milk', 'gallon'],
+			['1 pt of cream', 'pint'],
+			['2 pts of cream', 'pint'],
+			['1 qt of broth', 'quart'],
+			['2 qts of broth', 'quart'],
+			['2 tbsps of oil', 'tbsp'],
+			['2 tsps of salt', 'tsp'],
+			['1 pinch of salt', 'pinch'],
+			['1 dash of hot sauce', 'dash'],
+			['1 handful of basil', 'handful'],
+			['2 fl oz of vanilla', 'fl oz'],
+			['8 fluid ounces of milk', 'fl oz'],
+		])('"%s" → unit "%s"', (input, unit) => {
+			expect(parseSpeechItem(input).unit).toBe(unit)
+		})
+
+		test('"half" starts a name, as in "half gallon of milk"', () => {
+			expect(parseSpeechItem('1 half gallon of milk')).toEqual({
+				name: 'half gallon of milk',
+				quantity: '1',
+				unit: '',
+			})
+		})
+	})
+
 	describe('trailing punctuation', () => {
 		test.each([
 			['milk.', { name: 'milk', quantity: '', unit: '' }],
@@ -407,6 +442,53 @@ describe('parseTypedItem', () => {
 			quantity: '3',
 			unit: '',
 		})
+	})
+
+	test('reads units the recipe parser knows', () => {
+		expect(parseTypedItem('2 l milk')).toEqual({
+			name: 'milk',
+			quantity: '2',
+			unit: 'l',
+		})
+		expect(parseTypedItem('1 pinch saffron')).toEqual({
+			name: 'saffron',
+			quantity: '1',
+			unit: 'pinch',
+		})
+	})
+
+	test('"half" and "halves" start a name, never a unit', () => {
+		expect(parseTypedItem('2 half and half')).toEqual({
+			name: 'half and half',
+			quantity: '2',
+			unit: '',
+		})
+		expect(parseTypedItem('2 halves peaches')?.unit).toBe('')
+	})
+
+	test('"pack choi" and "loaf tin" are things, not a unit and a name', () => {
+		expect(parseTypedItem('1 pack choi')).toEqual({
+			name: 'pack choi',
+			quantity: '1',
+			unit: '',
+		})
+		expect(parseTypedItem('2 Loaf tins')).toEqual({
+			name: 'Loaf tins',
+			quantity: '2',
+			unit: '',
+		})
+		expect(parseSpeechItem('2 pack choi')).toEqual({
+			name: 'pack choi',
+			quantity: '2',
+			unit: '',
+		})
+		expect(parseTypedItem('1 pack tortillas')?.unit).toBe('pack')
+	})
+
+	test('a unit typed in capitals is stored in lower case', () => {
+		expect(parseTypedItem('2 TBSP honey')?.unit).toBe('tbsp')
+		expect(parseTypedItem('2 KG rice')?.unit).toBe('kg')
+		expect(parseTypedItem('2 Bags chips')?.unit).toBe('bags')
 	})
 
 	test('returns null when there is no leading quantity', () => {

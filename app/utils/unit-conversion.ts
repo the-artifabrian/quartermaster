@@ -5,6 +5,8 @@
  * (e.g., tsp → tbsp → cup) so the shopping list can sum quantities.
  */
 
+import { normalizeUnit } from './units.ts'
+
 type UnitFamily = {
 	name: string
 	/** Base unit is the smallest; all factors are relative to it */
@@ -40,61 +42,6 @@ const UNIT_FAMILIES: UnitFamily[] = [
 		},
 	},
 ]
-
-/** Map of aliases to their canonical unit name */
-const UNIT_ALIASES: Record<string, string> = {
-	// US volume
-	teaspoon: 'tsp',
-	teaspoons: 'tsp',
-	tsps: 'tsp',
-	tablespoon: 'tbsp',
-	tablespoons: 'tbsp',
-	tbsps: 'tbsp',
-	'fluid ounce': 'fl oz',
-	'fluid ounces': 'fl oz',
-	'fl ozs': 'fl oz',
-	cups: 'cup',
-	pints: 'pint',
-	pt: 'pint',
-	pts: 'pint',
-	quarts: 'quart',
-	qt: 'quart',
-	qts: 'quart',
-	gallons: 'gallon',
-	gal: 'gallon',
-	// US weight
-	ounce: 'oz',
-	ounces: 'oz',
-	ozs: 'oz',
-	pound: 'lb',
-	pounds: 'lb',
-	lbs: 'lb',
-	// Metric volume
-	milliliter: 'ml',
-	milliliters: 'ml',
-	millilitre: 'ml',
-	millilitres: 'ml',
-	mls: 'ml',
-	liter: 'l',
-	liters: 'l',
-	litre: 'l',
-	litres: 'l',
-	// Metric weight
-	gram: 'g',
-	grams: 'g',
-	kilogram: 'kg',
-	kilograms: 'kg',
-	kgs: 'kg',
-}
-
-/**
- * Normalize a unit string to its canonical form.
- * "tablespoons" → "tbsp", "Cups" → "cup", etc.
- */
-export function normalizeUnit(unit: string): string {
-	const lower = unit.toLowerCase().trim()
-	return UNIT_ALIASES[lower] ?? lower
-}
 
 /** Metric units, displayed as decimals, never fractions. */
 const METRIC_UNITS = new Set(['g', 'kg', 'ml', 'l'])

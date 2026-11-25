@@ -7,7 +7,7 @@ import { expect, test } from 'vitest'
 import { createOwnHousehold } from '#app/utils/auth.server.ts'
 import { addDaysUTC, getWeekStart, parseDate, serializeDate } from './date.ts'
 import { prisma } from './db.server.ts'
-import { CONTAINER_START, COMMON_UNITS } from './ingredient-parser.ts'
+import { CONTAINER_START } from './ingredient-parser.ts'
 import { parseAmount } from './fractions.ts'
 import {
 	SAMPLE_HOUSEHOLD,
@@ -16,6 +16,7 @@ import {
 import { fillSampleHousehold } from './sample-household.server.ts'
 import { addMealToShopping } from './shopping-adds.server.ts'
 import { combineRowDisplay, demandIdentity } from './shopping-demand.server.ts'
+import { UNIT_WORDS } from './units.ts'
 import { createUser } from '#tests/db-utils.ts'
 import '#tests/setup/db-setup.ts'
 
@@ -336,10 +337,10 @@ test('every Recipe line is read as amount, unit and name', async () => {
 		const firstWord = name.split(/\s+/)[0]!.toLowerCase()
 		return (
 			/^[\d½¼¾⅓⅔]/.test(name) ||
-			COMMON_UNITS.has(firstWord) ||
+			UNIT_WORDS.has(firstWord) ||
 			CONTAINER_START.test(name) ||
 			(amount !== null && parseAmount(amount) === null) ||
-			(unit !== null && !COMMON_UNITS.has(unit.toLowerCase()))
+			(unit !== null && !UNIT_WORDS.has(unit.toLowerCase()))
 		)
 	})
 	expect(misread).toEqual([])

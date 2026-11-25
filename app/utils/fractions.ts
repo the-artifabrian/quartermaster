@@ -77,7 +77,8 @@ export function readYieldNumber(
 
 /**
  * Parse a string amount into a number, or null when the whole string isn't
- * one number. Handles fractions ("1/2"), mixed numbers ("1 1/2"), decimals
+ * one number. Handles fractions ("1/2"), mixed numbers ("1 1/2", and "1-1/2"
+ * as US recipes write them), decimals
  * with a dot or a comma ("1.5", "1,5"), thousands separators ("1,000,000"),
  * unicode fractions ("½", "¾"), and mixed unicode ("1½", "1 ½").
  *
@@ -116,6 +117,9 @@ export function parseAmount(amount: string): number | null {
 		return whole + num / den
 	}
 
+	const hyphenMixed = hyphenatedMixedNumber(trimmed)
+	if (hyphenMixed !== null) return hyphenMixed
+
 	// Simple fraction: "1/2"
 	const fractionMatch = trimmed.match(/^(\d+)\/(\d+)$/)
 	if (fractionMatch) {
@@ -131,6 +135,24 @@ export function parseAmount(amount: string): number | null {
 	if (COMMA_DECIMAL.test(trimmed)) return Number(trimmed.replace(',', '.'))
 	if (DOT_DECIMAL.test(trimmed)) return Number(trimmed)
 	return null
+}
+
+const HYPHENATED_MIXED_NUMBER = /^(\d+)-(\d+)\/(\d+)$/
+
+/**
+ * The value of a whole number, a hyphen and a fraction below one, as US
+ * recipes write a mixed number: "1-1/2" is 1 1/2. As a range it would run
+ * downhill, from 1 to 1/2. Null for anything else, including "0-1/2", which
+ * is a range up to a half.
+ */
+function hyphenatedMixedNumber(amount: string): number | null {
+	const match = HYPHENATED_MIXED_NUMBER.exec(amount)
+	if (!match) return null
+	const whole = parseInt(match[1]!, 10)
+	const num = parseInt(match[2]!, 10)
+	const den = parseInt(match[3]!, 10)
+	if (whole < 1 || den === 0 || num >= den) return null
+	return whole + num / den
 }
 
 // Common fractions for display, ordered by denominator then numerator
@@ -214,7 +236,11 @@ const RANGE_AMOUNT =
 	/^\s*(\d[\d\s.,/½⅓⅔¼¾⅛⅜⅝⅞]*?|[½⅓⅔¼¾⅛⅜⅝⅞])\s*([-–—~]|to)\s*(\d[\d\s.,/½⅓⅔¼¾⅛⅜⅝⅞]*|[½⅓⅔¼¾⅛⅜⅝⅞])\s*$/i
 
 export function isRangeAmount(amount: string): boolean {
-	return amount.length <= MAX_AMOUNT_TEXT && RANGE_AMOUNT.test(amount)
+	return (
+		amount.length <= MAX_AMOUNT_TEXT &&
+		RANGE_AMOUNT.test(amount) &&
+		hyphenatedMixedNumber(amount.trim()) === null
+	)
 }
 
 // RANGE_AMOUNT lets its ends hold spaces, so it is only ever run on text

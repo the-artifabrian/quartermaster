@@ -20,6 +20,7 @@ import {
 	MAX_RECIPE_TITLE_LENGTH,
 	MAX_SOURCE_URL_LENGTH,
 	MAX_YIELD_LABEL_LENGTH,
+	positiveMinutes,
 	RecipeSchema,
 } from './recipe-validation.ts'
 
@@ -76,12 +77,6 @@ function fit(text: string, limit: number, onCut: () => void) {
 	if (text.length <= limit) return text
 	onCut()
 	return `${headAtWord(text, limit - 1)}…`
-}
-
-function positiveMinutes(value: number | null) {
-	if (value == null || !Number.isFinite(value)) return null
-	const minutes = Math.round(value)
-	return minutes > 0 ? minutes : null
 }
 
 function webAddress(value: string) {

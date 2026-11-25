@@ -1,45 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import {
-	normalizeUnit,
-	getUnitFamily,
-	convertAndSum,
-	isCountUnit,
-} from './unit-conversion.ts'
-
-describe('normalizeUnit', () => {
-	test('normalizes common aliases', () => {
-		expect(normalizeUnit('tablespoons')).toBe('tbsp')
-		expect(normalizeUnit('Tablespoon')).toBe('tbsp')
-		expect(normalizeUnit('teaspoons')).toBe('tsp')
-		expect(normalizeUnit('cups')).toBe('cup')
-		expect(normalizeUnit('Cup')).toBe('cup')
-		expect(normalizeUnit('ounces')).toBe('oz')
-		expect(normalizeUnit('pounds')).toBe('lb')
-		expect(normalizeUnit('lbs')).toBe('lb')
-		expect(normalizeUnit('grams')).toBe('g')
-		expect(normalizeUnit('kilograms')).toBe('kg')
-		expect(normalizeUnit('milliliters')).toBe('ml')
-		expect(normalizeUnit('liters')).toBe('l')
-		expect(normalizeUnit('litres')).toBe('l')
-	})
-
-	test('normalizes gallon aliases', () => {
-		expect(normalizeUnit('gallons')).toBe('gallon')
-		expect(normalizeUnit('gal')).toBe('gallon')
-	})
-
-	test('passes through unknown units', () => {
-		expect(normalizeUnit('cloves')).toBe('cloves')
-		expect(normalizeUnit('bunch')).toBe('bunch')
-		expect(normalizeUnit('pinch')).toBe('pinch')
-	})
-
-	test('handles already-normalized units', () => {
-		expect(normalizeUnit('tsp')).toBe('tsp')
-		expect(normalizeUnit('tbsp')).toBe('tbsp')
-		expect(normalizeUnit('cup')).toBe('cup')
-	})
-})
+import { getUnitFamily, convertAndSum, isCountUnit } from './unit-conversion.ts'
 
 describe('getUnitFamily', () => {
 	test('finds volume family for US and metric units', () => {

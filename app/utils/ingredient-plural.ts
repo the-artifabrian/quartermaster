@@ -11,11 +11,14 @@ import { PRODUCE_WORD_FORMS } from './produce-weights.ts'
 // a name with no unit ("2 tins chopped tomatoes") is what the amount counts.
 const COUNT_UNITS: Array<[string, string]> = [
 	['bag', 'bags'],
+	['bar', 'bars'],
 	['bottle', 'bottles'],
 	['box', 'boxes'],
 	['bunch', 'bunches'],
 	['can', 'cans'],
+	['case', 'cases'],
 	['clove', 'cloves'],
+	['container', 'containers'],
 	['cube', 'cubes'],
 	['cup', 'cups'],
 	['dash', 'dashes'],
@@ -50,6 +53,7 @@ const COUNT_UNITS: Array<[string, string]> = [
 	['teaspoon', 'teaspoons'],
 	['tin', 'tins'],
 	['tub', 'tubs'],
+	['tube', 'tubes'],
 	['wedge', 'wedges'],
 	['punnet', 'punnets'],
 	['carton', 'cartons'],

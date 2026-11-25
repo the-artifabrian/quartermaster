@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { scaleAmount } from './fractions.ts'
 import {
 	detectIngredientHeading,
 	isAllCapsHouseStyle,
@@ -848,5 +849,190 @@ describe('parseISODuration', () => {
 		expect(parseISODuration('P0D')).toBeUndefined()
 		expect(parseISODuration('P')).toBeUndefined()
 		expect(parseISODuration('PT')).toBeUndefined()
+	})
+})
+
+describe('a hyphenated mixed number in a Recipe line', () => {
+	test('"1-1/2 cups flour" keeps the amount whole and scales it as 1 1/2', () => {
+		const parsed = parseIngredient('1-1/2 cups flour')
+		expect(parsed).toMatchObject({ amount: '1-1/2', unit: 'cups' })
+		expect(scaleAmount(parsed!.amount, 2)).toBe('3')
+	})
+
+	test('"1 - 1/2 cups flour" closes up and reads as 1 1/2 cups', () => {
+		const parsed = parseIngredient('1 - 1/2 cups flour')
+		expect(parsed).toMatchObject({ amount: '1-1/2', unit: 'cups' })
+		expect(scaleAmount(parsed!.amount, 2)).toBe('3')
+	})
+
+	test('"1 to 1/2 cups flour" keeps its amount as written and unscaled', () => {
+		const parsed = parseIngredient('1 to 1/2 cups flour')
+		expect(parsed).toMatchObject({
+			amount: '1 to 1/2',
+			unit: 'cups',
+			name: 'flour',
+		})
+		expect(scaleAmount(parsed!.amount, 2)).toBe('1 to 1/2')
+	})
+
+	test('any "to" range running downhill keeps its amount as written', () => {
+		expect(parseIngredient('3 to 2 tbsp oil')).toMatchObject({
+			amount: '3 to 2',
+			unit: 'tbsp',
+			name: 'oil',
+		})
+	})
+
+	test('an uphill "to" range still closes up', () => {
+		expect(parseIngredient('2 to 3 cups flour')).toMatchObject({
+			amount: '2-3',
+			unit: 'cups',
+			name: 'flour',
+		})
+	})
+})
+
+describe('unit words the Shopping parsers already knew', () => {
+	test('"2 tins chickpeas" counts tins, as "2 cans chickpeas" counts cans', () => {
+		expect(parseIngredient('2 tins chickpeas')).toMatchObject({
+			amount: '2',
+			unit: 'tins',
+			name: 'chickpeas',
+		})
+		expect(parseIngredient('2 cans chickpeas')).toMatchObject({
+			amount: '2',
+			unit: 'cans',
+			name: 'chickpeas',
+		})
+	})
+
+	test('a sized tin keeps its size in the notes', () => {
+		expect(parseIngredient('1 (400 g) tin chickpeas')).toMatchObject({
+			amount: '1',
+			unit: 'tin',
+			name: 'chickpeas',
+			notes: '400 g',
+		})
+	})
+
+	test.each([
+		['1 bag spinach', 'bag', 'spinach'],
+		['2 bars dark chocolate', 'bars', 'dark chocolate'],
+		['1 carton cream', 'carton', 'cream'],
+		['1 case sparkling water', 'case', 'sparkling water'],
+		['1 container yogurt', 'container', 'yogurt'],
+		['1 dozen eggs', 'dozen', 'eggs'],
+		['1 each red and green pepper', 'each', 'red and green pepper'],
+		['1 loaf sourdough', 'loaf', 'sourdough'],
+		['2 loaves bread', 'loaves', 'bread'],
+		['2 packs tortillas', 'packs', 'tortillas'],
+		['1 roll puff pastry', 'roll', 'puff pastry'],
+		['1 tub ricotta', 'tub', 'ricotta'],
+		['1 tube tomato paste', 'tube', 'tomato paste'],
+		['2 bags frozen peas', 'bags', 'frozen peas'],
+		['2 cartons milk', 'cartons', 'milk'],
+		['2 cases cider', 'cases', 'cider'],
+		['2 containers hummus', 'containers', 'hummus'],
+		['2 dozens eggs', 'dozens', 'eggs'],
+		['2 tubs yogurt', 'tubs', 'yogurt'],
+		['2 tubes harissa', 'tubes', 'harissa'],
+	])('"%s" reads %s as the unit', (line, unit, name) => {
+		expect(parseIngredient(line)).toMatchObject({ unit, name })
+	})
+
+	test('a unit word alone after the amount stays the name', () => {
+		expect(parseIngredient('8 rolls')).toMatchObject({
+			amount: '8',
+			name: 'rolls',
+		})
+		expect(parseIngredient('8 rolls')?.unit).toBeUndefined()
+	})
+
+	test.each([
+		['4 rolls for serving', 'rolls for serving'],
+		['8 rolls to serve', 'rolls to serve'],
+		['12 rolls or buns', 'rolls or buns'],
+		['4 rolls and butter', 'rolls and butter'],
+		['2 bars for decoration', 'bars for decoration'],
+	])('"%s" keeps the unit word in the name', (line, name) => {
+		const parsed = parseIngredient(line)
+		expect(parsed).toMatchObject({ name })
+		expect(parsed?.unit).toBeUndefined()
+	})
+
+	test.each([
+		['1 loaf (400 g)', 'loaf', '400 g'],
+		['6 rolls (brioche)', 'rolls', 'brioche'],
+	])(
+		'"%s" with only a bracket after the unit names the unit',
+		(line, name, notes) => {
+			const parsed = parseIngredient(line)
+			expect(parsed).toMatchObject({ name, notes })
+			expect(parsed?.unit).toBeUndefined()
+		},
+	)
+
+	test('a comma straight after the unit word starts the notes', () => {
+		for (const [line, name] of [
+			['4 rolls , warmed', 'rolls'],
+			['2 bags , frozen', 'bags'],
+		]) {
+			const parsed = parseIngredient(line!)
+			expect(parsed).toMatchObject({ name, notes: line!.split(', ')[1] })
+			expect(parsed?.unit).toBeUndefined()
+		}
+	})
+
+	test('a measure keeps its unit when only "to taste" follows', () => {
+		expect(parseIngredient('1 tsp to taste')).toMatchObject({
+			amount: '1',
+			unit: 'tsp',
+			name: 'to taste',
+		})
+	})
+
+	test('a measure keeps its unit when only a bracket follows', () => {
+		expect(parseIngredient('2 cups (sifted)')).toMatchObject({
+			amount: '2',
+			unit: 'cups',
+			name: '(sifted)',
+		})
+	})
+
+	test('a measure keeps its unit before "for" or "or"', () => {
+		expect(parseIngredient('1 tbsp for frying')).toMatchObject({
+			unit: 'tbsp',
+			name: 'for frying',
+		})
+		expect(parseIngredient('2 cans or 1 jar')).toMatchObject({
+			unit: 'cans',
+			name: 'or 1 jar',
+		})
+	})
+
+	test('a bracket followed by a name still leaves the unit', () => {
+		expect(parseIngredient('1 cup (240 ml) milk')).toMatchObject({
+			unit: 'cup',
+			name: 'milk',
+			notes: '240 ml',
+		})
+	})
+
+	test.each([
+		['1 pack choi', 'pack choi'],
+		['2 pack choi, halved', 'pack choi'],
+		['1 loaf tin', 'loaf tin'],
+		['1 loaf pan', 'loaf pan'],
+	])('"%s" is a thing named with a unit word, not a unit', (line, name) => {
+		const parsed = parseIngredient(line)
+		expect(parsed).toMatchObject({ name })
+		expect(parsed?.unit).toBeUndefined()
+	})
+
+	test('"pack" before another word is still a unit', () => {
+		expect(parseIngredient('1 pack tortillas')).toMatchObject({
+			unit: 'pack',
+			name: 'tortillas',
+		})
 	})
 })

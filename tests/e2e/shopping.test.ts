@@ -2,6 +2,10 @@ import { type Locator, type Page } from '@playwright/test'
 import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import {
+	convertToMetric,
+	displayMetricAmount,
+} from '#app/utils/metric-conversion.ts'
+import {
 	browserToday,
 	expect,
 	expectThumbSized,
@@ -271,6 +275,77 @@ test('a range amount added from a Recipe keeps both ends on Shopping', async ({
 	await expect(
 		page.getByRole('group', { name: 'flour shopping item' }),
 	).toContainText('1-2 cups')
+})
+
+test('"1-1/2 cups" reads as one and a half on the Recipe, scales, and converts to metric', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Drop scones',
+			userId: user.id,
+			householdId: user.householdId,
+			ingredients: {
+				create: { name: 'flour', amount: '1-1/2', unit: 'cups', order: 0 },
+			},
+			instructions: { create: { content: 'Mix and fry.', order: 0 } },
+		},
+	})
+	await page.setViewportSize({ width: 390, height: 844 })
+	const flourRow = page.getByRole('checkbox', { name: 'flour', exact: true })
+
+	await page.goto(`/recipes/${recipe.id}?scale=2`)
+	await expect(flourRow).toContainText('3 cups')
+
+	await page.goto(`/recipes/${recipe.id}`)
+	await expect(flourRow).toContainText('1 1/2 cups')
+
+	// A range would stay in cups; one number converts.
+	await page.getByRole('button', { name: 'Metric' }).click()
+	await expect(page.getByRole('button', { name: 'Metric' })).toHaveAttribute(
+		'aria-pressed',
+		'true',
+	)
+	await flourRow
+		.getByRole('button', { name: 'Add to Shopping', exact: true })
+		.click()
+	const metric = displayMetricAmount(convertToMetric(1.5, 'cups', 'flour')!)
+	await expect
+		.poll(() =>
+			prisma.shoppingListItem.findMany({
+				where: { list: { householdId: user.householdId } },
+				select: { name: true, quantity: true, unit: true },
+			}),
+		)
+		.toEqual([{ name: 'flour', quantity: metric.quantity, unit: metric.unit }])
+	expect(metric.unit).toBe('g')
+})
+
+test('a typed "1 L milk" is a litre of milk on Shopping', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await page.goto('/shopping')
+	await page
+		.getByPlaceholder(/add an item/i)
+		.filter({ visible: true })
+		.fill('1 L milk')
+	await page.getByRole('button', { name: /add to next shop/i }).click()
+	await expect
+		.poll(() =>
+			prisma.shoppingListItem.findMany({
+				where: { list: { householdId: user.householdId } },
+				select: { name: true, quantity: true, unit: true },
+			}),
+		)
+		.toEqual([{ name: 'milk', quantity: '1', unit: 'l' }])
+	await expect(
+		page.getByRole('group', { name: 'milk shopping item' }),
+	).toContainText('1 l')
 })
 
 test('Shopping list flow: pick from Plan → verify items → add manual → check → clear', async ({

@@ -1,6 +1,5 @@
 // Re-export shared parsing utilities (available client-side too)
 export {
-	COMMON_UNITS,
 	detectIngredientHeading,
 	isAllCapsHouseStyle,
 	parseIngredient,

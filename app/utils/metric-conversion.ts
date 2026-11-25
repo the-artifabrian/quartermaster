@@ -7,11 +7,8 @@
  */
 
 import { getDensity } from '#app/utils/ingredient-densities.ts'
-import {
-	isMetricUnit,
-	normalizeUnit,
-	round2,
-} from '#app/utils/unit-conversion.ts'
+import { isMetricUnit, round2 } from '#app/utils/unit-conversion.ts'
+import { normalizeUnit } from '#app/utils/units.ts'
 
 export type MetricResult = {
 	amount: number

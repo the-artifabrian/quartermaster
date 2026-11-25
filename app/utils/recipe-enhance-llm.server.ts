@@ -8,7 +8,10 @@ import {
 	type AnthropicJsonFailure,
 	type JsonSchema,
 } from './anthropic-json.server.ts'
-import { MAX_RECIPE_DESCRIPTION_LENGTH } from './recipe-validation.ts'
+import {
+	MAX_RECIPE_DESCRIPTION_LENGTH,
+	positiveMinutes,
+} from './recipe-validation.ts'
 
 const TIMEOUT_MS = 10_000
 // The suggestions fit in a few hundred tokens; the rest is room for the
@@ -70,12 +73,6 @@ const ENHANCE_JSON_SCHEMA: JsonSchema = {
 	},
 	required: ['description', 'activeTime', 'totalTime'],
 	additionalProperties: false,
-}
-
-function positiveMinutes(value: unknown): number | null {
-	if (typeof value !== 'number' || !Number.isFinite(value)) return null
-	const minutes = Math.round(value)
-	return Number.isSafeInteger(minutes) && minutes > 0 ? minutes : null
 }
 
 type RecipeTimes = Pick<RecipeInput, 'activeTime' | 'totalTime'>

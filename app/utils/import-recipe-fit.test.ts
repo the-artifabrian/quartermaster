@@ -191,6 +191,14 @@ test('times that are not positive whole minutes are rounded or dropped', () => {
 	}
 })
 
+test('a time too large to store is dropped, and the import still fits', () => {
+	const { recipe } = fitImportedRecipe(
+		extracted({ activeTime: 1e20, totalTime: 45 }),
+	)
+	expect(recipe.activeTime).toBeNull()
+	expect(recipe.totalTime).toBe(45)
+})
+
 test('a yield needs both a positive amount and a label', () => {
 	const fit = (yieldAmount: number | null, yieldLabel: string | null) => {
 		const { recipe } = fitImportedRecipe(extracted({ yieldAmount, yieldLabel }))

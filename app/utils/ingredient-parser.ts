@@ -5,6 +5,7 @@ import {
 	MAX_INGREDIENT_NOTES_LENGTH,
 	MAX_INGREDIENT_UNIT_LENGTH,
 } from './recipe-validation.ts'
+import { canBeTheFood, namesAThing, UNIT_WORDS } from './units.ts'
 
 /**
  * The longest ingredient line the parser reads, after links are reduced to
@@ -93,99 +94,34 @@ function beforeToTaste(text: string): string | null {
 	return LINE_BREAK.test(before) ? null : before
 }
 
-// Common cooking units - only these should be treated as units
-export const COMMON_UNITS = new Set([
-	'g',
-	'gram',
-	'grams',
-	'kg',
-	'kilogram',
-	'kilograms',
-	'kgs',
-	'mg',
-	'milligram',
-	'milligrams',
-	'oz',
-	'ounce',
-	'ounces',
-	'ozs',
-	'lb',
-	'lbs',
-	'pound',
-	'pounds',
-	'ml',
-	'mls',
-	'milliliter',
-	'milliliters',
-	'millilitre',
-	'millilitres',
-	'l',
-	'liter',
-	'liters',
-	'litre',
-	'litres',
-	'gallon',
-	'gallons',
-	'gal',
-	'quart',
-	'quarts',
-	'qt',
-	'qts',
-	'pint',
-	'pints',
-	'pt',
-	'pts',
-	'cup',
-	'cups',
-	'tablespoon',
-	'tablespoons',
-	'tbsp',
-	'tbsps',
-	'tsp',
-	'tsps',
-	'teaspoon',
-	'teaspoons',
-	'can',
-	'cans',
-	'jar',
-	'jars',
-	'bottle',
-	'bottles',
-	'package',
-	'packages',
-	'box',
-	'boxes',
-	'slice',
-	'slices',
-	'piece',
-	'pieces',
-	'half',
-	'halves',
-	'clove',
-	'cloves',
-	'bunch',
-	'bunches',
-	'head',
-	'heads',
-	'stalk',
-	'stalks',
-	'sprig',
-	'sprigs',
-	'stick',
-	'sticks',
-	'pinch',
-	'dash',
-	'handful',
-])
-
 // Helpers for period-tolerant unit matching (e.g. "tbsp." → "tbsp")
 function isUnit(word: string): boolean {
 	const normalized = word.replace(/\.$/, '').toLowerCase()
-	return COMMON_UNITS.has(normalized)
+	return UNIT_WORDS.has(normalized)
 }
 
 function stripUnitPeriod(word: string): string {
 	return word.replace(/\.$/, '')
+}
+
+// Nothing, or only notes after a comma, leaves a unit word with no name to
+// measure, so the word is the name ("2 bags , frozen" is bags).
+const NOTHING_AFTER_UNIT = /^(?:$|,)/
+// A unit word that can be the food ("4 rolls for serving") is also the name
+// when a bracket on its own, or a phrase starting "for", "to", "or" or "and",
+// follows it. A measure keeps its unit there: "1 tsp to taste" is tsp.
+const NO_FOOD_AFTER_UNIT = /^(?:\([^)]*\)$|(?:for|to|or|and)\b)/i
+
+/** Whether `word` is the unit of a line whose name is `rest`. */
+function readsAsUnit(word: string, rest: string): boolean {
+	const after = rest.trim()
+	const unit = stripUnitPeriod(word)
+	return (
+		isUnit(word) &&
+		!NOTHING_AFTER_UNIT.test(after) &&
+		!(canBeTheFood(unit) && NO_FOOD_AFTER_UNIT.test(after)) &&
+		!namesAThing(unit, after)
+	)
 }
 
 // Written-out numbers for pre-processing
@@ -389,6 +325,9 @@ const PACK_SIZE_AMOUNT =
 const SPACED_AMOUNT =
 	/^(~?)(\d{1,3}(?:[ \u00A0\u202F]\d{3})+(?:[.,]\d+)?)(?![\d/.,\-–])/
 
+const TO_RANGE =
+	/^(~?[\d./½⅓⅔¼¾⅛⅜⅝⅞](?:[\d./½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s+to\s+([\d./½⅓⅔¼¾⅛⅜⅝⅞](?:[\d./½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s/
+
 /**
  * A container word at the start of a name. After an amount, a unit and one
  * of these, the first number counts the containers: "2 400 g tins tomatoes"
@@ -515,11 +454,24 @@ function parseCleanedLine(
 	// number isn't split at its comma and "2, chopped" still starts notes.
 	// parseAmount decides what the amount means.
 
-	// "X to Y" range normalization: "2 to 3 tablespoons" → "2-3 tablespoons"
-	cleaned = cleaned.replace(
-		/^(~?[\d./½⅓⅔¼¾⅛⅜⅝⅞](?:[\d./½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s+to\s+([\d./½⅓⅔¼¾⅛⅜⅝⅞](?:[\d./½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s/,
-		'$1-$2 ',
-	)
+	// "X to Y" range normalization: "2 to 3 tablespoons" → "2-3 tablespoons".
+	// One that runs downhill ("1 to 1/2") is no range, and with a hyphen it
+	// would read as the mixed number 1 1/2, so its amount stays as written.
+	const toRange = TO_RANGE.exec(cleaned)
+	if (toRange) {
+		const [whole, low, high] = toRange
+		const rest = cleaned.slice(whole.length)
+		const lowValue = parseAmount(low!)
+		const highValue = parseAmount(high!)
+		const downhill =
+			lowValue !== null && highValue !== null && lowValue > highValue
+		const parsed = downhill
+			? parseCleanedLine(`1 ${rest}`, { spacedAmounts: false })
+			: null
+		if (parsed?.amount === '1')
+			return { ...parsed, amount: `${low} to ${high}` }
+		cleaned = `${low}-${high} ${rest}`
+	}
 
 	// Normalize ranges with spaces around dash: "1½ -2 cups" → "1½-2 cups"
 	cleaned = cleaned.replace(
@@ -563,7 +515,11 @@ function parseCleanedLine(
 		) {
 			unit = 'fl oz'
 			name = words.slice(2).join(' ')
-		} else if (words.length > 1 && words[0] && isUnit(words[0])) {
+		} else if (
+			words.length > 1 &&
+			words[0] &&
+			readsAsUnit(words[0], words.slice(1).join(' '))
+		) {
 			unit = stripUnitPeriod(words[0])
 			name = words.slice(1).join(' ')
 		} else {
@@ -651,7 +607,7 @@ function parseCleanedLine(
 		let notes: string | undefined = undefined
 
 		// Check if the matched word is a valid unit
-		if (possibleUnit && isUnit(possibleUnit)) {
+		if (possibleUnit && readsAsUnit(possibleUnit, remainder)) {
 			unit = stripUnitPeriod(possibleUnit)
 			name = remainder
 		} else if (possibleUnit) {
@@ -660,7 +616,11 @@ function parseCleanedLine(
 		} else {
 			// Check if the first word of remainder is a valid unit
 			const words = remainder.split(/\s+/)
-			if (words.length > 1 && words[0] && isUnit(words[0])) {
+			if (
+				words.length > 1 &&
+				words[0] &&
+				readsAsUnit(words[0], words.slice(1).join(' '))
+			) {
 				unit = stripUnitPeriod(words[0])
 				name = words.slice(1).join(' ')
 			} else {

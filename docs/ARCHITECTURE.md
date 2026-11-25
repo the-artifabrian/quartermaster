@@ -481,13 +481,16 @@ unticked defaults only; it never removes a line on its own.
 ## Ingredient parsing and identity
 
 `parseIngredient()` in `app/utils/ingredient-parser.ts` extracts amount, unit,
-name, and notes from loose Recipe text. `normalizeIngredientName()` removes safe
-modifiers, normalizes plurals, and protects compounds such as “rice vinegar” and
-protein cuts. It lives in `app/utils/recipe-matching.server.ts` with
-`getCanonicalIngredientName`, the plain-basics heuristic and the check for
-optional lines (`isOptionalIngredient`). Shopping combines demand lines by their
-canonical name (a fixed synonym list maps cilantro and coriander to one key) and
-unit family, never by a fuzzy match.
+name, and notes from loose Recipe text. The unit words it knows, and what each
+measure is called for conversion, live in `app/utils/units.ts`, which the
+Shopping quick-add and voice parsers and unit conversion read too.
+`normalizeIngredientName()` removes safe modifiers, normalizes plurals, and
+protects compounds such as “rice vinegar” and protein cuts. It lives in
+`app/utils/recipe-matching.server.ts` with `getCanonicalIngredientName`, the
+plain-basics heuristic and the check for optional lines
+(`isOptionalIngredient`). Shopping combines demand lines by their canonical name
+(a fixed synonym list maps cilantro and coriander to one key) and unit family,
+never by a fuzzy match.
 
 Amounts are saved as written, and `parseAmount()` in `app/utils/fractions.ts` is
 the one place that gives them a number. Anything that scales, sums, converts or
@@ -501,15 +504,17 @@ then three digits: a Romanian scale writes 1.25 kg as “1,250”, and “1.000�
 one thousand in Romanian but one in English. One group after a space that
 doesn't start with 0 is the same: “2 400 g” can be two 400 g tins. Ranges such
 as “1,5–2” scale end by end and never sum; a range with an end like that, or
-with its low end above its high end, stays as written. Yields go through it too,
-so “Makes 1,000 cookies” gives no yield rather than 1, and in “Makes 4 500 ml
-jars”, which it can't read, the first number is the yield. The import, paste,
-voice and Shopping quick-add parsers only find where an amount starts and ends,
-and they never split a number at its comma. The ingredient and quick-add parsers
-keep thousands split by spaces together when a unit follows, or when they read
-as one number. A container after the unit (“2 400 g tins tomatoes”) makes the
-first number a count of tins instead, as it read before. The voice parser never
-groups them, since a spoken count before a size is common.
+with its low end above its high end, stays as written. A whole number, a hyphen
+and a fraction below one (“1-1/2”) is a mixed number as US recipes write it, so
+it scales and sums as one value. Yields go through it too, so “Makes 1,000
+cookies” gives no yield rather than 1, and in “Makes 4 500 ml jars”, which it
+can't read, the first number is the yield. The import, paste, voice and Shopping
+quick-add parsers only find where an amount starts and ends, and they never
+split a number at its comma. The ingredient and quick-add parsers keep thousands
+split by spaces together when a unit follows, or when they read as one number. A
+container after the unit (“2 400 g tins tomatoes”) makes the first number a
+count of tins instead, as it read before. The voice parser never groups them,
+since a spoken count before a size is common.
 
 The paste, JSON-LD and ingredient parsers read text as long as a whole paste or
 a JSON-LD field, so their patterns must stay linear. Ingredient lines are cut at

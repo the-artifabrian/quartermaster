@@ -94,8 +94,6 @@ const RESTORE_LIMIT_LABELS: Record<keyof typeof RESTORE_LIMITS, string> = {
 	shoppingMealLinks: 'Meal links on Shopping items',
 }
 
-// --- Zod Schemas ---
-
 /**
  * An array schema that checks its length before its elements and stops at the
  * first element that fails. A plain `z.array` reports every bad element, so a
@@ -128,10 +126,10 @@ const ImportIngredientSchema = z.object({
 	amount: z.string().max(50).nullable().optional(),
 	unit: z.string().max(50).nullable().optional(),
 	notes: z.string().max(500).nullable().optional(),
-	// Exports written before #257 omit the flag. Those lines restore as
-	// ingredients: a lost heading is not guessed back from its name.
+	// Exports from before ingredient headings omit the flag. Those lines
+	// restore as ingredients: a lost heading is not guessed back from its name.
 	isHeading: z.boolean().optional(),
-	// The linked sub-Recipe's ref in this file (#311). A ref with no Recipe in
+	// The linked sub-Recipe's ref in this file. A ref with no Recipe in
 	// the file restores a plain ingredient: it is never read as a database id.
 	// Older exports omit it, and no link is guessed from a name.
 	linkedRecipeRef: z.string().max(50).nullable().optional(),
@@ -156,7 +154,7 @@ const ImportRecipeMetadataValueSchema = z
 
 const ImportRecipeSchema = z
 	.object({
-		// Export-local reference key — how Menus reconnect to their Recipes (#102).
+		// Export-local reference key: how Menus reconnect to their Recipes.
 		ref: z.string().max(50).optional(),
 		title: z.string().min(1).max(100),
 		description: z.string().max(500).nullable().optional(),
@@ -168,7 +166,7 @@ const ImportRecipeSchema = z
 		yieldAmount: z.number().positive().nullable().optional(),
 		yieldLabel: z.string().trim().min(1).max(100).nullable().optional(),
 		isFavorite: z.boolean().optional(),
-		// Exports written before #278 carry isAiGenerated. It is not declared here
+		// Older exports carry isAiGenerated. It is not declared here
 		// and the schema is not strict, so the key is ignored rather than rejected.
 		sourceUrl: z.string().max(2000).nullable().optional(),
 		// Truncated, never rejected: rawText is ancillary provenance, and losing a
@@ -214,8 +212,8 @@ const ImportHouseholdIngredientSchema = z
 			.pipe(z.string().min(1).max(200)),
 		canonicalKey: z.string().min(1).max(200),
 		isStaple: z.boolean(),
-		// Out is retired with the same change; an older export's value is
-		// accepted and dropped, because a Staple no longer has a state.
+		// Older exports can mark a Staple as Out. The value is accepted and
+		// dropped, because a Staple has no state.
 		isOut: z.boolean().optional(),
 	})
 	.superRefine((ingredient, context) => {
@@ -232,9 +230,9 @@ const ImportHouseholdIngredientSchema = z
 	})
 	.transform(({ isOut: _isOut, ...ingredient }) => ingredient)
 
-// The retired fixed-slot representation (#106). Pre-#104 exports carry only
-// this shape, so it stays parseable and restores as Meals; current exports
-// no longer contain it.
+// The fixed-slot Plan shape: one entry per Recipe in a breakfast, lunch,
+// dinner or snack slot. Exports from before Meals carry only this, so it stays
+// parseable and restores as Meals. Current exports don't write it.
 const ImportMealPlanEntrySchema = z.object({
 	date: z.string(),
 	mealType: z.string().max(50),
@@ -243,7 +241,7 @@ const ImportMealPlanEntrySchema = z.object({
 	recipe: z.string().min(1).max(100),
 })
 
-// Shared by Menu note cards and Meal snapshot note cards (#107).
+// Shared by Menu note cards and Meal snapshot note cards.
 const ImportMenuShoppingLineSchema = z.object({
 	name: z.string().min(1).max(200),
 	quantity: z.string().max(50).nullable().optional(),
@@ -251,16 +249,17 @@ const ImportMenuShoppingLineSchema = z.object({
 })
 
 // One schema for both snapshot card kinds, like Menu cards: `kind` decides
-// which fields are read, defaulting to 'recipe' so pre-#107 exports parse.
+// which fields are read, defaulting to 'recipe' so exports from before note
+// cards parse.
 const ImportMealItemSchema = z.object({
 	kind: z.enum(['recipe', 'note']).optional().default('recipe'),
 	// Export-local reference key. When present it alone decides the Recipe
-	// link — an unknown ref restores as a missing card, never a title guess.
+	// link: an unknown ref restores as a missing card, never a title guess.
 	recipeRef: z.string().max(50).nullable().optional(),
 	recipeTitle: z.string().min(1).max(100).nullable().optional(),
 	// Migrated multipliers are exact override/servings ratios, so unlike Menu
-	// cards they are not clamped to two decimals or 100 — recovery preserves
-	// the stored value.
+	// cards they are not clamped to two decimals or 100. A restore keeps the
+	// stored value.
 	scaleMultiplier: z.number().positive().max(1000).nullable().optional(),
 	cooked: z.boolean().optional(),
 	note: z.string().max(500).nullable().optional(),
@@ -268,7 +267,7 @@ const ImportMealItemSchema = z.object({
 	shoppingLines: boundedArray(ImportMenuShoppingLineSchema, 20).optional(),
 })
 
-// A frozen snapshot section (#107): name (null = the unnamed section) plus
+// A frozen snapshot section: name (null = the unnamed section) plus
 // Recipe and note cards interleaved in their shared order.
 const ImportMealSectionSchema = z.object({
 	name: z.string().min(1).max(100).nullable().optional(),
@@ -277,7 +276,7 @@ const ImportMealSectionSchema = z.object({
 
 const ImportMealSchema = z
 	.object({
-		// Export-local source key for current Shopping contributions (#110).
+		// Export-local key that Shopping items' Meal links point at.
 		ref: z.string().max(50).optional(),
 		date: z.string(),
 		order: z.number().int().nonnegative().optional(),
@@ -290,11 +289,11 @@ const ImportMealSchema = z
 		sourceMenuTitle: z.string().max(100).nullable().optional(),
 		sourceMenuRevision: z.string().nullable().optional(),
 		items: boundedArray(ImportMealItemSchema, 100).optional(),
-		// Optional so every pre-#107 export stays importable.
+		// Optional so exports from before Menu snapshots stay importable.
 		sections: boundedArray(ImportMealSectionSchema, 20).optional(),
 	})
-	// Generic text and Recipe/snapshot content are mutually exclusive on a
-	// saved Meal (#98 readiness corrections).
+	// A saved Meal holds either generic text or Recipe and snapshot cards,
+	// never both.
 	.refine(
 		(meal) =>
 			!(
@@ -311,10 +310,10 @@ const ImportMealSchema = z
 
 const ImportMealPlanSchema = z.object({
 	weekStart: z.string(),
-	// Optional since #106 stopped exporting the legacy shape; when a file
-	// carries only entries (pre-#104 exports) they restore as Meals.
+	// Optional because current exports don't write it. When a file carries
+	// only entries (exports from before Meals) they restore as Meals.
 	entries: boundedArray(ImportMealPlanEntrySchema, 100).optional(),
-	// Optional so every pre-Meal export stays importable (#104).
+	// Optional so exports from before Meals stay importable.
 	meals: boundedArray(ImportMealSchema, 200).optional(),
 })
 
@@ -327,7 +326,7 @@ const ImportShoppingListItemSchema = z.object({
 	source: z.string().max(50).optional(),
 	// Optional so exports from before Shopping horizons restore to Next shop.
 	horizon: ShoppingHorizonSchema.optional().default(NEXT_SHOP),
-	// Optional so pre-#110 exports remain importable.
+	// Optional so exports from before Meal links stay importable.
 	mealContributions: boundedArray(
 		z.object({
 			sourceMealRef: z.string().max(50).nullable(),
@@ -348,8 +347,8 @@ const ImportShoppingListSchema = z.object({
 	items: boundedArray(ImportShoppingListItemSchema, 500),
 })
 
-// One schema for both card kinds — Recipe fields and note fields are each
-// optional so the other kind parses; `kind` decides which are read.
+// One schema for both card kinds. Recipe fields and note fields are each
+// optional so the other kind parses, and `kind` decides which are read.
 const ImportMenuItemSchema = z.object({
 	kind: z.enum(['recipe', 'note']).optional().default('recipe'),
 	recipeRef: z.string().max(50).nullable().optional(),
@@ -374,14 +373,14 @@ const ImportMenuSchema = z.object({
 	sections: boundedArray(ImportMenuSectionSchema, 20).optional(),
 })
 
-// Older full exports may contain a `cookingLogs` array — the feature was
-// removed, and the loose object lets those files import with logs ignored.
+// Older full exports may contain a `cookingLogs` array. The loose object
+// lets those files import with the logs ignored.
 const FullExportSchema = z.looseObject({
 	format: z.literal('quartermaster-full-export-v1'),
 	recipes: boundedArray(ImportRecipeSchema, RESTORE_LIMITS.recipes),
-	// The retired cutover boundary and legacy Pantry (#289). Nothing reads
-	// either one, so nothing validates them: an older full export must not be
-	// rejected over a section this release throws away.
+	// Older full exports carry a Staples cutover date and a Pantry list.
+	// Nothing reads either one, so nothing validates them: a file must not be
+	// rejected over a section the restore throws away.
 	household: z.unknown().optional(),
 	householdIngredients: boundedArray(
 		ImportHouseholdIngredientSchema,
@@ -400,7 +399,7 @@ const FullExportSchema = z.looseObject({
 		ImportShoppingListSchema,
 		RESTORE_LIMITS.shoppingLists,
 	).optional(),
-	// Optional so every pre-Menu export stays importable (#102).
+	// Optional so exports from before Menus stay importable.
 	menus: boundedArray(ImportMenuSchema, RESTORE_LIMITS.menus).optional(),
 })
 
@@ -609,8 +608,6 @@ function parseImportData(
 	return { error: 'This isn’t a Quartermaster export file.' }
 }
 
-// --- Preview types ---
-
 interface ImportPreview {
 	recipes: number
 	menus: number
@@ -657,8 +654,6 @@ function getShoppingListItemImportKey(item: ShoppingListItemImport) {
 		item.horizon,
 	])
 }
-
-// --- Action ---
 
 /**
  * One thing in the file that a restore couldn't bring back. It is counted in
@@ -733,17 +728,18 @@ async function importRecipes(
 			const lowerTitle = recipe.title.toLowerCase()
 			const existingId = titleToIdMap.get(lowerTitle)
 			if (existingId != null) {
-				// A skipped duplicate still resolves its reference key — Menus that
+				// A skipped duplicate still resolves its reference key, so Menus that
 				// point at it reconnect to the existing household Recipe.
 				if (recipe.ref) refToIdMap.set(recipe.ref, existingId)
 				stats.skipped++
 				continue
 			}
 			try {
-				// Older exports may carry only Prep/Cook. Match #121's conservative
-				// one-way rule: both parts must be present, non-negative, and form a
-				// positive total. Legacy servings is accepted at this boundary only and
-				// never becomes typed yield.
+				// Older exports may carry only Prep/Cook. They become a total only
+				// when both parts are present, non-negative, and add up to more than
+				// zero, and the rule runs one way: a total is never split back into
+				// prep and cook. An old file's servings is accepted here and never
+				// becomes typed yield.
 				const legacyTotal =
 					recipe.prepTime != null &&
 					recipe.cookTime != null &&
@@ -979,7 +975,7 @@ async function importMenus(
 		}
 
 		try {
-			// One nested create per Menu — it restores atomically or not at all.
+			// One nested create per Menu, so it restores whole or not at all.
 			const created = await prisma.menu.create({
 				data: {
 					title,
@@ -1025,14 +1021,14 @@ type ImportMealPlanEntry = z.infer<typeof ImportMealPlanEntrySchema>
 const LEGACY_SLOT_ORDER = ['breakfast', 'lunch', 'dinner', 'snack']
 
 /**
- * Pre-#104 exports carry the retired fixed-slot `entries` shape. It restores
- * as Meals under the #104 backfill's recovery rules: entries sharing a UTC
- * day and meal type become one labeled Meal, a serving override becomes
- * override / Recipe.servings, day order runs breakfast, lunch, dinner, snack,
- * then unexpected labels lexically, and items keep file order. An entry whose
- * Recipe title has no match can't restore: the retired shape froze no display
- * identity to keep as a missing card. It comes back as a failed entry, as does
- * one with an unreadable date.
+ * Exports from before Meals carry the fixed-slot `entries` shape. It restores
+ * as Meals by the same rules the database used when it moved to Meals:
+ * entries sharing a UTC day and meal type become one labeled Meal, a serving
+ * override becomes override / Recipe.servings, day order runs breakfast,
+ * lunch, dinner, snack, then unexpected labels lexically, and items keep file
+ * order. An entry whose Recipe title has no match can't restore: the
+ * fixed-slot shape froze no display identity to keep as a missing card. It
+ * comes back as a failed entry, as does one with an unreadable date.
  */
 type LegacyEntryFailure = {
 	index: number
@@ -1117,7 +1113,7 @@ function legacyEntriesToMeals(
 
 /**
  * One restored or existing snapshot card, normalized for both dedupe keys and
- * creation — the same discriminated shape the Meal write seam consumes.
+ * creation. It is the same discriminated shape `createMealWithItems` takes.
  */
 type ResolvedMealEntry =
 	| {
@@ -1160,7 +1156,7 @@ function mealEntryKeyPart(entry: ResolvedMealEntry) {
 
 /**
  * How one restored or existing Meal is recognized on a later import: its full
- * content — snapshot sections, notes, and note Shopping lines included —
+ * content (snapshot sections, notes, and note Shopping lines included)
  * except within-day order and source Menu revision. A file Meal whose key
  * matches an existing Meal in the same week plan is skipped, so re-import
  * stays idempotent without a natural unique identity.
@@ -1196,11 +1192,11 @@ function getMealImportKey(meal: {
 
 /**
  * Restores Meal parents, their ordered Recipe items, and their frozen Menu
- * snapshot structure (#107: sections, note cards, note Shopping lines) into
- * one ensured week plan (#104). Recipe references reconnect like Menu cards
+ * snapshot structure (sections, note cards, note Shopping lines) into one
+ * ensured week plan. Recipe references reconnect like Menu cards
  * do: reference key first, normalized-title fallback only when a key is
  * absent, unknown key ⇒ missing card. Imported Meals append after any
- * existing Meals on their day so explicit within-day order stays contiguous.
+ * existing Meals on their day so the stored within-day order has no gaps.
  */
 async function importMeals(
 	meals: ImportMeal[],
@@ -1326,8 +1322,8 @@ async function importMeals(
 	// Kind-aware entry resolution, shared by the unsectioned list and every
 	// snapshot section. Unrepresentable cards drop: a Recipe entry with
 	// neither a resolvable Recipe nor a frozen title, or a note entry with no
-	// text. Note entries are only meaningful inside sections — snapshots never
-	// store them unsectioned — so the unsectioned list keeps Recipe entries.
+	// text. Note entries only mean something inside sections (snapshots never
+	// store them unsectioned), so the unsectioned list keeps Recipe entries.
 	const resolveEntry = (
 		item: z.infer<typeof ImportMealItemSchema>,
 	): ResolvedMealEntry[] => {
@@ -1394,7 +1390,7 @@ async function importMeals(
 		const genericText = meal.genericText || null
 		// A Meal with neither generic text nor restorable snapshot content
 		// would be an empty shell, so it fails. A note-only snapshot Meal is
-		// valid (#98 readiness corrections) and restores.
+		// valid and restores.
 		const hasSectionContent = sections.some(
 			(section) => section.items.length > 0,
 		)
@@ -1407,8 +1403,8 @@ async function importMeals(
 		// completion from its items' cooked state.
 		const completed = genericText != null ? (meal.completed ?? false) : false
 
-		// The serving time is one instant plus its originating timezone — a
-		// timezone without a valid instant is meaningless, so they restore as a
+		// The serving time is one instant plus the timezone it was set in. A
+		// timezone without a valid instant means nothing, so they restore as a
 		// pair.
 		const servingAtParsed = meal.servingAt ? new Date(meal.servingAt) : null
 		const servingAt =
@@ -1453,8 +1449,8 @@ async function importMeals(
 		const day = date.getTime()
 		const order = nextOrderByDay.get(day) ?? 0
 		try {
-			// The shared Meal write seam restores the Meal and its snapshot
-			// children in one transaction — atomically or not at all.
+			// createMealWithItems restores the Meal and its snapshot children in
+			// one transaction, so it lands whole or not at all.
 			const createdMealId = await createMealWithItems(prisma, {
 				mealPlanId,
 				date,
@@ -1489,7 +1485,7 @@ async function importMeals(
 type ImportMealPlan = z.infer<typeof ImportMealPlanSchema>
 
 /**
- * Restores each week plan's Meals, or a pre-#104 plan's fixed-slot entries,
+ * Restores each week plan's Meals, or an older plan's fixed-slot entries,
  * after Recipes and Menus. Returns the restored Meal ids by export-local
  * reference key, which Shopping contributions point at.
  */
@@ -1524,9 +1520,9 @@ async function importMealPlans(
 		menuIdByTitleKey.set(titleKey, id)
 	}
 
-	// Legacy-only plans use the old file's own Recipe servings to recover the
-	// historical override/base ratio. That compatibility value never enters
-	// current Recipe storage or typed yield.
+	// Plans with only fixed-slot entries use the old file's own Recipe servings
+	// to recover the override/base ratio. That value never reaches saved
+	// Recipes or typed yield.
 	let servingsByRecipeId = new Map<string, number>()
 	if (mealPlans.some((plan) => !plan.meals?.length && plan.entries?.length)) {
 		for (const recipe of recipes) {
@@ -1566,9 +1562,9 @@ async function importMealPlans(
 		const mealPlan = await ensureMealPlan(prisma, { householdId, weekStart })
 
 		if (plan.meals?.length) {
-			// A file that carries Meals restores only them — its `entries`,
-			// when present (#104–#106 window exports), are the dual-write
-			// mirrors of those same Meals.
+			// A file that carries Meals restores only them. Some exports carry
+			// `entries` too, as a second copy of the same Meals in the fixed-slot
+			// shape.
 			addMealStats(
 				await importMeals(
 					plan.meals,
@@ -2062,9 +2058,8 @@ async function restore(
 		)
 	}
 
-	// --- 1. Household Recipe classification vocabulary ---
-	// Import the complete vocabulary before Recipes so unassigned values survive
-	// full recovery. Existing target display values win on normalized identity.
+	// Recipe classifications go in before Recipes, so values no Recipe uses
+	// still come back. Where a value already exists, its display name wins.
 	if (fullData?.recipeMetadataValues?.length) {
 		await writeTransaction(prisma, async (tx) => {
 			const existing = await tx.recipeMetadataValue.findMany({
@@ -2092,7 +2087,6 @@ async function restore(
 		})
 	}
 
-	// --- 2. Recipes ---
 	const recipeIndex: RecipeIndex = {
 		titleToIdMap: new Map(),
 		refToIdMap: new Map(),
@@ -2114,7 +2108,7 @@ async function restore(
 		recordFailure,
 	)
 
-	// --- 3. Menus (after Recipes, so references can reconnect) ---
+	// Menus after Recipes, so their references can reconnect.
 	let sharedMenuIdsByTitleKey = new Map<string, string | null>()
 	if (fullData?.menus?.length) {
 		const imported = await importMenus(
@@ -2127,9 +2121,8 @@ async function restore(
 		sharedMenuIdsByTitleKey = imported.sharedMenuIdsByTitleKey
 	}
 
-	// --- 4. Household canonical ingredients ---
-	// Existing target rows win; importing recovery data never silently rewrites
-	// a household that has already made its own choice.
+	// Household ingredients (Staples included): rows the Household already has
+	// win, so a restore never rewrites a choice the Household has already made.
 	if (fullData?.householdIngredients !== undefined) {
 		await writeTransaction(prisma, async (tx) => {
 			const existing = await tx.householdIngredient.findMany({
@@ -2151,7 +2144,6 @@ async function restore(
 		})
 	}
 
-	// --- 5. Meal Plans ---
 	let mealIdByRef = new Map<string, string>()
 	if (fullData?.mealPlans) {
 		const imported = await importMealPlans(
@@ -2167,7 +2159,6 @@ async function restore(
 		mealIdByRef = imported.mealIdByRef
 	}
 
-	// --- 6. Shopping Lists ---
 	if (fullData?.shoppingLists?.length) {
 		results.shoppingLists = await importShopping(
 			fullData.shoppingLists,
@@ -2192,8 +2183,6 @@ async function restore(
 
 	return { error: null, results }
 }
-
-// --- Component ---
 
 function getPreview(jsonData: unknown): ImportPreview | { error: string } {
 	const result = parseImportData(jsonData)
@@ -2234,7 +2223,7 @@ export default function ImportData() {
 	const results = cleared ? null : (fetcher.data?.results ?? null)
 	const serverError = cleared ? null : (fetcher.data?.error ?? null)
 
-	// Handle fetcher completion — toast is an external side effect
+	// Toast once per result. The toast is a side effect, so it runs here.
 	const lastFetcherData = useRef(fetcher.data)
 	useEffect(() => {
 		if (!fetcher.data || fetcher.data === lastFetcherData.current) return
@@ -2342,7 +2331,6 @@ export default function ImportData() {
 				only. Anything already here is skipped.
 			</p>
 
-			{/* Phase 3: Results */}
 			{results ? (
 				<div className="space-y-4">
 					<div className="bg-muted/40 rounded-lg p-6">
@@ -2421,7 +2409,6 @@ export default function ImportData() {
 				</div>
 			) : (
 				<>
-					{/* Phase 1: Upload */}
 					<div className="bg-muted/40 rounded-lg p-6">
 						<label className="block">
 							<span className="text-sm font-medium">Select export file</span>
@@ -2450,7 +2437,6 @@ export default function ImportData() {
 						</p>
 					</div>
 
-					{/* Phase 2: Preview */}
 					{preview && (
 						<div className="mt-4 space-y-4">
 							<div className="bg-muted/40 rounded-lg p-6">

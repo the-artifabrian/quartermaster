@@ -2,8 +2,8 @@
  * Takes a consistent snapshot of the production database and pushes it to the
  * object storage bucket. Two callers:
  *
- *   - `.github/workflows/backup.yml` — daily, over `fly ssh console`.
- *   - `other/litefs.yml` — `--local-only --label pre-migration`, before
+ *   - `.github/workflows/backup.yml`: daily, over `fly ssh console`.
+ *   - `other/litefs.yml`: `--local-only --label pre-migration`, before
  *     `prisma migrate deploy` touches the schema at boot.
  *
  * Restoring is documented in `docs/RESTORE.md`.

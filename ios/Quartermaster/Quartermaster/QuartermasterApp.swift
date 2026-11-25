@@ -4,7 +4,7 @@ import SwiftUI
 struct QuartermasterApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var theme = PageTheme()
-    /// For `window.__qmShell` (#346, 5.2).
+    /// For `window.__qmShell`, which reports launch timing to the page.
     private let initAt = LaunchTiming.appInit()
 
     var body: some Scene {
@@ -31,7 +31,7 @@ struct QuartermasterApp: App {
                         break
                     }
                 }
-                // Universal links, once the applinks entitlement is on (#327, 1.6).
+                // Universal links: a tapped useqm.app link opens here.
                 .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
                     if let url = activity.webpageURL,
                        case .page(let page) = IncomingURL.destination(for: url, baseURL: Shell.config.baseURL) {

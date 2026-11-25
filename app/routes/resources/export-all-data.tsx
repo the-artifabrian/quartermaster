@@ -192,8 +192,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 	])
 
 	// Export-local reference keys: import restores Menu Recipe references by
-	// key, so renamed Recipes still reconnect; title fallback is for older
-	// exports only (#102).
+	// key, so renamed Recipes still reconnect. The title fallback is for older
+	// exports only.
 	const recipeRefById = new Map(
 		recipes.map((recipe, index) => [recipe.id, `r${index + 1}`]),
 	)
@@ -236,7 +236,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 				isHeading: ing.isHeading,
 				// A sub-Recipe link is written as the linked Recipe's ref in this
 				// file, never a database id, and is resolved after every Recipe
-				// in the file is restored (#311).
+				// in the file is restored.
 				linkedRecipeRef:
 					(ing.linkedRecipeId && recipeRefById.get(ing.linkedRecipeId)) || null,
 			})),
@@ -250,16 +250,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 		})),
 		mealPlans: mealPlans.map((plan) => ({
 			weekStart: plan.weekStart.toISOString(),
-			// Meals are the Plan's durable recovery data (#104, sole representation
-			// since #106): within-day order, serving instant/timezone, generic
-			// text, text-only completion, guest count, source Menu
-			// identity/revision, and each ordered Recipe item's frozen identity,
-			// multiplier, display note, and cooked state. Since #107 a Meal may be
-			// a Menu snapshot: `sections` carries its frozen section structure with
-			// Recipe and note cards interleaved in their shared order, plus each
-			// note's ordinary Shopping lines; `items` stays the unsectioned list.
-			// Missing cards export a null recipeRef with their frozen title, like
-			// Menu cards do.
+			// Meals are how the Plan is stored, so the export keeps everything a
+			// restore needs: within-day order, serving instant and timezone, generic
+			// text, text-only completion, guest count, source Menu identity and
+			// revision, and each ordered Recipe item's frozen identity, multiplier,
+			// display note, and cooked state. A Meal planned from a Menu is a
+			// snapshot: `sections` carries its frozen section structure with Recipe
+			// and note cards interleaved in their shared order, plus each note's
+			// ordinary Shopping lines. `items` is the unsectioned list. Missing cards
+			// export a null recipeRef with their frozen title, like Menu cards do.
 			meals: plan.meals.map((meal) => {
 				const recipeEntry = (item: {
 					recipeId: string | null
@@ -302,11 +301,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 					genericText: meal.genericText,
 					completed: meal.completed,
 					guestCount: meal.guestCount,
-					// Menus have no export-local refs — normalized household title is
+					// Menus have no export-local refs. The normalized household title is
 					// their identity, so import reconnects by title.
 					sourceMenuTitle: meal.sourceMenu?.title ?? null,
 					sourceMenuRevision: meal.sourceMenuRevision?.toISOString() ?? null,
-					// Note cards live only inside frozen sections — `items` is the
+					// Note cards live only inside frozen sections. `items` is the
 					// unsectioned Recipe list (planner-created and later additions).
 					items: meal.recipeItems
 						.filter((item) => item.sectionId == null)
@@ -353,10 +352,9 @@ export async function loader({ request }: Route.LoaderArgs) {
 				})),
 			})),
 		})),
-		// Menus are durable recovery data: sections, Recipe/note cards, scale
-		// multipliers, notes, ordering, and note Shopping lines — never
-		// transient UI state (#102). Missing cards export a null recipeRef with
-		// their frozen title.
+		// Menus export in full: sections, Recipe and note cards, scale
+		// multipliers, notes, ordering, and note Shopping lines. Missing cards
+		// export a null recipeRef with their frozen title.
 		menus: menus.map((menu) => ({
 			title: menu.title,
 			description: menu.description,

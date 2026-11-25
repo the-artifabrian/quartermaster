@@ -201,7 +201,7 @@ Rules:
 /**
  * Validate the LLM response against the enhanceable fields and reconcile the
  * times with what the recipe already has. `null` when the response is not
- * usable — it is bare JSON or it is nothing.
+ * usable: it is bare JSON or it is nothing.
  */
 export function parseEnhanceResponse(
 	text: string,

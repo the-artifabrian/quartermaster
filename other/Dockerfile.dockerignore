@@ -21,7 +21,7 @@
 /test-results
 /tests
 
-# generated files — copied from the build stage; don't let a local stale
+# Generated files are copied from the build stage. Don't let a local stale
 # copy leak in via `ADD . .` when someone runs `docker build` by hand
 /app/generated
 /app/components/ui/icons

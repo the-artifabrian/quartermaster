@@ -249,7 +249,7 @@ export function extractRecipe(
 	)
 	const ingredients = lines.flatMap(({ cleaned, parsed }) => {
 		// Sites stuff sub-section headers ("For the crust") into
-		// recipeIngredient — keep them as headings, not fake ingredients
+		// recipeIngredient. Keep them as headings, not fake ingredients
 		const heading = detectIngredientHeading(cleaned, { allCapsIsHeading })
 		if (heading) return [{ name: heading, isHeading: true }]
 		if (!parsed) return []

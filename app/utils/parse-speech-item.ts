@@ -154,7 +154,7 @@ const VAGUE_QUANTIFIER_PATTERN =
 /**
  * Clean up raw Whisper transcript text:
  * - Strip trailing punctuation and internal commas (Whisper noise)
- * - Strip leading filler words ("um", "uh", "like", "yeah", etc.) — repeatable
+ * - Strip leading filler words ("um", "uh", "like", "yeah", etc.), repeatedly
  * - Strip instructional prefixes ("I need", "we need", "get", "add", etc.)
  * - Strip vague quantifiers ("some", "a few", "a lot of", "a bit of")
  * - Normalize compound word-numbers ("a hundred" → "100", "half a dozen" → "6")
@@ -167,7 +167,7 @@ function normalizeTranscript(raw: string): string {
 	// Strip trailing punctuation and whitespace
 	let text = trimEndOf(raw.trim(), '.,!?;:').trim()
 
-	// Strip commas — Whisper inserts them between filler words and clauses
+	// Strip commas. Whisper inserts them between filler words and clauses
 	// (e.g. "Um, like, some Cheerios"). By the time text reaches here, commas
 	// from multi-item splitting have already been consumed by parseSpeechItems.
 	// A comma between two digits is part of a number ("1,5 kg") and stays.
@@ -177,7 +177,7 @@ function normalizeTranscript(raw: string): string {
 		.trim()
 
 	// Strip filler words, instructional prefixes, and vague quantifiers in a
-	// loop — they can appear in any combination ("oh I need like some milk")
+	// loop, since they can appear in any combination ("oh I need like some milk")
 	let prev
 	do {
 		prev = text
@@ -278,7 +278,7 @@ export function parseSpeechItem(transcript: string): ParsedItem {
 
 /**
  * Parse a *typed* item like "2 lemons" or "2 lbs chicken". Unlike
- * parseSpeechItem there's no transcript cleanup and no lowercasing — typed
+ * parseSpeechItem there's no transcript cleanup and no lowercasing: typed
  * text is taken as written. Returns null when there's no leading quantity,
  * so callers can fall back to the raw input untouched.
  */

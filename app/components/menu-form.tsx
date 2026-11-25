@@ -70,7 +70,7 @@ export type MenuBuilderItem =
 			id: string
 			kind: 'recipe'
 			recipeId: string | null
-			/** Frozen display title — what a missing card keeps showing. */
+			/** Frozen display title, which a missing card keeps showing. */
 			recipeTitle: string
 			scaleMultiplier: number
 			note: string | null
@@ -246,7 +246,6 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 						: 'This Menu won’t be saved.'
 				}
 			/>
-			{/* Form-level errors */}
 			{form.errors && form.errors.length > 0 && (
 				<div className="border-destructive bg-destructive/5 rounded-lg border p-4">
 					<ErrorList errors={form.errors} id={form.errorId} focusable />
@@ -308,7 +307,7 @@ type MenuSectionMetadata = FieldMetadata<MenuSectionInput>
  * node, which drops keyboard focus; refocusing the moved row's control
  * afterwards (or its twin once the row hits a boundary and this one disables)
  * lets a keyboard user keep pressing Enter to walk a row through the list.
- * The buttons are found again by accessible label — the row's title — because
+ * The buttons are found again by accessible label (the row's title) because
  * conform regenerates its row keys (and so the DOM ids) whenever the form
  * revalidates, and the re-render lands asynchronously, so focus is re-asserted
  * over a few frames rather than guessing the exact commit timing.
@@ -408,7 +407,7 @@ function MenuSectionsBuilder({
 	newRowId: () => string
 }) {
 	const sectionList = fields.sections.getFieldList()
-	// Stored Recipe cards by id — the frozen-title lookup for missing cards.
+	// Stored Recipe cards by id, for the frozen title of a missing card.
 	const itemsById = new Map(
 		builder.sections
 			.flatMap((s) => s.items)
@@ -417,7 +416,7 @@ function MenuSectionsBuilder({
 	)
 	const recipesById = new Map(builder.recipes.map((r) => [r.id, r]))
 
-	// How each section reads in move controls and menus right now — a blank
+	// How each section reads in move controls and menus right now. A blank
 	// name is the headingless unnamed section.
 	const sectionLabels = sectionList.map((sectionMeta) => {
 		const section = sectionMeta.getFieldset()
@@ -453,7 +452,7 @@ function MenuSectionsBuilder({
 				})
 			}
 		}
-		// Cards need somewhere to live — an emptied menu keeps one blank section.
+		// Cards need somewhere to live, so an emptied menu keeps one blank section.
 		if (sections.length === 0) {
 			sections.push({ id: newRowId(), name: '', items: [] })
 		}
@@ -549,7 +548,7 @@ function MenuSectionCard({
 	const itemList = section.items.getFieldList()
 	const label = sectionLabels[sectionIndex]!
 	const solo = sectionCount === 1
-	// A blank name marks the headingless home for loose cards — deleting it
+	// A blank name marks the headingless home for loose cards. Deleting it
 	// would delete food (or, solo, do nothing), so the trash waits until the
 	// section is named or emptied.
 	const headinglessHome =
@@ -563,8 +562,8 @@ function MenuSectionCard({
 	})
 
 	return (
-		// The tinted panel makes a section legible as the one unit its move
-		// arrows carry — a solo section keeps the flat sectionless look.
+		// The tinted panel shows a section as the one unit its move arrows
+		// carry. A solo section keeps the flat sectionless look.
 		<li className={solo ? undefined : 'bg-muted/40 rounded-xl p-3'}>
 			<input key={idKey} {...idProps} />
 			<div className="mb-2 flex items-start gap-1">
@@ -658,8 +657,8 @@ function MenuSectionCard({
 						})
 					}}
 				/>
-				{/* Drinks, shared prep, serving reminders — flexible cards instead
-				    of dedicated subsystems (#102). */}
+				{/* Note cards hold drinks, shared prep and serving reminders, so
+				    none of those needs a feature of its own. */}
 				<Button
 					type="button"
 					variant="outline"
@@ -713,8 +712,8 @@ function MenuItemRow({
 	const stored = item.id.value ? itemsById.get(item.id.value) : undefined
 	const recipe = recipeId ? recipesById.get(recipeId) : undefined
 	const recipeYield = recipe ? getTypedYield(recipe) : null
-	// A card is missing when its reference no longer resolves to a household
-	// Recipe (deleted, or moved away) — frozen title keeps it identifiable.
+	// A card is missing when its reference doesn't resolve to a household
+	// Recipe (deleted, or moved away). The frozen title keeps it identifiable.
 	const missing = !recipe
 	const title = recipe?.title ?? stored?.recipeTitle ?? 'Recipe'
 
@@ -826,8 +825,8 @@ function MenuItemRow({
 				aria-label={`Note for ${title}`}
 				className="mt-2"
 			/>
-			{/* Labelled, keyboard-reachable ordering controls — dependable on
-			    phone where pointer drag is not (#101). */}
+			{/* Labelled, keyboard-reachable ordering controls. They work on a
+			    phone, where pointer drag doesn't. */}
 			<div className="mt-2 flex items-center gap-1">
 				<ReorderButtons
 					form={form}
@@ -859,7 +858,7 @@ function MenuItemRow({
 	)
 }
 
-/** The explicit cross-section move — no nested drag required (#101). */
+/** Moves a card to another section from a menu, with no nested drag. */
 function MoveToSectionMenu({
 	label,
 	sectionIndex,
@@ -984,8 +983,8 @@ function MenuNoteRow({
 				</ul>
 			) : null}
 			<div className="mt-2 flex flex-wrap items-center gap-1">
-				{/* Ordinary Shopping lines so supporting purchases travel with the
-				    Menu — required name, optional quantity/unit (#102). */}
+				{/* Ordinary Shopping lines, so supporting purchases travel with the
+				    Menu: a required name, and an optional quantity and unit. */}
 				<Button
 					type="button"
 					variant="ghost"

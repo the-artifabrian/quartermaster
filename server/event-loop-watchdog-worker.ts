@@ -6,7 +6,7 @@ import {
 } from './event-loop-watchdog.ts'
 
 // Runs on its own OS thread with its own event loop, so it keeps ticking while
-// the main thread is wedged — the whole point of the watchdog. See
+// the main thread is wedged, which is the whole point of the watchdog. See
 // server/event-loop-watchdog.ts for the design and why the decision is made on
 // a counter rather than a clock.
 
@@ -28,7 +28,7 @@ setInterval(() => {
 	if (result.reason === null) return
 
 	// stdout from a worker still reaches the process's stdout, so this lands in
-	// `fly logs` and is the only diagnosis we get — the main thread cannot run a
+	// `fly logs` and is the only diagnosis we get. The main thread cannot run a
 	// shutdown handler or flush telemetry while it is blocked.
 	console.error(
 		`💓 event-loop-watchdog: ${result.reason} — killing the process so Fly restarts us. ` +

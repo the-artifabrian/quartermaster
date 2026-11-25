@@ -53,7 +53,7 @@ const schema = z.object({
 	// than an error.
 	RESEND_API_KEY: z.string().optional(),
 	// Override for the email provider request timeout, in whole ms (default
-	// 10000). A malformed value must fail the boot here — at send time it would
+	// 10000). A malformed value must fail the boot here. At send time it would
 	// become Number('10s') === NaN or Number('') === 0, and a 0ms timeout
 	// aborts every email before the request leaves the process.
 	RESEND_TIMEOUT_MS: z.preprocess(
@@ -70,13 +70,13 @@ const schema = z.object({
 	APPLE_TEAM_ID: z.preprocess(emptyAsUndefined, z.string().optional()),
 	IOS_BUNDLE_ID: z.preprocess(emptyAsUndefined, z.string().optional()),
 
-	// Anthropic API (optional — used for AI Recipe import and enhancement)
+	// Anthropic API (optional, for AI Recipe import and enhancement)
 	ANTHROPIC_API_KEY: z.string().optional(),
 
-	// Groq API (optional — used for Whisper speech-to-text)
+	// Groq API (optional, for Whisper speech-to-text)
 	GROQ_API_KEY: z.string().optional(),
 
-	// Stripe (all optional — subscription features only active when configured)
+	// Stripe (all optional; subscription features only run when configured)
 	STRIPE_SECRET_KEY: z.string().optional(),
 	STRIPE_WEBHOOK_SECRET: z.string().optional(),
 	STRIPE_PRO_YEARLY_PRICE_ID: z.string().optional(),
@@ -94,7 +94,7 @@ const schema = z.object({
 // silence is the failure: signup verification, password reset and email-change
 // mail all stop arriving while every request still succeeds and the
 // healthcheck stays green, so users lock themselves out and nothing reports
-// it. A dropped or rotated secret should fail validation instead — expressed
+// it. A dropped or rotated secret should fail validation instead, written
 // on the schema so it reports through the same aggregated error path as every
 // other field, alongside anything else that's missing.
 const validatedSchema = schema.superRefine((env, ctx) => {

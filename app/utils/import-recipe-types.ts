@@ -2,7 +2,7 @@ export type ExtractedRecipe = {
 	rawText: string
 	title: string
 	description: string | null
-	/** The cook's own tips — only the AI extraction paths produce these. */
+	/** The cook's own tips. Only the AI extraction paths produce these. */
 	notes: string | null
 	activeTime: number | null
 	totalTime: number | null

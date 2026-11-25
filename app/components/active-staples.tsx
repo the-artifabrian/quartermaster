@@ -29,9 +29,9 @@ type Staple = {
 }
 
 /**
- * The Staples screen: the household's list of usual items (#289). Adding one to
- * Next shop is the only thing this list does — a Staple has no Available/Out
- * state to maintain, because nothing downstream asked for one. Generated
+ * The Staples screen: the household's list of usual items. Adding one to
+ * Next shop is the only thing this list does. A Staple has no Available/Out
+ * state to maintain, because nothing downstream asks for one. Generated
  * Shopping omits a Staple match by default and the Plan picker offers it
  * unticked, both of which an add here corrects in one tap.
  *
@@ -48,7 +48,7 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 	const [announcement, setAnnouncement] = useState('')
 	const addButtonRef = useRef<HTMLButtonElement>(null)
 	// A household with no Staples gets suggestions; they stay for the visit so
-	// several can be added in a row, and are gone on a later visit (#351).
+	// several can be added in a row, and are gone on a later visit.
 	const [suggesting] = useState(staples.length === 0)
 	const heldNames = staples.map((staple) => staple.displayName)
 

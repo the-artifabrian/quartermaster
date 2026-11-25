@@ -150,7 +150,7 @@ final class PageRefresh: NSObject {
 }
 
 /// When the shell started and when it started the first load, for the page
-/// to measure the shell's share of a cold start (#346, 5.2). The page reads
+/// to measure the shell's share of a cold start. The page reads
 /// them from `window.__qmShell`.
 enum LaunchTiming {
     /// Epoch milliseconds, the unit of `Date.now()` in the page.

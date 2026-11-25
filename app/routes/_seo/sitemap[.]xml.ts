@@ -4,7 +4,7 @@ import { type Route } from './+types/sitemap[.]xml.ts'
 
 export async function loader({ request }: Route.LoaderArgs) {
 	// Imported at request time (not statically) because the server build is
-	// this bundle itself in prod — the loader runs long after module init, so
+	// this bundle itself in prod. The loader runs long after module init, so
 	// the circular import is fully resolved by then. This avoids passing the
 	// build through getLoadContext, which under RR8 would require constructing
 	// a RouterContextProvider whose class identity differs between Vite's SSR

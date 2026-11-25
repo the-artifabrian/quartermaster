@@ -31,7 +31,7 @@ export type IngredientFieldValue = {
 	isHeading?: boolean
 	linkedRecipeId?: string
 	linkedRecipeTitle?: string
-	/** Stable key for DnD — persists across re-renders */
+	/** Stable key for DnD that persists across re-renders */
 	sortKey?: string
 }
 
@@ -243,7 +243,7 @@ export function IngredientFields({
 		const updated = [...ingredients]
 		const current = updated[index]
 		if (current) {
-			// Headings carry only a name — drop amount/unit/notes/link, but
+			// Headings carry only a name: drop amount/unit/notes/link, but
 			// stash them so converting back restores the row untouched
 			stashedFieldsRef.current.set(current.sortKey!, {
 				amount: current.amount,
@@ -609,6 +609,7 @@ function RecipeLinkPicker({
 				void fetcher.load(`/resources/recipe-search?${params}`)
 			}
 		},
+		// The fetcher object changes as each search loads; only its load is used.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[excludeRecipeId],
 	)

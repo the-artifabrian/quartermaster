@@ -10,7 +10,7 @@ function postToServiceWorker(message: Record<string, unknown>) {
 		return
 	}
 	// No controller yet (first load before the SW takes control, or the brief
-	// window right after an update swaps controllers). Don't drop the message —
+	// window right after an update swaps controllers). Don't drop the message:
 	// the session-isolation purges (logout / household switch) depend on it being
 	// delivered, otherwise a previous session's cached shell can linger on a
 	// shared device. Post to the active registration instead, which receives
@@ -20,6 +20,8 @@ function postToServiceWorker(message: Record<string, unknown>) {
 		.then((registration) => {
 			registration.active?.postMessage(message)
 		})
+		// Only postMessage can throw here. The session and purge messages are
+		// re-sent on controllerchange (see the sync effect).
 		.catch(() => {})
 }
 
@@ -48,6 +50,7 @@ function requestAssetWarm() {
 			if ('requestIdleCallback' in window) window.requestIdleCallback(post)
 			else setTimeout(post, 2000)
 		})
+		// Warming only saves a later fetch, so a failure costs nothing.
 		.catch(() => {})
 }
 
@@ -60,7 +63,7 @@ export function invalidateServiceWorkerData() {
 /**
  * Whether an in-flight submission (from useNavigation or a fetcher) should drop
  * the per-session `.data` cache when it finishes. True for any non-GET submission
- * EXCEPT one targeting /shopping — see the isMutating comment below. A set, non-GET
+ * EXCEPT one targeting /shopping (see the isMutating comment below). A set, non-GET
  * formMethod is what marks a submission as in flight (it clears on idle).
  */
 function invalidatesDataCache(
@@ -76,8 +79,8 @@ function invalidatesDataCache(
 
 /**
  * Bridges the authenticated session identity to the service worker so it can
- * namespace its `.data` cache per user+household — preventing one household's
- * cached data from ever being served to another on a shared device — and tells
+ * namespace its `.data` cache per user+household, so one household's cached
+ * data is never served to another on a shared device. It also tells
  * it when to drop that cache (logout / session switch / after a mutation).
  *
  * Renders nothing; all work happens in client-only effects. The SW treats an
@@ -109,7 +112,7 @@ export function ServiceWorkerDataSync({
 
 	// Keep the SW's cache namespace in sync with the current session. Re-send on
 	// SW controllerchange and on app-resume (visibilitychange): the SW may have
-	// been terminated while the PWA was backgrounded — the exact slow-nav case.
+	// been terminated while the PWA was backgrounded, the exact slow-nav case.
 	useEffect(() => {
 		const sync = () => {
 			const current = tokenRef.current

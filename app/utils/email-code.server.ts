@@ -4,8 +4,8 @@ import { prisma } from './db.server.ts'
 import { writeTransaction } from './write-transaction.server.ts'
 
 // Codes emailed for signup, a password reset and an email change. How they
-// work, and the guessing bound, is in docs/ARCHITECTURE.md under "Emailed
-// codes". Authenticator (2FA) codes are a separate thing in Verification.
+// work, and the guessing bound, is in docs/SECURITY.md under "Emailed codes".
+// Authenticator (2FA) codes are a separate thing in Verification.
 
 export const emailCodeTypes = [
 	'onboarding',
@@ -55,7 +55,7 @@ function hashesMatch(storedHex: string, value: string) {
 }
 
 /** What a person might type for a code: any case, spaces or dashes. */
-export function normaliseEmailCode(code: string) {
+export function normalizeEmailCode(code: string) {
 	return code.replace(/[\s-]/g, '').toUpperCase()
 }
 
@@ -165,7 +165,7 @@ type Db = Pick<Prisma.TransactionClient, 'emailCode'>
 
 async function findMatch(db: Db, { type, target, code, token }: CodeQuery) {
 	if (!isEmailCodeType(type)) return null
-	const typed = code ? normaliseEmailCode(code) : ''
+	const typed = code ? normalizeEmailCode(code) : ''
 	if (!typed && !token) return null
 	const rows = await db.emailCode.findMany({
 		where: {

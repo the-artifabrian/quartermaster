@@ -41,8 +41,8 @@ export function addMealToShopping(
 		if (!meal) return null
 		// Missing cards (recipeId null) contribute nothing, so an update drops
 		// a deleted Recipe's lines. Note-card Shopping lines contribute
-		// alongside Recipe items (#109); a note-only snapshot Meal is a valid
-		// contributor.
+		// alongside Recipe items, and a note-only snapshot Meal can add to
+		// Shopping too.
 		const demand = (
 			await loadMealShoppingDemand(tx, { mealIds: [mealId] })
 		).get(mealId)!
@@ -96,7 +96,7 @@ export async function addPickedMealsToShopping(
 	for (const [mealId, picked] of pickedByMeal) {
 		const result = await writeTransaction(db, async (tx) => {
 			// Every Meal id is re-resolved through the household before any
-			// write; a text-only Meal has no Shopping behavior (#98 story 43).
+			// write. A text-only Meal puts nothing on Shopping.
 			const meal = await tx.meal.findFirst({
 				where: { id: mealId, mealPlan: { householdId }, genericText: null },
 				select: { id: true },
@@ -106,8 +106,8 @@ export async function addPickedMealsToShopping(
 				await loadMealShoppingDemand(tx, { mealIds: [mealId] })
 			).get(mealId)!
 			// The tick set decides what is added. A Staple match the household
-			// ticked anyway is still added: the seam's omission is a default
-			// for generated demand, not a veto over an explicit pick.
+			// ticked anyway is still added. Leaving Staples out is a default
+			// for generated demand, and a tick overrides it.
 			const lines = demand.lines.filter((line) =>
 				picked.has(line.canonicalName),
 			)

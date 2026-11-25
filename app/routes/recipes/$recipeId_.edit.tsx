@@ -226,7 +226,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 
 	const intent = formData.get('intent')
 
-	// Handle delete
 	if (intent === 'delete') {
 		const recipeWithImage = await prisma.recipe.findUnique({
 			where: { id: recipeId },

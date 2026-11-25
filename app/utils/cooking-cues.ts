@@ -7,7 +7,7 @@
  * fail, which is quadratic even after the ambiguity fix in time-detection.ts.
  * A recipe may legitimately carry 200 instructions (recipe-validation.ts) of up
  * to 5000 characters each (the import and LLM-extraction caps), so an uncapped
- * scan is ~1MB of backtracking on every single render of that recipe — the
+ * scan is ~1MB of backtracking on every single render of that recipe, the
  * shape of failure that wedged production on 2026-09-11.
  *
  * Cooking cues are a display nicety, not data: the safe degradation is to skip

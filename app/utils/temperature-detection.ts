@@ -46,7 +46,7 @@ function formatConverted(match: {
 // Window size for checking if the opposite unit is already nearby
 const BOTH_UNITS_WINDOW = 30
 
-// Bare "NNN degrees" with no unit letter: below this we stay silent — the
+// Bare "NNN degrees" with no unit letter: below this we stay silent. The
 // number could be Celsius, or not a temperature at all ("rotate the pan
 // 180 degrees"). At 250+ in English recipe text it can only be Fahrenheit
 // (a 250°C oven would be written with the C).
@@ -62,7 +62,7 @@ const EXPLICIT_TEMP_NEARBY =
  * Detects temperature references in instruction text and returns structured matches.
  */
 export function detectTemperatures(text: string): TemperatureMatch[] {
-	// Bounded work per instruction — see MAX_CUE_SCAN_LENGTH. This scanner is
+	// Bounded work per instruction (see MAX_CUE_SCAN_LENGTH). This scanner is
 	// quadratic on a long digit run: `(\d+)` backtracks the whole run at every
 	// start position before it can fail to find an F/C suffix.
 	if (text.length > MAX_CUE_SCAN_LENGTH) return []

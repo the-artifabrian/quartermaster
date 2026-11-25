@@ -96,7 +96,7 @@ export function normalizeUnit(unit: string): string {
 	return UNIT_ALIASES[lower] ?? lower
 }
 
-/** Metric units — displayed as decimals, never fractions. */
+/** Metric units, displayed as decimals, never fractions. */
 const METRIC_UNITS = new Set(['g', 'kg', 'ml', 'l'])
 
 /**
@@ -123,7 +123,7 @@ export function isCountUnit(normalizedUnit: string): boolean {
 /**
  * Every unit consolidation and metric conversion understand, in a stable
  * order. Exported so prompts that ask an LLM for units can name this exact
- * set instead of keeping a second copy that silently drifts — anything
+ * set instead of keeping a second copy that silently drifts. Anything
  * outside it survives as a string but never consolidates on a shopping list.
  */
 export const CANONICAL_UNITS: readonly string[] = [

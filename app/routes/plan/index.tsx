@@ -51,15 +51,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 	const today = getRequestToday(request)
 	const weekStart = getRequestWeekStart(request, today)
 
-	// Read back by the ensured plan's id — a raw householdId/weekStart lookup
-	// cannot see plans whose weekStart is stored in the INTEGER-ms era.
+	// Read back by the ensured plan's id. A raw householdId/weekStart lookup
+	// can't see plans whose weekStart is stored as INTEGER milliseconds.
 	const ensuredPlan = await ensureMealPlan(prisma, { householdId, weekStart })
 	const mealPlan = await prisma.mealPlan.findUniqueOrThrow({
 		where: { id: ensuredPlan.id },
 		include: {
-			// The planner reads Meal parents and ordered items (#105). Within a
-			// day the explicit manual order is authoritative — createdAt/id only
-			// break ties from concurrent adds.
+			// The planner reads Meal parents and ordered items. Within a day the
+			// order the user set decides; createdAt/id only break ties from
+			// concurrent adds.
 			meals: {
 				orderBy: [
 					{ date: 'asc' },
@@ -68,8 +68,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 					{ id: 'asc' },
 				],
 				include: {
-					// The live reference only names where the snapshot came from — all
-					// displayed structure below is the Meal's own frozen copy (#107).
+					// The live reference only names where the snapshot came from. All
+					// displayed structure below is the Meal's own frozen copy.
 					sourceMenu: { select: { id: true, title: true } },
 					sections: {
 						orderBy: { order: 'asc' },

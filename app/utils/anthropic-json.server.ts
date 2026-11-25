@@ -196,7 +196,7 @@ export function parseAnthropicJson<T>(
 }
 
 /**
- * Send one explicit Anthropic request and return only schema-validated JSON.
+ * Send one Anthropic request and return only schema-validated JSON.
  * Prompts, schemas, limits, and user-facing error wording remain feature-local.
  */
 export async function requestAnthropicJson<T>(
@@ -227,7 +227,7 @@ export async function requestAnthropicJson<T>(
 				output_config: {
 					effort: request.effort,
 					// Structured outputs: the response is schema-valid by
-					// construction, so a stray sentence or fence can no longer
+					// construction, so a stray sentence or fence can't
 					// turn a good answer into a parse failure.
 					format: { type: 'json_schema', schema: request.jsonSchema },
 				},

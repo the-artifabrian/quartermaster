@@ -173,7 +173,7 @@ export function MobileFabAdd({
 	const showWarning = !warningDismissed && warningData != null
 	const canForce = showWarning && warningData.warningType !== 'move_to_section'
 
-	// print:hidden guards browser-initiated Cmd+P — print pages are narrower
+	// print:hidden guards browser-initiated Cmd+P. Print pages are narrower
 	// than the md breakpoint, so the fixed FAB would repeat on every page
 	return (
 		<div className="md:hidden print:hidden">

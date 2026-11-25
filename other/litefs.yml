@@ -25,7 +25,7 @@ lease:
 exec:
   # Validate the environment before anything mutates state. The app's init()
   # would catch the same problems, but only after the migration and seed below
-  # have already changed the schema — and with auto_rollback disabled, a
+  # have already changed the schema, and with auto_rollback disabled, a
   # machine that migrated and then refused to boot has no automatic way back.
   # A missing production secret should fail the deploy here, pre-migration.
   - cmd: bun /myapp/scripts/validate-env.ts
@@ -37,7 +37,7 @@ exec:
   # Local-only on purpose: boot must not wait on the network. The offsite copy
   # is the daily job in .github/workflows/backup.yml.
   #
-  # This step fails the boot if it can't produce a verified snapshot — better a
+  # This step fails the boot if it can't produce a verified snapshot: better a
   # machine that won't start than a migration with no way back. If a full
   # volume ever traps a deploy here, `fly secrets set SKIP_DB_BACKUP=true`
   # releases it; see docs/RESTORE.md.
@@ -48,7 +48,7 @@ exec:
 
   # Prisma's schema engine always opens SQLite with locking_mode=EXCLUSIVE
   # (prisma-engines#4675), which LiteFS rejects on a WAL-mode database
-  # (litefs#425) — applying any migration crash-loops the boot. Exclusive
+  # (litefs#425), so applying any migration crash-loops the boot. Exclusive
   # locking IS compatible with a rollback journal, so switch to DELETE for
   # the migration step; WAL is restored below before the app starts.
   - cmd: sqlite3 $DATABASE_PATH "PRAGMA journal_mode = DELETE;"

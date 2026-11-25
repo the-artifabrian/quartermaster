@@ -445,7 +445,7 @@ function ingredientRow(line: SampleRecipe['ingredients'][number]) {
 }
 
 /**
- * Whether the Household has Meals in another week. Compared in JS: legacy
+ * Whether the Household has Meals in another week. Compared in JS: older
  * Meal dates can be stored in two formats that SQL comparisons don't equate.
  */
 async function hasMealsOutsideWeek(

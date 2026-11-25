@@ -1,10 +1,10 @@
 /**
- * Optional Meal serving time (#98 readiness corrections): stored once as a UTC
- * instant plus the IANA timezone it was entered in. Time edits recompute the
- * instant from the Plan's semantic date; Release 5 reuses this representation.
+ * Optional Meal serving time: stored once as a UTC instant plus the IANA
+ * timezone it was entered in. Time edits recompute the instant from the
+ * Plan's semantic date.
  *
- * Isomorphic on purpose — the server computes instants from submitted wall
- * times, components format stored instants back into their originating zone.
+ * Runs on both sides on purpose: the server computes instants from submitted
+ * wall times, and components format stored instants back into their zone.
  * Uses Intl instead of a timezone library: the two-pass offset probe below is
  * exact for real IANA zones (offsets change at most once around any instant).
  */

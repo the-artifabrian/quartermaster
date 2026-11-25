@@ -99,7 +99,7 @@ export function useRecordHistory() {
 // An edit form registers with the bar while it is on screen: the bar shows
 // Cancel and Save only then (not over the route's error page), and the form
 // can hold Save back while it is not ready to send (a photo still being
-// shrunk), as its own submit button used to.
+// shrunk), as a submit button in the form would.
 const mountedForms = new Map<string, number>()
 let saveBlocked = false
 const formListeners = new Set<() => void>()

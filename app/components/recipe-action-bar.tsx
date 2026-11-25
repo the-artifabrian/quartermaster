@@ -41,7 +41,6 @@ export function RecipeActionBar({
 		// The first glyph sits on the content edge; its 44px button hangs into
 		// the gutter.
 		<div className="mt-4 -ml-3 flex flex-wrap items-center gap-1 md:mt-6 md:gap-2 print:hidden">
-			{/* Favorite */}
 			<favoriteFetcher.Form method="POST">
 				<input type="hidden" name="intent" value="toggleFavorite" />
 				<input
@@ -69,7 +68,6 @@ export function RecipeActionBar({
 				</Tooltip>
 			</favoriteFetcher.Form>
 
-			{/* Add to Plan */}
 			<Tooltip>
 				<TooltipTrigger asChild>
 					<Button
@@ -84,7 +82,6 @@ export function RecipeActionBar({
 				<TooltipContent>Add to Plan</TooltipContent>
 			</Tooltip>
 
-			{/* Edit */}
 			<Tooltip>
 				<TooltipTrigger asChild>
 					<Button asChild variant="ghost" size="icon" aria-label="Edit Recipe">
@@ -96,7 +93,6 @@ export function RecipeActionBar({
 				<TooltipContent>Edit Recipe</TooltipContent>
 			</Tooltip>
 
-			{/* Copy */}
 			<Tooltip>
 				<TooltipTrigger asChild>
 					<Button
@@ -112,7 +108,6 @@ export function RecipeActionBar({
 				<TooltipContent>Copy Recipe</TooltipContent>
 			</Tooltip>
 
-			{/* Share */}
 			<Tooltip>
 				<TooltipTrigger asChild>
 					<Button

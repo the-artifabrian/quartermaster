@@ -761,7 +761,7 @@ export function restoreMeal(
 			)
 			// A row checked since the delete is a purchase and doesn't grow: its
 			// share goes back as new demand would, onto an unchecked row of the
-			// same ingredient or a new one (#226).
+			// same ingredient or a new one.
 			const targets = selectNextShopDemandTargets(
 				listRows,
 				back.map((c) => c.canonicalName),

@@ -202,7 +202,6 @@ export default function SubscriptionsAdminRoute({
 			</div>
 			<h1 className="mt-2 text-xl font-semibold">Subscription Management</h1>
 
-			{/* User List */}
 			<Spacer size="2xs" />
 			<p className="text-muted-foreground text-sm">
 				{loaderData.users.length} user

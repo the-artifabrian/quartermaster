@@ -95,8 +95,8 @@ type MenuDetailItem = {
 }
 
 /**
- * A flexible note card — drinks, shared prep, serving reminders — with its
- * ordinary Shopping lines listed underneath (#102).
+ * A note card (drinks, shared prep, serving reminders) with its ordinary
+ * Shopping lines listed underneath.
  */
 function MenuNoteCard({ item }: { item: MenuDetailItem }) {
 	return (
@@ -149,7 +149,7 @@ function MenuRecipeCard({
 			? scaleMultiplierToTargetYield(item.scaleMultiplier, recipeYield)
 			: null
 	// Multiplier remains the shared quantity vocabulary, but 1× is the default
-	// and reads as noise on every row — only a real scale shows the prefix.
+	// and reads as noise on every row, so only a real scale shows the prefix.
 	const scaledPrefix =
 		item.scaleMultiplier != null && item.scaleMultiplier !== 1
 			? `${formatScaleMultiplier(item.scaleMultiplier)}×`

@@ -1,8 +1,8 @@
 /**
  * Client-readable marker set alongside the httpOnly flash-toast cookie
  * (`en_toast`, toast.server.ts). The toast itself stays httpOnly and signed;
- * this cookie carries no data. Its presence tells root's `shouldRevalidate` —
- * which runs in the browser and cannot see the real cookie — that the next
+ * this cookie carries no data. Its presence tells root's `shouldRevalidate`
+ * (which runs in the browser and cannot see the real cookie) that the next
  * root-loader run has a toast to render and clear, so no revalidation-skipping
  * heuristic can strand a flash message. Set by `createToastHeaders`, cleared
  * by `getToast`.

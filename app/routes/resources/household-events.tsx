@@ -47,14 +47,13 @@ export async function loader({ request }: Route.LoaderArgs) {
 				}
 			}
 
-			// Send initial connected message
 			send('event: connected\ndata: {}\n\n')
 
 			// The keepalive doubles as a liveness probe: neither request.signal
 			// 'abort' nor stream cancel() fires on client disconnect under the
 			// express adapter (verified on react-router 7.14.2 and 8.2.0), so
-			// without this check every PWA reconnect left this closure — interval,
-			// bus listener, controller queue — rooted forever and leaked ~10-20KB
+			// without this check every PWA reconnect left this closure (interval,
+			// bus listener, controller queue) rooted forever and leaked ~10-20KB
 			// per cycle. A gone consumer is detected by its queue no longer
 			// draining (desiredSize stays negative); the lifetime cap bounds
 			// anything the probe can't see. EventSource reconnects transparently
@@ -69,14 +68,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 				send('event: keepalive\ndata: {}\n\n')
 			}, KEEPALIVE_INTERVAL_MS)
 
-			// Listen for household events
 			function onEvent(event: HouseholdEventData) {
 				send(`event: activity\ndata: ${JSON.stringify(event)}\n\n`)
 			}
 
 			householdEventBus.on(`household:${householdId}`, onEvent)
 
-			// Clean up on disconnect
 			request.signal.addEventListener('abort', cleanup)
 
 			// Register last: shutdown may already be in progress, in which case the

@@ -1,12 +1,12 @@
 /**
- * Pure mapping from a loaded Menu to the Meal snapshot seed (#107).
+ * Pure mapping from a loaded Menu to the Meal snapshot seed.
  *
  * Planning copies the Menu into one Meal exactly as the Menu reads today:
  * section order, Recipe/note card order, display identity, per-Recipe scale
- * multipliers, display notes, and note Shopping lines — all frozen. Guest
+ * multipliers, display notes, and note Shopping lines, all frozen. Guest
  * count is planning context only and never touches a multiplier. The copy is
- * by value, so later Menu edits cannot mutate the planned event; canonical
- * Recipe ingredients/instructions stay live through the kept recipeId.
+ * by value, so later Menu edits can't change the planned Meal. A Recipe's
+ * ingredients and instructions stay live through the kept recipeId.
  */
 
 export type MenuForSnapshot = {
@@ -54,7 +54,7 @@ export type SnapshotSectionSeed = {
  * `householdId` guards the Recipe references the same way Menu detail does: a
  * reference outside the household freezes as a missing card, never a link.
  * Deleted Recipes (null reference) also freeze as missing cards with their
- * frozen Menu title, requiring explicit replacement/removal on the Meal.
+ * frozen Menu title, until someone replaces or removes them on the Meal.
  */
 export function menuToSnapshotSections(
 	menu: MenuForSnapshot,
@@ -113,7 +113,7 @@ export function snapshotHasContent(sections: SnapshotSectionSeed[]): boolean {
  * Regroup stored snapshot rows into their frozen section structure: for each
  * section in order, its Recipe and note cards interleaved by the order
  * sequence the two tables share. Unsectioned rows (planner-created items,
- * later additions) are the caller's — this returns sectioned content only.
+ * later additions) are the caller's. This returns sectioned content only.
  */
 export function groupSnapshotEntries<
 	R extends { sectionId: string | null; order: number },

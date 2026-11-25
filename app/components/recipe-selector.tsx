@@ -58,7 +58,7 @@ type RecipeSelectorProps = {
 }
 
 /**
- * Small square recipe thumbnail — image when one exists, the deterministic
+ * Small square recipe thumbnail: the image when one exists, the deterministic
  * warm monogram placeholder otherwise. Shared row language for anything that
  * lists recipes compactly (Plan selector, Menu picker).
  */
@@ -187,7 +187,7 @@ function ItemSelector({
 	)
 	const isSearching = search.trim().length > 0
 
-	// Mon=1..Thu=4 are weeknights — sort by total time
+	// Mon=1..Thu=4 are weeknights, so sort by total time
 	const isWeeknight = date.getUTCDay() >= 1 && date.getUTCDay() <= 4
 	const applySorting = (list: RecipeSelectorRecipe[]) =>
 		isWeeknight ? [...list].sort(sortByTime) : list

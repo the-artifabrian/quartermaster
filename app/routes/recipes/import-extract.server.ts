@@ -57,7 +57,7 @@ function metadataVocabulary(
 
 /**
  * The household rows behind the names the extraction matched. A matched name
- * is one the household already has, so this only looks rows up — it never
+ * is one the household already has, so this only looks rows up. It never
  * creates one, and a name it cannot place is simply not ticked.
  */
 function matchedValueIds(
@@ -156,7 +156,7 @@ export async function importWithAi(
 				)
 			}
 
-			// Validate magic bytes — don't trust client-provided Content-Type
+			// Validate magic bytes; don't trust client-provided Content-Type
 			const detectedType = sniffImageType(new Uint8Array(buffer))
 			if (
 				!detectedType ||

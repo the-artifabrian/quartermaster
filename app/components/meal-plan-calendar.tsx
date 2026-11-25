@@ -155,7 +155,7 @@ function AddMealControl({
 			return
 		}
 		// A semantic match keeps its own multiplier, so say what is planned and
-		// point at that Meal rather than implying this scale was applied (#236).
+		// point at that Meal rather than implying this scale was applied.
 		if (meal && !meal.created) {
 			const mealLabel = submittedLabel.current
 			toast.info('Already planned', {

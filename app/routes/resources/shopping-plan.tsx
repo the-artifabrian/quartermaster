@@ -42,17 +42,16 @@ function mealTitle({
 }
 
 /**
- * The Plan picker's choices for one week (#288). From Plan opens this instead
- * of generating a whole week: the household sees each Meal with the lines it
- * would contribute and ticks what it actually wants to buy.
+ * The Plan picker's choices for one week. From Plan opens this: the
+ * household sees each Meal with the lines it would add and ticks what it
+ * actually wants to buy.
  *
- * Cooked Recipe items are left out, as From Plan always left them out;
- * headings and optional ingredients never reach demand at all. Lines the
- * household would normally skip — Staple matches, plain pantry basics, and
- * names already on the list — still appear, unticked and with the reason,
- * because only the household knows when the usual assumption is wrong. A
- * Staple is the whole of that first reason since #289: there is no Out state
- * that could make one needed on its own.
+ * Cooked Recipe items are left out, and headings and optional ingredients
+ * never reach demand at all. Lines the household would normally skip (Staple
+ * matches, plain pantry basics, and names already on the list) still appear,
+ * unticked and with the reason, because only the household knows when the
+ * usual assumption is wrong. A Staple match is always skipped by default: a
+ * Staple has no state that could mark it as needed.
  *
  * A line whose amount this Meal already put on Shopping is different: it
  * shows as on the list and can't be ticked, since adding it again would
@@ -70,7 +69,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			where: { householdId_weekStart: { householdId, weekStart } },
 			select: {
 				meals: {
-					// Text-only Meals have no Shopping behavior (#98 story 43).
+					// Text-only Meals put nothing on Shopping.
 					where: { genericText: null },
 					orderBy: [{ date: 'asc' }, { order: 'asc' }, { id: 'asc' }],
 					select: {
@@ -171,7 +170,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 					},
 					listedIdentities,
 					keptByAvailability,
-					// Explicit note Shopping text is deliberate, so the heuristic
+					// A Shopping line written on a note is deliberate, so the heuristic
 					// stays off it: a household that wrote "olive oil" on a note
 					// card meant to buy some.
 					pantryStaple:

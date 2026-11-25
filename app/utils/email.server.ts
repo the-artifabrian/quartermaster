@@ -26,7 +26,7 @@ const DEFAULT_TIMEOUT_MS = 10_000
 
 // sendEmail returns error results instead of throwing, so nothing upstream
 // (entry.server's handleError → console + PostHog) will ever see these
-// failures — a provider outage would be invisible until users complain.
+// failures. A provider outage would be invisible until users complain.
 // Every error result must pass through here on its way out.
 function reportEmailFailure(
 	email: { to: string; subject: string },
@@ -82,7 +82,7 @@ export async function sendEmail({
 	}
 
 	// Dev convenience: with no key and no mocks, log the message instead of
-	// sending it. Production never reaches this branch — `init()` refuses to
+	// sending it. Production never reaches this branch: `init()` refuses to
 	// boot without the key unless MOCKS === 'true', the same comparison used
 	// here and everywhere mocks are installed.
 	if (!process.env.RESEND_API_KEY && process.env.MOCKS !== 'true') {
@@ -140,7 +140,7 @@ export async function sendEmail({
 	try {
 		data = await response.json()
 	} catch (error) {
-		// The request itself completed — an unreadable body is not a delivery
+		// The request itself completed, so an unreadable body is not a delivery
 		// failure. On a 2xx Resend has already accepted the message, and
 		// reporting failure here would invite a retry that rotates the
 		// verification code carried by the email that actually arrived.

@@ -146,6 +146,7 @@ export function ServiceWorkerUpdate() {
 			void serviceWorkers
 				.register('/sw.js')
 				.then(observeRegistration)
+				// Without a worker the app still works, and the next load tries again.
 				.catch(() => {})
 		}
 
@@ -165,6 +166,8 @@ export function ServiceWorkerUpdate() {
 			void registration
 				.update()
 				.then(revealWaitingWorker)
+				// Offline or the server is down. The next check after
+				// UPDATE_CHECK_INTERVAL_MS tries again.
 				.catch(() => {})
 		}
 

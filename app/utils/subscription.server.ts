@@ -58,12 +58,12 @@ export async function getUserTier(userId: string): Promise<TierInfo> {
 
 	const isProActive = isPaidActive || isTrialing
 
-	// Compute effective expiry date — the date when ALL Pro access ends.
+	// The effective expiry date: when ALL Pro access ends.
 	// Indefinite Stripe (no subscriptionExpiresAt) wins over any trial countdown.
 	// When both trial and paid have concrete dates, pick the later one.
 	let proExpiresAt: Date | null = null
 	if (isPaidActive && subscription.subscriptionExpiresAt === null) {
-		// Indefinite paid subscription — no expiry regardless of trial
+		// Indefinite paid subscription: no expiry regardless of trial
 		proExpiresAt = null
 	} else if (
 		isTrialing &&
@@ -71,7 +71,7 @@ export async function getUserTier(userId: string): Promise<TierInfo> {
 		subscription.trialEndsAt &&
 		subscription.subscriptionExpiresAt
 	) {
-		// Both active with concrete dates — use the later one
+		// Both active with concrete dates: use the later one
 		proExpiresAt =
 			subscription.trialEndsAt > subscription.subscriptionExpiresAt
 				? subscription.trialEndsAt

@@ -73,7 +73,7 @@ export async function emitHouseholdEvent({
 
 		householdEventBus.emit(`household:${householdId}`, eventData)
 	} catch {
-		// Silently ignore — event emission is fire-and-forget
+		// Ignore it. Event emission is fire-and-forget
 		// and should never break the main request flow
 	}
 }

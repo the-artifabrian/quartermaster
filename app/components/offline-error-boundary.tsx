@@ -92,6 +92,7 @@ function OfflineNotice() {
 				for (const delay of ONLINE_RETRY_DELAYS_MS) {
 					await new Promise((resolve) => setTimeout(resolve, delay))
 					if (cancelled || !navigator.onLine) return
+					// Still unreachable: the next delay tries again, and Retry stays.
 					await retryTabOnly(revalidate).catch(() => {})
 				}
 			} finally {

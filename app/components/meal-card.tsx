@@ -44,7 +44,7 @@ export type PlanMealItem = {
 	recipeTitle: string
 	scaleMultiplier: number
 	cooked: boolean
-	/// Frozen display note copied from the Menu card (#107).
+	/// Frozen display note copied from the Menu card.
 	note: string | null
 	order: number
 	sectionId: string | null
@@ -81,7 +81,7 @@ export type PlanMeal = {
 	completed: boolean
 	guestCount: number | null
 	sourceMenu: { id: string; title: string } | null
-	/// Frozen Menu snapshot structure (#107); empty for planner-created Meals.
+	/// Frozen Menu snapshot structure. Empty for planner-created Meals.
 	sections: Array<{ id: string; name: string | null }>
 	noteItems: PlanMealNote[]
 	/// True once the Meal has been added to Shopping.
@@ -142,8 +142,8 @@ function ItemRow({
 	const cookedFetcher = useFetcher()
 	const deleteWithUndo = useDeleteWithUndo()
 
-	// Optimistic cooked state while the toggle is in flight — read the
-	// submitted target value so repeat taps each show their own state
+	// Optimistic cooked state while the toggle is in flight. It reads the
+	// submitted target value, so repeat taps each show their own state.
 	const isCooked = cookedFetcher.formData
 		? cookedFetcher.formData.get('cooked') === 'true'
 		: item.cooked
@@ -151,7 +151,7 @@ function ItemRow({
 	const missing = item.recipe == null
 	return (
 		<div className={cn('flex items-center gap-2', isCooked && 'opacity-50')}>
-			{/* Cooked checkbox — independent per Recipe item (#98) */}
+			{/* Each Recipe item has its own cooked state. */}
 			<cookedFetcher.Form
 				method="POST"
 				className="shrink-0"
@@ -160,8 +160,8 @@ function ItemRow({
 			>
 				<input type="hidden" name="intent" value="setItemCooked" />
 				<input type="hidden" name="itemId" value={item.id} />
-				{/* Explicit target (not a server-side flip) so double-taps and
-				    concurrent household toggles stay last-write-wins */}
+				{/* The target value, not a server-side flip, so double-taps and
+				    two people toggling at once stay last-write-wins. */}
 				<input type="hidden" name="cooked" value={String(!isCooked)} />
 				<button
 					type="submit"
@@ -265,7 +265,7 @@ function ItemRow({
 }
 
 /**
- * A frozen snapshot note card (#107) — read-only text plus its ordinary
+ * A frozen snapshot note card: read-only text plus its ordinary
  * Shopping lines, compact enough for the planner's day columns.
  */
 function NoteRow({ note }: { note: PlanMealNote }) {
@@ -304,8 +304,8 @@ type MealRow =
 	| { kind: 'note'; key: string; note: PlanMealNote }
 
 /**
- * Frozen sections first — each heading followed by its Recipe and note cards
- * interleaved by their shared order — then unsectioned items: everything
+ * Frozen sections first, each heading followed by its Recipe and note cards
+ * interleaved by their shared order. Then unsectioned items: everything
  * planner-created, plus Recipes added to a snapshot Meal later. Empty frozen
  * sections stay stored but render nothing.
  */
@@ -572,8 +572,8 @@ export function MealCard({
 	const menuPointer = useRef<string | null>(null)
 
 	const isText = meal.genericText != null
-	// A Recipe Meal derives completion from its items; a text-only Meal owns
-	// one completed flag (#98 readiness corrections).
+	// A Recipe Meal derives completion from its items. A text-only Meal has
+	// its own completed flag.
 	const optimisticMealCooked = mealCookedFetcher.formData
 		? mealCookedFetcher.formData.get('cooked') === 'true'
 		: null
@@ -632,8 +632,8 @@ export function MealCard({
 		meal.items.length > 0 ||
 		meal.noteItems.some((note) => note.shoppingLines.length > 0)
 
-	// Toast once the explicit Add-to-Shopping action settles (#108) — the
-	// result is otherwise invisible from the planner.
+	// Toast once Add to Shopping settles. The planner shows no other sign of
+	// the result.
 	const prevShoppingState = useRef(addToShoppingFetcher.state)
 	useEffect(() => {
 		if (
@@ -811,10 +811,10 @@ export function MealCard({
 					<Icon name="pencil-1" size="sm" />
 					Edit details
 				</DropdownMenuItem>
-				{/* A Meal reaches Shopping only through this explicit action —
-				    planning never live-syncs Shopping. Text-only Meals have no
-				    Shopping behavior (#108). A Meal already on Shopping keeps
-				    Update after losing its demand, so the update can clear it. */}
+				{/* Planning never changes Shopping by itself: a Meal gets there
+				    from this item or from From Plan on Shopping, and a text-only
+				    Meal never does. A Meal already on Shopping keeps Update after
+				    losing its demand, so the update can clear it. */}
 				{!isText && (hasShoppingDemand || meal.addedToShopping) && (
 					<DropdownMenuItem
 						disabled={addToShoppingFetcher.state !== 'idle'}
@@ -876,8 +876,8 @@ export function MealCard({
 			// between Meals (MealCards).
 			className="group focus-visible:ring-ring relative rounded-sm py-3 focus-visible:ring-2 md:py-1.5"
 		>
-			{/* Header: optional label/time/guests on the left — display metadata
-			    only, never what orders the day (#98) — controls on the right. */}
+			{/* Header: optional label, time and guests on the left (display only,
+			    never what orders the day), controls on the right. */}
 			{hasHeader && (
 				<div className="flex min-h-7 items-center gap-1.5">
 					<div className="text-muted-foreground flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-[11px] font-semibold tracking-wider uppercase">
@@ -891,7 +891,7 @@ export function MealCard({
 						{meal.guestCount != null && (
 							<span className="normal-case">· {meal.guestCount} guests</span>
 						)}
-						{/* Where the snapshot came from — a reference, not live data */}
+						{/* Where the snapshot came from: a link, not live data. */}
 						{meal.sourceMenu && (
 							<PushLink
 								to={`/recipes/menus/${meal.sourceMenu.id}`}
@@ -907,7 +907,6 @@ export function MealCard({
 				</div>
 			)}
 
-			{/* Edit details: inline panel, or a sheet on a phone */}
 			{/* Edit details in place opens under the dots that opened it: under
 			    the header, or at the end of a Meal without one. */}
 			{detailsUnderHeader && detailsPanel}
@@ -929,8 +928,8 @@ export function MealCard({
 			)}
 
 			{isText ? (
-				// Text-only Meal: parent completion state, no Recipe items, no
-				// Shopping behavior (#98).
+				// Text-only Meal: its own completed state, no Recipe items, and
+				// nothing for Shopping.
 				<div
 					className={cn('flex items-center gap-2', isComplete && 'opacity-50')}
 				>
@@ -1015,9 +1014,9 @@ export function MealCard({
 						)
 					})}
 
-					{/* Add another Recipe directly to this Meal (#98 story 41). The
-					    picker replaces the button while open and has its own Cancel;
-					    on a phone it is a sheet over the button. */}
+					{/* Add another Recipe directly to this Meal. The picker replaces
+					    the button while open and has its own Cancel; on a phone it is
+					    a sheet over the button. */}
 					{addingRecipe && !recipeInSheet ? (
 						<div className="bg-card animate-fade-up-reveal shadow-warm-lg mt-2 rounded-lg border p-3">
 							{recipePicker}

@@ -8,7 +8,7 @@ import { cn } from '#app/utils/misc.tsx'
 
 /**
  * Mobile-only "ingredients at hand" affordance for mid-cook glances: a quiet
- * text pill that opens the ingredient list as a bottom sheet over the steps —
+ * text pill that opens the ingredient list as a bottom sheet over the steps,
  * the same sheet as the shopping quick-add. Check-off and scaled
  * amounts work inside; dismiss and you're still on your step.
  */

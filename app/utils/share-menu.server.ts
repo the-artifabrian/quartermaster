@@ -153,7 +153,7 @@ export async function saveSharedMenu({
 		}
 		const result = await writeTransaction(prisma, async (tx) => {
 			// Concurrent Save requests serialize here; the unique key is the
-			// durable backstop. A repeat never refreshes the recipient's edits.
+			// database's backstop. A repeat never refreshes the recipient's edits.
 			const member = await tx.householdMember.findUnique({
 				where: { householdId_userId: { householdId, userId } },
 				select: { userId: true },

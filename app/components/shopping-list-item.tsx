@@ -158,11 +158,10 @@ export function ShoppingListItemCard({
 		revalidator,
 	])
 
-	// Optimistic checked state
 	const optimisticChecked = item.checked
 
 	// The displayed quantity groups the row with its current Meal
-	// contributions (#109), computed by the loader. The row's stored
+	// contributions, computed by the loader. The row's stored
 	// quantity/unit stay the editable manual identity below.
 	const display = item.display ?? {
 		quantity: item.quantity,

@@ -62,7 +62,7 @@ export async function getToast(request: Request) {
 	const session = await toastSessionStorage.getSession(cookieHeader)
 	const result = ToastSchema.safeParse(session.get(toastKey))
 	const toast = result.success ? result.data : null
-	// Clear the marker whenever it's present, toast or not — a stale marker
+	// Clear the marker whenever it's present, toast or not. A stale marker
 	// (e.g. left by a document load that consumed the toast in a response
 	// whose Set-Cookie clearing was lost) would force root revalidation on
 	// every navigation until the browser session ends.

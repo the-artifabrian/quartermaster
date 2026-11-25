@@ -41,7 +41,6 @@ export function useSpeechToText({ onResult, onError }: SpeechToTextOptions) {
 		}
 	}, [])
 
-	// Clean up on unmount
 	useEffect(() => {
 		return () => {
 			cleanupAudioMonitoring()
@@ -207,7 +206,7 @@ export function useSpeechToText({ onResult, onError }: SpeechToTextOptions) {
 					if (silenceStart === null) {
 						silenceStart = Date.now()
 					} else if (Date.now() - silenceStart > SILENCE_DURATION_MS) {
-						// Enough silence — auto-stop
+						// Enough silence: auto-stop
 						stopRecording()
 						return
 					}

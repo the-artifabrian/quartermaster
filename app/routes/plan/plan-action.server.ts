@@ -34,7 +34,7 @@ import { writeTransaction } from '#app/utils/write-transaction.server.ts'
 /**
  * What `addMeal` reports back: which Meal now holds the Recipe, whether this
  * request created it, the multiplier that Meal actually carries, and where to
- * open it (#236). Both add-to-Plan callers render from this.
+ * open it. Both add-to-Plan callers render from this.
  */
 export type PlannedMealResult = {
 	id: string
@@ -43,7 +43,7 @@ export type PlannedMealResult = {
 	href: string
 }
 
-/** Deep-link to one Meal in Plan — the week it lives in, focused on the card. */
+/** Deep-link to one Meal in Plan: the week it lives in, focused on the card. */
 function mealPlanHref({ date, mealId }: { date: Date; mealId: string }) {
 	return `/plan?weekStart=${serializeDate(getWeekStart(date))}&mealId=${encodeURIComponent(mealId)}`
 }
@@ -65,7 +65,7 @@ export function createPlanAction(
 		const intent = formData.get('intent')
 
 		// Every id submitted by the client is re-resolved through the household
-		// before any write — other-household Meals, items, and Recipes 404.
+		// before any write, so other households' Meals, items, and Recipes 404.
 		async function requireMeal(
 			mealId: unknown,
 			mealDb: Pick<PrismaClient, 'meal'> = db,
@@ -114,7 +114,7 @@ export function createPlanAction(
 				recipe,
 				scaleMultiplier: multiplier ?? 1,
 			})
-			// Both callers report what is actually planned (#236): a semantic
+			// Both callers report what is actually planned: a semantic
 			// match keeps its own multiplier, so success alone would imply the
 			// requested scale was applied. The href points at that exact Meal.
 			const meal: PlannedMealResult = {
@@ -214,15 +214,13 @@ export function createPlanAction(
 			return { status: 'success' as const }
 		}
 
-		// The explicit action that puts one Meal's ingredients on Shopping (#108
-		// / #98 story 55). Planning itself never touches Shopping — only this
-		// button does. Demand flows through the one pure module, availability
-		// annotation and contribution reconciliation consume it at their own
-		// seams, and each demand line leaves a current-state contribution keyed
-		// to this Meal.
+		// Puts one Meal's ingredients on Shopping. Planning itself never touches
+		// Shopping. buildShoppingDemand works out the lines, the Staples check
+		// drops the ones the household usually has, and each line written leaves
+		// a contribution keyed to this Meal.
 		if (intent === 'addMealToShopping' || intent === 'refreshMealShopping') {
 			const meal = await requireMeal(formData.get('mealId'))
-			// A text-only Meal has no Shopping behavior (#98 story 43).
+			// A text-only Meal puts nothing on Shopping.
 			invariantResponse(
 				meal.genericText == null,
 				'A text-only Meal has no Shopping behavior',
@@ -243,9 +241,9 @@ export function createPlanAction(
 			// above. The Plan reloads after this answer and shows it gone.
 			if (!result) return { status: 'gone' as const }
 
-			// Since #109, attaching or changing a contribution can alter a
-			// manual/source-Meal row's displayed total without creating a row.
-			// Notify other open Shopping clients for every visible reconcile.
+			// Attaching or changing a contribution can change a manual or
+			// source-Meal row's displayed total without creating a row, so other
+			// open Shopping clients hear about every change they would see.
 			const changedCount =
 				result.createdRowCount +
 				(result.attachedCount ?? 0) +
@@ -349,9 +347,9 @@ export function createPlanAction(
 			return { status: 'success' as const }
 		}
 
-		// An intent this page no longer sends, such as an old tab's removeItem or
-		// removeMeal from before Undo (they go to resources/undo-delete now). It
-		// saves nothing, and the status says so; a 200 would read as done.
+		// An intent this page doesn't send, such as removeItem or removeMeal from
+		// a tab opened before Undo (those go to resources/undo-delete). It saves
+		// nothing, and the status says so; a 200 would read as done.
 		return data({ status: 'error' as const }, { status: 400 })
 	}
 }

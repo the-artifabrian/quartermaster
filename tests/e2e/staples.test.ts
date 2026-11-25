@@ -762,15 +762,25 @@ test.describe('the old /inventory address', () => {
 		})
 	}
 
+	// The mark is gone once the reloaded page answers. While the reload is
+	// under way, evaluate throws, so that counts as not there yet.
+	async function expectReloaded(page: Page) {
+		await expect
+			.poll(() =>
+				page
+					.evaluate(
+						() => (window as { beforeNavigation?: boolean }).beforeNavigation,
+					)
+					.catch(() => 'reloading'),
+			)
+			.toBeUndefined()
+	}
+
 	async function expectNewStaplesDocument(page: Page) {
+		await expectReloaded(page)
 		await expect(page).toHaveURL('/staples')
 		await expect(stapleRow(page, 'Salt')).toBeVisible()
 		await expect(page.getByRole('heading', { level: 1 })).toHaveText('Staples')
-		expect(
-			await page.evaluate(
-				() => (window as { beforeNavigation?: boolean }).beforeNavigation,
-			),
-		).toBeUndefined()
 	}
 
 	test('an older page tapping Staples for the first time lands on Staples', async ({
@@ -846,13 +856,7 @@ test.describe('the old /inventory address', () => {
 		await page.getByRole('textbox', { name: 'Add a Staple' }).fill('Pepper')
 		await page.getByRole('textbox', { name: 'Add a Staple' }).press('Enter')
 
-		await expect
-			.poll(() =>
-				page.evaluate(
-					() => (window as { beforeNavigation?: boolean }).beforeNavigation,
-				),
-			)
-			.toBeUndefined()
+		await expectReloaded(page)
 		await expect(page).toHaveURL('/staples')
 		await expect(stapleRow(page, 'Pepper')).toBeVisible()
 		expect(await isStaple(user.householdId, 'pepper')).toBe(true)
@@ -866,24 +870,17 @@ test.describe('the old /inventory address', () => {
 		await seedStaples(user.householdId, ['Salt'])
 		await page.goto('/recipes')
 		await waitForHydration(page)
-		await page.evaluate(() => {
-			;(window as { beforeNavigation?: boolean }).beforeNavigation = true
-		})
+		await markDocument(page)
 
-		await page.evaluate(() =>
-			(
+		// Not awaited in the page, since the reload ends the navigation.
+		await page.evaluate(() => {
+			void (
 				window as unknown as {
 					__reactRouterDataRouter: { navigate: (to: string) => unknown }
 				}
-			).__reactRouterDataRouter.navigate('/inventory'),
-		)
+			).__reactRouterDataRouter.navigate('/inventory')
+		})
 
-		await expect(page).toHaveURL('/staples')
-		await expect(stapleRow(page, 'Salt')).toBeVisible()
-		expect(
-			await page.evaluate(
-				() => (window as { beforeNavigation?: boolean }).beforeNavigation,
-			),
-		).toBeUndefined()
+		await expectNewStaplesDocument(page)
 	})
 })

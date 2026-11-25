@@ -412,6 +412,29 @@ describe('Recipe time and typed yield recovery', () => {
 			}),
 		)
 	})
+
+	test('a Recipes-only export keeps the Recipe notes through a restore', async () => {
+		const source = await setupUser()
+		await prisma.recipe.create({
+			data: {
+				title: 'Rye starter loaf',
+				notes: 'Feed the starter the night before.',
+				userId: source.userId,
+				householdId: source.householdId,
+				ingredients: { create: { name: 'rye flour', order: 0 } },
+				instructions: { create: { content: 'Bake.', order: 0 } },
+			},
+		})
+
+		const exported = await exportRecipes(source)
+		const target = await setupUser()
+		await importPayload(target, exported)
+		const restored = await prisma.recipe.findFirstOrThrow({
+			where: { householdId: target.householdId, title: 'Rye starter loaf' },
+			select: { notes: true },
+		})
+		expect(restored.notes).toBe('Feed the starter the night before.')
+	})
 })
 
 // Heading names here trip neither the ingredient parser's heading heuristics

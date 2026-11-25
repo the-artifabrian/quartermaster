@@ -35,15 +35,17 @@ export function MobileFabAdd({
 	const inputRef = useRef<HTMLInputElement>(null)
 	const qtyInputRef = useRef<HTMLInputElement>(null)
 
-	// What was typed clears when the sheet opens again. Not on close: the sheet
-	// leaves showing what it showed.
+	// What was typed clears when the sheet opens again, and so does the last
+	// add's warning. Not on close: the sheet leaves showing what it showed.
 	const [wasOpen, setWasOpen] = useState(open)
+	const [dataBeforeOpen, setDataBeforeOpen] = useState(fetcher.data)
 	if (open !== wasOpen) {
 		setWasOpen(open)
 		if (open) {
 			setName('')
 			setQuantity('')
 			setUnit('')
+			setDataBeforeOpen(fetcher.data)
 		}
 	}
 
@@ -161,6 +163,7 @@ export function MobileFabAdd({
 		})
 	const warningData =
 		fetcher.data &&
+		fetcher.data !== dataBeforeOpen &&
 		typeof fetcher.data === 'object' &&
 		'warningType' in fetcher.data &&
 		fetcher.data.status === 'warning'

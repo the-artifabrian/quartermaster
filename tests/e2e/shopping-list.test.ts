@@ -1102,6 +1102,8 @@ test('the phone add sheet opens empty after each way of closing it, and still ad
 	page,
 	login,
 }) => {
+	// Four opens and closes of a sliding sheet.
+	test.setTimeout(30_000)
 	const user = await login()
 	await prisma.shoppingList.create({
 		data: { userId: user.id, householdId: user.householdId },
@@ -1158,4 +1160,49 @@ test('the phone add sheet opens empty after each way of closing it, and still ad
 			}),
 		)
 		.toEqual([{ name: 'Butter', quantity: '250', unit: 'g' }])
+})
+
+// Failure list for the add sheet's duplicate warning across a close:
+// - The warning for the last item is still showing when the sheet opens
+//   again, above an empty field.
+// - Its "add anyway" stays armed, so the next item is added without being
+//   checked against the list.
+test('the phone add sheet opens without the last item’s warning, and checks the next add again', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await prisma.shoppingList.create({
+		data: {
+			userId: user.id,
+			householdId: user.householdId,
+			items: { create: { name: 'Milk' } },
+		},
+	})
+	await page.setViewportSize({ width: 390, height: 844 })
+	await openShopping(page)
+	const addItem = page.getByRole('button', { name: 'Add item' })
+	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
+	const name = sheet.getByPlaceholder('Add an item...')
+	const warning = sheet.getByText('Milk is already on your list')
+
+	await addItem.click()
+	await expect(name).toBeFocused()
+	await name.fill('Milk')
+	await sheet.getByRole('button', { name: 'Add to Next shop' }).click()
+	await expect(warning).toBeVisible()
+	await sheet.getByRole('button', { name: 'Close', exact: true }).click()
+	await expect(sheet).toBeHidden()
+
+	await addItem.click()
+	await expect(name).toBeFocused()
+	await expect(warning).toBeHidden()
+	await name.fill('Milk')
+	await sheet.getByRole('button', { name: 'Add to Next shop' }).click()
+	await expect(warning).toBeVisible()
+	expect(
+		await prisma.shoppingListItem.count({
+			where: { list: { householdId: user.householdId } },
+		}),
+	).toBe(1)
 })

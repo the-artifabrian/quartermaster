@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useFetcher } from 'react-router'
 import { toast } from 'sonner'
+import { useFetcherSettled } from '#app/hooks/use-fetcher-settled.ts'
 import { formatDuration } from '#app/utils/format-duration.ts'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
@@ -88,15 +89,11 @@ function EnhanceSuggestions({
 		totalTime: hasTotalTimeChange && recipe.totalTime == null,
 	}))
 
-	// Close after successful apply (prevState ref prevents firing on mount with stale data)
-	const prevApplyState = useRef(fetcher.state)
-	useEffect(() => {
-		if (
-			prevApplyState.current !== 'idle' &&
-			fetcher.state === 'idle' &&
-			fetcher.data
-		) {
-			const result = fetcher.data as {
+	// Close after a successful apply. The fetcher is keyed, so it can mount
+	// holding an earlier apply's answer, and useFetcherSettled ignores that.
+	useFetcherSettled(fetcher, (data) => {
+		if (data) {
+			const result = data as {
 				success?: boolean
 				error?: string
 				requiresPro?: boolean
@@ -115,8 +112,7 @@ function EnhanceSuggestions({
 				)
 			}
 		}
-		prevApplyState.current = fetcher.state
-	}, [fetcher.state, fetcher.data, onClose, isNativeShell])
+	})
 
 	function handleApply() {
 		const formData = new FormData()

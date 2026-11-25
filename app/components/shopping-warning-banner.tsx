@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react'
 import { useFetcher } from 'react-router'
 import { Icon } from '#app/components/ui/icon.tsx'
+import { useFetcherSettled } from '#app/hooks/use-fetcher-settled.ts'
 import { HouseholdClientInput } from '#app/utils/household-client.tsx'
 import { LATER } from '#app/utils/shopping-horizon.ts'
 
@@ -14,18 +14,12 @@ export function WarningBanner({
 	onMoved?: () => void
 }) {
 	const moveFetcher = useFetcher()
-	const previousMoveState = useRef(moveFetcher.state)
-	useEffect(() => {
-		if (
-			previousMoveState.current !== 'idle' &&
-			moveFetcher.state === 'idle' &&
-			moveFetcher.data?.status === 'success'
-		) {
+	useFetcherSettled(moveFetcher, (data) => {
+		if (data?.status === 'success') {
 			onMoved?.()
 			onDismiss()
 		}
-		previousMoveState.current = moveFetcher.state
-	}, [moveFetcher.state, moveFetcher.data, onDismiss, onMoved])
+	})
 
 	if (actionData.warningType === 'move_to_section') {
 		const targetHorizon = actionData.targetHorizon as string

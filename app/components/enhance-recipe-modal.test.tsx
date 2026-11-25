@@ -155,3 +155,37 @@ test('the review stays as it was while the sheet leaves after Apply', async () =
 	expect(screen.queryByText(/Nothing to suggest/)).toBeNull()
 	expect(screen.getByText('Total time')).toBeVisible()
 })
+
+test('closes once the suggestions are applied', async () => {
+	const user = userEvent.setup()
+	const onClose = vi.fn()
+	const Stub = createRoutesStub([
+		{
+			path: '/recipes/:recipeId',
+			Component: () => (
+				<EnhanceRecipeModal
+					open
+					recipe={{
+						id: 'recipe-1',
+						description: null,
+						activeTime: null,
+						totalTime: null,
+					}}
+					suggestions={{
+						description: 'Creamy chickpeas warmed with care.',
+						activeTime: 10,
+						totalTime: 25,
+					}}
+					onClose={onClose}
+				/>
+			),
+			action: () => ({ success: true }),
+		},
+	])
+
+	render(<Stub initialEntries={['/recipes/recipe-1']} />)
+	expect(onClose).not.toHaveBeenCalled()
+	await user.click(screen.getByRole('button', { name: 'Apply selected' }))
+
+	await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+})

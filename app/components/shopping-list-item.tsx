@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useFetcher, useRevalidator } from 'react-router'
 import { toast } from 'sonner'
 import { useSpinDelay } from 'spin-delay'
@@ -24,6 +24,7 @@ import { LATER, NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 import { keepsOwnAmount } from '#app/utils/shopping-row-source.ts'
 import { rowChangedMessage } from '#app/utils/meal-shopping-messages.ts'
 import { type ShoppingItemDisplay } from '#app/utils/shopping-optimistic.ts'
+import { useFetcherSettled } from '#app/hooks/use-fetcher-settled.ts'
 import { useSwipeRow } from '#app/hooks/use-swipe-row.ts'
 import { type useShoppingChecks } from '#app/hooks/use-shopping-checks.tsx'
 import { useDeleteWithUndo } from '#app/components/undo-delete.tsx'
@@ -103,60 +104,39 @@ export function ShoppingListItemCard({
 	const deleteWithUndo = useDeleteWithUndo()
 	const moveFetcher = useFetcher()
 	const removeGeneratedFetcher = useFetcher<RowWriteData>()
-	const prevEditFetcherState = useRef(editFetcher.state)
 	const menuPointer = useRef<string | null>(null)
 
 	// Close edit mode when a save settles. One the server refused stays open
 	// with what was typed and says why.
-	useEffect(() => {
-		if (
-			prevEditFetcherState.current !== 'idle' &&
-			editFetcher.state === 'idle'
-		) {
-			const data = editFetcher.data
-			if (data?.status === 'conflict') {
-				// A refused save does not reload the list by itself.
-				void revalidator.revalidate()
-				if (data.item.checked) {
-					// Checked rows have no Edit, so what was bought stays.
-					setIsEditing(false)
-					toast.warning(
-						`${item.name} was checked off, so your edit wasn’t saved.`,
-					)
-				} else {
-					setEditVersion(data.item.checkVersion)
-					setEditNotice(rowChangedMessage(data.item))
-				}
-			} else if (isEditing && data?.status !== 'error') {
+	useFetcherSettled(editFetcher, (data) => {
+		if (data?.status === 'conflict') {
+			// A refused save does not reload the list by itself.
+			void revalidator.revalidate()
+			if (data.item.checked) {
+				// Checked rows have no Edit, so what was bought stays.
 				setIsEditing(false)
+				toast.warning(
+					`${item.name} was checked off, so your edit wasn’t saved.`,
+				)
+			} else {
+				setEditVersion(data.item.checkVersion)
+				setEditNotice(rowChangedMessage(data.item))
 			}
+		} else if (isEditing && data?.status !== 'error') {
+			setIsEditing(false)
 		}
-		prevEditFetcherState.current = editFetcher.state
-	}, [editFetcher.state, editFetcher.data, isEditing, item.name, revalidator])
+	})
 
 	// When Remove generated amount is refused because the row changed, show
 	// the row as it is now and say so.
-	const prevRemoveGeneratedState = useRef(removeGeneratedFetcher.state)
-	useEffect(() => {
-		if (
-			prevRemoveGeneratedState.current !== 'idle' &&
-			removeGeneratedFetcher.state === 'idle'
-		) {
-			const data = removeGeneratedFetcher.data
-			if (data?.status === 'conflict') {
-				void revalidator.revalidate()
-				toast.warning(`${item.name} changed. Check its amount, then try again.`)
-			} else if (data?.status === 'invalid') {
-				toast.warning(data.message)
-			}
+	useFetcherSettled(removeGeneratedFetcher, (data) => {
+		if (data?.status === 'conflict') {
+			void revalidator.revalidate()
+			toast.warning(`${item.name} changed. Check its amount, then try again.`)
+		} else if (data?.status === 'invalid') {
+			toast.warning(data.message)
 		}
-		prevRemoveGeneratedState.current = removeGeneratedFetcher.state
-	}, [
-		removeGeneratedFetcher.state,
-		removeGeneratedFetcher.data,
-		item.name,
-		revalidator,
-	])
+	})
 
 	const optimisticChecked = item.checked
 

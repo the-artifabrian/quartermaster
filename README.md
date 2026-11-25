@@ -119,9 +119,10 @@ request.
   saved weeks of auth and deploy setup, and meant owning code I didn't write. A
   review in November 2026 went through it, and Google sign-in and an unused
   permissions model came out.
-- **Pro is a reference implementation.** Stripe checkout and the tier checks
-  work end to end, but nobody is expected to buy it. The iOS app doesn't sell
-  or mention Pro ([ADR 0001](docs/adr/0001-keep-pro-out-of-the-ios-app.md)).
+- **Pro is a reference implementation.** Checkout, the webhooks and the tier
+  checks are built and tested, but Pro isn't on sale. The demo runs as Pro. The
+  iOS app doesn't sell or mention Pro
+  ([ADR 0001](docs/adr/0001-keep-pro-out-of-the-ios-app.md)).
 - **AI reads, people decide.** Import transcribes, and suggestions wait for a
   tap. AI quantity planning was tried and removed, because checking its numbers
   was harder than setting them by hand.

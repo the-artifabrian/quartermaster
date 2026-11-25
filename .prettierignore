@@ -9,3 +9,6 @@ node_modules
 /tests/fixtures/email/*.json
 /coverage
 /prisma/migrations
+
+# Xcode writes these in its own format
+/ios/**/*.xcassets

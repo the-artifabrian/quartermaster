@@ -375,9 +375,7 @@ for (const entry of DENSITY_DATA) {
 }
 
 /** Sorted keys longest-first for substring matching */
-const SORTED_KEYS = [...DENSITY_MAP.keys()].sort(
-	(a, b) => b.length - a.length,
-)
+const SORTED_KEYS = [...DENSITY_MAP.keys()].sort((a, b) => b.length - a.length)
 
 /**
  * Lightweight normalization for density lookups.

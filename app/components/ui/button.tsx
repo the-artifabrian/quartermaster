@@ -24,7 +24,7 @@ const buttonVariants = cva(
 				wide: 'px-24 py-5',
 				// Compact only with a mouse on a wide screen (`desktop:`); a
 				// finger, on any screen size, still gets a 44px target.
-				sm: 'h-11 rounded-md px-3 desktop:h-9',
+				sm: 'desktop:h-9 h-11 rounded-md px-3',
 				lg: 'h-11 rounded-md px-8',
 				pill: 'px-12 py-3 leading-3',
 				icon: 'size-11',

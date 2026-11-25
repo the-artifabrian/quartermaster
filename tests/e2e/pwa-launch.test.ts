@@ -61,13 +61,15 @@ for (const { theme, viewport } of checks) {
 		)
 
 		const isBeforeStylesheet = async (selector: string) =>
-			page.locator(selector).evaluate((element) =>
-				Boolean(
-					element.compareDocumentPosition(
-						document.querySelector('link[rel="stylesheet"]')!,
-					) & Node.DOCUMENT_POSITION_FOLLOWING,
-				),
-			)
+			page
+				.locator(selector)
+				.evaluate((element) =>
+					Boolean(
+						element.compareDocumentPosition(
+							document.querySelector('link[rel="stylesheet"]')!,
+						) & Node.DOCUMENT_POSITION_FOLLOWING,
+					),
+				)
 		expect(await isBeforeStylesheet('style[data-pwa-launch-theme]')).toBe(true)
 
 		await expect(page.locator('meta[name="color-scheme"]')).toHaveAttribute(

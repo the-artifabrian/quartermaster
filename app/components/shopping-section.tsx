@@ -1,5 +1,5 @@
 // What each Shopping horizon renders: its rows, Clear checked, and Later's add row.
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
 import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
@@ -12,6 +12,7 @@ import {
 	useEnteringRows,
 	useHiddenRows,
 } from '#app/components/undo-delete.tsx'
+import { useFetcherSettled } from '#app/hooks/use-fetcher-settled.ts'
 import { type useShoppingChecks } from '#app/hooks/use-shopping-checks.tsx'
 import { HouseholdClientInput } from '#app/utils/household-client.tsx'
 import { LATER, type ShoppingHorizon } from '#app/utils/shopping-horizon.ts'
@@ -22,20 +23,14 @@ export function LaterQuickAdd() {
 	const [name, setName] = useState('')
 	const [warningDismissed, setWarningDismissed] = useState(false)
 	const inputRef = useRef<HTMLInputElement>(null)
-	const previousState = useRef(fetcher.state)
 
-	useEffect(() => {
-		if (
-			previousState.current !== 'idle' &&
-			fetcher.state === 'idle' &&
-			fetcher.data?.status === 'success'
-		) {
+	useFetcherSettled(fetcher, (data) => {
+		if (data?.status === 'success') {
 			setName('')
 			setWarningDismissed(false)
 			inputRef.current?.focus()
 		}
-		previousState.current = fetcher.state
-	}, [fetcher.state, fetcher.data])
+	})
 
 	const warningData =
 		fetcher.data &&

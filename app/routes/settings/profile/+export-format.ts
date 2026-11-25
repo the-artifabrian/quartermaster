@@ -1,5 +1,4 @@
-// The JSON export file a restore reads: its schemas and limits, and the errors
-// for a file that doesn't fit them.
+// The schemas and limits of the JSON export file, and its error messages.
 
 import { z } from 'zod'
 import {

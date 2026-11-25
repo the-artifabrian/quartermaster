@@ -1,5 +1,4 @@
-// Reads the export file from the restore form, and checks the JSON text before
-// anything parses it.
+// Reads the export file from the restore form and checks its JSON text.
 
 import {
 	BodyTooLargeError,

@@ -1,5 +1,4 @@
-// Restores the Plan in an export file: each week's Meals, or the fixed-slot
-// entries of exports from before Meals.
+// Restores the Plan's Meals, and the fixed-slot entries of older exports.
 
 import { z } from 'zod'
 import { getWeekStart, parseDate } from '#app/utils/date.ts'

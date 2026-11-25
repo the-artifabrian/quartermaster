@@ -1,5 +1,4 @@
-// Restores the Recipes in an export file, and indexes them for the Menus and
-// Meals that point at them.
+// Restores a file's Recipes and indexes them for its Menus and Meals.
 
 import { createId } from '@paralleldrive/cuid2'
 import { prisma } from '#app/utils/db.server.ts'

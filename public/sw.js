@@ -33,7 +33,7 @@ const STALLED = Symbol('stalled')
 // `.data` goes to the network and is never written to a cache, so one
 // household's data can never be served to another on a shared device.
 // The token lives only in memory. The browser can stop an idle worker while its
-// page stays open (#315); the fresh worker knows no session. When such a
+// page stays open, and the fresh worker knows no session. When such a
 // worker's network request fails, and no page has spoken to it yet, it asks the
 // page that sent the request for its token (askPageForSession) and, given one,
 // adopts it exactly as the qm-data-session message does: it serves only that
@@ -110,10 +110,10 @@ self.addEventListener('activate', (event) => {
 // The client (ServiceWorkerDataSync) drives the per-session `.data` cache:
 //  - qm-data-session {token}: adopt the `<userId>-<householdId>` namespace and
 //    reap every other personalized data cache.
-//  - qm-data-purge: logout — forget the namespace and reap all `.data` caches.
-//  - qm-data-invalidate: after a mutation — drop this session's `.data` cache so
+//  - qm-data-purge: on logout, forget the namespace and reap all `.data` caches.
+//  - qm-data-invalidate: after a mutation, drop this session's `.data` cache so
 //    the next navigation refetches fresh.
-//  - qm-warm-assets: once per page load — finish warming this build's chunks.
+//  - qm-warm-assets: once per page load, finish warming this build's chunks.
 self.addEventListener('message', (event) => {
 	const msg = event.data
 	if (!msg || typeof msg !== 'object') return
@@ -228,8 +228,8 @@ self.addEventListener('fetch', (event) => {
 	// ── Eligible Route data ──────────────────────────────────────
 	// Authenticated `.data` (RR single-fetch) is always network-first and cached
 	// only in the current session/Household namespace. A cache entry can answer a
-	// transport failure, but an origin response — including auth redirects and
-	// 4xx/5xx errors — always reaches React Router unchanged. Until the client has
+	// transport failure, but an origin response, including auth redirects and
+	// 4xx/5xx errors, always reaches React Router unchanged. Until the client has
 	// supplied a namespace, `.data` is network-only, except that a transport
 	// failure asks the requesting page for its namespace (see unknownSessionData).
 	// Each entry is keyed by its URL (including any ?_routes), so a cached
@@ -444,7 +444,7 @@ async function cacheFirst(event, request, cacheName, maxEntries) {
 
 	try {
 		const response = await fetch(request)
-		// Cache successful responses, plus opaque ones (status 0) — cross-origin
+		// Cache successful responses, plus opaque ones (status 0). Cross-origin
 		// no-cors fonts come back opaque but are still safe to cache and reuse.
 		if (response.ok || response.type === 'opaque') {
 			event.waitUntil(

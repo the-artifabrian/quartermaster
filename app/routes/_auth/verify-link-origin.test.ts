@@ -136,7 +136,7 @@ test('signup sends the browser to the verify page with a relative redirect', asy
 	expectRelativeVerifyRedirect(response)
 })
 
-test('Change Email sends the browser to the verify page with a relative redirect', async () => {
+test('Change email sends the browser to the verify page with a relative redirect', async () => {
 	using _env = stubEnv({ APP_ORIGIN })
 	const { cookie } = await signedInSession()
 	const url = new URL('http://192.168.1.20:3000/settings/profile/change-email')

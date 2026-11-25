@@ -260,7 +260,7 @@ function ItemSelector({
 						{favorites.length > 0 && (
 							<>
 								{(hasMenus || rest.length > 0) && (
-									<PickerGroupLabel>Favorite Recipes</PickerGroupLabel>
+									<PickerGroupLabel>Favorites</PickerGroupLabel>
 								)}
 								{favorites.map((recipe) => (
 									<RecipeOption

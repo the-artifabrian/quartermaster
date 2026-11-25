@@ -74,9 +74,10 @@ to them. _Avoid_: account, family, team
 
 **Pro**: The paid tier, a Stripe subscription held by one user. A new account
 gets 14 days of it as a trial. It adds AI import from pasted text or
-screenshots, AI enhancement of a Recipe, voice input on Shopping, and live
-updates from the rest of the Household. It is a reference implementation of a
-paid tier, and nobody is expected to buy it. _Avoid_: Premium, Plus, paid plan
+screenshots, "Suggest description & times" on a Recipe, voice input on Shopping,
+and live updates from the rest of the Household. It is a reference
+implementation of a paid tier, and nobody is expected to buy it. _Avoid_:
+Premium, Plus, paid plan
 
 **Demo**: A visitor's own copy of a sample Household, on Pro, that they can use
 without signing up. It is deleted a couple of hours after it starts. _Avoid_:
@@ -85,8 +86,8 @@ guest account, trial
 ## Surfaces
 
 **Web app**: Quartermaster opened in a browser, including the Home Screen
-install from Safari. The only surface where Pro is sold. _Avoid_: Website, PWA,
-web version
+install from Safari. The only surface that shows Pro. _Avoid_: Website, PWA, web
+version
 
 **iOS app**: Quartermaster as a small native iOS shell, distributed through
 TestFlight. It presents the Web app and adds share-sheet import, and it sells

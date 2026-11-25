@@ -12,7 +12,7 @@ describe('formatEventMessage', () => {
 			{ count: 24 },
 			'Alex',
 		)
-		expect(result.message).toBe('Alex generated Shopping (24 items)')
+		expect(result.message).toBe('Alex updated Shopping (24 items)')
 		expect(result.url).toBe('/shopping')
 	})
 

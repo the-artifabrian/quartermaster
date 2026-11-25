@@ -791,9 +791,9 @@ A link the Household already has saves nothing, and Import says "Already in your
 Recipes". The pasted text, or the AI's extraction for screenshots, is kept in
 `Recipe.rawText`. Since nothing is reviewed first, the AI prompt asks for a
 transcription and adds nothing the source doesn't give. Recipe enhancement
-suggests a description and time estimates the user may apply. Voice input sends
-audio to Groq Whisper, then the transcript to the fast model to split into
-items, falling back to the rule-based parser.
+("Suggest description & times") suggests a description and time estimates the
+user may apply. Voice input sends audio to Groq Whisper, then the transcript to
+the fast model to split into items, falling back to the rule-based parser.
 
 Each paid feature has a daily limit per user: 10 AI imports, 10 enhancements and
 30 voice inputs, counted from the server's local midnight. `claimAiUsage` in

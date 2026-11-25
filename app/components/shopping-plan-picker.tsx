@@ -285,7 +285,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 		if (!week) return
 		setPresentation(opensAsSheet() ? 'sheet' : 'popover')
 		setOpen(true)
-		// Every open refetches: "On the list" and the default ticks
+		// Every open refetches: "On Shopping" and the default ticks
 		// describe the list as it is now, and the previous open may have
 		// added to it.
 		void loadWeek(week.weekStart)

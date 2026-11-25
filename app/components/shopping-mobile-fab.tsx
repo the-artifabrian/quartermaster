@@ -46,6 +46,7 @@ export function MobileFabAdd({
 			setQuantity('')
 			setUnit('')
 			setDataBeforeOpen(fetcher.data)
+			setWarningDismissed(false)
 		}
 	}
 

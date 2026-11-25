@@ -187,6 +187,7 @@ test('a Meal joining a row added from Recipe detail shows the summed amount', as
 	await expect(row).toHaveCount(1)
 	// The amount line is the summed amount alone.
 	await expect(row.getByText('4', { exact: true })).toBeVisible()
+	await expect(row).not.toContainText('incl. meals')
 
 	// In the database the Recipe-detail row keeps its own 2, and the Meal's
 	// 2 is recorded against it.
@@ -1096,7 +1097,8 @@ test('the old Shopping address still opens Shopping, and a form posted to it sav
 
 // Failure list for the phone add sheet keeping what was typed:
 // - Close, the backdrop or Escape leaves the name, amount or unit in the
-//   fields, and the next open shows them (typing again gave "butterbutter").
+//   fields, so the next open shows them and new typing runs on from the old
+//   text.
 // - Clearing on open breaks the add that follows, or leaves its text behind.
 test('the phone add sheet opens empty after each way of closing it, and still adds an item', async ({
 	page,
@@ -1167,6 +1169,7 @@ test('the phone add sheet opens empty after each way of closing it, and still ad
 //   again, above an empty field.
 // - Its "add anyway" stays armed, so the next item is added without being
 //   checked against the list.
+// - Add anyway on the fresh warning no longer adds.
 test('the phone add sheet opens without the last item’s warning, and checks the next add again', async ({
 	page,
 	login,
@@ -1200,9 +1203,13 @@ test('the phone add sheet opens without the last item’s warning, and checks th
 	await name.fill('Milk')
 	await sheet.getByRole('button', { name: 'Add to Next shop' }).click()
 	await expect(warning).toBeVisible()
-	expect(
-		await prisma.shoppingListItem.count({
-			where: { list: { householdId: user.householdId } },
-		}),
-	).toBe(1)
+	const milkRows = () =>
+		prisma.shoppingListItem.count({
+			where: { list: { householdId: user.householdId }, name: 'Milk' },
+		})
+	expect(await milkRows()).toBe(1)
+
+	await sheet.getByRole('button', { name: 'Add anyway' }).click()
+	await expect(warning).toBeHidden()
+	await expect.poll(milkRows).toBe(2)
 })

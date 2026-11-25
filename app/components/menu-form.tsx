@@ -25,6 +25,7 @@ import {
 	type MenuShoppingLineInput,
 } from '#app/utils/menu-validation.ts'
 import { isEditScreenDone } from '#app/utils/edit-screen.ts'
+import { scaledYieldLabel } from '#app/utils/ingredient-plural.ts'
 import { CREATED_IDS_FIELD, loadedIdsValue } from '#app/utils/loaded-rows.ts'
 import { sectionLabelClass } from '#app/utils/misc.tsx'
 import { getHistoryLog, resolveAfterSave } from '#app/utils/nav-back.ts'
@@ -734,6 +735,14 @@ function MenuItemRow({
 	const derivedTarget = parsedMultiplier.success
 		? scaleMultiplierToTargetYield(parsedMultiplier.data, recipeYield)
 		: null
+	const targetYieldLabel =
+		parsedMultiplier.success && recipeYield && derivedTarget != null
+			? scaledYieldLabel(
+					recipeYield.label,
+					derivedTarget,
+					parsedMultiplier.data,
+				)
+			: null
 	const { key: noteKey, ...noteProps } = getInputProps(item.note, {
 		type: 'text',
 	})
@@ -789,7 +798,7 @@ function MenuItemRow({
 			</div>
 			{recipeYield && derivedTarget != null ? (
 				<p className="text-muted-foreground mt-1 text-right text-xs break-words">
-					Makes {formatTargetYieldAmount(derivedTarget)} {recipeYield.label}
+					Makes {formatTargetYieldAmount(derivedTarget)} {targetYieldLabel}
 				</p>
 			) : null}
 			{missing ? (

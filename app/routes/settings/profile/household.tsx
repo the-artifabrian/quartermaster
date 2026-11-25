@@ -11,6 +11,7 @@ import { ConfirmSheet } from '#app/components/ui/confirm-sheet.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { prisma } from '#app/utils/db.server.ts'
+import { isDemoUser } from '#app/utils/demo.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import {
 	requireUserWithHousehold,
@@ -50,12 +51,25 @@ export async function loader({ request }: Route.LoaderArgs) {
 					id: true,
 					role: true,
 					user: {
-						select: { id: true, username: true, name: true },
+						select: {
+							id: true,
+							username: true,
+							name: true,
+							demoExpiresAt: true,
+						},
 					},
 				},
 			},
 		},
 	})
+	// A demo member's username is made up for it ("demo-" and an id), so the
+	// page shows that member by name alone.
+	const members = household.members.map(
+		({ user: { demoExpiresAt, ...user }, ...member }) => ({
+			...member,
+			user: { ...user, isDemo: isDemoUser({ demoExpiresAt }) },
+		}),
+	)
 
 	// A live invite's token is the invite: whoever holds it can join. Only the
 	// owner, who makes and revokes invites, gets them.
@@ -69,7 +83,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 			: []
 
 	return {
-		household: { ...household, invites },
+		household: { ...household, members, invites },
 		currentUserId: userId,
 		currentRole: role,
 	}
@@ -283,7 +297,7 @@ function MemberRow({
 	member: {
 		id: string
 		role: string
-		user: { id: string; username: string; name: string | null }
+		user: { id: string; username: string; name: string | null; isDemo: boolean }
 	}
 	isOwner: boolean
 	isCurrentUser: boolean
@@ -305,7 +319,9 @@ function MemberRow({
 					{isCurrentUser ? ' (you)' : ''}
 				</p>
 				<p className="text-muted-foreground text-sm">
-					@{member.user.username} · {member.role}
+					{member.user.isDemo
+						? member.role
+						: `@${member.user.username} · ${member.role}`}
 				</p>
 			</div>
 			{isOwner && !isCurrentUser ? (

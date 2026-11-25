@@ -1,4 +1,5 @@
 import { scaleAmountKitchen } from './fractions.ts'
+import { scaledLineWords } from './ingredient-plural.ts'
 
 type CopyIngredient = {
 	name: string
@@ -39,9 +40,15 @@ export function formatRecipeForCopy<
 		const amount = scaledAmount
 			? `${scaledAmount.approximate ? '≈' : ''}${scaledAmount.display}`
 			: null
-		const line = [amount, ingredient.unit?.trim(), name]
-			.filter(Boolean)
-			.join(' ')
+		const words = scaledLineWords(
+			{
+				amount: ingredient.amount,
+				unit: ingredient.unit?.trim() || null,
+				name,
+			},
+			scaleMultiplier,
+		)
+		const line = [amount, words.unit, words.name].filter(Boolean).join(' ')
 		return line ? [`- ${line}`] : []
 	})
 

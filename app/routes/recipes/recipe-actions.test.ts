@@ -10,6 +10,8 @@
  * - Adding an ingredient to Shopping emits a household event that carries
  *   the device's client id, so that device doesn't light its own Shopping
  *   dot.
+ * - Adding an ingredient another member has just removed throws a 404, which
+ *   the page shows as "Recipe not found" over a Recipe that is still there.
  */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
@@ -245,6 +247,29 @@ describe('recipe detail actions', () => {
 			])
 		},
 	)
+
+	test('adding an ingredient that was removed answers with an error, not a thrown 404', async () => {
+		const session = await setupUser()
+		const recipe = await setupRecipe(session.userId, session.householdId)
+		const ingredient = await prisma.ingredient.findFirstOrThrow({
+			where: { recipeId: recipe.id, name: 'flour' },
+		})
+		await prisma.ingredient.delete({ where: { id: ingredient.id } })
+
+		const result = await action({
+			request: await makeRequest(session, recipe.id, {
+				intent: 'add-single-to-shopping-list',
+				ingredientId: ingredient.id,
+			}),
+			...makeActionArgs(recipe.id),
+		})
+
+		expect(result).toMatchObject({
+			init: { status: 404 },
+			data: { success: false, error: expect.any(String) },
+		})
+		expect(await prisma.shoppingListItem.count()).toBe(0)
+	})
 
 	test('adding an ingredient to Shopping names the device in its event', async () => {
 		const session = await setupUser()

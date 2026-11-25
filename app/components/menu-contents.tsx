@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import { PushLink } from './push-link.tsx'
 import { RecipeThumb } from '#app/components/recipe-selector.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
+import { scaledYieldLabel } from '#app/utils/ingredient-plural.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import {
 	formatTargetYieldAmount,
@@ -155,7 +156,7 @@ function MenuRecipeCard({
 			: null
 	const madeYield =
 		item.scaleMultiplier != null && recipeYield && derivedTarget != null
-			? `makes ${formatTargetYieldAmount(derivedTarget)} ${recipeYield.label}`
+			? `makes ${formatTargetYieldAmount(derivedTarget)} ${scaledYieldLabel(recipeYield.label, derivedTarget, item.scaleMultiplier)}`
 			: null
 	const quantity = [scaledPrefix, madeYield].filter(Boolean).join(' · ') || null
 

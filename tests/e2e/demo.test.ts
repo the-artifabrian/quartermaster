@@ -22,6 +22,10 @@ import { expect, hydrated, test } from '#tests/playwright-utils.ts'
  * - With the AI uses all demo users share in a day used up, an AI import
  *   still calls the AI, counts a use or saves a Recipe, or says nothing, or
  *   gives the per-user message instead.
+ * - Settings shows the demo member by the made-up username the demo gives
+ *   it ("@demo-ut94…"), or loses the role or "(you)" when that goes.
+ * - A real member stops showing their @username, even one whose username
+ *   starts with "demo", because the demo is told apart by its name.
  */
 
 /**
@@ -174,6 +178,11 @@ test('a demo started from the homepage can’t rename its Household, and says so
 
 	await page.goto('/settings/profile/household')
 	await hydrated(page.getByRole('button', { name: 'Rename', exact: true }))
+	// The member row reads as a person, not the demo's made-up username.
+	const member = page.getByRole('listitem').filter({ hasText: 'Guest (you)' })
+	await expect(member).toHaveText(/^Guest \(you\)owner$/)
+	await expect(page.getByText(/@demo-/)).toHaveCount(0)
+
 	await page.getByLabel('Household name').fill('Renamed in the demo')
 	await page.getByRole('button', { name: 'Rename', exact: true }).click()
 
@@ -242,4 +251,15 @@ test('once the demo’s shared AI uses for the day are gone, an AI import says s
 			})
 		}
 	})
+})
+
+test('a real member whose username starts with demo still shows it', async ({
+	page,
+	login,
+}) => {
+	const user = await login({
+		username: `demo_${Math.random().toString(36).slice(2, 8)}`,
+	})
+	await page.goto('/settings/profile/household')
+	await expect(page.getByText(`@${user.username} · owner`)).toBeVisible()
 })

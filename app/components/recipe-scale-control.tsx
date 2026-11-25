@@ -12,6 +12,7 @@ import {
 	formatScaleMultiplier,
 	ScaleMultiplierSchema,
 } from '#app/utils/menu-validation.ts'
+import { scaledYieldLabel } from '#app/utils/ingredient-plural.ts'
 import { cn } from '#app/utils/misc.tsx'
 import {
 	formatTargetYieldAmount,
@@ -204,6 +205,11 @@ export function RecipeIngredientsControls({
 	)
 	const formattedTargetYield =
 		derivedTarget != null ? formatTargetYieldAmount(derivedTarget) : null
+	// "Makes 2 loaves", not "2 loaf".
+	const targetYieldLabel =
+		derivedTarget != null && recipeYield
+			? scaledYieldLabel(recipeYield.label, derivedTarget, scaleMultiplier)
+			: null
 	const displayedMultiplier = formatScaleMultiplier(scaleMultiplier)
 	// A popover on wider screens, a bottom sheet on a phone (set on open).
 	const [open, setOpen] = useState(false)
@@ -335,7 +341,7 @@ export function RecipeIngredientsControls({
 					className="text-muted-foreground min-w-0 text-xs leading-relaxed break-words print:hidden"
 				>
 					<span>
-						Makes {formattedTargetYield} {recipeYield.label}
+						Makes {formattedTargetYield} {targetYieldLabel}
 					</span>
 					{scaleMultiplier !== 1 ? (
 						<span>

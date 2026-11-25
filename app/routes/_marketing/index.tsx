@@ -1,14 +1,24 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { type MouseEvent, type ReactNode } from 'react'
-import { data, Link, redirect } from 'react-router'
+import { data, Link, redirect, useLoaderData } from 'react-router'
 import { TryDemoButton } from '#app/components/demo.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
+import {
+	addDaysUTC,
+	formatWeekRange,
+	getWeekStart,
+	loadedToday,
+	parseDate,
+	serializeDate,
+} from '#app/utils/date.ts'
+import { scaledLineWords } from '#app/utils/ingredient-plural.ts'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
 import { baseMetaTags } from '#app/utils/meta.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { SITE_DESCRIPTION } from '#app/utils/site-description.ts'
+import { getRequestToday } from '#app/utils/today.server.ts'
 import { type Route } from './+types/index.ts'
 
 export const handle: SEOHandle = {
@@ -28,7 +38,10 @@ export async function loader({ request }: Route.LoaderArgs) {
 	if (userId) {
 		throw redirect('/recipes')
 	}
-	return data(null)
+	// The mock Plans show this week and next around the visitor's own today.
+	// It comes from the loader so the server and the browser draw the same
+	// days; the page isn't cached anywhere, so it is never a day behind.
+	return data({ today: getRequestToday(request) })
 }
 
 export const headers: Route.HeadersFunction = pipeHeaders
@@ -51,6 +64,7 @@ const webApplicationJsonLd = JSON.stringify({
 // espresso palette by the `data-chrome` attribute in root.tsx.
 
 export default function Index() {
+	const today = loadedToday(useLoaderData<typeof loader>()?.today)
 	return (
 		<div className="bg-espresso text-cream font-humanist antialiased">
 			{/* Static JSON-LD structured data (no user input) */}
@@ -58,7 +72,7 @@ export default function Index() {
 				type="application/ld+json"
 				dangerouslySetInnerHTML={{ __html: webApplicationJsonLd }}
 			/>
-			<Hero />
+			<Hero today={today} />
 			{/* Same order as the subhead: Recipes, a week, minus Staples, a list. */}
 			<FeatureBand
 				index={1}
@@ -70,10 +84,10 @@ export default function Index() {
 			/>
 			<FeatureBand
 				index={2}
-				heading="A week penciled in"
+				heading="A week pencilled in"
 				body="Add Recipes to the week and group dishes into Meals. Move a Meal to another day when plans change."
 				screenSide="right"
-				screen={<PlanScreen />}
+				screen={<PlanScreen today={today} />}
 			/>
 			<FeatureBand
 				index={3}
@@ -98,7 +112,7 @@ export default function Index() {
 // Hero
 // ---------------------------------------------------------------------------
 
-function Hero() {
+function Hero({ today }: { today: string }) {
 	// The iOS app shows no copy about Pro or its trial (ADR 0001).
 	const isNativeShell = useIsNativeShell()
 	return (
@@ -135,7 +149,10 @@ function Hero() {
 			</div>
 
 			<div className="mt-10 lg:mt-0">
-				<PlanAgenda days={thisWeek} controls={false} />
+				<PlanAgenda
+					days={onDates(thisWeek, getWeekStart(parseDate(today)), today)}
+					controls={false}
+				/>
 			</div>
 		</section>
 	)
@@ -332,27 +349,50 @@ type PlanMealEntry = {
 	/** Render the Meal's action menu open, as after tapping its dots. */
 	menuOpen?: boolean
 }
-type PlanDay = {
+/** A mock day as written: its name and Meal. `onDates` adds the rest. */
+type WeekDay = {
 	day: string
-	date: number
-	today?: boolean
 	meal?: PlanMealEntry
 }
+type PlanDay = WeekDay & {
+	date: number
+	today: boolean
+}
 
-const thisWeek: PlanDay[] = [
+/**
+ * The mock week on the real calendar: Monday is `weekStart` and the row for
+ * `today` says Today. Only yesterday's Meal is cooked, as the mock always
+ * showed, so the hero looks the same whatever the weekday.
+ */
+function onDates(days: WeekDay[], weekStart: Date, today: string): PlanDay[] {
+	const yesterday = serializeDate(addDaysUTC(parseDate(today), -1))
+	return days.map((row, index) => {
+		const date = addDaysUTC(weekStart, index)
+		const day = serializeDate(date)
+		const done = day === yesterday
+		return {
+			...row,
+			date: date.getUTCDate(),
+			today: day === today,
+			meal: row.meal && {
+				...row.meal,
+				items: row.meal.items.map((item) => ({ ...item, done })),
+			},
+		}
+	})
+}
+
+const thisWeek: WeekDay[] = [
 	{
 		day: 'Monday',
-		date: 21,
 		meal: {
 			label: 'Dinner',
 			time: '7:00 PM',
-			items: [{ dish: 'Pasta al limone', done: true }],
+			items: [{ dish: 'Pasta al limone' }],
 		},
 	},
 	{
 		day: 'Tuesday',
-		date: 22,
-		today: true,
 		meal: {
 			label: 'Dinner',
 			time: '7:00 PM',
@@ -361,7 +401,6 @@ const thisWeek: PlanDay[] = [
 	},
 	{
 		day: 'Wednesday',
-		date: 23,
 		meal: {
 			label: 'Dinner',
 			time: '6:30 PM',
@@ -370,7 +409,6 @@ const thisWeek: PlanDay[] = [
 	},
 	{
 		day: 'Thursday',
-		date: 24,
 		meal: {
 			label: 'Dinner',
 			time: '7:30 PM',
@@ -379,17 +417,14 @@ const thisWeek: PlanDay[] = [
 	},
 	{
 		day: 'Friday',
-		date: 25,
 		meal: { label: 'Dinner', time: '7:00 PM', items: [{ dish: 'Shakshuka' }] },
 	},
 	{
 		day: 'Saturday',
-		date: 26,
 		meal: { label: 'Dinner', time: '7:00 PM', items: [{ dish: 'Ramen' }] },
 	},
 	{
 		day: 'Sunday',
-		date: 27,
 		meal: {
 			label: 'Dinner',
 			time: '6:00 PM',
@@ -403,10 +438,9 @@ const thisWeek: PlanDay[] = [
  *  The Meal with guests is first so the 600px crop shows it whole at every
  *  width; the open menu hangs from Tuesday so all its items sit above the
  *  crop and its fade. */
-const nextWeek: PlanDay[] = [
+const nextWeek: WeekDay[] = [
 	{
 		day: 'Monday',
-		date: 28,
 		meal: {
 			label: 'Dinner',
 			time: '7:30 PM',
@@ -420,7 +454,6 @@ const nextWeek: PlanDay[] = [
 	},
 	{
 		day: 'Tuesday',
-		date: 29,
 		meal: {
 			label: 'Dinner',
 			time: '6:30 PM',
@@ -430,25 +463,22 @@ const nextWeek: PlanDay[] = [
 	},
 	{
 		day: 'Wednesday',
-		date: 30,
 		meal: {
 			label: 'Dinner',
 			time: '7:00 PM',
 			items: [{ dish: 'Chicken tikka' }],
 		},
 	},
-	{ day: 'Thursday', date: 1 },
+	{ day: 'Thursday' },
 	{
 		day: 'Friday',
-		date: 2,
 		meal: { label: 'Dinner', time: '7:00 PM', items: [{ dish: 'Shakshuka' }] },
 	},
 	{
 		day: 'Saturday',
-		date: 3,
 		meal: { label: 'Lunch', time: '12:30 PM', items: [{ dish: 'Ramen' }] },
 	},
-	{ day: 'Sunday', date: 4 },
+	{ day: 'Sunday' },
 ]
 
 /** The desktop week agenda from `MealPlanCalendar`, rendered statically. */
@@ -594,9 +624,13 @@ function PlanAgenda({
 	)
 }
 
-function PlanScreen() {
+function PlanScreen({ today }: { today: string }) {
+	const weekStart = addDaysUTC(getWeekStart(parseDate(today)), 7)
+	const range = formatWeekRange(weekStart, today)
 	return (
-		<AppScreen label="The Plan page: next week, Sep 28 – Oct 4, with the action menu open on Tuesday’s dinner">
+		<AppScreen
+			label={`The Plan page: next week, ${range}, with the action menu open on Tuesday’s dinner`}
+		>
 			<div className="px-5 py-4 sm:px-6">
 				{/* The week row is the calendar's own title row; the section
 				    heading already says which page this is. */}
@@ -605,7 +639,7 @@ function PlanScreen() {
 						<Icon name="chevron-left" size="md" />
 					</span>
 					<div className="text-center">
-						<p className="font-serif text-lg">Sep 28 – Oct 4</p>
+						<p className="font-serif text-lg">{range}</p>
 						<p className="text-sage text-sm font-medium">This Week</p>
 					</div>
 					<span className="flex size-9 items-center justify-center rounded-full">
@@ -613,7 +647,10 @@ function PlanScreen() {
 					</span>
 				</div>
 				<div className="mt-4">
-					<PlanAgenda days={nextWeek} framed={false} />
+					<PlanAgenda
+						days={onDates(nextWeek, weekStart, today)}
+						framed={false}
+					/>
 				</div>
 			</div>
 		</AppScreen>
@@ -627,15 +664,15 @@ const ingredients = [
 	{ amount: '1 tbsp', name: 'soy sauce' },
 	{ amount: '2 tsp', name: 'brown sugar' },
 	{ amount: '1 tbsp', name: 'rice vinegar' },
-	{ amount: '2', name: 'scallions', notes: 'thinly sliced' },
+	{ amount: '2', name: 'spring onions', notes: 'thinly sliced' },
 	{ amount: '1', name: 'lime', notes: 'cut into wedges' },
 ]
 
 const steps = [
 	'Whisk the miso, mirin, soy, sugar, and vinegar into a loose paste. Pat the salmon dry and coat it on all sides.',
 	'Rest 20 minutes at room temperature, or overnight in the fridge if you have the time.',
-	'Heat the broiler with a rack 6 inches from the element. Line a sheet pan with foil.',
-	'Broil skin side down until the glaze blisters and the edges catch, 6 to 8 minutes. Finish with scallions and a squeeze of lime.',
+	'Heat the grill with a rack 15 cm below it. Line a baking tray with foil.',
+	'Grill skin side down until the glaze blisters and the edges catch, 6 to 8 minutes. Finish with spring onions and a squeeze of lime.',
 ]
 
 /** The Recipe detail page at rest, scaled to 2× with two ingredients checked. */
@@ -657,7 +694,7 @@ function RecipesScreen() {
 					</span>
 				</div>
 				<p className="text-cream-muted mt-5 text-base leading-relaxed">
-					Sweet-salty glaze, broiled until the edges catch. Rice and something
+					Sweet-salty glaze, grilled until the edges catch. Rice and something
 					green and dinner is done.
 				</p>
 				<div className="text-cream-muted mt-4 flex items-center gap-1">
@@ -723,7 +760,7 @@ function RecipesScreen() {
 										)}
 									>
 										<span className="font-medium">{scaled(item.amount)} </span>
-										{item.name}
+										{scaledName(item)}
 										{item.notes ? (
 											<span className={item.checked ? '' : 'text-cream-muted'}>
 												, {item.notes}
@@ -764,14 +801,26 @@ function RecipesScreen() {
 
 /** Doubles the leading number of an amount string ("3 tbsp" → "6 tbsp"). */
 function scaled(amount: string) {
-	return amount.replace(/^\d+/, (n) => String(Number(n) * 2))
+	const [count = '', unit] = amount.split(' ')
+	const doubled = String(Number(count) * 2)
+	const words = scaledLineWords(
+		{ amount: count, unit: unit ?? null, name: '' },
+		2,
+	)
+	return words.unit ? `${doubled} ${words.unit}` : doubled
+}
+
+/** The name as the app shows it at 2× ("1 lime" → "2 limes"). */
+function scaledName({ amount, name }: { amount: string; name: string }) {
+	const [count = '', unit] = amount.split(' ')
+	return scaledLineWords({ amount: count, unit: unit ?? null, name }, 2).name
 }
 
 const staples = [
-	{ name: 'all-purpose flour' },
+	{ name: 'plain flour' },
 	{ name: 'black pepper' },
 	{ name: 'butter' },
-	{ name: 'canned tomatoes' },
+	{ name: 'tinned tomatoes' },
 	{ name: 'eggs' },
 	{ name: 'garlic' },
 	{ name: 'limes', onList: true },
@@ -825,15 +874,15 @@ function StaplesScreen() {
 }
 
 const shoppingNext = [
-	{ name: 'Salmon fillets', amount: '4 fillets' },
-	{ name: 'Limes', amount: '3' },
-	{ name: 'White miso', amount: '1 tub' },
-	{ name: 'Black beans', amount: '2 cans' },
-	{ name: 'Corn tortillas', amount: '12' },
-	{ name: 'Feta', amount: '200 g' },
-	{ name: 'Whole chicken', amount: '1 · about 1.8 kg' },
-	{ name: 'Spaghetti', amount: '500 g', checked: true },
-	{ name: 'Parmesan', amount: '1 wedge', checked: true },
+	{ name: 'salmon fillets', amount: '4 fillets' },
+	{ name: 'limes', amount: '3' },
+	{ name: 'white miso', amount: '1 tub' },
+	{ name: 'black beans', amount: '2 cans' },
+	{ name: 'corn tortillas', amount: '12' },
+	{ name: 'feta', amount: '200 g' },
+	{ name: 'whole chicken', amount: '1 · about 1.8 kg' },
+	{ name: 'spaghetti', amount: '500 g', checked: true },
+	{ name: 'parmesan', amount: '1 wedge', checked: true },
 ]
 
 function ShoppingRow({

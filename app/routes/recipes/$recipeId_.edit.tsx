@@ -17,6 +17,10 @@ import {
 	useLeaveEditScreen,
 } from '#app/components/edit-screen.tsx'
 import { goneItemMiddleware } from '#app/components/gone-item.tsx'
+import {
+	NotInHouseholdBoundary,
+	notFoundTitle,
+} from '#app/components/not-in-household.tsx'
 import { isOfflineReply, saveUnlessOffline } from '#app/utils/offline-save.ts'
 import { type NavBarHandle, useLockNavBar } from '#app/components/nav-bar.tsx'
 import { RECIPE_FORM_ID, RecipeForm } from '#app/components/recipe-form.tsx'
@@ -82,8 +86,12 @@ export const handle: SEOHandle & NavBarHandle = {
 	navForm: RECIPE_FORM_ID,
 }
 
-export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Edit Recipe | Quartermaster' }]
+export const meta: Route.MetaFunction = ({ error }) => {
+	return [
+		{
+			title: notFoundTitle(error, 'Recipe') ?? 'Edit Recipe | Quartermaster',
+		},
+	]
 }
 
 // Done saving or deleting, the screen leaves by itself (edit-screen.tsx):
@@ -470,4 +478,8 @@ function DeleteRecipe({ recipeId }: { recipeId: string }) {
 			/>
 		</fetcher.Form>
 	)
+}
+
+export function ErrorBoundary() {
+	return <NotInHouseholdBoundary kind="Recipe" />
 }

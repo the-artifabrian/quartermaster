@@ -59,6 +59,10 @@ const PRODUCE_WEIGHTS: Record<string, ProduceEntry> = {
 	shallot: { weightGrams: 40, singular: 'shallot', plural: 'shallots' },
 }
 
+/** The singular and plural each produce entry counts in ("lime", "limes"). */
+export const PRODUCE_WORD_FORMS: ReadonlyArray<[string, string]> =
+	Object.values(PRODUCE_WEIGHTS).map((entry) => [entry.singular, entry.plural])
+
 /** Aliases that map variant names to canonical PRODUCE_WEIGHTS keys */
 const ALIASES: Record<string, string> = {
 	'red bell pepper': 'bell pepper',

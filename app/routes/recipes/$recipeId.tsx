@@ -2,11 +2,16 @@ import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useIsDemo } from '#app/components/demo.tsx'
 import { goneItemMiddleware } from '#app/components/gone-item.tsx'
+import {
+	NotInHouseholdBoundary,
+	notFoundTitle,
+} from '#app/components/not-in-household.tsx'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { recipeDetailNav } from '#app/utils/nav-back.ts'
 import { Img } from 'openimg/react'
 import { useState, useEffect, useRef } from 'react'
 import {
+	data,
 	useFetcher,
 	useLocation,
 	useNavigate,
@@ -93,11 +98,11 @@ export const handle: SEOHandle & NavBarHandle = {
 	nav: recipeDetailNav,
 }
 
-export const meta: Route.MetaFunction = ({ loaderData, matches }) => {
+export const meta: Route.MetaFunction = ({ loaderData, matches, error }) => {
 	const recipe = loaderData?.recipe
 	const title = recipe?.title
 		? `${recipe.title} | Quartermaster`
-		: 'Recipe | Quartermaster'
+		: (notFoundTitle(error, 'Recipe') ?? 'Recipe | Quartermaster')
 	const description =
 		recipe?.description || `View recipe for ${recipe?.title ?? 'a dish'}`
 
@@ -331,7 +336,17 @@ export async function action({ request, params }: Route.ActionArgs) {
 			where: { id: ingredientId, recipeId },
 			select: { name: true, amount: true, unit: true },
 		})
-		invariantResponse(ingredient, 'Ingredient not found', { status: 404 })
+		// Removed by another member while this page was open. Thrown, the 404
+		// would replace the Recipe that is still here with the not-found page.
+		if (!ingredient) {
+			return data(
+				{
+					success: false,
+					error: 'That ingredient isn’t in this Recipe any more.',
+				},
+				{ status: 404 },
+			)
+		}
 
 		const amount = ingredient.amount
 			? scaleAmount(ingredient.amount, safeRatio, ingredient.unit)
@@ -961,4 +976,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			/>
 		</>
 	)
+}
+
+export function ErrorBoundary() {
+	return <NotInHouseholdBoundary kind="Recipe" />
 }

@@ -1013,3 +1013,58 @@ Instructions
 		announcements.getByText('Unable to copy recipe', { exact: true }),
 	).toBeVisible()
 })
+
+test('a scaled Recipe counts its loaves, eggs and pinches in the plural, and back to one', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Banana bread',
+			yieldAmount: 1,
+			yieldLabel: 'loaf',
+			userId: user.id,
+			householdId: user.householdId,
+			ingredients: {
+				create: [
+					{ name: 'egg', amount: '1', order: 0 },
+					{ name: 'salt', amount: '1', unit: 'pinch', order: 1 },
+					{ name: 'plain flour', amount: '190', unit: 'g', order: 2 },
+					{ name: 'garlic', amount: '2', unit: 'cloves', order: 3 },
+					{ name: 'lime', amount: '1', notes: 'cut into wedges', order: 4 },
+				],
+			},
+		},
+	})
+	const row = (name: string) =>
+		page.getByRole('checkbox', { name, exact: true })
+
+	await page.setViewportSize({ width: 390, height: 844 })
+	await page.goto(`/recipes/${recipe.id}`)
+	await expect(page.getByText('Makes 1 loaf')).toBeVisible()
+	await expect(row('egg')).toHaveText('1 egg')
+
+	const trigger = page.getByRole('button', { name: 'Scale 1×' })
+	const multiplier = page.getByLabel('Scale multiplier')
+	await expect(async () => {
+		if (!(await multiplier.isVisible())) await trigger.click()
+		await expect(multiplier).toBeVisible({ timeout: 2000 })
+	}).toPass({ timeout: 10_000 })
+	await multiplier.fill('2')
+	await multiplier.press('Enter')
+	await expect(page).toHaveURL(new RegExp(`/recipes/${recipe.id}\\?scale=2$`))
+
+	await expect(page.getByText('Makes 2 loaves')).toBeVisible()
+	await expect(row('egg')).toHaveText('2 eggs')
+	await expect(row('salt')).toHaveText('2 pinches salt')
+	await expect(row('plain flour')).toHaveText('380 g plain flour')
+	await expect(row('garlic')).toHaveText('4 cloves garlic')
+	await expect(row('lime')).toHaveText('2 limes, cut into wedges')
+
+	// Halved, the two cloves are one again.
+	await page.goto(`/recipes/${recipe.id}?scale=0.5`)
+	await expect(page.getByText('Makes 0.5 loaf')).toBeVisible()
+	await expect(row('garlic')).toHaveText('1 clove garlic')
+	await expect(row('egg')).toHaveText('1/2 egg')
+})

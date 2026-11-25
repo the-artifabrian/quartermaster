@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { useFetcher } from 'react-router'
+import { toast } from 'sonner'
 import { getHouseholdClientId } from '#app/utils/household-client.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import {
@@ -7,6 +9,7 @@ import {
 	TooltipTrigger,
 } from '#app/components/ui/tooltip.tsx'
 import { scaleAmountKitchen } from '#app/utils/fractions.ts'
+import { scaledLineWords } from '#app/utils/ingredient-plural.ts'
 import {
 	convertToMetric,
 	formatMetricAmount,
@@ -58,6 +61,8 @@ export function IngredientList({
 					}
 
 					const isChecked = checkedIngredients.has(ingredient.id)
+					// "2 eggs" and "2 pinches salt" once scaled, not "2 egg".
+					const words = scaledLineWords(ingredient, ratio)
 
 					return (
 						<li
@@ -130,7 +135,7 @@ export function IngredientList({
 													{kitchen.display}{' '}
 												</span>
 											)}
-											{ingredient.unit && <span>{ingredient.unit} </span>}
+											{words.unit && <span>{words.unit} </span>}
 										</>
 									)
 								})()}
@@ -140,10 +145,10 @@ export function IngredientList({
 										className="text-primary decoration-primary/30 hover:decoration-primary/60 underline underline-offset-2"
 										onClick={(e) => e.stopPropagation()}
 									>
-										{ingredient.name}
+										{words.name}
 									</PushLink>
 								) : (
-									<span>{ingredient.name}</span>
+									<span>{words.name}</span>
 								)}
 								{ingredient.notes && (
 									<span className={isChecked ? '' : 'text-muted-foreground'}>
@@ -184,8 +189,13 @@ function AddIngredientToShopping({
 	const cartFetcher = useFetcher()
 
 	const cartData = cartFetcher.data as
-		{ addedSingle?: string; wasNew?: boolean } | undefined
+		{ addedSingle?: string; wasNew?: boolean; error?: string } | undefined
 	const addedToCart = cartData?.addedSingle === ingredientId
+	// An ingredient another member removed meanwhile says so.
+	const cartError = cartData?.error
+	useEffect(() => {
+		if (cartError) toast.error(cartError)
+	}, [cartData, cartError])
 
 	return (
 		<span

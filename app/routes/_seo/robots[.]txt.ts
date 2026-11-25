@@ -10,6 +10,7 @@ export function loader() {
 		{ type: 'disallow', value: '/household' },
 		{ type: 'disallow', value: '/recipes' },
 		{ type: 'disallow', value: '/staples' },
+		{ type: 'disallow', value: '/inventory' },
 		{ type: 'disallow', value: '/plan' },
 		{ type: 'disallow', value: '/shopping' },
 		{ type: 'sitemap', value: `${getAppOrigin()}/sitemap.xml` },

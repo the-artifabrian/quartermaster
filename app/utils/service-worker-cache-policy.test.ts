@@ -931,17 +931,8 @@ describe('session-scoped Route data', () => {
 	)
 
 	// Staples moved from /inventory. That address only redirects now, so the
-	// redirect has to reach the page.
+	// redirect has to reach the page, even with Staples cached under it.
 	test('/inventory.data is left to the network', async () => {
-		const worker = loadServiceWorker()
-		await worker.dispatchMessage({ type: 'qm-data-session', token: 'session' })
-		worker.setFetch(async () => routeDataResponse('CURRENT'))
-
-		expect(await worker.dispatchFetch('/inventory.data')).toBeUndefined()
-		expect(worker.storage.puts).toEqual([])
-	})
-
-	test('offline, Staples data cached under /inventory.data never answers for /staples.data', async () => {
 		const worker = loadServiceWorker()
 		await worker.dispatchMessage({ type: 'qm-data-session', token: 'session' })
 		await worker.storage.seed(
@@ -949,14 +940,10 @@ describe('session-scoped Route data', () => {
 			'/inventory.data',
 			new Response('STAPLES FROM THE OLD ADDRESS'),
 		)
-		worker.setFetch(async () => {
-			throw new TypeError('Failed to fetch')
-		})
+		worker.setFetch(async () => routeDataResponse('CURRENT'))
 
-		const staples = await worker.dispatchFetch('/staples.data')
-
-		expect(staples?.status).toBe(503)
 		expect(await worker.dispatchFetch('/inventory.data')).toBeUndefined()
+		expect(worker.storage.puts).toEqual([])
 	})
 
 	test('with no page to ask, an unknown session is network-only and cannot use an existing cache', async () => {

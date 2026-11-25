@@ -700,33 +700,40 @@ test.describe('the old /inventory address', () => {
 		expect(await full.text()).toContain('/staples')
 	})
 
-	test('a form sent to /inventory from an older page sends it to /staples', async ({
+	test('a Staple added through /inventory from an older page is saved', async ({
 		page,
 		login,
 	}) => {
 		const user = await login()
-		const form = { intent: 'add-staple', displayName: 'Pepper' }
 
 		const fromRouter = await page.request.post('/inventory.data?index', {
-			form,
+			form: { intent: 'add-staple', displayName: 'Pepper' },
 			maxRedirects: 0,
 		})
 		const withoutScript = await page.request.post('/inventory?index', {
-			form,
+			form: { intent: 'add-staple', displayName: 'Cumin' },
 			maxRedirects: 0,
 		})
+		const followed = await page.request.post('/inventory?index', {
+			form: { intent: 'add-staple', displayName: 'Cumin' },
+		})
 
-		expect(fromRouter.status()).toBe(202)
-		expect(fromRouter.headers()['x-remix-reload-document']).toBe('true')
-		expect(await fromRouter.text()).toContain('/staples')
-		expect(withoutScript.status()).toBe(301)
-		expect(withoutScript.headers().location).toBe('/staples')
-		// The redirect answers before the Staples action runs, so nothing is added.
-		expect(
-			await prisma.householdIngredient.count({
-				where: { householdId: user.householdId },
-			}),
-		).toBe(0)
+		expect(fromRouter.status()).toBe(200)
+		expect(withoutScript.status()).toBe(308)
+		expect(withoutScript.headers().location).toBe('/staples?index')
+		expect(followed.status()).toBe(200)
+		expect(new URL(followed.url()).pathname).toBe('/staples')
+		await expect
+			.poll(() =>
+				prisma.householdIngredient
+					.findMany({
+						where: { householdId: user.householdId, isStaple: true },
+						select: { canonicalKey: true },
+						orderBy: { canonicalKey: 'asc' },
+					})
+					.then((rows) => rows.map((row) => row.canonicalKey)),
+			)
+			.toEqual(['cumin', 'pepper'])
 	})
 
 	// An older page runs the same Staples client loader under the old route
@@ -805,6 +812,50 @@ test.describe('the old /inventory address', () => {
 		await nav.getByRole('link', { name: 'Staples', exact: true }).click()
 
 		await expectNewStaplesDocument(page)
+	})
+
+	test('an older page adding a Staple saves it, then lands on a fresh Staples page', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seedStaples(user.householdId, ['Salt'])
+		await page.goto('/staples')
+		await waitForStaplesHydration(page)
+		await markDocument(page)
+		// The older page posts to /inventory, then reloads its data from there.
+		await page.route(
+			'**/staples.data*',
+			async (route) => {
+				const request = route.request()
+				const old = new URL(request.url())
+				old.pathname = '/inventory.data'
+				if (request.method() === 'GET') {
+					old.search = '?_routes=routes%2Finventory%2Findex'
+				}
+				const response = await route.fetch({
+					url: old.toString(),
+					maxRedirects: 0,
+				})
+				await route.fulfill({ response })
+			},
+			{ times: 2 },
+		)
+
+		await page.getByRole('button', { name: 'Add Staple' }).click()
+		await page.getByRole('textbox', { name: 'Add a Staple' }).fill('Pepper')
+		await page.getByRole('textbox', { name: 'Add a Staple' }).press('Enter')
+
+		await expect
+			.poll(() =>
+				page.evaluate(
+					() => (window as { beforeNavigation?: boolean }).beforeNavigation,
+				),
+			)
+			.toBeUndefined()
+		await expect(page).toHaveURL('/staples')
+		await expect(stapleRow(page, 'Pepper')).toBeVisible()
+		expect(await isStaple(user.householdId, 'pepper')).toBe(true)
 	})
 
 	test('a client-side navigation to /inventory loads Staples as a new page', async ({

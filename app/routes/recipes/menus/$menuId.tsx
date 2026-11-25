@@ -3,6 +3,10 @@ import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useIsDemo } from '#app/components/demo.tsx'
 import { goneItemMiddleware } from '#app/components/gone-item.tsx'
+import {
+	NotInHouseholdBoundary,
+	notFoundTitle,
+} from '#app/components/not-in-household.tsx'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { menuDetailNav } from '#app/utils/nav-back.ts'
 import { useRef, useState } from 'react'
@@ -53,10 +57,10 @@ export const handle: SEOHandle & NavBarHandle = {
 	nav: menuDetailNav,
 }
 
-export const meta: Route.MetaFunction = ({ loaderData }) => {
+export const meta: Route.MetaFunction = ({ loaderData, error }) => {
 	const title = loaderData?.menu?.title
 		? `${loaderData.menu.title} | Quartermaster`
-		: 'Menu | Quartermaster'
+		: (notFoundTitle(error, 'Menu') ?? 'Menu | Quartermaster')
 	return [{ title }]
 }
 
@@ -491,4 +495,8 @@ export default function MenuDetail({
 			<MenuContents menu={menu} />
 		</div>
 	)
+}
+
+export function ErrorBoundary() {
+	return <NotInHouseholdBoundary kind="Menu" />
 }

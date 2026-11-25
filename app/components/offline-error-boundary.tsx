@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { type ReactElement, useEffect, useRef } from 'react'
 import {
 	isRouteErrorResponse,
 	useLocation,
@@ -28,6 +28,13 @@ function isOfflineError(error: unknown) {
 	return offline && (isRouteErrorResponse(error) || error instanceof TypeError)
 }
 
+function isNotFound(error: unknown) {
+	return (
+		isRouteErrorResponse(error) &&
+		(error.status === 404 || error.status === 403)
+	)
+}
+
 // The `online` event can arrive before requests get through (a radio coming
 // up; in Chromium, the page before its service worker). A retry that fails
 // leaves this notice up, so try a few times; success unmounts it.
@@ -52,12 +59,21 @@ function tabName(pathname: string) {
  * A tab route's boundary. It renders inside the app, so the header and tab bar
  * stay and the user can go back to a page this device already has. The
  * offline toast carries the headline; this says why the page is empty. It
- * retries by itself when the network comes back.
+ * retries by itself when the network comes back. Online, a route can say
+ * what it shows for something it can't find with `notFound`: a 404, or the
+ * 403 a Recipe or Menu in another Household answers.
  */
-export function OfflineErrorBoundary() {
+export function OfflineErrorBoundary({
+	notFound,
+}: {
+	notFound?: ReactElement
+}) {
 	const error = useRouteError()
-	if (!isOfflineError(error)) return <GeneralErrorBoundary />
-	return <OfflineNotice />
+	if (isOfflineError(error)) return <OfflineNotice />
+	if (notFound && isNotFound(error)) {
+		return notFound
+	}
+	return <GeneralErrorBoundary />
 }
 
 function OfflineNotice() {

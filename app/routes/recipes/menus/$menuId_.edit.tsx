@@ -13,6 +13,10 @@ import {
 	useLeaveEditScreen,
 } from '#app/components/edit-screen.tsx'
 import { goneItemMiddleware } from '#app/components/gone-item.tsx'
+import {
+	NotInHouseholdBoundary,
+	notFoundTitle,
+} from '#app/components/not-in-household.tsx'
 import { isOfflineReply, saveUnlessOffline } from '#app/utils/offline-save.ts'
 import { type NavBarHandle, useLockNavBar } from '#app/components/nav-bar.tsx'
 import {
@@ -64,8 +68,10 @@ export const handle: SEOHandle & NavBarHandle = {
 	navForm: MENU_FORM_ID,
 }
 
-export const meta: Route.MetaFunction = () => {
-	return [{ title: 'Edit Menu | Quartermaster' }]
+export const meta: Route.MetaFunction = ({ error }) => {
+	return [
+		{ title: notFoundTitle(error, 'Menu') ?? 'Edit Menu | Quartermaster' },
+	]
 }
 
 // Done saving or deleting, the screen leaves by itself (edit-screen.tsx):
@@ -611,4 +617,8 @@ function DeleteMenu({ menuId }: { menuId: string }) {
 			/>
 		</fetcher.Form>
 	)
+}
+
+export function ErrorBoundary() {
+	return <NotInHouseholdBoundary kind="Menu" />
 }

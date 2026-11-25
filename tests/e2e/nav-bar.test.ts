@@ -679,9 +679,9 @@ test("an edit page showing its error has Back, not the form's Cancel and Save", 
 	await hydrated(backButton(page, 'Recipe'))
 	await expect(bar.getByRole('button', { name: 'Save' })).toHaveCount(0)
 	await expect(bar.getByRole('link', { name: 'Cancel' })).toHaveCount(0)
-	// The page has no h1 of its own, and the bar is still measured, so
+	// The not-found page has its own h1, and the bar is still measured, so
 	// toasts open below it.
-	await expect(page.locator('#main-content h1')).toHaveCount(0)
+	await expect(page.locator('#main-content h1')).toHaveText('Recipe not found')
 	await expect
 		.poll(() =>
 			page.evaluate(() =>

@@ -2,6 +2,10 @@ import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useIsDemo } from '#app/components/demo.tsx'
 import { goneItemMiddleware } from '#app/components/gone-item.tsx'
+import {
+	NotInHouseholdBoundary,
+	notFoundTitle,
+} from '#app/components/not-in-household.tsx'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { recipeDetailNav } from '#app/utils/nav-back.ts'
 import { Img } from 'openimg/react'
@@ -93,11 +97,11 @@ export const handle: SEOHandle & NavBarHandle = {
 	nav: recipeDetailNav,
 }
 
-export const meta: Route.MetaFunction = ({ loaderData, matches }) => {
+export const meta: Route.MetaFunction = ({ loaderData, matches, error }) => {
 	const recipe = loaderData?.recipe
 	const title = recipe?.title
 		? `${recipe.title} | Quartermaster`
-		: 'Recipe | Quartermaster'
+		: (notFoundTitle(error, 'Recipe') ?? 'Recipe | Quartermaster')
 	const description =
 		recipe?.description || `View recipe for ${recipe?.title ?? 'a dish'}`
 
@@ -961,4 +965,8 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			/>
 		</>
 	)
+}
+
+export function ErrorBoundary() {
+	return <NotInHouseholdBoundary kind="Recipe" />
 }

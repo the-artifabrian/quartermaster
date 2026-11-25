@@ -1,4 +1,4 @@
-/** Shopping's writes: one handler per form intent, and the row version checks. */
+// Shopping's writes, with one handler for each form intent.
 import { parseWithZod } from '@conform-to/zod/v4'
 import { invariantResponse } from '@epic-web/invariant'
 import { data } from 'react-router'

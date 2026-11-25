@@ -1,4 +1,4 @@
-// The Shopping screen: Next shop, Later, and the ways to add to them.
+// The Shopping screen, which routes/shopping.tsx renders.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useFetcher, useRevalidator } from 'react-router'
 import { toast } from 'sonner'

@@ -1,4 +1,4 @@
-// What each Shopping horizon renders: its rows, Clear checked, and Later's add row.
+// The rows and controls inside each Shopping horizon.
 import { useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'

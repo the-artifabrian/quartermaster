@@ -62,7 +62,10 @@ import {
 	PHOTO_REFUSALS,
 } from '#app/utils/recipe-validation.ts'
 import { saveRecipeRows } from '#app/utils/recipe-rows.server.ts'
-import { deleteRecipeImageUnlessShared } from '#app/utils/recipe-image.server.ts'
+import {
+	deleteRecipeAndPhoto,
+	deleteRecipeImageUnlessShared,
+} from '#app/utils/recipe-image.server.ts'
 import {
 	LINKED_RECIPE_GONE_MESSAGE,
 	unlinkableRows,
@@ -227,24 +230,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 	const intent = formData.get('intent')
 
 	if (intent === 'delete') {
-		const recipeWithImage = await prisma.recipe.findUnique({
-			where: { id: recipeId },
-			select: { title: true, image: { select: { objectKey: true } } },
-		})
-
-		// The Recipe and its photo row go first, then the file, unless another
-		// Recipe still shows it. In this order a share Save that copies the
-		// photo's key either wrote its copy before the delete, and the count
-		// sees it, or finds no photo to copy (share.$recipeId.tsx).
-		await prisma.recipe.delete({ where: { id: recipeId } })
-		if (recipeWithImage?.image?.objectKey) {
-			try {
-				await deleteRecipeImageUnlessShared(recipeWithImage.image.objectKey)
-			} catch (error) {
-				// The Recipe is gone either way; the file is left behind.
-				console.error('Failed to delete recipe image from storage:', error)
-			}
-		}
+		const deleted = await deleteRecipeAndPhoto(recipeId)
 		if (clientLeaves(formData)) {
 			return data({ done: '/recipes' } satisfies EditScreenDone)
 		}
@@ -252,7 +238,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 		if (formData.get('undo') === 'import') {
 			return redirectWithToast('/recipes/import', {
 				type: 'success',
-				description: `Removed ${recipeWithImage?.title ?? 'the Recipe'}`,
+				description: `Removed ${deleted?.title ?? 'the Recipe'}`,
 			})
 		}
 		return redirect('/recipes')

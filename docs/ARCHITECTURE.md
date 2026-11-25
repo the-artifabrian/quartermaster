@@ -292,7 +292,8 @@ gives the photo its own copy (a demo user's copy points at the source's file,
 see Demo). A Menu has a share link too, `/share/menus/<menu id>`, where Save to
 my Menus copies the Menu and its Recipes into the reader's Household. Deleting a
 Recipe removes its rows before its photo file, and the file only when no other
-Recipe shows it.
+Recipe shows it. It reads the photo in the same write transaction as the delete,
+so a photo attached at that moment is either deleted with it or finds no Recipe.
 
 ## Saving edits
 
@@ -846,6 +847,21 @@ waiting, the next is refused at once with the busy error. A job gives up after
 runs for 30 seconds. Under Bun the request's abort signal doesn't fire when the
 visitor leaves, so in practice a job whose visitor left still waits its turn or
 its 30 seconds.
+
+### A linked page's photo
+
+A URL import also brings the photo named by the `image` of the page's Recipe
+JSON-LD (`app/utils/import-recipe-photo.server.ts`). The Recipe is saved first;
+the photo is fetched before the new Recipe opens, so it shows on arrival. The
+largest ImageObject by its width and height goes first, then plain URLs in the
+page's order, and up to three are tried. Each goes through `fetchPublicUrl`,
+asks only for JPEG, PNG or WebP, may be up to the 3 MB upload limit, and must
+pass the upload check above. All of them share one 5-second deadline, which also
+ends a wait for the photo turn. A photo that fails any of this leaves the
+placeholder and changes nothing else about the import. A demo user's import
+fetches no photo. The photo is attached in a write transaction that first checks
+the Recipe still exists and has no photo, and the stored file is deleted when it
+doesn't.
 
 ### Serving resizes
 

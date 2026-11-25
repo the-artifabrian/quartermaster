@@ -4,6 +4,7 @@ import {
 	extractRecipe,
 	findRecipeInJsonLd,
 	RecipeShapeError,
+	recipePhotoUrls,
 } from './recipe-jsonld.server.ts'
 import { MAX_RAW_TEXT_LENGTH } from './recipe-validation.ts'
 
@@ -344,4 +345,106 @@ test('a Recipe with only @type has empty lists, nulls and a fallback title', () 
 test('an enormous JSON-LD blob is cut to the saved raw-text limit', () => {
 	const { rawText } = recipe({ description: 'x'.repeat(MAX_RAW_TEXT_LENGTH) })
 	expect(rawText).toHaveLength(MAX_RAW_TEXT_LENGTH)
+})
+
+describe('photo', () => {
+	const photos = (image: unknown) =>
+		recipePhotoUrls({ '@type': 'Recipe', image }, SOURCE_URL)
+
+	test('a single URL', () => {
+		expect(photos('https://cdn.example.com/chili.jpg')).toEqual([
+			'https://cdn.example.com/chili.jpg',
+		])
+	})
+
+	test('a list of URLs keeps the page order, with nothing to rank them by', () => {
+		expect(
+			photos([
+				'https://cdn.example.com/chili-1200x1200.jpg',
+				'https://cdn.example.com/chili-500x375.jpg',
+			]),
+		).toEqual([
+			'https://cdn.example.com/chili-1200x1200.jpg',
+			'https://cdn.example.com/chili-500x375.jpg',
+		])
+	})
+
+	test('an ImageObject gives its url, or its contentUrl', () => {
+		expect(
+			photos({ '@type': 'ImageObject', url: 'https://cdn.example.com/a.jpg' }),
+		).toEqual(['https://cdn.example.com/a.jpg'])
+		expect(
+			photos({
+				'@type': 'ImageObject',
+				contentUrl: 'https://cdn.example.com/b.jpg',
+			}),
+		).toEqual(['https://cdn.example.com/b.jpg'])
+	})
+
+	test('ImageObjects with a size come largest first, and ones without a size after them', () => {
+		expect(
+			photos([
+				{ '@type': 'ImageObject', url: 'https://cdn.example.com/no-size.jpg' },
+				{
+					'@type': 'ImageObject',
+					url: 'https://cdn.example.com/small.jpg',
+					width: 400,
+					height: 300,
+				},
+				{
+					'@type': 'ImageObject',
+					url: 'https://cdn.example.com/large.jpg',
+					width: '1200',
+					height: '900',
+				},
+				'https://cdn.example.com/plain.jpg',
+			]),
+		).toEqual([
+			'https://cdn.example.com/large.jpg',
+			'https://cdn.example.com/small.jpg',
+			'https://cdn.example.com/no-size.jpg',
+			'https://cdn.example.com/plain.jpg',
+		])
+	})
+
+	test('a size given as a QuantitativeValue or with px still ranks', () => {
+		expect(
+			photos([
+				{ url: 'https://cdn.example.com/small.jpg', width: 300, height: 300 },
+				{
+					url: 'https://cdn.example.com/large.jpg',
+					width: { '@type': 'QuantitativeValue', value: 1600 },
+					height: '1200px',
+				},
+			]),
+		).toEqual([
+			'https://cdn.example.com/large.jpg',
+			'https://cdn.example.com/small.jpg',
+		])
+	})
+
+	test('a relative URL resolves against the page, and the same photo twice is tried once', () => {
+		expect(
+			photos([
+				'/images/chili.jpg',
+				{ url: 'https://example.com/images/chili.jpg' },
+			]),
+		).toEqual(['https://example.com/images/chili.jpg'])
+	})
+
+	test('no image, or nothing in it that is a web address, gives no photo', () => {
+		expect(recipePhotoUrls({ '@type': 'Recipe' }, SOURCE_URL)).toEqual([])
+		expect(photos(null)).toEqual([])
+		expect(photos(42)).toEqual([])
+		expect(photos({ '@id': 'https://example.com/#primaryimage' })).toEqual([])
+		expect(
+			photos([
+				'data:image/png;base64,iVBORw0KGgo=',
+				'mailto:cook@example.com',
+				'ftp://example.com/chili.jpg',
+				'http://[not a host/chili.jpg',
+				'',
+			]),
+		).toEqual([])
+	})
 })

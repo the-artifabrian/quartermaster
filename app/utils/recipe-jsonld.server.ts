@@ -292,3 +292,65 @@ export function extractRecipe(
 		instructions,
 	}
 }
+
+/** A width or height as sites write it: 1200, "1200", "1200px" or { value }. */
+function readDimension(value: unknown): number | null {
+	if (value && typeof value === 'object' && 'value' in value) {
+		return readDimension(value.value)
+	}
+	const number = typeof value === 'string' ? parseFloat(value) : value
+	return typeof number === 'number' && Number.isFinite(number) && number > 0
+		? number
+		: null
+}
+
+function firstString(value: unknown): string | null {
+	if (typeof value === 'string') return value
+	if (Array.isArray(value)) {
+		return value.find((v): v is string => typeof v === 'string') ?? null
+	}
+	return null
+}
+
+/**
+ * The photo URLs a Recipe's `image` names, best first. `image` may be a URL,
+ * an ImageObject, or a list of either. Only an ImageObject's width and height
+ * say how big a photo is, so those come first, largest first, and the rest
+ * follow in the page's order (a WP Recipe Maker list starts with its largest
+ * crop). Relative URLs resolve against the page, and anything that isn't an
+ * http(s) URL is left out.
+ */
+export function recipePhotoUrls(
+	jsonLd: Record<string, unknown>,
+	pageUrl: string,
+): string[] {
+	const entries = Array.isArray(jsonLd.image) ? jsonLd.image : [jsonLd.image]
+	const candidates: Array<{ url: string; area: number | null }> = []
+	for (const entry of entries) {
+		let raw: string | null = null
+		let area: number | null = null
+		if (typeof entry === 'string') {
+			raw = entry
+		} else if (entry && typeof entry === 'object') {
+			const image = entry as Record<string, unknown>
+			raw = firstString(image.url) ?? firstString(image.contentUrl)
+			const width = readDimension(image.width)
+			const height = readDimension(image.height)
+			area = width && height ? width * height : null
+		}
+		if (!raw?.trim()) continue
+		let url: URL
+		try {
+			url = new URL(raw.trim(), pageUrl)
+		} catch {
+			continue
+		}
+		if (url.protocol !== 'http:' && url.protocol !== 'https:') continue
+		if (candidates.some((candidate) => candidate.url === url.href)) continue
+		candidates.push({ url: url.href, area })
+	}
+	// A stable sort keeps the page's order among equals and among the unsized.
+	return candidates
+		.sort((a, b) => (b.area ?? -1) - (a.area ?? -1))
+		.map((candidate) => candidate.url)
+}

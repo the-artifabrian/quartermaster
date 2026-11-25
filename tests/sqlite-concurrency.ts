@@ -116,8 +116,8 @@ export function writeAfterFirstRead(
 	wal: PrismaClient,
 	url: string,
 	[model, method]: [
-		'meal' | 'mealRecipeItem' | 'shoppingListItem' | 'user',
-		'findFirst' | 'findMany' | 'count',
+		'meal' | 'mealRecipeItem' | 'recipe' | 'shoppingListItem' | 'user',
+		'findFirst' | 'findMany' | 'findUnique' | 'count',
 	],
 	sql: string,
 	args: Array<string | number> = [],

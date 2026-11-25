@@ -1,7 +1,6 @@
 node_modules
 
 /build
-/public/build
 .env
 
 /test-results/
@@ -10,5 +9,3 @@ node_modules
 /tests/fixtures/email/*.json
 /coverage
 /prisma/migrations
-
-package-lock.json

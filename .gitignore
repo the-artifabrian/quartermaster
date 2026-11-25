@@ -31,9 +31,6 @@ node_modules
 # worktrees
 .worktrees/
 
-# personal data
-apple-notes-export/
-
 # editor/AI tool config
 .claude/
 .agents/

@@ -66,11 +66,22 @@ export function alreadyImported(
  * Saves what an import read and opens it. There is no review step: the
  * Recipe page says what was saved, what is missing and what was shortened,
  * and the cook edits it there.
+ *
+ * `afterCreate` runs once a new Recipe is saved, before the page opens. It
+ * adds to the Recipe and must not throw: the Recipe is saved either way.
  */
 export async function saveImportedRecipe(
 	extracted: ExtractedRecipe,
 	intent: ImportIntent,
-	{ userId, householdId }: { userId: string; householdId: string },
+	{
+		userId,
+		householdId,
+		afterCreate,
+	}: {
+		userId: string
+		householdId: string
+		afterCreate?: (recipeId: string) => Promise<void>
+	},
 	db: PrismaClient = prisma,
 ) {
 	let saved:
@@ -149,6 +160,7 @@ export async function saveImportedRecipe(
 
 	if ('existing' in saved) return alreadyImported(intent, saved.existing)
 	const { created } = saved
+	await afterCreate?.(created.id)
 	captureServerEvent(userId, RECIPE_IMPORTED, {
 		recipe_title: created.title,
 		ingredient_count: ingredientCount,

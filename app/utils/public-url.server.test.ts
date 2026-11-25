@@ -410,3 +410,15 @@ test("the caller's abort signal still stops a pinned request", async () => {
 	).rejects.toMatchObject({ name: 'AbortError' })
 	expect(visits).toEqual([])
 })
+
+test('a lookup that never answers gives up when the request is aborted, with the abort as the reason', async () => {
+	const resolveHost: ResolveHost = () => new Promise(() => {})
+	const controller = new AbortController()
+	const fetching = fetchPublicUrl(
+		'https://slow-dns.example/soup',
+		{ signal: controller.signal },
+		{ resolveHost },
+	)
+	controller.abort()
+	await expect(fetching).rejects.toMatchObject({ name: 'AbortError' })
+})

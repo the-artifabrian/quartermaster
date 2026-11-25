@@ -29,7 +29,7 @@ export class UnsupportedEncodingError extends Error {
  */
 const RUNNING_ON_BUN = typeof process.versions.bun === 'string'
 
-/** Fetch init for a body `readBoundedText` will read. Node ignores it. */
+/** Fetch init for a body this module will read. Node ignores it. */
 export const KEEP_BODY_ENCODED = { decompress: false } as const
 
 // Each Content-Encoding the reader decodes, and its DecompressionStream
@@ -39,32 +39,43 @@ const DECODERS = new Map([
 	['br', 'brotli'],
 ]) as Map<string, CompressionFormat>
 
-/** The Accept-Encoding header for a body `readBoundedText` will read. */
+/** The Accept-Encoding header for a body this module will read. */
 export const ACCEPT_ENCODING = [...DECODERS.keys()].join(', ')
 
 /**
- * Reads the body as UTF-8 text, as `response.text()` does. Rejects with
- * `BodyTooLargeError` once more than `maxBytes` of body have arrived, encoded
- * or decoded, whatever Content-Length says, and with the signal's reason once
- * it aborts. `encoded` says whether the body still carries its
- * Content-Encoding. A Content-Encoding the reader cannot decode rejects with
+ * Reads the body as UTF-8 text, as `response.text()` does, within the limits
+ * `readBoundedBytes` sets.
+ */
+export async function readBoundedText(
+	response: Response,
+	options: { maxBytes: number; signal: AbortSignal; encoded?: boolean },
+): Promise<string> {
+	return new TextDecoder().decode(await readBoundedBytes(response, options))
+}
+
+/**
+ * Reads the body's bytes. Rejects with `BodyTooLargeError` once more than
+ * `maxBytes` of body have arrived, encoded or decoded, whatever
+ * Content-Length says, and with the signal's reason once it aborts. `encoded`
+ * says whether the body still carries its Content-Encoding. A
+ * Content-Encoding the reader cannot decode rejects with
  * `UnsupportedEncodingError` before any of the body is read.
  *
  * When it stops early it cancels the body stream, but that does not release
  * the connection in Bun: the caller must abort its fetch's signal for that.
  */
-export async function readBoundedText(
+export async function readBoundedBytes(
 	response: Response,
 	{
 		maxBytes,
 		signal,
 		encoded = RUNNING_ON_BUN,
 	}: { maxBytes: number; signal: AbortSignal; encoded?: boolean },
-): Promise<string> {
+): Promise<Uint8Array<ArrayBuffer>> {
 	// Not cancelled: Bun buffers a cancelled body that was never read into
 	// memory. The caller's abort releases it.
 	signal.throwIfAborted()
-	if (!response.body) return ''
+	if (!response.body) return new Uint8Array()
 	let body: ReadableStream<Uint8Array> = response.body
 	if (encoded) {
 		const encoding = (response.headers.get('Content-Encoding') ?? 'identity')
@@ -101,20 +112,19 @@ export async function readBoundedText(
 	// keep waiting on a stalled body.
 	const onAbort = () => void reader.cancel().catch(() => {})
 	signal.addEventListener('abort', onAbort, { once: true })
-	const decoder = new TextDecoder()
-	let text = ''
+	const chunks: Uint8Array[] = []
 	let bytes = 0
 	try {
 		for (;;) {
 			const { done, value } = await reader.read()
 			signal.throwIfAborted()
-			if (done) return text + decoder.decode()
+			if (done) break
 			bytes += value.byteLength
 			if (bytes > maxBytes) {
 				reader.cancel().catch(() => {})
 				throw new BodyTooLargeError(maxBytes)
 			}
-			text += decoder.decode(value, { stream: true })
+			chunks.push(value)
 		}
 	} catch (error) {
 		// A fetch that fails the body when its signal aborts uses its own error.
@@ -123,4 +133,11 @@ export async function readBoundedText(
 	} finally {
 		signal.removeEventListener('abort', onAbort)
 	}
+	const result = new Uint8Array(bytes)
+	let offset = 0
+	for (const chunk of chunks) {
+		result.set(chunk, offset)
+		offset += chunk.byteLength
+	}
+	return result
 }

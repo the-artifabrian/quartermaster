@@ -50,8 +50,16 @@ function lastExtractionEvent() {
 // they resolve to a public address here, and their pages are mocked there.
 vi.mock('node:dns/promises', async (importOriginal) => ({
 	...(await importOriginal<typeof import('node:dns/promises')>()),
-	lookup: async () => [{ address: '93.184.216.34', family: 4 }],
+	// One host's nameserver never answers.
+	lookup: async (hostname: string) => {
+		if (hostname !== 'slow-dns.example.test') {
+			return [{ address: '93.184.216.34', family: 4 }]
+		}
+		slowLookup.started()
+		return new Promise(() => {})
+	},
 }))
+const slowLookup = vi.hoisted(() => ({ started: () => {} }))
 const CHECKED_ORIGIN = 'https://93.184.216.34'
 
 const chickpeaLine =
@@ -525,6 +533,32 @@ test('URL extraction times out on a page that sends its headers and then stalls'
 			await args(session, '/recipes/import', {
 				intent: 'fetch',
 				url: 'https://recipes.example.test/stalls',
+			}),
+		)
+		await started
+		await vi.advanceTimersByTimeAsync(10_000)
+
+		expect(await result).toMatchObject({
+			init: { status: 400 },
+			data: {
+				existing: null,
+				error: 'The site took too long to answer. Try again.',
+			},
+		})
+	} finally {
+		vi.useRealTimers()
+	}
+})
+
+test('URL extraction times out on a page whose nameserver never answers', async () => {
+	const session = await user()
+	const started = new Promise<void>((resolve) => (slowLookup.started = resolve))
+	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+	try {
+		const result = importAction(
+			await args(session, '/recipes/import', {
+				intent: 'fetch',
+				url: 'https://slow-dns.example.test/soup',
 			}),
 		)
 		await started

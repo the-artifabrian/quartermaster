@@ -13,11 +13,14 @@ import {
 	importFailure,
 	saveImportedRecipe,
 } from '#app/utils/import-recipe-save.server.ts'
+import { isDemoUserId } from '#app/utils/demo-guard.server.ts'
+import { importRecipePhoto } from '#app/utils/import-recipe-photo.server.ts'
 import { fetchPublicUrl } from '#app/utils/public-url.server.ts'
 import {
 	extractRecipe,
 	findRecipeInJsonLd,
 	RecipeShapeError,
+	recipePhotoUrls,
 } from '#app/utils/recipe-jsonld.server.ts'
 import { ImportUrlSchema } from '#app/utils/recipe-validation.ts'
 
@@ -110,7 +113,23 @@ export async function importFromUrl(
 			)
 		}
 
-		return saveImportedRecipe(recipe, 'fetch', user)
+		// Relative photo URLs resolve against the page that answered, after
+		// any redirects.
+		const photoUrls = recipePhotoUrls(recipeData, response.url || url)
+		// Photos are off in the demo, as they are on the Recipe forms. A failed
+		// read only costs the photo.
+		const withPhoto =
+			photoUrls.length > 0 &&
+			!(await isDemoUserId(user.userId).catch(() => true))
+		return saveImportedRecipe(recipe, 'fetch', {
+			...user,
+			// The Recipe is saved first. Its photo has its own deadline and
+			// never fails the import: without one it keeps the placeholder.
+			afterCreate: withPhoto
+				? (recipeId) =>
+						importRecipePhoto(photoUrls, { userId: user.userId, recipeId })
+				: undefined,
+		})
 	} catch (error) {
 		const message =
 			error instanceof BodyTooLargeError

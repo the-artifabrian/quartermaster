@@ -1,7 +1,13 @@
 import { type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
-import { E2E_MISSING_URL, E2E_RECIPE_URL } from '#tests/mocks/recipe-pages.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import {
+	E2E_MISSING_URL,
+	E2E_PHOTO_RECIPE_URL,
+	E2E_RECIPE_URL,
+} from '#tests/mocks/recipe-pages.ts'
+import { expect, hydrated, test } from '#tests/playwright-utils.ts'
 
 const sharedUrl = `${E2E_RECIPE_URL}?utm_source=share`
 
@@ -114,4 +120,51 @@ test('a shared URL that fails to fetch stays on the filled URL tab', async ({
 	await expect(page).toHaveURL(/\/recipes\/import$/)
 	expect(count.fetches).toBe(1)
 	expect(await prisma.recipe.count({ where: { userId: user.id } })).toBe(0)
+})
+
+test('a link whose page names a photo imports with that photo on the Recipe', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await page.goto('/recipes/import')
+	const link = page.getByLabel('Recipe link', { exact: true })
+	await hydrated(link)
+	await link.fill(E2E_PHOTO_RECIPE_URL)
+	await page.getByRole('button', { name: 'Import', exact: true }).click()
+
+	await expect(page).toHaveURL(/\/recipes\/(?!import)[a-z0-9]+$/)
+	const recipeId = new URL(page.url()).pathname.split('/').at(-1)!
+	const photo = page.getByRole('img', { name: 'Roast tomato soup' })
+	await expect(photo).toBeVisible()
+	// Visible is not loaded: the image route must have served the photo.
+	await expect
+		.poll(() =>
+			photo.evaluate((element) => (element as HTMLImageElement).naturalWidth),
+		)
+		.toBeGreaterThan(0)
+
+	const recipe = await prisma.recipe.findUniqueOrThrow({
+		where: { id: recipeId },
+		select: {
+			userId: true,
+			sourceUrl: true,
+			image: { select: { objectKey: true } },
+		},
+	})
+	expect(recipe).toMatchObject({
+		userId: user.id,
+		sourceUrl: E2E_PHOTO_RECIPE_URL,
+	})
+	expect(recipe.image?.objectKey).toMatch(
+		new RegExp(`^users/${user.id}/recipes/${recipeId}/images/.+\\.jpg$`),
+	)
+	const stored = await fs.stat(
+		path.join(
+			process.cwd(),
+			'tests/fixtures/uploaded',
+			recipe.image!.objectKey,
+		),
+	)
+	expect(stored.size).toBeLessThan(1024)
 })

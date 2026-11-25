@@ -292,7 +292,8 @@ gives the photo its own copy (a demo user's copy points at the source's file,
 see Demo). A Menu has a share link too, `/share/menus/<menu id>`, where Save to
 my Menus copies the Menu and its Recipes into the reader's Household. Deleting a
 Recipe removes its rows before its photo file, and the file only when no other
-Recipe shows it.
+Recipe shows it. It reads the photo in the same write transaction as the delete,
+so a photo attached at that moment is either deleted with it or finds no Recipe.
 
 ## Saving edits
 
@@ -846,6 +847,25 @@ waiting, the next is refused at once with the busy error. A job gives up after
 runs for 30 seconds. Under Bun the request's abort signal doesn't fire when the
 visitor leaves, so in practice a job whose visitor left still waits its turn or
 its 30 seconds.
+
+### A linked page's photo
+
+A URL import also brings the photo named by the `image` of the page's Recipe
+JSON-LD (`app/utils/import-recipe-photo.server.ts`). The Recipe is saved first;
+the photo is fetched before the new Recipe opens, so it shows on arrival. Only
+an ImageObject's width and height give a size. Sized photos at least 400 px on
+both sides go first, largest first, then every entry with no size in the page's
+order, then smaller sized ones. Up to three are tried. Each goes through
+`fetchPublicUrl`, asks only for JPEG, PNG or WebP, may be up to the 3 MB upload
+limit, and must pass the upload check above. One 5-second deadline covers all of
+it: the lookups, the requests and their bodies, the wait for the photo turn, and
+the upload to storage. A photo check that already has its turn can't be stopped
+and may run to sharp's 30-second limit, though the 3 MB cap and the decode
+limits keep it short. A photo that fails any of this leaves the placeholder and
+changes nothing else about the import. A demo user's import fetches no photo.
+The photo is attached in a write transaction that first checks the Recipe still
+exists and has no photo. When it doesn't, or the upload failed after it was
+sent, the stored file is deleted in the background.
 
 ### Serving resizes
 

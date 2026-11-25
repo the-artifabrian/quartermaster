@@ -11,7 +11,7 @@ gets a feature check and a fallback.
 ## Changing the app
 
 - New Household data is authorized by Household membership, goes into the JSON
-  export and restore when it should last, and goes when its Household is
+  export and restore when it should last, and is deleted when its Household is
   dissolved. A relation with `onDelete: SetNull` needs its own delete in
   `dissolveHousehold`. If the data also points at the User who made it,
   `deleteAccount` hands it to the heir.
@@ -19,11 +19,13 @@ gets a feature check and a fallback.
   Change it there first, then both sides. The Web side must keep working with
   the previous TestFlight build.
 - A mutation sent with a plain `fetch`, not a Router submission, calls
-  `invalidateServiceWorkerData()` itself.
+  `invalidateServiceWorkerData()` itself. The Shopping check is the one
+  exception, and by design clears only the loader cache (see
+  [Keeping loader data fresh](docs/ARCHITECTURE.md#keeping-loader-data-fresh)).
 - A migration that rebuilds a table keeps its CHECK constraints and triggers.
   `app/utils/schema-constraints.test.ts` fails when one goes missing.
 - Before a change that puts saved data at risk, take a current backup and
-  rehearse it on a disposable copy of the database.
+  rehearse the change on a disposable copy of the database.
 - Log a user id, never an email address or a token.
 
 ## Testing
@@ -37,6 +39,11 @@ layer by where that bug would show up:
 - **Vitest**, next to the module, covers dense logic that a flow can't reach
   cheaply: parsing, unit and date math, household scoping and authorization,
   validation, and races.
+
+Before a test taps something that needs script, it waits with
+`hydrated(locator)` or `waitForHydration(page)`. `page.waitForFunction` doesn't
+await an async predicate and resolves on its first result, even `false`; wait on
+async page state with `expect.poll(() => page.evaluate(async () => …))`.
 
 ### Failure list first
 
@@ -61,11 +68,6 @@ Extra arguments go to `playwright test`. `PORT` (default 3117) keeps the run off
 a dev server on :3000. The script puts the database in WAL mode, as production
 runs it, so the server and the tests' own writes contend the way they do there.
 It builds on every run, so app changes are always in.
-
-Before a test taps something that needs script, it waits with
-`hydrated(locator)` or `waitForHydration(page)`. `page.waitForFunction` doesn't
-await an async predicate and resolves on its first result, even `false`; wait on
-async page state with `expect.poll(() => page.evaluate(async () => …))`.
 
 ### Evidence
 

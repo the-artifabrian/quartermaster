@@ -1,9 +1,16 @@
 # Security
 
-This file covers how far an attacker can get by guessing: the rate limits,
-passwords, two-factor codes and emailed codes, plus which addresses a Recipe
-link import may fetch. How sign-in, sessions and emailed codes work is in
-[ARCHITECTURE.md](./ARCHITECTURE.md#auth-and-subscriptions).
+## Reporting a vulnerability
+
+Please report a security problem privately, with "Report a vulnerability" on the
+repo's Security tab
+(https://github.com/the-artifabrian/quartermaster/security/advisories/new), and
+not in a public issue.
+
+The rest of this file describes the app's limits on guessing and abuse. It
+covers the rate limits, passwords, two-factor codes and emailed codes, and which
+addresses a Recipe link import may fetch. How sign-in, sessions and emailed
+codes work is in [ARCHITECTURE.md](./ARCHITECTURE.md#auth-and-subscriptions).
 
 ## Rate limits
 
@@ -38,16 +45,16 @@ is on a strict tier.
 ## Passwords
 
 Sign-in is limited per address only: 10 tries a minute, so 600 an hour from one
-address. There is no per-account count anywhere. On the sign-in form, a stranger
-who knows the username could use one up and lock the owner out. In Settings it
+address. There is no per-account count. A per-account count would let a stranger
+who knows the username lock the owner out from the sign-in form. In Settings it
 would add nothing, because someone holding a session can read the username and
 guess on the sign-in form at the same rate.
 
 An attacker with many addresses is held back only by how fast the server checks
-passwords. They are hashed with bcryptjs at cost 10, which runs on the one
-JavaScript thread, so checks don't run in parallel. A check takes several tens
-of milliseconds, which comes to roughly ten guesses a second, or about a million
-a day, and fewer on a slower CPU.
+passwords. They are hashed with bcryptjs at cost 10, which is slow on purpose
+and runs on the one JavaScript thread, so checks don't run in parallel. That
+caps how many guesses the whole server can check in a second, whatever the
+number of addresses.
 
 Passwords are at least 6 characters. New ones are checked against Pwned
 Passwords when it answers within a second; on a timeout or an error the check is
@@ -69,10 +76,11 @@ pending sign-in or its signed-in user isn't checked at all.
 So one sign-in gives at most 5 × 3 in a million, or 1.5 in 100,000, and the next
 needs the password again. Sign-in and `/verify` share the auth tier's 10 POSTs a
 minute per address. Each round is one login POST and 5 codes, so one address
-gets about 8 codes a minute, 12,000 a day: about a 3.5% chance a day, for
-someone who already has the password. A reverify of a session someone already
-holds has no count of its own, only the auth tier: 10 codes a minute, 14,400 a
-day, about 4.2% a day. Both grow with the number of addresses an attacker has.
+gets about 8 codes a minute, 12,000 a day. That is about a 3.5% chance a day,
+for someone who already has the password. A reverify of a session someone
+already holds has no count of its own, only the auth tier: 10 codes a minute,
+14,400 a day, about 4.2% a day. Both grow with the number of addresses an
+attacker has.
 
 ## Emailed codes
 

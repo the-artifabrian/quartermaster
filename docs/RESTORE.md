@@ -76,7 +76,7 @@ gunzip -c /data/backups/pre-migration/<timestamp>.db.gz > /data/restore/restored
 sqlite3 /data/restore/restored.db 'PRAGMA quick_check'
 ```
 
-**3. Import it into LiteFS.** This is the destructive step: it replaces the live
+**3. Import it into LiteFS.** This is the destructive step. It replaces the live
 database.
 
 ```sh
@@ -97,8 +97,8 @@ fly logs --app quartermaster-94e5
 
 Migrations run at boot, so a database restored from before a migration is
 brought forward automatically, and gets its own pre-migration dump on the way.
-Once `fly status` shows the machine running, load the app, sign in, and confirm
-the data is what you expect.
+Once `fly status` shows the machine as started, load the app, sign in, and
+confirm the data is what you expect.
 
 **5. Take a fresh backup** so the next restore point reflects the restored
 state: `bun /myapp/scripts/backup-db.ts`.

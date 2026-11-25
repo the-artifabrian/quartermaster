@@ -65,7 +65,7 @@ checking its numbers was harder than setting a Recipe's multiplier by hand. A
 preparation checklist went because it repeated the Recipe's steps without timing
 anyone could trust. A per-Staple Available/Out state went because keeping it up
 was a chore once the From Plan picker existed. Costing Recipes from Romanian
-prices stopped at a spike: it priced 12 of the 22 lines a test Menu needed, and
+prices stopped at a spike. It priced 12 of the 22 lines a test Menu needed, and
 partial totals would have looked more exact than they were. Quick Entry and the
 bulk text and file importer were retired in favour of Import; JSON export and
 restore stay.
@@ -134,8 +134,9 @@ Recipes added one by one, or plain text. Meals have an explicit order within a
 day. Labels and serving times are optional and don't control the order.
 
 Shopping changes after an explicit action: Add to Shopping or Update Shopping on
-a Meal, the From Plan picker, a line from a Recipe, or a typed row. The amounts
-that come from Meals are built in stages:
+a Meal, the From Plan picker, Need on a Staple, the From Staples picker, a line
+from a Recipe, or a typed row. The amounts that come from Meals are built in
+stages:
 
 ```text
 Meal/Recipe inputs
@@ -230,9 +231,8 @@ When a case is unclear, `bunx react-router routes` prints the compiled tree.
 
 ## iOS shell
 
-The iOS app is a small Swift shell whose web view loads the same deployed Web
-app ([ADR 0002](adr/0002-small-native-shell.md)). The two sides meet in three
-places:
+Why the app is a shell is in [ADR 0002](adr/0002-small-native-shell.md). The
+shell and the Web app meet in three places:
 
 - **Detection.** The shell appends `QuartermasterShell/1` to the user agent.
   `isNativeShell` in `app/utils/native-shell.server.ts` reads it, the root
@@ -249,8 +249,8 @@ places:
   `takeShareImport` in `app/utils/shell-bridge.ts` reads it. Launch timestamps
   and the screen's insets are set at document start. The Web side is
   `app/utils/shell-bridge.ts`, which checks that a handler exists before each
-  call so the same code runs in Safari and the Home Screen install. The Swift
-  side is `ios/Quartermaster/Quartermaster/ShellBridge.swift`.
+  call so the same code runs in any browser. The Swift side is
+  `ios/Quartermaster/Quartermaster/ShellBridge.swift`.
 - **Contract.** The "Shell bridge" section of [the iOS README](../ios/README.md)
   is the contract: message names, bodies and what the shell does with each.
   Shell changes reach phones only through a TestFlight build, so a phone can be
@@ -278,10 +278,12 @@ deletes the Household. Recipes and the Shopping list would only lose their
 Household on its delete (`onDelete: SetNull`), so it deletes them first and
 returns their photo keys for removal after the commit.
 
-Recipes, the Shopping list and invites also point at the User who made them, and
-those keys cascade on user delete. `deleteAccount` in
-`app/utils/account-deletion.server.ts` hands them to the heir first, so a
-deleted member's data stays with the Household.
+The keys from Recipes, the Shopping list and invites to the User who made them
+cascade on user delete, so `deleteAccount` in
+`app/utils/account-deletion.server.ts` hands those rows to the heir first and a
+deleted member's data stays with the Household. Only the owner, who makes and
+revokes invites, gets the live invite links; the Household page never sends them
+to other members.
 
 A Recipe's share link is `/share/<recipe id>`. It works until the Recipe is
 deleted and can't be revoked on its own. Saving from it copies the sender's
@@ -459,12 +461,11 @@ and answers 409 with the row's current state when it moved.
 
 `HouseholdIngredient` is the household availability model, and the only one. A
 row has a stable canonical key plus `isStaple`; there is no per-Staple state.
-Staples are a quick-add list of usual items. Tapping Need on the Staples screen
-puts one on Next shop through `resolveNextShopRestockTarget`, which adds a row,
-moves a Later row up, or brings back a checked one. Shopping's From Staples
-picker posts the picked names to Shopping's `bulk-add` instead. It lets the
-person pick only Staples whose name isn't on the list, checked rows included,
-and adds them to Next shop.
+Tapping Need on the Staples screen puts one on Next shop through
+`resolveNextShopRestockTarget`, which adds a row, moves a Later row up, or
+brings back a checked one. Shopping's From Staples picker posts the picked names
+to Shopping's `bulk-add` instead. It lets the person pick only Staples whose
+name isn't on the list, checked rows included, and adds them to Next shop.
 
 `annotateShoppingDemand` is the one seam that reads them, and it answers one
 question: does this demand line match a Staple? A match is dropped from
@@ -478,14 +479,14 @@ unticked defaults only; it never removes a line on its own.
 
 ## Ingredient parsing and identity
 
-`parseIngredient()` extracts amount, unit, name, and notes from loose Recipe
-text. `normalizeIngredientName()` removes safe modifiers, normalizes plurals,
-and protects compounds such as “rice vinegar” and protein cuts. It lives in
-`app/utils/recipe-matching.server.ts` with `getCanonicalIngredientName`, the
-plain-basics heuristic and the check for optional lines
-(`isOptionalIngredient`). Shopping combines demand lines by their canonical name
-(a fixed synonym list maps cilantro and coriander to one key) and unit family,
-never by a fuzzy match.
+`parseIngredient()` in `app/utils/ingredient-parser.ts` extracts amount, unit,
+name, and notes from loose Recipe text. `normalizeIngredientName()` removes safe
+modifiers, normalizes plurals, and protects compounds such as “rice vinegar” and
+protein cuts. It lives in `app/utils/recipe-matching.server.ts` with
+`getCanonicalIngredientName`, the plain-basics heuristic and the check for
+optional lines (`isOptionalIngredient`). Shopping combines demand lines by their
+canonical name (a fixed synonym list maps cilantro and coriander to one key) and
+unit family, never by a fuzzy match.
 
 Amounts are saved as written, and `parseAmount()` in `app/utils/fractions.ts` is
 the one place that gives them a number. Anything that scales, sums, converts or
@@ -727,23 +728,21 @@ How a change reaches other screens:
   starts and again as it ends, and posts `qm-data-invalidate` when it ends. The
   next navigation to any screen reads the server. The action's redirect is never
   answered from memory. A mutation sent with a plain `fetch` instead of a Router
-  submission clears nothing unless it calls `invalidateServiceWorkerData()`
-  itself.
-- **A change by another household member.** Shopping mutations and Plan actions
-  that touch the list write a `HouseholdEvent` row and publish it; the event
-  types are in `app/utils/household-events.server.ts`. Live updates are a Pro
-  feature. Every open Pro client holds one `EventSource` on
-  `/resources/household-events` (`app/utils/household-event-source.client.tsx`),
-  polls every 30 seconds to cover reconnects, and drops its own events by client
+  submission clears nothing unless it does so itself. Most call
+  `invalidateServiceWorkerData()`. The Shopping check
+  (`app/hooks/use-shopping-checks.tsx`) clears only the in-memory cache, since
+  Shopping skips `qm-data-invalidate` (below).
+- **A change by another household member.** [Live updates](#live-updates) covers
+  the outline. The event types are in `app/utils/household-events.server.ts`,
+  and the client's stream is `app/utils/household-event-source.client.tsx`. It
+  polls every 30 seconds to cover reconnects and drops its own events by client
   id. The server sends a `keepalive` event every 30 seconds; a stream that shows
   nothing for 75 seconds (a half-open cellular socket fires no error) is closed
-  and reopened the way an error is, with polling in between. Subscribers decide
-  what to do: Shopping revalidates after a 500 ms debounce, the tab bar shows a
-  dot, and the root toasts a batched summary. Those three are the only
-  subscribers, and each is gated on Pro, so a Free client opens no stream and
-  sees another member's Shopping change on its next load. Edits to Recipes,
-  Meals and Staples themselves emit no event today, so another member sees them
-  on their next navigation or pull to refresh.
+  and reopened the way an error is, with polling in between. Shopping
+  revalidates after a 500 ms debounce, and the root batches its toast. The three
+  subscribers are each gated on Pro, so a Free client opens no stream and sees
+  another member's Shopping change on its next load. A change with no event
+  shows on the next navigation or pull to refresh.
 - **An app relaunch.** Memory starts empty, so the first visit to each screen
   hits the network. The service worker answers that request from its `.data`
   cache only if the network fails or has not answered in 4 seconds (the late
@@ -811,8 +810,6 @@ An image sent to the import gets the photo upload's checks: its first bytes,
 then its header against the same decoded-size limit, before a daily use is
 claimed. Preparing it for the model waits for the same turn as other photo jobs,
 and a use spent waiting too long comes back.
-
-The manual Recipe, Plan, and Shopping flows do not require API keys.
 
 ## Recipe photos
 

@@ -317,7 +317,7 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 								<button
 									type="button"
 									onClick={() => setQuickAddOpen(true)}
-									className="text-muted-foreground/40 hover:text-muted-foreground shrink-0 text-xs"
+									className="text-muted-foreground hover:text-foreground shrink-0 text-xs"
 								>
 									+ Qty
 								</button>
@@ -386,7 +386,7 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 								<button
 									type="button"
 									onClick={() => setQuickAddOpen(false)}
-									className="text-muted-foreground/40 hover:text-muted-foreground shrink-0 text-xs"
+									className="text-muted-foreground hover:text-foreground shrink-0 text-xs"
 								>
 									Hide
 								</button>

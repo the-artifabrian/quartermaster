@@ -397,7 +397,7 @@ export function ShoppingListItemCard({
 								className={cn(
 									'text-base',
 									optimisticChecked
-										? 'text-muted-foreground/50 decoration-muted-foreground/60 line-through decoration-2'
+										? 'text-faint decoration-faint line-through decoration-2'
 										: isVoiceAdded && 'text-primary',
 								)}
 							>
@@ -412,9 +412,7 @@ export function ShoppingListItemCard({
 							{(display.quantity || display.unit) && (
 								<p
 									className={`text-sm ${
-										optimisticChecked
-											? 'text-muted-foreground/40'
-											: 'text-muted-foreground'
+										optimisticChecked ? 'text-faint' : 'text-muted-foreground'
 									}`}
 								>
 									<ProduceCountLine

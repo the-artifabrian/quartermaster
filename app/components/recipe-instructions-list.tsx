@@ -83,8 +83,7 @@ export function RecipeInstructionsList({
 							<p
 								className={cn(
 									'pt-0.5 text-[1.0625rem] leading-[1.75] text-pretty transition-colors md:text-base md:leading-[1.75] print:pt-0 print:text-sm print:leading-[1.5]',
-									isChecked &&
-										'text-muted-foreground/40 decoration-muted-foreground/30 line-through',
+									isChecked && 'text-faint decoration-faint/60 line-through',
 								)}
 							>
 								<InstructionWithCookingCues

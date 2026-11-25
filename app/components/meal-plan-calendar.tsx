@@ -656,7 +656,7 @@ export function MealPlanCalendar({
 									!selected &&
 										!today &&
 										isPast(date, todayDate) &&
-										'text-muted-foreground/65',
+										'text-faint',
 								)}
 							>
 								<span className="text-[9px] font-semibold tracking-wide uppercase">

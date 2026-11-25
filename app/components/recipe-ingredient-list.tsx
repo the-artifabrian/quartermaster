@@ -99,8 +99,7 @@ export function IngredientList({
 							<span
 								className={cn(
 									'min-w-0 flex-1 transition-colors',
-									isChecked &&
-										'text-muted-foreground/40 decoration-muted-foreground/30 line-through',
+									isChecked && 'text-faint decoration-faint/60 line-through',
 								)}
 							>
 								{(() => {

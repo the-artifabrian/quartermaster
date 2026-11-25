@@ -2,78 +2,133 @@
 
 [![Deploy](https://github.com/the-artifabrian/quartermaster/actions/workflows/deploy.yml/badge.svg)](https://github.com/the-artifabrian/quartermaster/actions/workflows/deploy.yml)
 
-A personal cookbook for saving Recipes, planning Meals, and keeping Shopping to
-one useful list.
+Pick this week's dinners and the shopping list follows.
 
-I built Quartermaster to replace 100+ Recipes scattered across Apple Notes. It
-now handles the whole weekly loop without turning the kitchen into an inventory
-system.
+I built it because 100 recipes in Apple Notes is not a meal plan. My partner
+and I use it every day on our phones. It runs at [useqm.app](https://useqm.app).
 
-**Live at [useqm.app](https://useqm.app)**
+**[Try the demo](https://useqm.app).** One tap on the homepage gives you your
+own copy of a lived-in Household for two hours, with 14 Recipes and a week
+already under way. No sign-up.
 
-## How it works
+<p>
+  <img src="docs/images/plan.png" width="250" alt="The Plan: this week's Meals, day by day">
+  <img src="docs/images/recipe.png" width="250" alt="A Recipe with its photo and ingredients">
+  <img src="docs/images/shopping.png" width="250" alt="Shopping, with this week's ingredients">
+</p>
 
-1. Save or import the Recipes you cook.
-2. Plan individual Recipes or reusable multi-dish Menus as ordered Meals.
-3. Open From Plan on Shopping and pick the Meals and lines to buy for.
-4. Keep a short household Staples list; add one from its row to put it on the
-   Next shop.
-5. Cook from the Recipe and check off Shopping together in real time.
+## What it does
 
-Recipe cards and Recipe detail stay simple: they show what a Recipe needs, with
-each ingredient one tap from Shopping. Shopping picked from the Plan starts with
-the lines matching a Staple unticked and keeps everything else.
+Paste a link, some text or a screenshot and it becomes a Recipe. Put Recipes
+and reusable Menus on the week as Meals. When it's time to shop, open From
+Plan, pick the Meals you're shopping for, and their ingredients land on one
+list. Anything you keep as a Staple starts unticked, so you don't buy what's
+already in the cupboard.
 
-## Product shape
+AI reads Recipes from pasted text and screenshots, and turns what you say into
+Shopping items. Links are read from the page's own recipe data. AI is optional,
+and without an API key everything works by hand.
 
-- **Recipes** hold the canonical ingredients and instructions.
-- **Menus** are reusable groups of ordered Recipe and note cards.
-- **Meals** are scheduled Recipe items, Menu snapshots, or plain text.
-- **Staples** are household ingredients normally assumed available, kept as a
-  quick-add list: add one and it lands on the Next shop.
-- **Shopping** combines Recipe ingredients, Menu note lines, and manual items
-  without pretending to know exact stock.
+Capitalised words like Recipe and Staple are product terms, defined in
+[GLOSSARY.md](GLOSSARY.md).
 
-AI is optional. It extracts Recipes from text and images, suggests description
-and time improvements for review, and parses speech. The manual app works
-without API keys.
+## How it's built
 
-## Tech stack
+- **Made for two phones.** On Pro, Shopping updates live on both.
+  [How](docs/ARCHITECTURE.md#keeping-loader-data-fresh)
+- **One small machine.** SQLite on a single Fly Machine, with nightly backups,
+  a restore rehearsed against real backups, and watchdogs that restart it if
+  it stalls.
+- **A demo without sign-up.** Each visitor gets a two-hour copy of a sample
+  Household.
+- **The iOS app wraps the web app** in a small Swift shell, so one codebase
+  serves both. [ADR 0002](docs/adr/0002-small-native-shell.md)
 
-| Layer    | Tech                                                 |
-| -------- | ---------------------------------------------------- |
-| App      | React Router v8, React, Express                      |
-| Data     | Prisma, SQLite, LiteFS                               |
-| UI       | Tailwind CSS v4, Radix UI                            |
-| Auth     | Sessions, email verification, passkeys               |
-| AI       | Anthropic Claude, Groq Whisper                       |
-| Services | Stripe, Tigris-compatible object storage, SSE        |
-| Hosting  | Fly.io, Docker                                       |
-| Tests    | Vitest plus focused Playwright coverage              |
+## Architecture
 
-Bootstrapped from the [Epic Stack](https://www.epicweb.dev/epic-stack).
+```mermaid
+flowchart LR
+  subgraph Clients
+    web[Browser / PWA]
+    ios[iOS shell<br/>Swift + WKWebView]
+  end
+  cf[Cloudflare]
+  subgraph fly[Fly.io, one Machine]
+    app[Bun + Express<br/>React Router loaders and actions]
+    db[(SQLite on LiteFS)]
+  end
+  s3[(Tigris object storage<br/>photos, backups)]
+  ai[Anthropic Claude<br/>Groq Whisper]
+  stripe[Stripe]
+  ph[PostHog]
+  mail[Resend email]
 
-## Engineering notes
+  web --> cf
+  ios --> cf
+  cf --> app
+  app --> db
+  app --> s3
+  app --> ai
+  app --> stripe
+  app --> mail
+  app --> ph
+  app -. SSE household events, Pro .-> web
+  web -. analytics .-> ph
+```
 
-- **Shopping checks are versioned.** Every check submits the purchase version it
-  saw, and SQLite triggers advance that version whenever demand changes, so a
-  check can never silently cover an ingredient added after the shopper looked.
-  Retries are safe through one latest request id.
-  [Shopping in ARCHITECTURE](docs/ARCHITECTURE.md#shopping)
-- **One small machine, run deliberately.** SQLite under LiteFS with a static
-  lease on a single Fly Machine, forward-only Prisma migrations with a
-  documented journal dance, nightly offsite backups, and a restore runbook.
-  [Deployment and recovery](docs/ARCHITECTURE.md#deployment-and-recovery) ·
-  [Restore runbook](docs/RESTORE.md)
-- **Two watchdogs.** One restarts the process when a slow leak has pushed the
-  box toward thrash and a forced GC cannot recover it; the other watches the
-  event loop from a worker thread, since a wedged loop cannot report itself.
-  Both live in [`server/`](server/), each commented with the failure it guards
-  against.
+The details, from the data model to how loader data stays fresh, are in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Stack
+
+| Layer   | Tech                                                         |
+| ------- | ------------------------------------------------------------ |
+| Runtime | Bun, Express 5                                               |
+| App     | React Router 8, React 19, TypeScript                         |
+| Data    | Prisma 7, SQLite, LiteFS                                     |
+| UI      | Tailwind CSS 4, Radix UI                                     |
+| Auth    | Passwords, passkeys, emailed codes, TOTP                     |
+| AI      | Claude Haiku (text) and Sonnet (photos), Groq Whisper        |
+| Billing | Stripe (Pro is a reference implementation, see GLOSSARY)     |
+| iOS     | Swift shell, TestFlight only                                 |
+| Hosting | Fly.io, Cloudflare, Tigris                                   |
+| Tests   | Vitest, Playwright, oxlint                                   |
+
+## Tests and CI
+
+- Vitest runs against real SQLite; race tests open a second connection on a
+  worker thread.
+- Playwright drives the real UI on a production build.
+- oxlint, TypeScript, Vitest and Playwright must pass before a merge, and
+  merging to `master` deploys.
+- The testing rules are in [AGENTS.md](AGENTS.md#testing).
+
+## How I work
+
+I build this with AI coding agents. I decide what to build and judge how it
+looks; agents write most of the code, and a separate agent reviews each pull
+request.
+[docs/HOW_I_WORK.md](docs/HOW_I_WORK.md) has the details.
+
+## Trade-offs
+
+- **One machine.** No failover, and a deploy restarts the app. For a household
+  app on a few dollars a month, a rehearsed restore is worth more than a second
+  region.
+- **Started from the [Epic Stack](https://www.epicweb.dev/epic-stack).** It
+  saved weeks of auth and deploy setup, and meant owning code I didn't write. A
+  review in November 2026 went through it, and Google sign-in and an unused
+  permissions model came out.
+- **Pro is a reference implementation.** Stripe checkout and the tier checks
+  work end to end, but nobody is expected to buy it. The iOS app doesn't sell
+  or mention Pro ([ADR 0001](docs/adr/0001-keep-pro-out-of-the-ios-app.md)).
+- **AI reads, people decide.** Import transcribes, and suggestions wait for a
+  tap. AI quantity planning was tried and removed, because checking its numbers
+  was harder than setting them by hand.
 
 ## Getting started
 
-Requires [Bun](https://bun.com/) >= 1.3.13.
+Requires [Bun](https://bun.com/) 1.3.13, the version CI and production use.
 
 ```bash
 bun install
@@ -98,12 +153,13 @@ bunx prisma migrate reset --force
 bunx prisma db seed
 ```
 
-The development environment mocks Stripe, storage, and email. See
+The development environment mocks Stripe, storage, email and AI. See
 [`.env.example`](.env.example) for optional service configuration.
 
 ## Docs
 
 - [Architecture](docs/ARCHITECTURE.md)
+- [How I work](docs/HOW_I_WORK.md)
 - [Product terms](GLOSSARY.md)
 - [Features](docs/FEATURES.md)
 - [Design system](docs/DESIGN_SYSTEM.md)

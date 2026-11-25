@@ -2,8 +2,7 @@
 
 A small Swift shell whose `WKWebView` loads https://useqm.app. Why a shell of
 our own: [ADR 0002](../docs/adr/0002-small-native-shell.md). The app is
-distributed through TestFlight only (TestFlight builds below), and the open iOS
-work is #346, snappy navigation and launch.
+distributed through TestFlight only (TestFlight builds below).
 
 `Quartermaster/Quartermaster/` and `Quartermaster/QuartermasterShare/` are Xcode
 buildable folders: any file added there joins the app or the Share Extension
@@ -188,10 +187,10 @@ message body is a string, and anything outside the values below is ignored.
 `allowsBackForwardNavigationGestures` is on, behind
 `ShellConfig.allowsBackSwipe`. WebKit slides between snapshots of whole
 documents, and the app is a single document with client-side navigation, so the
-page shown under the swipe can be stale or blank. To be judged on a phone; set
-the constant to false to drop it: every pushed page has a Back button in its nav
-bar (`docs/DESIGN_SYSTEM.md`, Navigation), so the swipe is not the only way
-back. Link previews on long-press are off (`allowsLinkPreview = false`).
+page shown under the swipe can be stale or blank. Setting the constant to false
+turns the swipe off. Every pushed page has a Back button in its nav bar
+(`docs/DESIGN_SYSTEM.md`, Navigation), so the swipe is not the only way back.
+Link previews on long-press are off (`allowsLinkPreview = false`).
 
 ## Resume where you left off
 
@@ -258,9 +257,7 @@ come out as JPEG, which the import takes. Five text screenshots come to about
 
 Extensions have no supported way to open their app, so it calls
 `open(_:options:completionHandler:)` on the UIApplication at the end of its
-responder chain, as the Capacitor share-target plugins do. If App Review
-objects, the fallback (#328) is to show an "Open Quartermaster" button over the
-same App Group handoff.
+responder chain, as the Capacitor share-target plugins do.
 
 ### Share import
 
@@ -338,7 +335,7 @@ activation rule against sample shares; it compiles with those sources and runs
 on the Mac, with the command at its top. `tests/e2e/share-import.test.ts` runs
 `linkScript` and `imagesScript` as read from `ShareIntent.swift`.
 
-Checks by hand (#328, 2.2), on the Simulator and then a device:
+Checks by hand, on the Simulator and then a device:
 
 1. Safari on a Recipe page, Share, Quartermaster: the app opens on the import
    page, imports, and opens the Recipe with no tap. Sharing it again opens on
@@ -369,7 +366,6 @@ Checks by hand (#328, 2.2), on the Simulator and then a device:
    still waits for the tap, and
    `xcrun simctl openurl booted 'quartermaster://import?share=00000000000000000000000000000000'`
    opens the plain import page.
-10. Then retire the "Send to Quartermaster" Shortcut (#326, 0.6).
 
 The App Groups capability registers with the App ID on the first archive with
 automatic signing (`-allowProvisioningUpdates`).

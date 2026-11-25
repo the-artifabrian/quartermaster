@@ -167,7 +167,6 @@
 		0 4px 16px oklch(25% 0.02 60 / 0.08), 0 1px 4px oklch(25% 0.02 60 / 0.05);
 	--font-sans: 'DM Sans', system-ui, sans-serif;
 	--font-serif: 'Young Serif', Georgia, serif;
-	--font-handwritten: 'Caveat', cursive;
 	/* Homepage palette: warm espresso canvas, visibly lighter
 	   surfaces, cream text, and one accent (the app's sage green) reserved for the primary
 	   CTA and at most two highlights. */

@@ -348,6 +348,12 @@ test('a Settings page the tab bar restored, with no Settings behind it, opens Se
 	).toEqual({ type: 'replace', to: '/settings/profile', label: 'Settings' })
 })
 
+test('a Settings page another tab opened goes back to that tab, as a Recipe does', () => {
+	expect(
+		back(['/plan', '/settings/profile/household'], settingsPageNav),
+	).toEqual({ type: 'pop', delta: 1, label: 'Plan' })
+})
+
 test('a nested Settings page goes back to Settings, over the page that led to it', () => {
 	expect(
 		back(

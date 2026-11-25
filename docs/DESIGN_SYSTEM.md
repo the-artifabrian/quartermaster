@@ -245,9 +245,9 @@ over the form that led there. That page can be the parent, a Recipe's Menu, a
 linked Recipe, or another tab (the Plan behind tonight's Recipe, labelled “‹
 Plan”). A page the tab bar restored goes back down its own stack, past the other
 tabs. With nothing to return to (a deep link, a cold start) Back opens the
-parent in the page's place. Settings' pages go back to Settings, and Upgrade to
-whatever page opened it. Pages do not add their own “Back to…”, arrow or Cancel
-links.
+parent in the page's place. Settings' pages go back to Settings, or to another
+tab's page that opened one directly, and Upgrade to whatever page opened it.
+Pages do not add their own “Back to…”, arrow or Cancel links.
 
 Edit screens (Recipe edit and new, Menu edit and new) put Cancel on the left of
 the bar and Save on the right (green, semibold, dimmed while disabled, a spinner

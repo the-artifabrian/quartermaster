@@ -4,9 +4,10 @@ import { redactUrl } from './redact-url.ts'
 
 const looksLikeUrl = /^(?:https?:\/\/|\/)/
 
-// Autocapture describes a clicked link in one string, with its address in
-// href="..." and attr__href="...".
-const hrefInChain = /((?:attr__)?href=")((?:[^"\\]|\\.)*)"/g
+// Autocapture describes the clicked element and its ancestors in one string,
+// with each attribute as attr__name="..." and a link's address also as
+// href="...". A form's action holds the page's query string, tokens included.
+const attributeInChain = /((?:attr__[\w-]+|href)=")((?:[^"\\]|\\.)*)"/g
 
 // URLs inside free text, such as an error message: absolute ones, and paths
 // that carry a query string.
@@ -41,8 +42,9 @@ function redactUrlsIn(
 			if (name === '$elements_chain') {
 				set(
 					value.replace(
-						hrefInChain,
-						(_, start: string, href: string) => `${start}${redactUrl(href)}"`,
+						attributeInChain,
+						(_, start: string, attribute: string) =>
+							`${start}${looksLikeUrl.test(attribute) ? redactUrl(attribute) : attribute}"`,
 					),
 				)
 			} else if (name === '$exception_message') {
@@ -66,8 +68,9 @@ function redactUrlsIn(
 /**
  * Redacts codes, tokens and email addresses from every URL-valued property
  * ($current_url, $referrer, $initial_current_url, web vitals' own
- * $current_url, the links autocapture records, and URLs in error messages).
- * The verify and invite pages carry them in the query string.
+ * $current_url, URLs in the element attributes autocapture records, and URLs
+ * in error messages). The verify and invite pages carry them in the query
+ * string.
  */
 function redactEventUrls<Event extends object>(event: Event): Event {
 	for (const key of ['properties', '$set', '$set_once']) {
@@ -96,6 +99,9 @@ export function initializePostHog({
 			// Pageviews and clicks only. Without this, recording settings in the
 			// PostHog project would start session replays.
 			disable_session_recording: true,
+			// Heatmap data is keyed by the page's full URL, out of before_send's
+			// reach, and the project's remote settings could turn it on.
+			capture_heatmaps: false,
 			mask_all_text: false,
 			capture_exceptions: true,
 			// Outlook SafeLinks scanners execute the page in an embedded browser and

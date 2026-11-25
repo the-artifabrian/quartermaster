@@ -15,7 +15,6 @@ const posthog = vi.hoisted(() => ({
 	get_property: vi.fn(),
 	reset: vi.fn(),
 	getFeatureFlag: vi.fn(),
-	startSessionRecording: vi.fn(),
 }))
 
 vi.mock('posthog-js', () => ({ default: posthog }))
@@ -220,23 +219,82 @@ test('a long error message is cut, so a token past the cut is not sent', () => {
 	expect(String(event.properties.$exception_message).length).toBeLessThan(3_000)
 })
 
-test('session recording stays off whatever the PostHog project says, and clicks are still captured', () => {
+test('session recordings and heatmaps stay off whatever the PostHog project says', () => {
 	vi.clearAllMocks()
 	posthog.__loaded = false
-	const client = initializePostHog({
+	initializePostHog({
 		apiKey: 'phc_test',
 		host: 'https://analytics.example.com',
 	})
 	const options = posthog.init.mock.calls[0]![1]
-	// The project's remote settings can start a recording unless this is set.
 	expect(options.disable_session_recording).toBe(true)
-	expect(options.autocapture).not.toBe(false)
+	// Heatmap data is keyed by the page's full URL, which before_send can't reach.
+	expect(options.capture_heatmaps).toBe(false)
+})
 
-	client.capture('$pageview')
-	client.identify('user-1')
-	client.registerForSession({ display_mode: 'browser' })
-	client.reset()
-	expect(posthog.startSessionRecording).not.toHaveBeenCalled()
+function sendChain(chain: string) {
+	vi.clearAllMocks()
+	posthog.__loaded = false
+	initializePostHog({
+		apiKey: 'phc_test',
+		host: 'https://analytics.example.com',
+	})
+	const beforeSend = posthog.init.mock.calls[0]![1].before_send as (event: {
+		event: string
+		properties: Record<string, unknown>
+	}) => { properties: { $elements_chain: string } }
+	return beforeSend({
+		event: '$autocapture',
+		properties: { $elements_chain: chain },
+	}).properties.$elements_chain
+}
+
+test('a form’s action in a click or submit event loses its tokens and email address', () => {
+	const chain = sendChain(
+		'form:attr__action="/verify?type=onboarding&target=ada%40example.com&token=link-abc"attr__method="post"nth-child="1"',
+	)
+	expect(chain).toBe(
+		'form:attr__action="/verify?type=onboarding&target=redacted&token=redacted"attr__method="post"nth-child="1"',
+	)
+	expect(
+		sendChain('form:attr__action="/household/join?token=invite-abc"'),
+	).toBe('form:attr__action="/household/join?token=redacted"')
+})
+
+test('a button’s formaction loses its tokens', () => {
+	expect(
+		sendChain(
+			'button:attr__formaction="https://useqm.app/household/join?token=invite-abc"text="Accept"',
+		),
+	).toBe(
+		'button:attr__formaction="https://useqm.app/household/join?token=redacted"text="Accept"',
+	)
+})
+
+test('a link’s href keeps being redacted', () => {
+	expect(
+		sendChain(
+			'a:attr__href="/verify?code=Q2W3E4"href="/verify?code=Q2W3E4"text="Verify"',
+		),
+	).toBe(
+		'a:attr__href="/verify?code=redacted"href="/verify?code=redacted"text="Verify"',
+	)
+})
+
+test('an attribute that is not a URL is sent as it is', () => {
+	const chain =
+		'button.ph-no-capture:attr__aria-label="token=abc?code=1"attr__class="ph-no-capture"text="/join?token=shown"'
+	expect(sendChain(chain)).toBe(chain)
+})
+
+test('an escaped quote inside an attribute value does not end the value early', () => {
+	expect(
+		sendChain(
+			'form:attr__action="/search?q=\\"pasta\\"&token=invite-abc"attr__method="get"',
+		),
+	).toBe(
+		'form:attr__action="/search?q=\\"pasta\\"&token=redacted"attr__method="get"',
+	)
 })
 
 test('resetIfRegistered resets only a browser that has the super property', () => {

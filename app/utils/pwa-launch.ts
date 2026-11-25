@@ -22,6 +22,12 @@ export const homepageCanvas = {
 	dark: '#1a1816',
 } as const
 
+/** The text color on that canvas (the focused skip link). */
+export const homepageForeground = {
+	light: '#2d2926',
+	dark: '#e2dbd1',
+} as const
+
 export type LaunchTheme = keyof typeof launchThemes
 
 export const launchThemeNames = Object.keys(launchThemes) as LaunchTheme[]

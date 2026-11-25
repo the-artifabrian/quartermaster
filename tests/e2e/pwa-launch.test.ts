@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import {
 	getIosStartupImage,
 	homepageCanvas,
+	homepageForeground,
 	iosStartupScreens,
 	launchThemes,
 	type LaunchTheme,
@@ -124,6 +125,11 @@ async function expectCanvas(page: Page, theme: LaunchTheme, homepage: boolean) {
 	await expect(page.locator('body')).toHaveCSS(
 		'background-color',
 		rgb(canvas[theme]),
+	)
+	// The text color outside the homepage's shell (the focused skip link).
+	await expect(page.locator('body')).toHaveCSS(
+		'color',
+		rgb(homepage ? homepageForeground[theme] : launchThemes[theme].foreground),
 	)
 	for (const scheme of ['light', 'dark'] as const) {
 		await expect(

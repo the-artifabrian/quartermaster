@@ -69,6 +69,7 @@ import {
 } from './utils/posthog-provider.tsx'
 import {
 	homepageCanvas,
+	homepageForeground,
 	iosStartupImages,
 	launchThemes,
 } from './utils/pwa-launch.ts'
@@ -350,7 +351,7 @@ function Document({
 					nonce={nonce}
 					data-pwa-launch-theme={theme}
 					dangerouslySetInnerHTML={{
-						__html: `:root{color-scheme:${theme}}html,body{background:${canvas(theme)};color:${launchTheme.foreground}}`,
+						__html: `:root{color-scheme:${theme}}html,body{background:${canvas(theme)};color:${chrome === 'espresso' ? homepageForeground[theme] : launchTheme.foreground}}`,
 					}}
 				/>
 				<ClientHintCheck nonce={nonce} />

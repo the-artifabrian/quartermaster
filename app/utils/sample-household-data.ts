@@ -490,7 +490,8 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		},
 	],
 	// The cupboard basics the Recipes use, so Shopping isn't asking for a
-	// teaspoon of sugar. Lowercase, like the Staples the app suggests.
+	// teaspoon of sugar. Not the soup's litre of stock, which you'd buy.
+	// Lowercase, like the Staples the app suggests.
 	staples: [
 		'olive oil',
 		'vegetable oil',
@@ -509,7 +510,6 @@ export const SAMPLE_HOUSEHOLD: SampleHouseholdContent = {
 		'chilli flakes',
 		'balsamic vinegar',
 		'red wine vinegar',
-		'vegetable stock',
 	],
 	menus: [
 		{

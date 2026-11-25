@@ -83,7 +83,7 @@ function matchTypedYieldLine(line: string): {
 	const prefix = match[1]!.toLowerCase()
 	const explicitLabel = written?.replace(/(?<![.;:,])[.;:,]+$/, '').trim()
 	if (explicitLabel && /^(?:[-–—]|to)\s*\d/i.test(explicitLabel)) return null
-	const label = explicitLabel || (/^serv/.test(prefix) ? 'servings' : '')
+	const label = explicitLabel || (prefix.startsWith('serv') ? 'servings' : '')
 	return label ? { amount, label: label.slice(0, 100) } : null
 }
 
@@ -144,7 +144,7 @@ function normalizeText(text: string): string {
 			// Non-breaking spaces → regular spaces
 			.replace(/\u00A0/g, ' ')
 			// Zero-width spaces and joiners
-			.replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+			.replace(/\u200B|\u200C|\u200D|\uFEFF/g, '')
 			// Apple Notes links: ++[text](url)++ → text
 			.replace(APPLE_NOTES_LINK, '$1')
 			// Markdown escaped characters: \* \_ \# → literal

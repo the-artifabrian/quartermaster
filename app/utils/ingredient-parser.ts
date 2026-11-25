@@ -378,16 +378,16 @@ export function detectIngredientHeading(
 // "600g broccoli". An amount starts with a digit, a fraction, "." or "~",
 // and takes a comma only between digits.
 const LEADING_AMOUNT =
-	/^(~?[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)(?:\s*([a-zA-Z]+\.?))?\s+(\S.*|[^\S\n\r\u2028\u2029])$/
+	/^(~?[\d./\-–½⅓⅔¼¾⅛⅜⅝⅞](?:[\d./\-–½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)(?:\s*([a-zA-Z]+\.?))?\s+(\S.*|[^\S\n\r\u2028\u2029])$/
 // The same with a count times a size as the amount: "2 x 400 g tomatoes".
 const PACK_SIZE_AMOUNT =
-	/^(~?[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*\s*[x×]\s*\d(?:[\d.\/]|,(?=\d))*)(?:\s*([a-zA-Z]+\.?))?\s+(\S.*|[^\S\n\r\u2028\u2029])$/
+	/^(~?[\d./\-–½⅓⅔¼¾⅛⅜⅝⅞](?:[\d./\-–½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*\s*[x×]\s*\d(?:[\d./]|,(?=\d))*)(?:\s*([a-zA-Z]+\.?))?\s+(\S.*|[^\S\n\r\u2028\u2029])$/
 
 // An amount with spaces between thousands, as French sites write it ("1 000
 // g", "1 000,5 kg"), with a plain, no-break or narrow no-break space. Nothing
 // may follow it that would carry on the number.
 const SPACED_AMOUNT =
-	/^(~?)(\d{1,3}(?:[ \u00A0\u202F]\d{3})+(?:[.,]\d+)?)(?![\d\/.,\-–])/
+	/^(~?)(\d{1,3}(?:[ \u00A0\u202F]\d{3})+(?:[.,]\d+)?)(?![\d/.,\-–])/
 
 /**
  * A container word at the start of a name. After an amount, a unit and one
@@ -504,7 +504,7 @@ function parseCleanedLine(
 
 	// "Juice of" / "Zest of" patterns: "Juice of 1 lemon" → "1 lemon, juice"
 	const juiceZestMatch = cleaned.match(
-		/^(juice|zest|juice\s+and\s+zest)\s+of\s+([\d½⅓⅔¼¾⅛⅜⅝⅞\/]+)\s+(\S.*|[^\S\n\r\u2028\u2029])$/i,
+		/^(juice|zest|juice\s+and\s+zest)\s+of\s+([\d½⅓⅔¼¾⅛⅜⅝⅞/]+)\s+(\S.*|[^\S\n\r\u2028\u2029])$/i,
 	)
 	if (juiceZestMatch) {
 		const descriptor = juiceZestMatch[1]!.toLowerCase()
@@ -517,13 +517,13 @@ function parseCleanedLine(
 
 	// "X to Y" range normalization: "2 to 3 tablespoons" → "2-3 tablespoons"
 	cleaned = cleaned.replace(
-		/^(~?[\d.\/½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s+to\s+([\d.\/½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s/,
+		/^(~?[\d./½⅓⅔¼¾⅛⅜⅝⅞](?:[\d./½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s+to\s+([\d./½⅓⅔¼¾⅛⅜⅝⅞](?:[\d./½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s/,
 		'$1-$2 ',
 	)
 
 	// Normalize ranges with spaces around dash: "1½ -2 cups" → "1½-2 cups"
 	cleaned = cleaned.replace(
-		/^(~?[\d.\/½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s*[-–]\s*([\d.\/½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s/,
+		/^(~?[\d./½⅓⅔¼¾⅛⅜⅝⅞](?:[\d./½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s*[-–]\s*([\d./½⅓⅔¼¾⅛⅜⅝⅞](?:[\d./½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s/,
 		'$1-$2 ',
 	)
 
@@ -586,7 +586,7 @@ function parseCleanedLine(
 
 	// Handle "fl oz" multi-word unit: "2 fl oz lime juice"
 	const flOzMatch = cleaned.match(
-		/^(~?[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞](?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s*(?:fl\.?\s*oz\.?|fluid\s+ounces?)\s+(\S.*|[^\S\n\r\u2028\u2029])$/i,
+		/^(~?[\d./\-–½⅓⅔¼¾⅛⅜⅝⅞](?:[\d./\-–½⅓⅔¼¾⅛⅜⅝⅞]|,(?=\d))*)\s*(?:fl\.?\s*oz\.?|fluid\s+ounces?)\s+(\S.*|[^\S\n\r\u2028\u2029])$/i,
 	)
 	if (flOzMatch) {
 		let name = flOzMatch[2]!.trim()
@@ -607,7 +607,7 @@ function parseCleanedLine(
 
 	// Handle "N (X unit) container name" → e.g. "1 (14.5 oz) can diced tomatoes"
 	const nestedMatch = cleaned.match(
-		/^([\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞~](?:[\d.\/\-–½⅓⅔¼¾⅛⅜⅝⅞~]|,(?=\d))*)\s*\(([^)]+)\)\s*([a-zA-Z]+\.?)\s+(\S.*|[^\S\n\r\u2028\u2029])$/,
+		/^([\d./\-–½⅓⅔¼¾⅛⅜⅝⅞~](?:[\d./\-–½⅓⅔¼¾⅛⅜⅝⅞~]|,(?=\d))*)\s*\(([^)]+)\)\s*([a-zA-Z]+\.?)\s+(\S.*|[^\S\n\r\u2028\u2029])$/,
 	)
 	if (nestedMatch) {
 		const [, nestedAmount, parenthetical, possibleUnit, rest] = nestedMatch

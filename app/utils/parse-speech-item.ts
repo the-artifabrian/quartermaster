@@ -374,6 +374,7 @@ export function parseSpeechItems(transcript: string): ParsedItem[] {
 
 	// Restore compound names
 	const restored = segments.map((s) =>
+		// oxlint-disable-next-line no-control-regex -- the placeholder starts with NUL so it never clashes with item text
 		s.replace(/\x00COMPOUND(\d+)/g, (_, i) => restorations[Number(i)]!),
 	)
 

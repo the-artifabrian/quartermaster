@@ -107,6 +107,7 @@ export const test = base.extend<{
 	// Inserts a user with no Household and no session. Production can't make
 	// that user, since signup always creates a Household, so give them one
 	// with `createOwnHousehold` before they sign in through the UI.
+	// oxlint-disable-next-line no-empty-pattern -- Playwright reads fixtures from an object pattern, even an empty one
 	insertNewUser: async ({}, use) => {
 		let userId: string | undefined = undefined
 		await use(async (options) => {

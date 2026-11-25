@@ -122,11 +122,28 @@ for (const [singular, plural] of WORD_FORMS) {
 	if (!FORMS.has(many)) FORMS.set(many, forms)
 }
 
-const UNIT_WORDS = new Set(COUNT_UNITS.flat())
+// Count units a name can start its count with ("1 large tin chopped
+// tomatoes"). "drop" and "pound" also start "drop scone" and "pound cake",
+// so in a name they count only as the unit field.
+const UNIT_WORDS = new Set(
+	COUNT_UNITS.flat().filter(
+		(word) => !['drop', 'drops', 'pound', 'pounds'].includes(word),
+	),
+)
 
-/** One word in the form `count` asks for, keeping its capitals. */
-function inflectWord(word: string, count: number): string {
-	const forms = FORMS.get(word.toLowerCase())
+// Two-word nouns whose last word means something else alone ("white").
+const PAIRS = new Map<string, { one: string; many: string }>([
+	['egg white', { one: 'egg white', many: 'egg whites' }],
+	['egg whites', { one: 'egg white', many: 'egg whites' }],
+])
+
+/** A word or pair in the form `count` asks for, keeping its capitals. */
+function inflectWord(
+	word: string,
+	count: number,
+	table: Map<string, { one: string; many: string }> = FORMS,
+): string {
+	const forms = table.get(word.toLowerCase())
 	if (!forms) return word
 	const target = count > 1 ? forms.many : forms.one
 	if (word === word.toUpperCase() && word.length > 1) {
@@ -138,38 +155,81 @@ function inflectWord(word: string, count: number): string {
 	return target
 }
 
+// A whole word: after the start or a space, before a space or the end, so
+// "half-and-half" is no word of its own. No lookbehind: iOS 16.0 to 16.3
+// can't parse one.
+const WORD = /(^|\s)(\p{L}+)(?=\s|$)/gu
+
+/** The whole words of `text`, each with where it starts. */
+function wordsOf(text: string) {
+	return [...text.matchAll(WORD)].map((match) => ({
+		word: match[2]!,
+		at: match.index + match[1]!.length,
+	}))
+}
+
 /**
- * The noun a phrase counts, in the form `count` asks for. That is the last
- * word before any note (after a comma or bracket) and before any "of"
- * ("slices of cake" counts slices).
+ * The noun a phrase counts, in the form `count` asks for. Only the part
+ * before a note (after a comma or bracket) counts. A count unit in it is
+ * what is counted ("1 large tin chopped tomatoes"); otherwise it is the last
+ * word before any "of" ("slices of cake" counts slices). A phrase that names
+ * two things or counts in dozens is left as written.
  */
 function inflectPhrase(phrase: string, count: number): string {
 	const noteAt = phrase.search(/[,(]/)
 	const head = noteAt === -1 ? phrase : phrase.slice(0, noteAt)
 	const rest = noteAt === -1 ? '' : phrase.slice(noteAt)
-	// "tins chopped tomatoes" counts tins.
-	const lead = /^(\s*)(\p{L}+)(\s)/u.exec(head)
-	if (lead && UNIT_WORDS.has(lead[2]!.toLowerCase())) {
+	if (/\s(?:or|and|&)\s|(?:^|[^\p{L}-])dozens?(?![\p{L}-])/iu.test(head)) {
+		return phrase
+	}
+	for (const { word, at } of wordsOf(head)) {
+		if (!UNIT_WORDS.has(word.toLowerCase())) continue
 		return (
-			lead[1] +
-			inflectWord(lead[2]!, count) +
-			phrase.slice(lead[1]!.length + lead[2]!.length)
+			head.slice(0, at) +
+			inflectWord(word, count) +
+			head.slice(at + word.length) +
+			rest
 		)
 	}
 	const ofAt = head.search(/\sof\s/i)
 	const counted = ofAt === -1 ? head : head.slice(0, ofAt)
 	const after = ofAt === -1 ? '' : head.slice(ofAt)
-	const match = /(\p{L}+)(\s*)$/u.exec(counted)
-	if (!match) return phrase
-	const word = match[1]!
-	const before = counted.slice(0, match.index)
-	return before + inflectWord(word, count) + match[2] + after + rest
+	const trimmed = counted.trimEnd()
+	const space = counted.slice(trimmed.length)
+	const words = wordsOf(trimmed)
+	const last = words.at(-1)
+	if (!last || last.at + last.word.length !== trimmed.length) return phrase
+	const previous = words.at(-2)
+	if (previous) {
+		const pair = trimmed.slice(previous.at)
+		if (PAIRS.has(pair.toLowerCase())) {
+			return (
+				trimmed.slice(0, previous.at) +
+				inflectWord(pair, count, PAIRS) +
+				space +
+				after +
+				rest
+			)
+		}
+	}
+	return (
+		trimmed.slice(0, last.at) +
+		inflectWord(last.word, count) +
+		space +
+		after +
+		rest
+	)
+}
+
+/** Within 0.05 of a whole number, that number, as kitchen rounding shows it. */
+function asShown(value: number) {
+	const whole = Math.round(value)
+	return Math.abs(value - whole) < 0.05 ? whole : value
 }
 
 /**
- * How many of something a scaled amount is, by a range's high end. Within
- * 0.05 of a whole number it is that number, as kitchen rounding shows it
- * (3 eggs at 0.34× reads "1").
+ * How many of something a scaled amount is, by a range's high end, as
+ * kitchen rounding shows it (3 eggs at 0.34× reads "1").
  */
 function scaledCount(amount: string, ratio: number): number | null {
 	let value: number | null
@@ -180,9 +240,7 @@ function scaledCount(amount: string, ratio: number): number | null {
 		const parsed = parseAmount(amount)
 		value = parsed === null ? null : parsed * ratio
 	}
-	if (value === null) return null
-	const whole = Math.round(value)
-	return Math.abs(value - whole) < 0.05 ? whole : value
+	return value === null ? null : asShown(value)
 }
 
 /**
@@ -209,5 +267,5 @@ export function scaledYieldLabel(
 	target: number,
 	multiplier: number,
 ): string {
-	return multiplier === 1 ? label : inflectPhrase(label, target)
+	return multiplier === 1 ? label : inflectPhrase(label, asShown(target))
 }

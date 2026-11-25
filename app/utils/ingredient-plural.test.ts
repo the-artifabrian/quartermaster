@@ -27,6 +27,16 @@
  *   changes instead ("1 tins chopped tomato").
  * - An amount kitchen rounding shows as a whole number (3 eggs at 0.34× shows
  *   "1") is counted from the unrounded value ("1 eggs").
+ * - A container after a size or a word ("1 400g tin chopped tomatoes", "1
+ *   large tin chopped tomatoes") is passed over and the noun after it changes
+ *   ("1/2 400g tin chopped tomato").
+ * - A line that names two things ("2 eggs or 1 flax egg", "1 apple or pear",
+ *   "salt and pepper") or counts in dozens ("2 dozen eggs") changes one word
+ *   of it ("1 flax eggs", "2 apple or pears", "1 dozen egg").
+ * - The end of a hyphenated word is read as a word ("half-and-halves").
+ * - "drop scone" or "pound cake" is read as a count of drops or pounds.
+ * - A yield that kitchen rounding shows as 1 reads "Makes 1 loaves".
+ * - "2 egg whites" at ½ reads "1 egg whites".
  */
 import { expect, test } from 'vitest'
 import { scaledLineWords, scaledYieldLabel } from './ingredient-plural.ts'
@@ -173,4 +183,66 @@ test('an amount that shows as a whole number counts as that number', () => {
 	expect(scaledLineWords(line('3', null, 'eggs'), 0.34).name).toBe('egg')
 	expect(scaledLineWords(line('3', null, 'peppers'), 0.32).name).toBe('pepper')
 	expect(scaledLineWords(line('1', null, 'egg'), 1.1).name).toBe('eggs')
+})
+
+test('a container after a size or a word is what gets counted', () => {
+	expect(
+		scaledLineWords(line('1', null, '400g tin chopped tomatoes'), 0.5).name,
+	).toBe('400g tin chopped tomatoes')
+	expect(
+		scaledLineWords(line('1', null, '400g tin chopped tomatoes'), 2).name,
+	).toBe('400g tins chopped tomatoes')
+	expect(
+		scaledLineWords(line('1', null, 'large tin chopped tomatoes'), 2).name,
+	).toBe('large tins chopped tomatoes')
+})
+
+test('a line naming two things, or counting in dozens, is left as written', () => {
+	expect(scaledLineWords(line('2', null, 'eggs or 1 flax egg'), 2).name).toBe(
+		'eggs or 1 flax egg',
+	)
+	expect(scaledLineWords(line('1', null, 'apple or pear'), 2).name).toBe(
+		'apple or pear',
+	)
+	expect(scaledLineWords(line('1', null, 'egg and 1 yolk'), 2).name).toBe(
+		'egg and 1 yolk',
+	)
+	expect(scaledLineWords(line('2', null, 'dozen eggs'), 0.5).name).toBe(
+		'dozen eggs',
+	)
+	expect(scaledYieldLabel('dozen cookies', 0.5, 0.5)).toBe('dozen cookies')
+})
+
+test('a hyphenated word is left whole', () => {
+	expect(scaledLineWords(line('1', null, 'half-and-half'), 2).name).toBe(
+		'half-and-half',
+	)
+	expect(
+		scaledLineWords(line('1', null, 'bone-in chicken thigh'), 2).name,
+	).toBe('bone-in chicken thighs')
+})
+
+test('drop scones and pound cake count the scones and the cakes', () => {
+	expect(scaledLineWords(line('1', null, 'drop scone'), 2).name).toBe(
+		'drop scone',
+	)
+	expect(scaledLineWords(line('1', null, 'pound cake'), 2).name).toBe(
+		'pound cakes',
+	)
+	expect(scaledLineWords(line('1', 'pound', 'beef mince'), 2).unit).toBe(
+		'pounds',
+	)
+})
+
+test('a yield that shows as a whole number counts as that number', () => {
+	expect(scaledYieldLabel('loaf', 1.0025, 4.01)).toBe('loaf')
+})
+
+test('egg whites count the whites', () => {
+	expect(scaledLineWords(line('2', null, 'egg whites'), 0.5).name).toBe(
+		'egg white',
+	)
+	expect(scaledLineWords(line('1', null, 'egg white'), 3).name).toBe(
+		'egg whites',
+	)
 })

@@ -179,6 +179,25 @@ test('calls back once per submit when two run one after the other', async () => 
 	expect(onSettled.mock.calls).toEqual([[{ n: 1 }], [{ n: 2 }]])
 })
 
+test('calls back once, with the second answer, when a second submit starts before the first comes back', async () => {
+	const user = userEvent.setup()
+	const onSettled = vi.fn()
+	const { actions } = await setup({
+		Component: () => <Probe onSettled={onSettled} />,
+	})
+	const save = screen.getByRole('button', { name: 'Save' })
+
+	await user.click(save)
+	await waitFor(() => expect(actions).toHaveLength(1))
+	await user.click(save)
+	await waitFor(() => expect(actions).toHaveLength(2))
+	await settle(actions[1], { n: 2 })
+	await act(async () => actions[0]!.resolve({ n: 1 }))
+	await act(() => new Promise((resolve) => setTimeout(resolve, 50)))
+
+	expect(onSettled.mock.calls).toEqual([[{ n: 2 }]])
+})
+
 test('does not call back on mount for a fetcher that already holds an answer', async () => {
 	const user = userEvent.setup()
 	const first = vi.fn()

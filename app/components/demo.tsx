@@ -213,13 +213,7 @@ export function TryDemoButton({
 		navigation.formData?.get('intent') == null
 	return (
 		<Form method="POST" action="/demo">
-			<input
-				type="hidden"
-				name="redirectTo"
-				value={redirectTo}
-				// Kept out of session replays, as every redirectTo field is.
-				className="ph-no-capture"
-			/>
+			<input type="hidden" name="redirectTo" value={redirectTo} />
 			<StatusButton
 				type="submit"
 				variant={variant}

@@ -214,22 +214,16 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 						<input
 							{...getInputProps(fields[typeQueryParam], { type: 'hidden' })}
 						/>
-						{/* The link's token works like the code itself. */}
 						<input
 							{...getInputProps(fields[tokenQueryParam], { type: 'hidden' })}
-							className="ph-no-capture"
 						/>
-						{/* The target can be an email address and redirectTo an invite
-						link, so both are kept out of session replays. */}
 						<input
 							{...getInputProps(fields[targetQueryParam], { type: 'hidden' })}
-							className="ph-no-capture"
 						/>
 						<input
 							{...getInputProps(fields[redirectToQueryParam], {
 								type: 'hidden',
 							})}
-							className="ph-no-capture"
 						/>
 						<StatusButton
 							className="w-full"
@@ -280,12 +274,10 @@ function LoggedInStep({ username }: { username: string }) {
 				action="/logout"
 				className="mx-auto flex w-80 max-w-full flex-col"
 			>
-				{/* The page's address holds the signup's target and token. */}
 				<input
 					type="hidden"
 					name="redirectTo"
 					value={`${location.pathname}${location.search}`}
-					className="ph-no-capture"
 				/>
 				<StatusButton
 					className="w-full"

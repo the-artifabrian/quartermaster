@@ -32,8 +32,8 @@ test('Users can add 2FA to their account and use it when logging in', async ({
 		.getByLabel(/One-Time Password URI/i)
 		.innerText()
 
-	// Session replay records the text on the page, so the secret and its QR
-	// code are kept out of it.
+	// Click events record an element's text and attributes, so the secret
+	// and its QR code are kept out of them.
 	await expect(main.getByRole('img', { name: 'qr code' })).toHaveClass(
 		/\bph-no-capture\b/,
 	)

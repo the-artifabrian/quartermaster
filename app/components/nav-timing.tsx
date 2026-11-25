@@ -51,7 +51,7 @@ function isInTab(path: string, tabPath: string) {
  *
  * Each event is enriched with the destination route's single-fetch `.data` request
  * timing (see `nav-resource-timing.ts`) so felt latency can be attributed (in
- * aggregate, not just on one session replay) to its actual cause: cold connection
+ * aggregate) to its actual cause: cold connection
  * (`connect_ms` > 0), slow server (`ttfb_ms`), or a network vs cache response
  * (`transfer_size` === 0). So "why is p95 2s?" becomes a GROUP BY, not a guess.
  * BottomNav adds input-to-idle time to this same event so its pointer/key interval

@@ -194,7 +194,7 @@ async function planMeal(
 	return { meal, weekStart }
 }
 
-test('Add a Meal is a sheet: picking a Recipe plans it and closes the sheet', async ({
+test('Add Meal is a sheet: picking a Recipe plans it and closes the sheet', async ({
 	page,
 	login,
 }) => {
@@ -234,7 +234,7 @@ test('Add a Meal is a sheet: picking a Recipe plans it and closes the sheet', as
 		.toEqual([{ label: 'lunch', recipeItems: [{ recipeId: recipe.id }] }])
 })
 
-test('Add a Meal as text saves from the sheet’s full-width Add', async ({
+test('Add Meal as text saves from the sheet’s full-width Add', async ({
 	page,
 	login,
 }) => {
@@ -663,7 +663,7 @@ test('a Menu that cannot be planned keeps the Add to Plan sheet open with the re
 test.describe('on a desktop', () => {
 	test.use({ viewport: { width: 1280, height: 800 }, hasTouch: false })
 
-	test('Add a Meal and Edit details still open in place', async ({
+	test('Add Meal and Edit details still open in place', async ({
 		page,
 		login,
 	}) => {
@@ -948,7 +948,7 @@ test.describe('sheets while they come and go', () => {
 		)
 	})
 
-	test('a closing Add a Meal sheet leaves as it was; the next open starts afresh', async ({
+	test('a closing Add Meal sheet leaves as it was; the next open starts afresh', async ({
 		page,
 		login,
 	}) => {
@@ -1158,10 +1158,7 @@ test.describe('a phone on its side', () => {
 		await expect(sheet).toBeHidden()
 	})
 
-	test('Add a Meal from the week agenda is a sheet', async ({
-		page,
-		login,
-	}) => {
+	test('Add Meal from the week agenda is a sheet', async ({ page, login }) => {
 		await login()
 		await page.goto('/plan')
 		const desktop = page.getByTestId('desktop-plan')
@@ -1176,7 +1173,7 @@ test.describe('a phone on its side', () => {
 		).toHaveCount(0)
 	})
 
-	test('turning the phone with Add a Meal open keeps the sheet', async ({
+	test('turning the phone with Add Meal open keeps the sheet', async ({
 		page,
 		login,
 	}) => {

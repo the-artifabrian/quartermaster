@@ -158,7 +158,7 @@ function titlePlus(day: string) {
 	})
 }
 
-/** The Add a Meal sheet the title + opens. */
+/** The Add Meal sheet the title + opens. */
 function addMealSheet() {
 	return within(screen.getByRole('dialog', { name: 'Add Meal' }))
 }

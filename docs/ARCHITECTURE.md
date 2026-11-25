@@ -678,9 +678,9 @@ the subscription id, to cancel by hand.
 inside `redirectTo`. These go through it:
 
 - the request log and the `server_error` event;
-- in the browser, every URL in a PostHog event's properties, the links
-  autocapture records, URLs in error messages, the network requests and page
-  addresses recorded for replays.
+- in the browser, every URL in a PostHog event's properties, every URL among the
+  element attributes autocapture records (a link's `href`, a form's `action`),
+  and URLs in error messages.
 
 `handleError` in `app/entry.server.tsx` sends `server_error` for 5xx responses
 and thrown errors only. A 4xx, such as a bot's POST to a page with no action, is
@@ -691,19 +691,13 @@ can't read gets a 400 from the root middleware in
 `app/utils/form-body.server.ts`, and upload routes map the multipart parser's
 errors to the same 400 with `rethrowUnreadableUpload`.
 
-Replays record the page's text, since `mask_all_text` is off. Input values are
-masked by type, with the list in `app/utils/posthog.client.ts`: every type the
-SDK's own "mask all inputs" covers, plus hidden inputs. Masking settings turned
-on in the PostHog project would replace that list with the SDK's, which leaves
-hidden inputs out, so they stay off. The hidden inputs that carry a secret are
-blocked with `ph-no-capture` as well, so they stay out of replays whatever the
-remote settings are: the invite token on the join page, and `redirectTo` and the
-verify page's `target` and link `token` on the sign-in forms. A page that shows
-a secret marks it with PostHog's `ph-no-capture` class, and the recording keeps
-only an empty box of its size: the 2FA setup's QR code and URI, and the
-Household invite link. posthog-js has no browser-side setting to stop recording
-on chosen URLs; the URL blocklist for recordings lives in the PostHog project's
-settings.
+PostHog records pageviews, clicks, errors and how fast pages load, and never
+records sessions or heatmaps. `disable_session_recording` and
+`capture_heatmaps: false` in `app/utils/posthog.client.ts` keep the PostHog
+project's settings from turning either on. Click events keep the clicked
+element's text, since `mask_all_text` is off, so a page that shows a secret
+marks it with PostHog's `ph-no-capture` class: the 2FA setup's QR code and URI,
+and the Household invite link.
 
 ## Keeping loader data fresh
 
@@ -791,9 +785,9 @@ A link the Household already has saves nothing, and Import says "Already in your
 Recipes". The pasted text, or the AI's extraction for screenshots, is kept in
 `Recipe.rawText`. Since nothing is reviewed first, the AI prompt asks for a
 transcription and adds nothing the source doesn't give. Recipe enhancement
-suggests a description and time estimates the user may apply. Voice input sends
-audio to Groq Whisper, then the transcript to the fast model to split into
-items, falling back to the rule-based parser.
+("Suggest description & times") suggests a description and time estimates the
+user may apply. Voice input sends audio to Groq Whisper, then the transcript to
+the fast model to split into items, falling back to the rule-based parser.
 
 Each paid feature has a daily limit per user: 10 AI imports, 10 enhancements and
 30 voice inputs, counted from the server's local midnight. `claimAiUsage` in

@@ -1,6 +1,6 @@
 import { expect, test } from '#tests/playwright-utils.ts'
 
-// #346, 5.4: the fonts come from /assets, so a launch never waits on a
+// The fonts come from /assets, so a launch never waits on a
 // cross-origin, render-blocking stylesheet.
 test('the fonts are served from this origin, preloaded, and nothing is fetched from Google Fonts', async ({
 	page,

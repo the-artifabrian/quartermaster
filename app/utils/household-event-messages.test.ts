@@ -12,8 +12,17 @@ describe('formatEventMessage', () => {
 			{ count: 24 },
 			'Alex',
 		)
-		expect(result.message).toBe('Alex generated Shopping (24 items)')
+		expect(result.message).toBe('Alex updated Shopping (24 items)')
 		expect(result.url).toBe('/shopping')
+	})
+
+	test('shopping_list_generated with one item', () => {
+		const result = formatEventMessage(
+			'shopping_list_generated',
+			{ count: 1 },
+			'Alex',
+		)
+		expect(result.message).toBe('Alex updated Shopping (1 item)')
 	})
 
 	test('shopping_list_item_added', () => {

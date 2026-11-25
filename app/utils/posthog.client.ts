@@ -1,12 +1,22 @@
-import posthog, { type MaskInputOptions } from 'posthog-js'
+import posthog from 'posthog-js'
 import { type AnalyticsClient } from './posthog-provider.tsx'
 import { redactUrl } from './redact-url.ts'
 
 const looksLikeUrl = /^(?:https?:\/\/|\/)/
 
-// Autocapture describes a clicked link in one string, with its address in
-// href="..." and attr__href="...".
-const hrefInChain = /((?:attr__)?href=")((?:[^"\\]|\\.)*)"/g
+// Autocapture describes the clicked element and its ancestors in one string,
+// with each attribute as attr__name="..." and a link's address also as
+// href="...". A form's action holds the page's query string, tokens included.
+const attributeInChain = /((attr__[\w-]+|href)=")((?:[^"\\]|\\.)*)"/g
+
+// Attributes that always hold an address, absolute or relative. Any other
+// attribute is redacted only when its value looks like a URL.
+const urlAttributes = new Set([
+	'href',
+	'attr__href',
+	'attr__action',
+	'attr__formaction',
+])
 
 // URLs inside free text, such as an error message: absolute ones, and paths
 // that carry a query string.
@@ -16,32 +26,6 @@ const urlInText = /https?:\/\/[^\s"'<>`]+|\/[^\s"'<>`?]*\?[^\s"'<>`]+/g
 // (properties.$web_vitals_LCP_event.$current_url), its attribution, and
 // autocapture's $elements list.
 const MAX_DEPTH = 4
-
-// What replays mask in form fields. The SDK's maskAllInputs masks this list
-// less `hidden`, and it replaces any list of our own, so it is off and the
-// whole list is here. Hidden inputs carry invite tokens and redirectTo values
-// on the login, signup, onboarding, verify and join forms. MaskInputOptions
-// has no `hidden` key, but the recorder checks the input's type against the
-// list.
-const MASKED_INPUTS = {
-	color: true,
-	date: true,
-	'datetime-local': true,
-	email: true,
-	month: true,
-	number: true,
-	range: true,
-	search: true,
-	tel: true,
-	text: true,
-	time: true,
-	url: true,
-	week: true,
-	textarea: true,
-	select: true,
-	password: true,
-	hidden: true,
-} satisfies MaskInputOptions & { hidden: true }
 
 // The search for paths retries from every slash, so a long run of slashes
 // takes time that grows with the square of its length. Only this much of a
@@ -67,8 +51,9 @@ function redactUrlsIn(
 			if (name === '$elements_chain') {
 				set(
 					value.replace(
-						hrefInChain,
-						(_, start: string, href: string) => `${start}${redactUrl(href)}"`,
+						attributeInChain,
+						(_, start: string, name: string, attribute: string) =>
+							`${start}${urlAttributes.has(name) || looksLikeUrl.test(attribute) ? redactUrl(attribute) : attribute}"`,
 					),
 				)
 			} else if (name === '$exception_message') {
@@ -83,33 +68,8 @@ function redactUrlsIn(
 				}
 			}
 			redactUrlsIn(value, depth + 1)
-		} else if (name === '$snapshot_data' && Array.isArray(value)) {
-			redactSnapshotPages(value)
 		} else if (value && typeof value === 'object' && depth < MAX_DEPTH) {
 			redactUrlsIn(value as Record<string, unknown> | unknown[], depth + 1)
-		}
-	}
-}
-
-type ReplayEvent = {
-	type?: unknown
-	data?: { href?: unknown; payload?: { href?: unknown } }
-}
-
-/**
- * Replay data is large, so only the page addresses are read: the meta event
- * at the start of each page (type 4, data.href) and the page view marker
- * (type 5, data.payload.href). Page content is not redacted.
- */
-function redactSnapshotPages(events: unknown[]) {
-	for (const event of events as ReplayEvent[]) {
-		const data = event?.data
-		if (!data || typeof data !== 'object') continue
-		if (event.type === 4 && typeof data.href === 'string') {
-			data.href = redactUrl(data.href)
-		}
-		if (event.type === 5 && typeof data.payload?.href === 'string') {
-			data.payload.href = redactUrl(data.payload.href)
 		}
 	}
 }
@@ -117,9 +77,9 @@ function redactSnapshotPages(events: unknown[]) {
 /**
  * Redacts codes, tokens and email addresses from every URL-valued property
  * ($current_url, $referrer, $initial_current_url, web vitals' own
- * $current_url, the links autocapture records, URLs in error messages and
- * replay page addresses). The verify and invite pages carry them in the
- * query string.
+ * $current_url, URLs in the element attributes autocapture records, and URLs
+ * in error messages). The verify and invite pages carry them in the query
+ * string.
  */
 function redactEventUrls<Event extends object>(event: Event): Event {
 	for (const key of ['properties', '$set', '$set_once']) {
@@ -145,7 +105,12 @@ export function initializePostHog({
 			capture_pageleave: true,
 			person_profiles: 'identified_only',
 			persistence: 'localStorage+cookie',
-			enable_recording_console_log: true,
+			// Pageviews and clicks only. Without this, recording settings in the
+			// PostHog project would start session replays.
+			disable_session_recording: true,
+			// Heatmap data is keyed by the page's full URL, out of before_send's
+			// reach, and the project's remote settings could turn it on.
+			capture_heatmaps: false,
 			mask_all_text: false,
 			capture_exceptions: true,
 			// Outlook SafeLinks scanners execute the page in an embedded browser and
@@ -162,19 +127,8 @@ export function initializePostHog({
 				}
 				return event ? redactEventUrls(event) : event
 			},
-			session_recording: {
-				maskAllInputs: false,
-				maskInputOptions: MASKED_INPUTS,
-				maskCapturedNetworkRequestFn: (request) => ({
-					...request,
-					name: redactUrl(request.name),
-				}),
-			},
-			// Built-in performance capture: Core Web Vitals (incl. INP) as standalone
-			// events, plus resource/network timing attached to session replay. That
-			// gives the `.data` fetch TTFB/download split without custom
-			// instrumentation.
-			capture_performance: { web_vitals: true, network_timing: true },
+			// Core Web Vitals (INP included) as standalone events.
+			capture_performance: { web_vitals: true },
 		})
 	}
 

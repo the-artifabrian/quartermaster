@@ -81,7 +81,7 @@ test('reverifying from a page load keeps the page and its own search', async () 
 	)
 })
 
-test('Change Email sends a vanished user to sign in with a path safeRedirect accepts', async () => {
+test('Change email sends a vanished user to sign in with a path safeRedirect accepts', async () => {
 	const request = await signedInRequest('/settings/profile/change-email.data')
 	// The user row goes between the session check and the page's own lookup.
 	vi.spyOn(prisma.user, 'findUnique').mockResolvedValueOnce(null)

@@ -534,7 +534,7 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 	}
 })
 
-// #236: adding a Recipe that is already planned must report the Meal that
+// Adding a Recipe that is already planned must report the Meal that
 // exists, not imply the newly requested scale was applied.
 test('Recipe already in Plan reports the planned Meal and links to it', async ({
 	page,

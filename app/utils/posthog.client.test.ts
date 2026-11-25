@@ -40,7 +40,7 @@ test('initializes the deferred SDK with the existing privacy and performance beh
 			person_profiles: 'identified_only',
 			persistence: 'localStorage+cookie',
 			capture_exceptions: true,
-			capture_performance: { web_vitals: true, network_timing: true },
+			capture_performance: { web_vitals: true },
 		}),
 	)
 
@@ -136,20 +136,9 @@ test('URLs sent to PostHog lose their codes, tokens and email addresses', () => 
 	expect(sent.properties.count).toBe(3)
 	expect(sent.properties.$elements_chain).toContain('text="Create an account"')
 	expect(sent.properties.$elements_chain).toContain('href="/signup?redirectTo=')
-
-	const sessionRecording = options.session_recording as {
-		maskCapturedNetworkRequestFn: (request: {
-			name: string
-		}) => { name: string } | null
-	}
-	expect(
-		sessionRecording.maskCapturedNetworkRequestFn({
-			name: 'https://useqm.app/verify.data?code=Q2W3E4',
-		})?.name,
-	).toBe('https://useqm.app/verify.data?code=redacted')
 })
 
-test('error messages and replay page addresses lose their codes and tokens', () => {
+test('error messages lose their codes and tokens', () => {
 	vi.clearAllMocks()
 	posthog.__loaded = false
 	initializePostHog({
@@ -184,35 +173,6 @@ test('error messages and replay page addresses lose their codes and tokens', () 
 		'Failed to fetch https://useqm.app/verify.data?code=redacted&type=onboarding',
 	)
 	expect(exceptionText).toContain('https://useqm.app/assets/root.js')
-
-	const snapshot = beforeSend({
-		event: '$snapshot',
-		properties: {
-			$snapshot_data: [
-				{
-					type: 4,
-					data: {
-						href: 'https://useqm.app/verify?target=ada%40example.com&code=Q2W3E4',
-						width: 390,
-					},
-				},
-				{
-					type: 5,
-					data: {
-						tag: '$pageview',
-						payload: {
-							href: 'https://useqm.app/household/join?token=invite-abc',
-						},
-					},
-				},
-				{ type: 2, data: 'compressed-full-snapshot', cv: '2024-10' },
-			],
-		},
-	})
-	const snapshotText = JSON.stringify(snapshot)
-	expect(snapshotText).not.toMatch(/Q2W3E4|invite-abc|example\.com/)
-	expect(snapshotText).toContain('compressed-full-snapshot')
-	expect(snapshotText).toContain('"width":390')
 })
 
 // Error messages are cleaned in the browser before an event is sent. A URL
@@ -259,43 +219,97 @@ test('a long error message is cut, so a token past the cut is not sent', () => {
 	expect(String(event.properties.$exception_message).length).toBeLessThan(3_000)
 })
 
-// Hidden inputs carry invite tokens and redirectTo values on the login,
-// signup, onboarding, verify and join forms. The SDK's "mask all inputs" list
-// leaves them out, and it replaces any list of our own, so it has to be off for
-// ours to count.
-test('replays mask every input type, hidden ones included', () => {
+test('session recordings and heatmaps stay off whatever the PostHog project says', () => {
 	vi.clearAllMocks()
 	posthog.__loaded = false
 	initializePostHog({
 		apiKey: 'phc_test',
 		host: 'https://analytics.example.com',
 	})
-	const recording = posthog.init.mock.calls[0]![1].session_recording as {
-		maskAllInputs?: boolean
-		maskInputOptions?: Record<string, boolean>
-	}
-	expect(recording.maskAllInputs).toBe(false)
-	for (const type of [
-		'color',
-		'date',
-		'datetime-local',
-		'email',
-		'month',
-		'number',
-		'range',
-		'search',
-		'tel',
-		'text',
-		'time',
-		'url',
-		'week',
-		'textarea',
-		'select',
-		'password',
-		'hidden',
-	]) {
-		expect(recording.maskInputOptions?.[type], type).toBe(true)
-	}
+	const options = posthog.init.mock.calls[0]![1]
+	expect(options.disable_session_recording).toBe(true)
+	// Heatmap data is keyed by the page's full URL, which before_send can't reach.
+	expect(options.capture_heatmaps).toBe(false)
+})
+
+function sendChain(chain: string) {
+	vi.clearAllMocks()
+	posthog.__loaded = false
+	initializePostHog({
+		apiKey: 'phc_test',
+		host: 'https://analytics.example.com',
+	})
+	const beforeSend = posthog.init.mock.calls[0]![1].before_send as (event: {
+		event: string
+		properties: Record<string, unknown>
+	}) => { properties: { $elements_chain: string } }
+	return beforeSend({
+		event: '$autocapture',
+		properties: { $elements_chain: chain },
+	}).properties.$elements_chain
+}
+
+test('a form’s action in a click or submit event loses its tokens and email address', () => {
+	const chain = sendChain(
+		'form:attr__action="/verify?type=onboarding&target=ada%40example.com&token=link-abc"attr__method="post"nth-child="1"',
+	)
+	expect(chain).toBe(
+		'form:attr__action="/verify?type=onboarding&target=redacted&token=redacted"attr__method="post"nth-child="1"',
+	)
+	expect(
+		sendChain('form:attr__action="/household/join?token=invite-abc"'),
+	).toBe('form:attr__action="/household/join?token=redacted"')
+})
+
+test('a button’s formaction loses its tokens', () => {
+	expect(
+		sendChain(
+			'button:attr__formaction="https://useqm.app/household/join?token=invite-abc"text="Accept"',
+		),
+	).toBe(
+		'button:attr__formaction="https://useqm.app/household/join?token=redacted"text="Accept"',
+	)
+})
+
+test('a link’s href keeps being redacted', () => {
+	expect(
+		sendChain(
+			'a:attr__href="/verify?code=Q2W3E4"href="/verify?code=Q2W3E4"text="Verify"',
+		),
+	).toBe(
+		'a:attr__href="/verify?code=redacted"href="/verify?code=redacted"text="Verify"',
+	)
+})
+
+test('a relative link, action or formaction is redacted too', () => {
+	expect(
+		sendChain(
+			'a:attr__href="join?token=invite-abc"href="?code=Q2W3E4"text="Join"',
+		),
+	).toBe('a:attr__href="join?token=redacted"href="?code=redacted"text="Join"')
+	expect(
+		sendChain(
+			'form:attr__action="?target=ada%40example.com"button:attr__formaction="verify?code=Q2W3E4"',
+		),
+	).toBe(
+		'form:attr__action="?target=redacted"button:attr__formaction="verify?code=redacted"',
+	)
+})
+
+test('an attribute that is not a URL is sent as it is', () => {
+	const chain =
+		'button.ph-no-capture:attr__aria-label="token=abc?code=1"attr__class="ph-no-capture"text="/join?token=shown"'
+	expect(sendChain(chain)).toBe(chain)
+})
+
+test('an escaped quote inside an attribute value does not end the value early', () => {
+	expect(
+		sendChain(
+			'form:attr__action="/search?q=\\"pasta\\"&token=invite-abc"attr__method="get"',
+		),
+	).toBe(
+		'form:attr__action="/search?q=\\"pasta\\"&token=redacted"attr__method="get"',
+	)
 })
 
 test('resetIfRegistered resets only a browser that has the super property', () => {

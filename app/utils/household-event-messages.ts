@@ -48,7 +48,7 @@ export function formatEventMessage(
 	switch (type) {
 		case 'shopping_list_generated':
 			return {
-				message: `${username} generated Shopping (${payload.count} items)`,
+				message: `${username} updated Shopping (${payload.count} ${payload.count === 1 ? 'item' : 'items'})`,
 				url: '/shopping',
 			}
 		case 'shopping_list_item_added':

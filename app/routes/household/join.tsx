@@ -130,14 +130,7 @@ export default function JoinHousehold({ loaderData }: Route.ComponentProps) {
 						<strong className="text-foreground">{householdName}</strong>
 					</p>
 					<Form method="POST" className="flex justify-center gap-4">
-						{/* ph-no-capture keeps the token out of session replays,
-						whatever the PostHog project's masking settings say. */}
-						<input
-							type="hidden"
-							name="token"
-							value={token}
-							className="ph-no-capture"
-						/>
+						<input type="hidden" name="token" value={token} />
 						<Button type="submit" name="intent" value="accept" size="lg">
 							Accept
 						</Button>

@@ -1,7 +1,7 @@
 name: 💾 database backup
 
 # Daily offsite snapshot of the production database to the Tigris bucket.
-# Everything else — LiteFS replication, Fly volume snapshots — protects against
+# Everything else (LiteFS replication, Fly volume snapshots) protects against
 # machine loss, not against a bad migration or a wrong DELETE.
 #
 # A failure here emails via GitHub, and is worth acting on the same day: the
@@ -9,11 +9,11 @@ name: 💾 database backup
 # the job is broken, so the risk of a quiet failure is a stale restore point,
 # not a missing one.
 #
-# Needs FLY_API_TOKEN to be an org token that can open an SSH session — a
+# Needs FLY_API_TOKEN to be an org token that can open an SSH session. A
 # deploy token cannot. Restore procedure: docs/RESTORE.md.
 on:
   schedule:
-    # 04:23 UTC — off the top of the hour, and outside the evening cooking peak
+    # 04:23 UTC, off the top of the hour, and outside the evening cooking peak
     # in Europe when writes are heaviest.
     - cron: '23 4 * * *'
   workflow_dispatch:
@@ -51,6 +51,6 @@ jobs:
           output=$(flyctl ssh console --app "$APP" -C "bun /myapp/scripts/backup-db.ts" 2>&1)
           echo "$output"
           if ! grep -q '^BACKUP OK' <<<"$output"; then
-            echo "::error::Backup did not report success — see output above. An SSH failure usually means FLY_API_TOKEN expired or is a deploy token; runbook in docs/RESTORE.md"
+            echo "::error::Backup did not report success, see the output above. An SSH failure usually means FLY_API_TOKEN expired or is a deploy token; runbook in docs/RESTORE.md"
             exit 1
           fi

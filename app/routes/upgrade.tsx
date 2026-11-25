@@ -2,7 +2,11 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
 import { upgradeNav } from '#app/utils/nav-back.ts'
 import { data, Form, Link, redirect } from 'react-router'
-import { DemoSignUpForm, useIsDemo } from '#app/components/demo.tsx'
+import {
+	DemoSignUpForm,
+	TryDemoButton,
+	useIsDemo,
+} from '#app/components/demo.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { getAppOrigin } from '#app/utils/app-origin.server.ts'
@@ -87,9 +91,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 					return redirectWithToast('/upgrade', {
 						type: 'success',
-						title: 'Welcome to Pro!',
-						description:
-							'Your subscription is active. You have access to everything.',
+						title: 'You’re on Pro',
+						description: 'Your subscription is active.',
 					})
 				}
 			} catch (err) {
@@ -165,22 +168,22 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 const freeFeatures = [
-	'Unlimited Recipes',
-	'Import from URL or paste',
-	'Weekly Plan',
+	'Import from a link or pasted text',
+	'A weekly Plan',
 	'Shopping picked from your Plan',
 	'Household Staples',
-	'Recipe time, yield, and filters',
-	'Interactive cooking view',
-	'Household sharing',
+	'Recipe times, yield and filters',
+	'Tick off steps as you cook',
+	'Sharing with your Household',
 	'Data export',
 ]
 
 const proFeatures = [
 	'Everything in Free, plus:',
-	'Real-time Shopping sync',
+	'Live updates on Shopping',
 	'Voice input on Shopping',
-	'AI Recipe import and enhancement',
+	'AI import from text and screenshots',
+	'Suggest description & times',
 ]
 
 export default function UpgradePage({ loaderData }: Route.ComponentProps) {
@@ -201,23 +204,22 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					/>
 					<h2 className="text-lg font-semibold">Your Pro access has ended</h2>
 					<p className="text-muted-foreground mt-2 text-sm">
-						Your data is safe &mdash; Recipes, Staples, Plan, and Shopping are
-						all preserved. Subscribe to pick up where you left off.
+						Everything you saved is still here.
 					</p>
 				</div>
 			) : null}
 
 			<div className="mb-8 text-center md:mb-12">
 				<h1 className="font-serif text-3xl tracking-tight md:text-4xl">
-					Upgrade your kitchen
+					Free and Pro
 				</h1>
 				<p className="text-muted-foreground mt-2 text-lg">
-					Real-time shopping sync and AI Recipe tools.
+					Pro adds the AI tools and live updates.
 				</p>
 				{tierInfo.isTrialing ? (
 					<>
 						<p className="text-primary mt-2 text-sm font-medium">
-							You have Pro access until{' '}
+							You have Pro until{' '}
 							{new Date(tierInfo.trialEndsAt!).toLocaleDateString('en-US', {
 								month: 'long',
 								day: 'numeric',
@@ -225,14 +227,12 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 							})}
 						</p>
 						<p className="text-muted-foreground mt-1 text-sm">
-							After your trial, you'll keep Recipes, the Plan, and basic
-							Shopping on the Free plan. Real-time sync and AI Recipe tools need
-							Pro.
+							After that you keep everything in Free.
 						</p>
 					</>
 				) : tierInfo.isProActive && !isDemo ? (
 					<p className="text-primary mt-2 text-sm font-medium">
-						You&apos;re on the Pro plan
+						You&apos;re on Pro
 					</p>
 				) : null}
 			</div>
@@ -244,7 +244,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					<div className="mb-4">
 						<h2 className="text-xl font-semibold">Free</h2>
 						<p className="text-muted-foreground mt-1 text-sm">
-							A complete recipe manager
+							No card and no time limit
 						</p>
 						<p className="mt-3 text-2xl font-bold">$0</p>
 					</div>
@@ -262,9 +262,12 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					</ul>
 					<div className="mt-6">
 						{isLoggedIn ? (
-							<Button variant="outline" className="w-full" disabled>
-								Current Plan
-							</Button>
+							// Only one card is current: a trial or the demo is on Pro.
+							tierInfo.isProActive ? null : (
+								<Button variant="outline" className="w-full" disabled>
+									Current
+								</Button>
+							)
 						) : (
 							<Button asChild variant="outline" className="w-full">
 								<Link to="/signup">Sign up free</Link>
@@ -277,7 +280,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 					<div className="mb-4">
 						<h2 className="text-xl font-semibold">Pro</h2>
 						<p className="text-muted-foreground mt-1 text-sm">
-							Everything in Free, with real-time sync and AI
+							A reference implementation of a paid tier
 						</p>
 						<p className="mt-3 text-2xl font-bold">
 							$35
@@ -302,6 +305,7 @@ export default function UpgradePage({ loaderData }: Route.ComponentProps) {
 						<ProButton
 							tierInfo={tierInfo}
 							stripeConfigured={stripeConfigured}
+							isLoggedIn={isLoggedIn}
 						/>
 					</div>
 				</div>
@@ -328,9 +332,9 @@ function DemoProNote() {
 		<div className="bg-card border-border mx-auto mb-8 max-w-2xl rounded-lg border p-6">
 			<h2 className="text-lg font-semibold">Pro in the demo</h2>
 			<p className="text-muted-foreground mt-2 text-sm">
-				The demo runs on Pro, so there&apos;s no checkout. Quartermaster is my
-				portfolio project, and Pro is here to show Stripe Checkout and its
-				webhooks working end to end.
+				The demo runs as Pro, so there&apos;s no checkout. Pro isn&apos;t on
+				sale. It&apos;s a reference implementation, with Stripe Checkout and its
+				webhooks built and tested.
 			</p>
 			<div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
 				<DemoSignUpForm>
@@ -355,23 +359,25 @@ function DemoProNote() {
 function ProButton({
 	tierInfo,
 	stripeConfigured,
+	isLoggedIn,
 }: {
 	tierInfo: TierInfo
 	stripeConfigured: boolean
+	isLoggedIn: boolean
 }) {
 	if (tierInfo.isProActive) {
 		if (tierInfo.hasStripeSubscription) {
 			return (
 				<Form method="POST" action="/resources/stripe-portal">
 					<Button variant="outline" className="w-full">
-						Manage Subscription
+						Manage subscription
 					</Button>
 				</Form>
 			)
 		}
 		return (
 			<Button variant="outline" className="w-full" disabled>
-				Current Plan
+				Current
 			</Button>
 		)
 	}
@@ -381,7 +387,7 @@ function ProButton({
 		return (
 			<Form method="POST" action="/resources/stripe-portal">
 				<Button variant="default" className="w-full">
-					Manage Subscription
+					Manage subscription
 				</Button>
 			</Form>
 		)
@@ -400,10 +406,20 @@ function ProButton({
 		)
 	}
 
-	// Stripe not configured
+	// Stripe isn't configured: Pro isn't on sale. A visitor can try it in the
+	// demo; a signed-in user can't start one.
+	if (isLoggedIn) {
+		return (
+			<p className="text-muted-foreground text-sm">Pro isn&apos;t on sale.</p>
+		)
+	}
 	return (
-		<Button variant="default" className="w-full" disabled>
-			Coming Soon
-		</Button>
+		<>
+			<p className="text-muted-foreground mb-3 text-sm">
+				Pro isn&apos;t on sale. The demo runs as Pro, so you can try everything
+				there.
+			</p>
+			<TryDemoButton redirectTo="/upgrade" className="w-full" />
+		</>
 	)
 }

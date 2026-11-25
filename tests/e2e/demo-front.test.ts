@@ -289,7 +289,9 @@ test('a demo past its time still reads as a demo, with Sign up', async ({
 		),
 	).toBeVisible()
 	await page.goto('/upgrade')
-	await expect(page.getByText(/Pro is here to show/)).toBeVisible()
+	await expect(
+		page.getByText(/reference implementation, with Stripe/),
+	).toBeVisible()
 })
 
 test('Sign up in the banner ends the demo on its way to signup', async ({
@@ -365,10 +367,13 @@ test('Upgrade explains to a demo user why there is no checkout', async ({
 	const main = page.getByRole('main')
 	await expect(
 		main.getByText(
-			"The demo runs on Pro, so there's no checkout. Quartermaster is my portfolio project, and Pro is here to show Stripe Checkout and its webhooks working end to end.",
+			"The demo runs as Pro, so there's no checkout. Pro isn't on sale. It's a reference implementation, with Stripe Checkout and its webhooks built and tested.",
 		),
 	).toBeVisible()
-	await expect(main.getByText("You're on the Pro plan")).toHaveCount(0)
+	await expect(main.getByText("You're on Pro")).toHaveCount(0)
+	await expect(
+		main.getByRole('button', { name: 'Current', exact: true }),
+	).toHaveCount(1)
 	const signUp = main.locator('form', {
 		has: page.getByRole('button', { name: 'Sign up' }),
 	})
@@ -394,7 +399,9 @@ test('a real user sees no banner and no demo notes', async ({
 	await expect(page.getByText(/off in the demo/)).toHaveCount(0)
 	await expect(banner(page)).toHaveCount(0)
 	await page.goto('/upgrade')
-	await expect(page.getByText(/Pro is here to show/)).toHaveCount(0)
+	await expect(
+		page.getByText(/reference implementation, with Stripe/),
+	).toHaveCount(0)
 })
 
 // The demo's session ends at `demoExpiresAt` (app/routes/demo.tsx).

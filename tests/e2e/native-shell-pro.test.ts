@@ -48,7 +48,7 @@ test.describe('in the iOS app', () => {
 			page.getByRole('heading', { name: 'Page not found' }),
 		).toBeVisible()
 		await expect(
-			page.getByRole('heading', { name: 'Upgrade your kitchen' }),
+			page.getByRole('heading', { name: 'Free and Pro' }),
 		).toHaveCount(0)
 
 		await page.goto('/settings/profile')
@@ -243,7 +243,7 @@ test.describe('in a browser', () => {
 		const upgrade = await page.goto('/upgrade')
 		expect(upgrade?.status()).toBe(200)
 		await expect(
-			page.getByRole('heading', { name: 'Upgrade your kitchen' }),
+			page.getByRole('heading', { name: 'Free and Pro' }),
 		).toBeVisible()
 
 		await page.goto('/settings/profile')

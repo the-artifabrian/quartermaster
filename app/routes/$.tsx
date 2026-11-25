@@ -1,9 +1,6 @@
-// This is called a "splat route" and as it's in the root `/app/routes/`
-// directory, it's a catchall. If no other routes match, this one will and we
-// can know that the user is hitting a URL that doesn't exist. By throwing a
-// 404 from the loader, we can force the error boundary to render which will
-// ensure the user gets the right status code and we can display a nicer error
-// message for them than the Remix and/or browser default.
+// Matches any URL no other route does. The loader and action throw a 404, so
+// the response carries the right status and the error boundary renders the
+// page.
 
 import { Link, useLocation } from 'react-router'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
@@ -18,8 +15,7 @@ export function action() {
 }
 
 export default function NotFound() {
-	// due to the loader, this component will never be rendered, but we'll return
-	// the error boundary just in case.
+	// The loader always throws, so this never renders.
 	return <ErrorBoundary />
 }
 
@@ -39,10 +35,7 @@ export function ErrorBoundary() {
 								</code>
 							</p>
 						</div>
-						<Link
-							to="/"
-							className="text-primary underline underline-offset-4"
-						>
+						<Link to="/" className="text-primary underline underline-offset-4">
 							<Icon name="arrow-left">Back to home</Icon>
 						</Link>
 					</div>

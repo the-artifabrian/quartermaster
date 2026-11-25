@@ -311,11 +311,11 @@ export async function logout(
 		request.headers.get('cookie'),
 	)
 	const sessionId = authSession.get(sessionKey)
-	// if this fails, we still need to delete the session from the user's browser
-	// and it doesn't do any harm staying in the db anyway.
+	// The cookie goes whether or not this delete works; a session row left
+	// behind does no harm.
 	if (sessionId) {
-		// the .catch is important because that's what triggers the query.
-		// learn more about PrismaPromise: https://www.prisma.io/docs/orm/reference/prisma-client-reference#prismapromise-behavior
+		// A PrismaPromise runs only once something awaits it or calls .then or
+		// .catch, so the .catch is what sends the query.
 		void prisma.session.deleteMany({ where: { id: sessionId } }).catch(() => {})
 	}
 	throw redirect(safeRedirect(redirectTo), {

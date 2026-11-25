@@ -57,7 +57,7 @@ if (
 	!(gcIntervalMs >= 1000 && gcIntervalMs <= 2 ** 31 - 1)
 ) {
 	console.warn(
-		`⚠️ Ignoring invalid BUN_GC_INTERVAL_MS=${process.env.BUN_GC_INTERVAL_MS}; using ${GC_INTERVAL_DEFAULT_MS}ms`,
+		`Ignoring invalid BUN_GC_INTERVAL_MS=${process.env.BUN_GC_INTERVAL_MS}; using ${GC_INTERVAL_DEFAULT_MS}ms`,
 	)
 	gcIntervalMs = GC_INTERVAL_DEFAULT_MS
 }
@@ -189,8 +189,7 @@ if (IS_DEV) {
 	// Vite's middleware should serve public/ files, but as a fallback
 	// explicitly serve favicons so the webmanifest icons resolve correctly.
 	app.use('/favicons', express.static('public/favicons'))
-	// if we made it past both Vite and the explicit static for these, then we're missing something.
-	// So we'll just send a 404 and won't bother calling other middleware.
+	// An image Vite didn't serve is missing: answer 404 without running the app.
 	app.get([/^\/img\/.*/], (_req, res) => {
 		return res.status(404).send('Not found')
 	})
@@ -253,8 +252,8 @@ if (IS_DEV) {
 	// Everything else (like favicon.ico) is cached for an hour. You may want to be
 	// more aggressive with this caching.
 	app.use(express.static('build/client', { maxAge: '1h' }))
-	// if we made it past the express.static for these, then we're missing something.
-	// So we'll just send a 404 and won't bother calling other middleware.
+	// An image or favicon the static handlers didn't serve is missing: answer
+	// 404 without running the app.
 	app.get([/^\/img\/.*/, /^\/favicons\/.*/], (_req, res) => {
 		return res.status(404).send('Not found')
 	})
@@ -281,7 +280,7 @@ const portToUse = await getPort({
 })
 const portAvailable = desiredPort === portToUse
 if (!portAvailable && !IS_DEV) {
-	console.log(`⚠️ Port ${desiredPort} is not available.`)
+	console.log(`Port ${desiredPort} is not available.`)
 	process.exit(1)
 }
 // Dev only, since production exits above. The default APP_ORIGIN is
@@ -294,11 +293,11 @@ const server = app.listen(portToUse, () => {
 		console.warn(
 			styleText(
 				'yellow',
-				`⚠️  Port ${desiredPort} is not available, using ${portToUse} instead.`,
+				`Port ${desiredPort} is not available, using ${portToUse} instead.`,
 			),
 		)
 	}
-	console.log(`🚀  We have liftoff!`)
+	console.log(`Server listening on port ${portToUse}`)
 	const localUrl = `http://localhost:${portToUse}`
 	let lanUrl: string | null = null
 	const localIp = ipAddress() ?? 'Unknown'

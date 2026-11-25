@@ -12,9 +12,9 @@ export function getImgSrc({
 	fit,
 	format,
 }: GetSrcArgs) {
-	// We customize getImgSrc so our src looks nice like this:
+	// Our own image route keeps its query flat:
 	// /resources/images?objectKey=...&h=...&w=...&fit=...&format=...
-	// instead of this:
+	// where openimg's default would nest it:
 	// /resources/images?src=%2Fresources%2Fimages%3FobjectKey%3D...%26w%3D...%26h%3D...
 	if (src.startsWith(optimizerEndpoint)) {
 		const [endpoint, query] = src.split('?')
@@ -107,13 +107,12 @@ export function combineResponseInits(
 
 /**
  * Returns true if the current navigation is submitting the current route's
- * form. Defaults to the current route's form action and method POST.
+ * form. Defaults to the current route's form action, method POST and any
+ * non-idle state.
  *
- * Defaults state to 'non-idle'
- *
- * NOTE: the default formAction will include query params, but the
- * navigation.formAction will not, so don't use the default formAction if you
- * want to know if a form is submitting without specific query params.
+ * The default form action includes the query string and
+ * `navigation.formAction` doesn't, so pass `formAction` to match a form
+ * submitted without those query params.
  */
 export function useIsPending({
 	formAction,

@@ -7,7 +7,7 @@ import {
 	menuTitleKey,
 	ONE_UNNAMED_SECTION_MESSAGE,
 } from '#app/utils/menu-validation.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold, createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { loader as detailLoader } from './$menuId.tsx'
 import { action as editAction, loader as editLoader } from './$menuId_.edit.tsx'
@@ -42,24 +42,7 @@ function makeMenuArgs(menuId: string, suffix = '') {
 	}
 }
 
-async function setupUser() {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: { create: createUser() },
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Test Household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-			},
-		})
-		return { ...session, householdId: household.id }
-	})
-}
+const setupUser = () => createSignedInHousehold()
 
 async function addHouseholdMember(householdId: string) {
 	return prisma.$transaction(async (tx) => {

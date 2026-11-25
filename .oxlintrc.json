@@ -14,7 +14,14 @@
 		"**/app/generated/**"
 	],
 	"rules": {
+		"eslint/no-control-regex": "error",
+		"eslint/no-empty-pattern": "error",
+		"eslint/no-misleading-character-class": "error",
+		"eslint/no-unused-expressions": "error",
+		"eslint/no-useless-escape": "error",
+		"react/immutability": "error",
 		"react-hooks/rules-of-hooks": "error",
+		"unicorn/prefer-string-starts-ends-with": "error",
 		// Render-time ref reads, mostly measuring and gesture state; each needs
 		// its own look before it changes.
 		"react/refs": "off",

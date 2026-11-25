@@ -6,7 +6,7 @@ vi.mock('#app/utils/household-events.server.ts', () => ({
 }))
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold, createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { loader } from './household-events-poll.tsx'
 import '#tests/setup/db-setup.ts'
@@ -18,29 +18,7 @@ const LOADER_ARGS_BASE = {
 	url: new URL(`${BASE_URL}/resources/household-events-poll`),
 }
 
-async function setupUser() {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: {
-					create: {
-						...createUser(),
-						subscription: { create: { tier: 'pro' } },
-					},
-				},
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Test Household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-			},
-		})
-		return { ...session, householdId: household.id }
-	})
-}
+const setupUser = () => createSignedInHousehold({ tier: 'pro' })
 
 async function setupOtherUser(householdId: string) {
 	const session = await prisma.session.create({

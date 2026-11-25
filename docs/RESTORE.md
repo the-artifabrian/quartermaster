@@ -17,9 +17,10 @@ read transaction), gzipped, integrity-checked with `PRAGMA quick_check`, and
 size-verified after upload.
 
 GitHub turns off scheduled workflows in a public repository after 60 days with
-no commits. The daily backup stops then, and so does the uptime check in
-`.github/workflows/uptime.yml`. If the newest `daily/` entry is more than a day
-old, open each of them in the Actions tab and choose **Enable workflow**.
+no commits. The daily backup stops then, and so do the uptime check in
+`.github/workflows/uptime.yml` and the memory alert. If the newest `daily/`
+entry is more than a day old, open each of them in the Actions tab and choose
+**Enable workflow**.
 
 Everything below assumes `fly ssh console --app quartermaster-94e5`, and an
 org-scoped Fly token (a deploy token cannot open an SSH session).

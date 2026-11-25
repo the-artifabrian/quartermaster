@@ -465,9 +465,11 @@ export async function readMigrationState({
 		])
 		rows = output ? (JSON.parse(output) as Array<Row>) : []
 	} catch (error) {
-		// Most often a database Prisma has never migrated.
+		// A database Prisma has never migrated has no such table. Anything else
+		// means the check itself is broken, which the boot log should shout.
 		return {
 			pending: folders,
+			unknown: !String(error).includes('no such table'),
 			reason: `can't read _prisma_migrations (${String(error).split('\n')[0]})`,
 		}
 	}
@@ -508,12 +510,18 @@ export async function readMigrationState({
  */
 export async function backupBeforeMigrations({
 	migrationsDir,
+	onCheck,
 	...options
-}: RunBackupOptions & { migrationsDir: string }) {
+}: RunBackupOptions & {
+	migrationsDir: string
+	/** Called before any dump, so the boot log has the reason if it fails. */
+	onCheck?: (state: MigrationState) => void
+}) {
 	const state = await readMigrationState({
 		databasePath: options.sourcePath,
 		migrationsDir,
 	})
+	onCheck?.(state)
 	const shouldDump = state.unknown || state.pending.length > 0
 	const result = shouldDump ? await runBackup(options) : null
 	return { ...state, result }

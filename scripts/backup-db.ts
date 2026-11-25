@@ -104,12 +104,14 @@ if (flag('only-if-migrations-pending')) {
 	const migrationsDir = fileURLToPath(
 		new URL('../prisma/migrations', import.meta.url),
 	)
-	const boot = await backupBeforeMigrations({ ...backupOptions, migrationsDir })
-	if (boot.unknown) {
-		console.warn(`⚠️ Dumping anyway, ${boot.reason}`)
-	} else {
-		console.log(`Migration check: ${boot.reason}`)
-	}
+	const boot = await backupBeforeMigrations({
+		...backupOptions,
+		migrationsDir,
+		onCheck: (state) => {
+			if (state.unknown) console.warn(`⚠️ Dumping anyway, ${state.reason}`)
+			else console.log(`Migration check: ${state.reason}`)
+		},
+	})
 	if (!boot.result) {
 		console.log('No pre-migration dump needed')
 		process.exit(0)

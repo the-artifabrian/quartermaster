@@ -2,7 +2,13 @@ import { type Locator, type Page } from '@playwright/test'
 import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { SAFARI_UA, SHELL_UA } from '#tests/native-shell.ts'
-import { expect, openShopping, test } from '#tests/playwright-utils.ts'
+import {
+	browserToday,
+	expect,
+	openShopping,
+	tapUntil,
+	test,
+} from '#tests/playwright-utils.ts'
 
 // On a phone, everything you type or pick in is a bottom sheet: no popover
 // and no panel that opens in place. Each flow opens its sheet, saves through
@@ -139,21 +145,6 @@ function fromDb<T>(read: () => Promise<T>) {
 		})
 }
 
-/** Taps until a tap lands on a hydrated page and `then` holds. */
-async function tapUntil(control: Locator, then: () => Promise<void>) {
-	await expect(async () => {
-		await control.tap()
-		await then()
-	}).toPass({ timeout: 10_000 })
-}
-
-function todayUTC() {
-	const today = new Date()
-	return new Date(
-		Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
-	)
-}
-
 async function createRecipe(
 	user: { id: string; householdId: string },
 	title: string,
@@ -176,7 +167,7 @@ async function planMeal(
 	user: { householdId: string },
 	recipe: { id: string; title: string },
 ) {
-	const today = todayUTC()
+	const today = browserToday()
 	const weekStart = getWeekStart(today)
 	const plan = await prisma.mealPlan.create({
 		data: {
@@ -734,7 +725,7 @@ test.describe('on a desktop', () => {
 })
 
 test.describe('Plan Meals as flat rows', () => {
-	test('a Meal has no card border, fill or shadow; a hairline divides Meals and its actions still work', async ({
+	test('a hairline divides Meals, and their actions still work', async ({
 		page,
 		login,
 	}) => {
@@ -777,35 +768,13 @@ test.describe('Plan Meals as flat rows', () => {
 			const plan = page.getByTestId(copy)
 			const row = plan.locator(`[data-meal-id="${meal.id}"]`)
 			await expect(row).toBeVisible()
-			const style = await row.evaluate((element) => {
-				const css = getComputedStyle(element)
-				return {
-					border: css.borderTopWidth,
-					shadow: css.boxShadow,
-					fill: css.backgroundColor,
-				}
-			})
-			expect(style).toEqual({
-				border: '0px',
-				shadow: 'none',
-				fill: 'rgba(0, 0, 0, 0)',
-			})
-			// The second Meal sits under a hairline in the border colour.
+			// The second Meal sits under a hairline.
 			const groups = plan.locator('[data-slot="meal-group"]')
 			await expect(groups).toHaveCount(3)
-			const divider = await groups.nth(1).evaluate((element) => {
-				const probe = document.createElement('span')
-				probe.className = 'border-border border'
-				document.body.append(probe)
-				const color = getComputedStyle(probe).borderTopColor
-				probe.remove()
-				const css = getComputedStyle(element)
-				return {
-					width: css.borderTopWidth,
-					matches: css.borderTopColor === color,
-				}
-			})
-			expect(divider).toEqual({ width: '1px', matches: true })
+			const divider = await groups
+				.nth(1)
+				.evaluate((element) => getComputedStyle(element).borderTopWidth)
+			expect(divider).toBe('1px')
 			// Between the two Recipes of one Meal: a hairline that starts where
 			// the titles start, past the cooked toggle.
 			const salads = plan
@@ -1126,7 +1095,7 @@ test.describe('sheets while they come and go', () => {
 		const miso = await createRecipe(user, 'Miso Soup')
 		const { meal, weekStart } = await planMeal(user, miso)
 		// Another day of the same week.
-		const today = todayUTC()
+		const today = browserToday()
 		const other = new Date(
 			weekStart.getTime() +
 				(today.getTime() === weekStart.getTime() ? 1 : 0) * 86_400_000,
@@ -1442,4 +1411,542 @@ test('Staples picked and added are not picked again after Shopping clears them',
 	const milk = sheet.getByRole('button', { name: 'Milk' })
 	await expect(milk).toBeEnabled()
 	await expect(milk).toHaveAttribute('aria-pressed', 'false')
+})
+
+test.describe('the Shopping add sheet’s motion', () => {
+	// No touch here, unlike the rest of this file.
+	test.use({ hasTouch: false })
+
+	test.use({ viewport: { width: 390, height: 844 } })
+
+	async function openShoppingWithList(
+		page: Page,
+		user: { id: string; householdId: string },
+	) {
+		await prisma.shoppingList.create({
+			data: { userId: user.id, householdId: user.householdId },
+		})
+		await openShopping(page)
+	}
+
+	type Transition = {
+		property: string
+		duration: number
+		from: string | null
+		state: string | null
+	}
+
+	/**
+	 * Opens the add sheet, holds its entrance 40% of the way in, closes it with
+	 * Escape, and reports the transitions on the panel at both moments. Holding
+	 * the entrance keeps a loaded machine from closing a sheet that has not
+	 * moved yet, which has nothing to turn around.
+	 */
+	function openThenCloseEarly(page: Page) {
+		return page.evaluate(async () => {
+			const frame = () =>
+				new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+			const transitionsOf = (panel: Element): Transition[] =>
+				panel.getAnimations().map((animation) => {
+					const transition = animation as CSSTransition
+					const [first] = transition.effect
+						? (transition.effect as KeyframeEffect).getKeyframes()
+						: []
+					return {
+						property: transition.transitionProperty,
+						duration: Number(transition.effect?.getTiming().duration),
+						from: first ? String(first[transition.transitionProperty]) : null,
+						state: panel.getAttribute('data-state'),
+					}
+				})
+			document
+				.querySelector<HTMLButtonElement>('button[aria-label="Add item"]')!
+				.click()
+			await frame()
+			const panel = document.querySelector('[data-bottom-sheet-panel]')!
+			const entering = transitionsOf(panel)
+			for (const animation of panel.getAnimations()) {
+				animation.pause()
+				animation.currentTime =
+					Number(animation.effect?.getTiming().duration) * 0.4
+			}
+			document.dispatchEvent(
+				new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+			)
+			// Read the exit as soon as React has committed the close.
+			const startedAt = performance.now()
+			while (panel.getAttribute('data-state') !== 'closed') {
+				await new Promise((resolve) => setTimeout(resolve, 0))
+			}
+			const leaving = transitionsOf(panel)
+			return {
+				entering,
+				leaving,
+				closeMs: performance.now() - startedAt,
+				connected: panel.isConnected,
+			}
+		})
+	}
+
+	/** How far down a keyframe's `translateY(…%)` puts the panel, in percent. */
+	function percentDown(transform: string | null) {
+		const percent = transform?.match(/^translateY\((-?[\d.]+)%\)$/)?.[1]
+		return percent ? Number(percent) : NaN
+	}
+
+	test('the add sheet slides up, and a close mid-entrance turns it around', async ({
+		page,
+		login,
+	}) => {
+		await openShoppingWithList(page, await login())
+		const { entering, leaving, closeMs, connected } =
+			await openThenCloseEarly(page)
+
+		// The entrance slides, inside the 350 ms an occasional surface gets.
+		const entrance = entering.find((t) => t.property === 'transform')
+		expect(entrance).toMatchObject({ state: 'open' })
+		expect(entrance!.duration).toBeGreaterThan(0)
+		expect(entrance!.duration).toBeLessThanOrEqual(350)
+		// The exit starts from where the entrance had got to, not from either end,
+		// and is quicker than the entrance (a reversal is shortened further).
+		const exit = leaving.find((t) => t.property === 'transform')
+		expect(
+			leaving.map((t) => t.property),
+			JSON.stringify({ entering, leaving, closeMs }),
+		).toContain('transform')
+		expect(exit!.duration).toBeGreaterThan(0)
+		expect(exit!.duration).toBeLessThanOrEqual(250)
+		const from = percentDown(exit!.from)
+		expect(from, String(exit!.from)).toBeGreaterThan(0)
+		expect(from, String(exit!.from)).toBeLessThan(100)
+		// The panel is still there while it leaves, then goes.
+		expect(connected).toBe(true)
+		await expect(
+			page.getByRole('dialog', { name: 'Add to Shopping' }),
+		).toBeHidden()
+
+		// It opens again from the start.
+		await page.getByRole('button', { name: 'Add item' }).click()
+		await expect(
+			page
+				.getByRole('dialog', { name: 'Add to Shopping' })
+				.getByPlaceholder('Add an item…'),
+		).toBeFocused()
+	})
+
+	test('with reduced motion, the add sheet fades in and out without moving', async ({
+		page,
+		login,
+	}) => {
+		await page.emulateMedia({ reducedMotion: 'reduce' })
+		await openShoppingWithList(page, await login())
+		const { entering, leaving } = await openThenCloseEarly(page)
+
+		for (const transitions of [entering, leaving]) {
+			expect(transitions.map((t) => t.property)).not.toContain('transform')
+		}
+		// A short fade both ways.
+		for (const transitions of [entering, leaving]) {
+			const fade = transitions.find((t) => t.property === 'opacity')
+			expect(fade!.duration).toBeGreaterThan(0)
+			expect(fade!.duration).toBeLessThanOrEqual(150)
+		}
+		await expect(
+			page.getByRole('dialog', { name: 'Add to Shopping' }),
+		).toBeHidden()
+	})
+
+	test('Escape, the backdrop and Close each close the add sheet, and focus comes back to Add item', async ({
+		page,
+		login,
+	}) => {
+		await openShoppingWithList(page, await login())
+		const addItem = page.getByRole('button', { name: 'Add item' })
+		const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
+
+		await addItem.focus()
+		await page.keyboard.press('Enter')
+		await expect(sheet.getByPlaceholder('Add an item…')).toBeFocused()
+		await page.keyboard.press('Escape')
+		await expect(sheet).toBeHidden()
+		await expect(addItem).toBeFocused()
+
+		await addItem.click()
+		await expect(sheet).toBeVisible()
+		// The backdrop, above the sheet.
+		await page.mouse.click(195, 200)
+		await expect(sheet).toBeHidden()
+		await expect(addItem).toBeFocused()
+
+		await addItem.click()
+		await sheet.getByRole('button', { name: 'Close', exact: true }).click()
+		await expect(sheet).toBeHidden()
+		await expect(addItem).toBeFocused()
+	})
+
+	/** Records each Shopping row as it mounts, with the transitions it starts. */
+	async function recordRowMounts(page: Page) {
+		await page.evaluate(() => {
+			const mounts: Array<{
+				name: string | null
+				optimistic: boolean
+				transitions: string[]
+			}> = []
+			Object.assign(window, { __rowMounts: mounts })
+			new MutationObserver((records) => {
+				for (const record of records) {
+					for (const node of record.addedNodes) {
+						if (!(node instanceof HTMLElement)) continue
+						const rows = node.matches('[aria-label$=" shopping item"]')
+							? [node]
+							: [...node.querySelectorAll('[aria-label$=" shopping item"]')]
+						for (const row of rows) {
+							mounts.push({
+								name: row.getAttribute('aria-label'),
+								optimistic: row.hasAttribute('data-optimistic-row'),
+								transitions: row
+									.getAnimations()
+									.map((a) => (a as CSSTransition).transitionProperty)
+									.sort(),
+							})
+						}
+					}
+				}
+			}).observe(document.body, { childList: true, subtree: true })
+		})
+		return () =>
+			page.evaluate(
+				() =>
+					(
+						window as unknown as {
+							__rowMounts: Array<{
+								name: string | null
+								optimistic: boolean
+								transitions: string[]
+							}>
+						}
+					).__rowMounts,
+			)
+	}
+
+	for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+		test(`a new Shopping row eases in and the saved row does not (${reducedMotion})`, async ({
+			page,
+			login,
+		}) => {
+			await page.emulateMedia({ reducedMotion })
+			const user = await login()
+			await openShoppingWithList(page, user)
+			// Hold the add so the row added just now is on screen for a while.
+			await page.route('**/shopping.data**', async (route) => {
+				if (route.request().postData()?.includes('intent=add')) {
+					await new Promise((resolve) => setTimeout(resolve, 400))
+				}
+				await route.continue()
+			})
+			const rowMounts = await recordRowMounts(page)
+
+			await page.getByRole('button', { name: 'Add item' }).click()
+			await page
+				.getByRole('dialog', { name: 'Add to Shopping' })
+				.getByPlaceholder('Add an item…')
+				.fill('Bananas')
+			await page.keyboard.press('Enter')
+			await expect(
+				page.locator(
+					'[data-optimistic-row][aria-label="Bananas shopping item"]',
+				),
+			).toBeVisible()
+			await expect(
+				page.locator(
+					'[data-optimistic-row][aria-label="Bananas shopping item"]',
+				),
+			).toHaveCount(0)
+			await expect(
+				page.getByRole('group', { name: 'Bananas shopping item' }),
+			).toBeVisible()
+			await expect
+				.poll(() =>
+					prisma.shoppingListItem.count({
+						where: { name: 'Bananas', list: { householdId: user.householdId } },
+					}),
+				)
+				.toBe(1)
+
+			const mounts = (await rowMounts()).filter(
+				(m) => m.name === 'Bananas shopping item',
+			)
+			expect(mounts).toEqual([
+				{
+					name: 'Bananas shopping item',
+					optimistic: true,
+					transitions:
+						reducedMotion === 'reduce' ? ['opacity'] : ['opacity', 'transform'],
+				},
+				{ name: 'Bananas shopping item', optimistic: false, transitions: [] },
+			])
+		})
+	}
+})
+
+test.describe('pulling a sheet down', () => {
+	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+	/**
+	 * Puts one finger down at `fromY` of the way down a locator. Chromium
+	 * dispatches these as touch events, the way a phone sends them.
+	 */
+	async function fingerDown(page: Page, target: Locator, fromY: number) {
+		const box = (await target.boundingBox())!
+		const x = box.x + box.width / 2
+		const y = box.y + box.height * fromY
+		const cdp = await page.context().newCDPSession(page)
+		await cdp.send('Input.dispatchTouchEvent', {
+			type: 'touchStart',
+			touchPoints: [{ x, y, id: 1 }],
+		})
+		return {
+			/** Moves the finger to `dy` below where it went down. */
+			move: (dy: number) =>
+				cdp.send('Input.dispatchTouchEvent', {
+					type: 'touchMove',
+					touchPoints: [{ x, y: y + dy, id: 1 }],
+				}),
+			lift: async () => {
+				await cdp.send('Input.dispatchTouchEvent', {
+					type: 'touchEnd',
+					touchPoints: [],
+				})
+				await cdp.detach()
+			},
+		}
+	}
+
+	/**
+	 * Drags one finger down (or up, with a negative `by`) from `fromY` of the
+	 * way down a locator, over `ms`.
+	 */
+	async function pull(
+		page: Page,
+		target: Locator,
+		{
+			fromY,
+			by,
+			ms,
+			steps = 12,
+		}: { fromY: number; by: number; ms: number; steps?: number },
+	) {
+		const finger = await fingerDown(page, target, fromY)
+		for (let i = 1; i <= steps; i++) {
+			await finger.move((by * i) / steps)
+			await page.waitForTimeout(ms / steps)
+		}
+		await finger.lift()
+	}
+
+	/** The panel's offset from its open spot, as shown now (px). */
+	const shownOffset = (panel: Locator) =>
+		panel.evaluate(
+			(element) => new DOMMatrix(getComputedStyle(element).transform).m42,
+		)
+
+	/** The backdrop's opacity as shown now. */
+	const shownShade = (page: Page) =>
+		page
+			.locator('[data-bottom-sheet-backdrop]')
+			.evaluate((element) => Number(getComputedStyle(element).opacity))
+
+	/**
+	 * Waits for an opening sheet to finish sliding in: until then its box is
+	 * still moving, and a finger aimed at it lands somewhere else.
+	 */
+	async function slidIn(panel: Locator) {
+		await expect(panel).toBeVisible()
+		await panel.evaluate((element) =>
+			Promise.all(element.getAnimations().map((a) => a.finished)),
+		)
+	}
+
+	/**
+	 * Where the panel rests once any settle has run (px from its open spot). A
+	 * sheet that is closing fails here rather than being read mid-exit.
+	 */
+	async function restingOffset(panel: Locator) {
+		await expect(panel).toHaveAttribute('data-state', 'open')
+		await panel.evaluate((element) =>
+			Promise.all(element.getAnimations().map((a) => a.finished)),
+		)
+		return shownOffset(panel)
+	}
+
+	/** Opens Shopping's Add sheet, slid in. */
+	async function openAddSheet(
+		page: Page,
+		user: { id: string; householdId: string },
+	) {
+		await prisma.shoppingList.create({
+			data: { userId: user.id, householdId: user.householdId },
+		})
+		await openShopping(page)
+		const addItem = page.getByRole('button', { name: 'Add item' })
+		await addItem.click()
+		const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
+		await slidIn(sheet)
+		return { addItem, sheet, height: (await sheet.boundingBox())!.height }
+	}
+
+	test('pulling the Shopping add sheet down closes it; a short pull or a push up does not', async ({
+		page,
+		login,
+	}) => {
+		const { addItem, sheet, height } = await openAddSheet(page, await login())
+
+		// While the finger is down the sheet follows it and the backdrop fades
+		// with it; let go short, both go back.
+		const finger = await fingerDown(page, sheet, 0.2)
+		for (const part of [0.05, 0.15, 0.3]) await finger.move(height * part)
+		expect(await shownOffset(sheet)).toBeGreaterThan(height * 0.1)
+		expect(await shownShade(page)).toBeLessThan(0.95)
+		// Held still before it lifts, so it isn't a flick.
+		await page.waitForTimeout(200)
+		await finger.lift()
+		await expect(sheet).toBeVisible()
+		expect(await restingOffset(sheet)).toBe(0)
+		await expect.poll(() => shownShade(page)).toBe(1)
+
+		// A push up only stretches it a little, and it goes back.
+		const push = await fingerDown(page, sheet, 0.5)
+		for (const dy of [-20, -60, -120]) await push.move(dy)
+		const stretched = await shownOffset(sheet)
+		expect(stretched).toBeLessThan(-5)
+		expect(stretched).toBeGreaterThan(-60)
+		await page.waitForTimeout(200)
+		await push.lift()
+		expect(await restingOffset(sheet)).toBe(0)
+
+		// A tap straight after a drag is a tap.
+		await pull(page, sheet, { fromY: 0.2, by: height * 0.15, ms: 200 })
+		await page.getByRole('button', { name: 'Close' }).tap()
+		await expect(sheet).toBeHidden()
+
+		// A long pull closes it, and focus goes back to the button.
+		await addItem.click()
+		await slidIn(sheet)
+		await pull(page, sheet, { fromY: 0.2, by: height * 0.7, ms: 600 })
+		await expect(sheet).toBeHidden()
+		await expect(addItem).toBeFocused()
+
+		// A quick flick down closes it from a distance too short to close it on its own:
+		// the sheet follows only the second move, half the flick.
+		await addItem.click()
+		await slidIn(sheet)
+		await pull(page, sheet, { fromY: 0.2, by: height * 0.5, ms: 0, steps: 2 })
+		await expect(sheet).toBeHidden()
+	})
+
+	test('a pull that starts in a sideways scroller scrolls it, and a finger lifted off a removed node frees the sheet', async ({
+		page,
+		login,
+	}) => {
+		const { sheet } = await openAddSheet(page, await login())
+		// Stand-ins: a row of chips that scrolls sideways, and a node the page
+		// takes away while a finger is on it.
+		await sheet.evaluate((panel) => {
+			const row = document.createElement('div')
+			row.dataset.testid = 'chips'
+			row.style.cssText = 'overflow-x:auto;height:60px;white-space:nowrap'
+			row.textContent = 'chip '.repeat(200)
+			const doomed = document.createElement('div')
+			doomed.dataset.testid = 'doomed'
+			doomed.style.cssText = 'height:60px'
+			panel.append(row, doomed)
+		})
+		// Taller now, so a pull long enough to close it is longer too.
+		const height = (await sheet.boundingBox())!.height
+
+		await pull(page, sheet.getByTestId('chips'), {
+			fromY: 0.5,
+			by: height * 0.7,
+			ms: 400,
+		})
+		await expect(sheet).toBeVisible()
+		expect(await restingOffset(sheet)).toBe(0)
+
+		const finger = await fingerDown(page, sheet.getByTestId('doomed'), 0.5)
+		await finger.move(20)
+		await finger.move(60)
+		await sheet.getByTestId('doomed').evaluate((node) => node.remove())
+		await finger.lift()
+		await pull(page, sheet, { fromY: 0.2, by: height * 0.7, ms: 600 })
+		await expect(sheet).toBeHidden()
+	})
+
+	test('under reduced motion the sheet and backdrop still follow the finger', async ({
+		page,
+		login,
+	}) => {
+		await page.emulateMedia({ reducedMotion: 'reduce' })
+		const { sheet, height } = await openAddSheet(page, await login())
+		const finger = await fingerDown(page, sheet, 0.2)
+		for (const part of [0.05, 0.15, 0.3]) await finger.move(height * part)
+		expect(await shownOffset(sheet)).toBeGreaterThan(height * 0.1)
+		// Read at once: a backdrop that trails the finger is still near 1 here.
+		expect(await shownShade(page)).toBeLessThan(0.9)
+		await page.waitForTimeout(200)
+		await finger.lift()
+		expect(await restingOffset(sheet)).toBe(0)
+	})
+
+	test('a pull down on a scrolled Ingredients list scrolls it instead of closing the sheet', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Long Recipe',
+				userId: user.id,
+				householdId: user.householdId,
+				ingredients: {
+					create: Array.from({ length: 30 }, (_, index) => ({
+						name: `ingredient ${index + 1}`,
+						amount: String(index + 1),
+						unit: 'g',
+						order: index,
+					})),
+				},
+				instructions: {
+					create: Array.from({ length: 12 }, (_, index) => ({
+						content: `Complete cooking step ${index + 1}.`,
+						order: index,
+					})),
+				},
+			},
+		})
+		await page.goto(`/recipes/${recipe.id}`)
+		await page
+			.getByRole('heading', { name: 'Instructions' })
+			.scrollIntoViewIfNeeded()
+		await page.getByRole('button', { name: /^Ingredients · / }).click()
+		const sheet = page.getByRole('dialog', { name: 'Ingredients' })
+		await slidIn(sheet)
+		const list = sheet.locator('.overflow-y-auto')
+		await list.evaluate((element) => {
+			element.scrollTop = 300
+		})
+
+		await pull(page, list, { fromY: 0.3, by: 200, ms: 400 })
+		await expect(sheet).toBeVisible()
+		expect(await restingOffset(sheet)).toBe(0)
+		expect(await list.evaluate((element) => element.scrollTop)).toBeLessThan(
+			300,
+		)
+
+		// Back at the top, a pull past a third of the sheet closes it.
+		await list.evaluate((element) => {
+			element.scrollTop = 0
+		})
+		await pull(page, list, { fromY: 0.3, by: 320, ms: 400 })
+		await expect(sheet).toBeHidden()
+	})
 })

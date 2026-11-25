@@ -2,14 +2,8 @@ import { redirect, RouterContextProvider } from 'react-router'
 import { afterEach, expect, test, vi } from 'vitest'
 import { clientAction } from './import.tsx'
 
-// Failure list for the import's offline reply:
-// - a redirect (to log in, to the saved Recipe) still navigates
-// - a server error rebuilt as a client TypeError still reaches the error page
-// - each browser's own network failure message comes back as the tab's error,
-//   with a non-2xx status so the loaders do not run again offline
-// - while the browser says it is offline, any TypeError counts as offline
-// - a request with no import intent still throws
-// - a result passes through untouched
+// The import's offline reply. A network failure comes back as the tab's error
+// with a non-2xx status, so the loaders don't run again while offline.
 
 function args(intent: string | null, serverAction: () => Promise<unknown>) {
 	const body = new URLSearchParams(intent ? { intent } : {})

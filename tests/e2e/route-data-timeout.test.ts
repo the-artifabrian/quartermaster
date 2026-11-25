@@ -20,7 +20,7 @@ function bottomNav(page: Page) {
 }
 
 /** Open Shopping under the worker's control and wait for hydration. */
-async function openShopping(page: Page) {
+async function openShoppingUnderWorker(page: Page) {
 	await page.goto('/shopping')
 	await page.evaluate(() => navigator.serviceWorker.ready)
 	// The worker does not claim the page that installed it; a first registration
@@ -80,7 +80,7 @@ test('a stalled Plan answers from the session cache after 4 s, and the late resp
 
 	// Warm load: the Shopping → Plan navigation's Route data, cached by the
 	// worker once the page has named its session.
-	await openShopping(page)
+	await openShoppingUnderWorker(page)
 	const planData: string[] = []
 	const recordPlanData = (request: { url: () => string }) => {
 		if (new URL(request.url()).pathname === '/plan.data') {
@@ -116,7 +116,7 @@ test('a stalled Plan answers from the session cache after 4 s, and the late resp
 
 	// A fresh document (nothing in memory), then the other member's change and a
 	// connection that stalls on every Route data request.
-	await openShopping(page)
+	await openShoppingUnderWorker(page)
 	await prisma.meal.create({
 		data: {
 			mealPlanId: mealPlan.id,

@@ -1,18 +1,3 @@
-/**
- * Favourite failure list:
- * - Two members both add a Recipe to favourites and it ends up unstarred.
- * - Two taps asking for the same state at once cancel out.
- * - A double tap (add, then remove) ends in the first tap's state.
- * - A state that is neither true nor false is saved as one of them.
- * - A page loaded before the change, which posts no state, stops working.
- *
- * Failure list for this change (Recipe detail → Shopping):
- * - Adding an ingredient to Shopping emits a household event that carries
- *   the device's client id, so that device doesn't light its own Shopping
- *   dot.
- * - Adding an ingredient another member has just removed throws a 404, which
- *   the page shows as "Recipe not found" over a Recipe that is still there.
- */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
 
@@ -22,7 +7,7 @@ vi.mock('#app/utils/household-events.server.ts', () => ({
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold, createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { loader, action } from './$recipeId.tsx'
 import '#tests/setup/db-setup.ts'
@@ -36,29 +21,7 @@ function makeActionArgs(recipeId: string) {
 	}
 }
 
-async function setupUser() {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: {
-					create: {
-						...createUser(),
-						subscription: { create: { tier: 'pro' } },
-					},
-				},
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Test Household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-			},
-		})
-		return { ...session, householdId: household.id }
-	})
-}
+const setupUser = () => createSignedInHousehold({ tier: 'pro' })
 
 async function setupRecipe(
 	userId: string,
@@ -148,7 +111,7 @@ describe('recipe detail loader', () => {
 
 describe('recipe detail actions', () => {
 	test.each(['next', 'later'])(
-		'an explicit ingredient addition keeps a checked purchase in %s separate (#226)',
+		'an explicit ingredient addition keeps a checked purchase in %s separate',
 		async (horizon) => {
 			const session = await setupUser()
 			const recipe = await setupRecipe(session.userId, session.householdId)
@@ -208,7 +171,7 @@ describe('recipe detail actions', () => {
 	)
 
 	test.each(['next', 'later'])(
-		'an ingredient tap reuses an unchecked %s purchase without changing its amount (#226)',
+		'an ingredient tap reuses an unchecked %s purchase without changing its amount',
 		async (horizon) => {
 			const session = await setupUser()
 			const recipe = await setupRecipe(session.userId, session.householdId)
@@ -248,6 +211,8 @@ describe('recipe detail actions', () => {
 		},
 	)
 
+	// Another member may have just removed the ingredient. A thrown 404 would
+	// show "Recipe not found" over a Recipe that is still there.
 	test('adding an ingredient that was removed answers with an error, not a thrown 404', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
@@ -271,6 +236,7 @@ describe('recipe detail actions', () => {
 		expect(await prisma.shoppingListItem.count()).toBe(0)
 	})
 
+	// The client id keeps that device from lighting its own Shopping dot.
 	test('adding an ingredient to Shopping names the device in its event', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)

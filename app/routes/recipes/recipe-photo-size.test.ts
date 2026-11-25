@@ -1,27 +1,17 @@
-// Failure list for the photo a Recipe form sends (the parser stops at the
-// size limit; a stored file the image route can't decode breaks every view):
-// - a photo over 3 MB gets a field error, on a new Recipe and an edit
-// - a file that isn't a photo, sent with a photo's type and name, gets a field
-//   error before anything is saved: no new Recipe, nothing in storage, and an
-//   edit keeps its old photo and fields
-// - the refusal keeps what was typed, and shows next to any other field error
-// - a photo too big to decode gets a field error that says so
-// - a real photo the browser labels with another type is saved, under the
-//   type of its bytes (the form used to drop it without a word)
-// - an import screenshot over the limit gets an error, not a crash
+// The photo a Recipe form sends. The parser stops at the size limit, and a
+// stored file the image route can't decode would break every view of it.
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { RouterContextProvider } from 'react-router'
 import sharp from 'sharp'
 import { expect, test } from 'vitest'
-import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { MAX_DECODED_BYTES } from '#app/utils/recipe-photo.server.ts'
 import {
 	MAX_RECIPE_IMAGE_SIZE,
 	PHOTO_REFUSALS,
 } from '#app/utils/recipe-validation.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { action as editAction } from './$recipeId_.edit.tsx'
 import { MAX_IMAGE_SIZE } from './import-extract.server.ts'
@@ -32,24 +22,7 @@ import '#tests/setup/mocks-setup.ts'
 
 const UPLOADS_DIR = path.join(process.cwd(), 'tests/fixtures/uploaded')
 
-async function setupUser() {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: { create: createUser() },
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Photo household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-			},
-		})
-		return { ...session, householdId: household.id }
-	})
-}
+const setupUser = () => createSignedInHousehold({ name: 'Photo household' })
 
 function oversizedPhoto(limit: number) {
 	return new File([new Uint8Array(limit + 1024)], 'IMG_0001.jpg', {

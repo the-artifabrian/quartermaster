@@ -8,26 +8,26 @@
 		"**/public/**",
 		"**/*.json",
 		"**/playwright-report/**",
-		"**/server-build/**",
-		"**/dist/**",
 		"**/coverage/**",
 		"**/*.tsbuildinfo",
 		"**/.react-router/**",
-		"**/app/generated/**",
-		"**/.wrangler/**",
-		"**/worker-configuration.d.ts"
+		"**/app/generated/**"
 	],
 	"rules": {
-		"eslint/no-control-regex": "off", // Existing parser behavior intentionally matches control characters.
-		"eslint/no-empty-pattern": "off", // Existing Playwright fixtures keep an unused destructured parameter.
-		"eslint/no-misleading-character-class": "off", // Existing normalization intentionally matches Unicode joiners.
-		"eslint/no-unused-expressions": "off", // Existing callback uses a short-circuit expression for an imperative update.
-		"eslint/no-useless-escape": "off", // Existing ingredient regexes keep readable escaped separators.
-		"react/immutability": "off", // Existing recursive callback structure needs a separate behavioral refactor.
-		"react/refs": "off", // Existing render-time ref reads need separate behavioral review.
+		"eslint/no-control-regex": "error",
+		"eslint/no-empty-pattern": "error",
+		"eslint/no-misleading-character-class": "error",
+		"eslint/no-unused-expressions": "error",
+		"eslint/no-useless-escape": "error",
+		"react/immutability": "error",
 		"react-hooks/rules-of-hooks": "error",
-		"react/set-state-in-effect": "off", // Existing synchronization effects need separate behavioral review.
-		"unicorn/prefer-string-starts-ends-with": "off", // This is a style-only rewrite outside the migration.
+		"unicorn/prefer-string-starts-ends-with": "error",
+		// Render-time ref reads, mostly measuring and gesture state; each needs
+		// its own look before it changes.
+		"react/refs": "off",
+		// Effects that sync state from props or the browser; each needs its own
+		// look before it changes.
+		"react/set-state-in-effect": "off",
 		"vitest/expect-expect": [
 			"error",
 			// These test helpers assert too.
@@ -44,8 +44,11 @@
 			}
 		],
 		"vitest/no-conditional-expect": "error",
-		"vitest/require-mock-type-parameters": "off", // Existing inferred mocks remain valid and typechecked.
-		"vitest/require-to-throw-message": "off" // Existing throw assertions intentionally accept any matching error.
+		// The inferred types of vi.fn() are checked by tsc already.
+		"vitest/require-mock-type-parameters": "off",
+		// These tests check that a call fails, and several of the errors come
+		// from libraries whose wording isn't ours to pin.
+		"vitest/require-to-throw-message": "off"
 	},
 	"overrides": [
 		{
@@ -58,6 +61,43 @@
 			// Both install the MSW mocks: the server in mocks mode, and the
 			// development seed, which uploads the demo template's photos.
 			"files": ["./index.ts", "./prisma/seed.ts"],
+			"rules": {
+				"eslint/no-restricted-imports": "off"
+			}
+		},
+		{
+			// Redirects go through app/utils/safe-redirect.ts, which refuses
+			// more than the library does. The test-file pattern is the one
+			// @epic-web/config sets, repeated because this replaces it.
+			"files": ["app/**/*.ts", "app/**/*.tsx"],
+			"rules": {
+				"eslint/no-restricted-imports": [
+					"error",
+					{
+						"paths": [
+							{
+								"name": "remix-utils/safe-redirect",
+								"message": "Use safeRedirect from #app/utils/safe-redirect.ts."
+							}
+						],
+						"patterns": [
+							{
+								"group": [
+									"**/tests/**",
+									"**/#tests/**",
+									"**/__tests__/**/*",
+									"**/*.test.*",
+									"**/*.spec.*"
+								],
+								"message": "Do not import test files in source files"
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["app/utils/safe-redirect.ts", "app/**/*.test.*"],
 			"rules": {
 				"eslint/no-restricted-imports": "off"
 			}

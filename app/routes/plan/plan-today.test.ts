@@ -1,20 +1,6 @@
 /**
  * The pages that draw Today, past days or "this week" take them from the
  * browser's timezone hint, so the server renders the day the browser will.
- *
- * Failure list:
- * - Plan opened in Bucharest at 00:30 on a Monday (UTC still Sunday) opens
- *   last week, with no Today in it.
- * - Plan opened in Los Angeles at 20:00 on a Sunday (UTC already Monday)
- *   opens next week, and Sunday isn't Today.
- * - Plan on New Year's night in Bucharest opens the old year's last week.
- * - Plan with no hint cookie fails to load; it should use the UTC day.
- * - Plan with a `weekStart` keeps that week but still knows today.
- * - A malformed `weekStart` on Plan or the From Plan picker fails the load;
- *   it should open today's week. A mid-week day opens its own week.
- * - Shopping's From Plan offers the wrong week as the current one.
- * - The From Plan picker folds a day as past by the server's day.
- * - Add to Plan on a Recipe or a Menu starts on the server's day.
  */
 import { RouterContextProvider } from 'react-router'
 import { afterEach, expect, test, vi } from 'vitest'

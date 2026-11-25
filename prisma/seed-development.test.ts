@@ -2,23 +2,6 @@
  * `prisma db seed` gives a fresh clone two people to log in as: the owner of
  * the sample Household, and a second user with an empty Household of their
  * own for trying invites and joins.
- *
- * Failure list:
- * - A seeded user can't log in with the password the README gives.
- * - The README names a username or password the seed doesn't use.
- * - The owner is missing the admin role or Pro.
- * - A second seed adds another user, another Household or another
- *   membership, or a second copy of the sample Recipes.
- * - The second user lands in the sample Household, or theirs isn't empty.
- * - The seed runs against production (on Fly, or with NODE_ENV=production)
- *   and creates an admin whose password the public README gives.
- * - Once the owner has also joined another Household, a second seed fills
- *   that one, because it picked the owner's oldest membership instead of
- *   the Household they own.
- * - The seed leaves no demo template, so the demo is unavailable locally
- *   until the server's first maintenance run, or a second seed builds
- *   another one.
- * - The sample owner's Household has no Menu.
  */
 import fs from 'node:fs/promises'
 import os from 'node:os'
@@ -126,6 +109,8 @@ test('the README’s logins work, and the owner is an admin on Pro', async () =>
 	})
 })
 
+// The seed builds the demo template, so the demo works locally before the
+// server's first maintenance run.
 test('seeding twice keeps one of each user, Household and Recipe, and one demo template', async () => {
 	await seed()
 	const template = await prisma.demoTemplate.findUniqueOrThrow({
@@ -158,6 +143,8 @@ test('seeding twice keeps one of each user, Household and Recipe, and one demo t
 	])
 })
 
+// The README is public, so a production seed would make an admin anyone can
+// log in as.
 test('it refuses to run in production or on Fly, and writes nothing', async () => {
 	await seedInfrastructure()
 	for (const [name, value] of [
@@ -177,6 +164,7 @@ test('it refuses to run in production or on Fly, and writes nothing', async () =
 	expect(await prisma.household.count()).toBe(0)
 })
 
+// Picking the owner's oldest membership would fill a Household they joined.
 test('a second seed fills the Household the owner owns, not one they joined', async () => {
 	await seed()
 	const robin = await membership(SECOND_USER.username)

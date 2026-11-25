@@ -4,11 +4,8 @@ import express from 'express'
 import { expect, test } from 'vitest'
 import { requestLog } from './request-log.ts'
 
-// Failure list for the request log, which ends up in Fly's log store:
-// - a code, a token or an email address in the query string must not reach
-//   the log line, also when it is nested in redirectTo or percent-encoded
-// - the path itself, and parameters that aren't secret, stay readable
-// - a URL that can't be decoded still logs, redacted
+// The request log ends up in Fly's log store. The path and the parameters that
+// aren't secret stay readable.
 
 async function logLineFor(path: string) {
 	const lines: string[] = []

@@ -1,35 +1,14 @@
 /**
- * The From Plan picker's choices for a week.
- *
- * Failure list (which lines show as this Meal's amount on the list):
- * - The Meal's own contribution and another Meal's contribution to a row
- *   with the same name read the same, so the second Meal can't add its
- *   share, or the first can add its share twice.
- * - A typed row or a Recipe-detail row with the same name reads as this
- *   Meal's amount.
- * - A contribution whose row was deleted still counts, though the row and
- *   the amount are gone.
- * - A contribution on a checked row stops counting, so the Meal offers its
- *   amount again as if it were never added.
- * - A contribution left by a deleted Meal (no Meal any more) counts for
- *   another Meal with the same line.
- * - A Staple line the Meal did put on the list reads as usually on hand.
- * - The loader keys a line differently from the writer (case, plurals), so
- *   a line the Meal added reads as only sharing a name with a row.
- * - A Meal scaled up (or its Recipe changed) after it was added shows the
- *   new amount as on the list, though Shopping still has the old one.
- * - A Meal's amount on an unchecked Later row reads as on the list, so it
- *   can't be moved to Next shop from From Plan; or one on a checked Later
- *   row (bought) reads as on Later.
+ * The From Plan picker's choices for a week, and which lines read as a Meal's
+ * own amount on the list.
  */
 import { RouterContextProvider } from 'react-router'
 import { expect, test } from 'vitest'
-import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { addMealToShopping } from '#app/utils/shopping-adds.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader } from './shopping-plan.tsx'
 import '#tests/setup/db-setup.ts'
@@ -42,24 +21,7 @@ const ARGS_BASE = {
 	url: new URL(`${BASE_URL}${PATH}`),
 }
 
-async function setupHousehold(name: string) {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: { create: createUser() },
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name,
-				members: { create: { userId: session.userId, role: 'owner' } },
-			},
-		})
-		return { ...session, householdId: household.id }
-	})
-}
+const setupHousehold = (name: string) => createSignedInHousehold({ name })
 
 async function loadWeek(session: { id: string }, weekStart?: Date) {
 	const cookie = await getSessionCookieHeader(session)
@@ -347,6 +309,7 @@ test('a Staple line the Meal put on the list is on the list, not usually on hand
 	])
 })
 
+// Reading as on Later lets From Plan move it to Next shop.
 test('a Meal’s amount on an unchecked Later row is on Later; a checked one is on the list', async () => {
 	const session = await setupHousehold('Later')
 	const recipe = await createRecipe(session, 'Lemon tart', [

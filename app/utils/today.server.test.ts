@@ -1,32 +1,5 @@
 /**
  * The user's today is the date in the zone the browser's timezone hint names.
- *
- * Failure list:
- * - Europe/Bucharest at 00:30 on a Monday, while UTC is still Sunday: today is
- *   Monday.
- * - America/Los_Angeles at 20:00 on a Sunday, while UTC is already Monday:
- *   today is Sunday.
- * - Pacific/Kiritimati (UTC+14) is a day ahead of UTC for most of the UTC day.
- * - Pacific/Pago_Pago (UTC−11) is a day behind UTC for most of the UTC day.
- * - A DST change day: a fixed offset taken earlier in the day names the wrong
- *   day just after midnight (spring forward in Bucharest, fall back in New
- *   York).
- * - The year boundary, both ways: Bucharest is in the new year while UTC is
- *   not, and Los Angeles is still in the old year while UTC is not.
- * - No hint cookie (the first request, a bot): UTC's day.
- * - An unknown zone, an empty value or a broken encoding in the cookie: UTC's
- *   day, and no error.
- * - The hint cookie among other cookies is still found.
- *
- * The week a request asks for with `?weekStart=`:
- * - No param, or an empty one: the week holding the user's today.
- * - A malformed value (`abc`, `2026-1-5`), or one that names no real day
- *   (`2026-02-30`): today's week, and no error from an invalid Date.
- * - A full datetime (`2026-10-21T00:00:00Z`) is not a day: today's week.
- * - A Wednesday or a Sunday: the Monday that starts its week.
- * - A Monday stays that Monday.
- * - Today's week follows the hint's zone, as today does: Bucharest just after
- *   midnight on a Monday is in the new week while UTC is still Sunday.
  */
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { consoleWarn } from '#tests/setup/setup-test-env.ts'
@@ -144,6 +117,7 @@ test('the hint is read from among other cookies', () => {
 	expect(getRequestToday(requestWithCookie(cookie))).toBe('2026-11-23')
 })
 
+// The week a request asks for with `?weekStart=`.
 describe('getRequestWeekStart', () => {
 	function weekOf(url: string, timeZone = 'UTC') {
 		const request = new Request(url, {

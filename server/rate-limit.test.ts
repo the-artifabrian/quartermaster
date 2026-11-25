@@ -15,32 +15,7 @@ import {
 	strongGetPaths,
 } from './rate-limit.ts'
 
-// Failure list: what could leave a sensitive route on a loose limit.
-//
-// 1. Sign-in, sign-up, code and passkey submissions get the auth tier,
-//    including the router's `.data` form of the same URL.
-// 1a. Demo starts don't use up the sign-in bucket: the route has its own
-//    limit on starts (demo-start-limit.server.ts), and ends are cheap.
-// 2. The router matches paths case-insensitively, decoded and with dot
-//    segments resolved, so /LOGIN, /%6Cogin, //login, /x/../login,
-//    /x/%2e%2e/login and /\login get the same tier as /login.
-// 3. A path that only starts with the same letters (/login-help) is not a
-//    sign-in route.
-// 4. AI routes that cost money (Recipe import, enhance, transcribe) get the
-//    AI tier on POST.
-// 5. Passkey option GETs get the strong tier; ordinary page loads stay on the
-//    general tier.
-// 6. Apple's association file is never throttled on GET.
-// 7. Every listed path is a real route, so a renamed route can't silently
-//    drop out of its tier.
-// 8. Every action under _auth, every other action that checks a password or
-//    code, takes an invite or sends an email (such as /household/join), and
-//    every route that reaches a paid AI helper is on a strict tier, so a new
-//    route can't land on the loose one.
-// 9. The import scanner behind 8 follows dynamic import(), re-exports,
-//    double quotes, extensionless specifiers and long chains, and skips
-//    type-only imports; it finds `export const action` and re-exported
-//    actions.
+// Nothing here may leave a sensitive route on a loose limit.
 
 describe('rate limit tier', () => {
 	test.each([
@@ -60,6 +35,8 @@ describe('rate limit tier', () => {
 		expect(rateLimitTier('POST', p)).toBe('auth')
 	})
 
+	// The router matches paths case-insensitively, decoded and with dot segments
+	// resolved.
 	test.each([
 		'/LOGIN',
 		'/%6Cogin',
@@ -89,6 +66,8 @@ describe('rate limit tier', () => {
 		expect(rateLimitTier('POST', p)).toBe('ai')
 	})
 
+	// Demo starts have their own limit (demo-start-limit.server.ts), and ends are
+	// cheap.
 	test.each(['/demo', '/demo.data'])(
 		'POST %s is on the strong tier, not the sign-in bucket',
 		(p) => {
@@ -124,6 +103,7 @@ describe('rate limit tier', () => {
 		expect(rateLimitTier('POST', '/apple-app-site-association')).toBe('strong')
 	})
 
+	// A renamed route can't silently drop out of its tier.
 	test('every listed path is a real route', async () => {
 		const routePaths = (await routeFiles()).map((route) => route.path)
 

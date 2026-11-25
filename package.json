@@ -20,8 +20,6 @@
     "coverage": "vitest run --coverage",
     "test:address-pinning": "bun scripts/check-address-pinning.ts",
     "test:e2e": "bash scripts/e2e.sh",
-    "test:e2e:dev": "playwright test --ui",
-    "test:e2e:install": "bunx playwright install --with-deps chromium",
     "typecheck": "react-router typegen && tsc",
     "validate": "bun run test --run && bun run test:address-pinning && bun run lint && bun run typecheck && bun run test:e2e"
   },

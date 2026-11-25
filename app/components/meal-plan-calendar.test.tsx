@@ -583,8 +583,8 @@ test('mobile explains a stale empty Menu and lets the user retry', async () => {
 	expect(attempts).toBe(2)
 })
 
-// #236: the quick-add closes optimistically, so the result is reported after
-// the fact — and only when the Recipe was already planned.
+// The quick-add closes optimistically, so the result is reported after the
+// fact, and only when the Recipe was already planned.
 test('mobile reports an already-planned Recipe and links to that Meal', async () => {
 	const user = userEvent.setup()
 	const info = vi.spyOn(toast, 'info')
@@ -672,7 +672,7 @@ test('the Plan title + follows the day showing', async () => {
 			name: 'Add Meal to Wednesday, Apr 8',
 		}),
 	).not.toBeInTheDocument()
-	// The day itself no longer has an Add Meal of its own.
+	// The day itself has no Add Meal of its own.
 	expect(
 		within(mobile).queryByRole('button', { name: /^Add Meal/ }),
 	).not.toBeInTheDocument()

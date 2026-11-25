@@ -1,6 +1,6 @@
 import { type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { expect, openShopping, test } from '#tests/playwright-utils.ts'
 
 async function setup({
 	id: userId,
@@ -24,17 +24,6 @@ async function setup({
 		include: { items: true },
 	})
 	return { rice: list.items.find((item) => item.name === 'Rice')! }
-}
-
-async function openShopping(page: Page) {
-	await page.goto('/shopping')
-	await page.waitForFunction(() =>
-		[
-			...document.querySelectorAll<HTMLInputElement>(
-				'input[name="originClientId"]',
-			),
-		].some((input) => input.value),
-	)
 }
 
 const riceRow = (page: Page) =>

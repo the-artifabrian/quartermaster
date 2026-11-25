@@ -1,12 +1,3 @@
-// Failure list for graceful shutdown:
-// - an open SSE connection holds the server open: shutdown must close it and
-//   still exit cleanly, inside the grace period
-// - telemetry queued in memory is lost unless it is flushed before exit
-// - background work still running (a reset email going out) is cut off at
-//   exit: shutdown waits for it to finish
-// - background work that never finishes must not hold the exit past the
-//   grace period
-// - the grace period must fit inside Fly's kill window
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { get } from 'node:http'
@@ -97,6 +88,8 @@ async function startWork(
 }
 
 describe('graceful shutdown', () => {
+	// A reset email going out, for one, would be cut off at exit. Telemetry queued
+	// in memory is flushed before exit, or it is lost.
 	test(
 		'waits for background work that is still running',
 		async () => {

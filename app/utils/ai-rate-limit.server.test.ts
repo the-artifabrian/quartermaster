@@ -1,36 +1,5 @@
 /**
- * Failure list for the daily AI usage claim:
- *
- * 1. Parallel claims past the cap in one server process: every claim counts
- *    before any records, so all of them pass. Exactly the cap may succeed.
- * 2. Another connection, such as a second server process, writes a use
- *    between a claim's count and its insert, so the count goes stale. Its
- *    write must wait until the claim has recorded.
- * 3. A claim at the cap records nothing.
- * 4. Yesterday's uses do not count against today.
- * 5. The database cannot be written (or is busy past its timeout): the claim
- *    must be refused, or contention becomes a free slot.
- * 6. A refund frees exactly the slot it took: not another use of the same
- *    type, not another user's, and a second refund changes nothing.
- *
- * Failure list for demo users' caps:
- *
- * 7. A demo user gets a real user's cap (10 imports, 30 voice adds), or a
- *    real user gets the demo's 3. The limits come from one resolver.
- * 8. A demo claim past the uses all demo users share today goes through.
- *    It must be refused as `demo-day` and record nothing, in either table.
- * 9. Parallel demo claims from many demo users at that shared cap all count
- *    the same total and all pass. Exactly the cap may succeed.
- * 10. A refund gives back the user's slot but not the shared one, or the
- *    other way round.
- * 11. A demo user removed at expiry takes their uses with them, so the
- *    shared cap fills again. Their uses must still count today.
- * 12. A real user's claim counts or records a shared demo use, or is refused
- *    because the demo's uses ran out.
- * 13. Yesterday's demo uses count against today.
- * 14. The refusal for a demo user says what the demo allows, and the one for
- *    the shared cap says it's used up for today; a real user's stays as it
- *    was.
+ * The daily AI usage claim, and the caps demo users share.
  */
 import { describe, expect, test } from 'vitest'
 import { type PrismaClient } from '#app/generated/prisma/client.ts'
@@ -119,6 +88,8 @@ describe('claimAiUsage', () => {
 		).toBe(10)
 	})
 
+	// A second server process could write a use between a claim's count and its
+	// insert, which would make the count stale.
 	test('a write from another connection waits until the claim has recorded', async () => {
 		await using database = await createWalDatabase()
 		const { db, url } = database
@@ -183,6 +154,8 @@ describe('claimAiUsage', () => {
 		expect(claim.allowed).toBe(true)
 	})
 
+	// A database that can't be written, or is busy past its timeout, must not
+	// turn contention into a free slot.
 	test('a claim that cannot be recorded is refused, not let through', async () => {
 		consoleError.mockImplementation(() => {})
 
@@ -338,6 +311,8 @@ describe('demo caps', () => {
 		})
 	})
 
+	// A demo user removed at expiry takes their usage rows with them, which would
+	// let the shared cap fill again.
 	test("a removed demo user's uses still count toward today's shared cap", async () => {
 		const goneId = await newDemoUser()
 		const limits = { perUser: 5, demoPerDay: 3 }

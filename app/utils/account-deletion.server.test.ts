@@ -240,7 +240,7 @@ describe('deleteAccount with another member remaining', () => {
 	})
 
 	test('an owner-less Household gets its heir as owner when a member deletes', async () => {
-		// The old bare user delete could leave a Household with no owner.
+		// Deleting the user row alone could leave a Household with no owner.
 		const first = await insertUser()
 		const leaver = await insertUser()
 		const household = await householdWith([

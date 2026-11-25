@@ -1,12 +1,21 @@
 import { invariant } from '@epic-web/invariant'
 import { faker } from '@faker-js/faker'
+import { type Page } from '@playwright/test'
 import {
 	getSessionExpirationDate,
 	verifyUserPassword,
 } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { readEmail } from '#tests/mocks/utils.ts'
-import { expect, test, createUser, waitFor } from '#tests/playwright-utils.ts'
+import {
+	animationsFinished,
+	createUser,
+	expect,
+	expectThumbSized,
+	expectThumbTall,
+	test,
+	waitFor,
+} from '#tests/playwright-utils.ts'
 
 const CODE_REGEX = /Here's your verification code: (?<code>[\d\w]+)/
 
@@ -303,4 +312,112 @@ test('the invite token on the join page is blocked from session replays', async 
 	const token = page.locator('input[type="hidden"][name="token"]')
 	await expect(token).toHaveValue(invite.token)
 	await expect(token).toHaveClass(/\bph-no-capture\b/)
+})
+
+/**
+ * Records, from every frame, whether an element matching `selector` ran a CSS
+ * transition, into `window[flag]`. Installed before each page load, so it
+ * also sees a transition that plays while a page hydrates.
+ */
+async function recordTransitions(page: Page, selector: string, flag: string) {
+	await page.addInitScript(
+		({ selector, flag }) => {
+			const record = window as unknown as Record<string, boolean>
+			record[flag] = false
+			const tick = () => {
+				for (const element of document.querySelectorAll(selector)) {
+					if (
+						element
+							.getAnimations()
+							.some((animation) => animation instanceof CSSTransition)
+					) {
+						record[flag] = true
+					}
+				}
+				requestAnimationFrame(tick)
+			}
+			requestAnimationFrame(tick)
+		},
+		{ selector, flag },
+	)
+	return {
+		reset: () =>
+			page.evaluate((flag) => {
+				;(window as unknown as Record<string, boolean>)[flag] = false
+			}, flag),
+		seen: () =>
+			page.evaluate(
+				(flag) => (window as unknown as Record<string, boolean>)[flag],
+				flag,
+			),
+	}
+}
+
+test.describe('on a phone', () => {
+	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+	test('Keep screen awake is a switch that holds its setting', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		const thumbSlid = await recordTransitions(
+			page,
+			'[data-slot="switch-thumb"]',
+			'thumbSlid',
+		)
+		await page.goto('/settings/profile')
+		const keepAwake = page.getByRole('switch', {
+			name: 'Keep screen awake while a Recipe is open',
+		})
+		const track = keepAwake.locator('[data-slot="switch-track"]')
+		const thumb = keepAwake.locator('[data-slot="switch-thumb"]')
+		// How far the thumb sits from the track's left edge.
+		const thumbOffset = async () => {
+			const [t, k] = await Promise.all([
+				track.boundingBox(),
+				thumb.boundingBox(),
+			])
+			return Math.round(k!.x - t!.x)
+		}
+
+		// Read from the device after hydration; disabled until then.
+		await expect(keepAwake).toBeEnabled()
+		await expect(keepAwake).toHaveAttribute('aria-checked', 'true')
+		await expectThumbSized(keepAwake)
+		await expect(keepAwake).toHaveText('')
+		const trackBox = (await track.boundingBox())!
+		expect([Math.round(trackBox.width), Math.round(trackBox.height)]).toEqual([
+			51, 31,
+		])
+		expect(await thumbOffset()).toBe(22)
+
+		await keepAwake.tap()
+		await expect(keepAwake).toHaveAttribute('aria-checked', 'false')
+		expect(
+			await page.evaluate(() => localStorage.getItem('qm-keep-awake')),
+		).toBe('false')
+		// The thumb slides left.
+		await expect.poll(thumbOffset).toBe(2)
+		expect(await thumbSlid.seen()).toBe(true)
+
+		// A page that opens on Off shows it without playing the slide.
+		await page.reload()
+		await expect(keepAwake).toBeEnabled()
+		await expect(keepAwake).toHaveAttribute('aria-checked', 'false')
+		await animationsFinished(page)
+		expect(await thumbOffset()).toBe(2)
+		expect(await thumbSlid.seen()).toBe(false)
+
+		await keepAwake.tap()
+		await expect(keepAwake).toHaveAttribute('aria-checked', 'true')
+		expect(
+			await page.evaluate(() => localStorage.getItem('qm-keep-awake')),
+		).toBe('true')
+		await expect.poll(thumbOffset).toBe(22)
+
+		await expectThumbTall(
+			page.getByRole('button', { name: 'Delete my account' }),
+		)
+	})
 })

@@ -1,12 +1,7 @@
 /**
- * The admin lists of users leave out the demo.
- *
- * Failure list:
- * - A demo visitor shows up as a Pro user, crowding out real accounts.
- * - The template's owner shows up as a free user with 14 Recipes, and so
- *   does a template build still running or one that died partway, which the
- *   DemoTemplate pointer doesn't name.
- * - A real user is left out.
+ * The admin lists of users leave out demo visitors and the template's owner.
+ * That includes a template build still running or one that died partway,
+ * which the DemoTemplate pointer doesn't name.
  */
 import { RouterContextProvider } from 'react-router'
 import { expect, test } from 'vitest'

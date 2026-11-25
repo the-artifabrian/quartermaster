@@ -1,49 +1,12 @@
-/**
- * Failure list for this change (the route side of Meal → Shopping):
- *
- * Cooked Recipe items, one rule on every path:
- * - Add to Shopping from the Meal card with a cooked item. Its lines are not
- *   added; an uncooked item's lines in the same Meal still are.
- * - Update Shopping after an item is cooked and its Recipe was scaled. What
- *   it already put on Shopping stays as it is, on an unchecked row and on a
- *   checked one.
- * - Update Shopping for a cooked item whose lines were never added. Nothing
- *   is added for it.
- * - An ingredient a cooked and an uncooked item share. An existing amount
- *   stays as it is; with none, only the uncooked item's share is added.
- * - A cooked item whose Recipe was deleted since. Update doesn't withdraw
- *   or lower what the Meal already put on Shopping, but larger amounts and
- *   new lines still apply.
- *
- * Household events from Meal → Shopping writes:
- * - Add to Shopping and Update Shopping from the Meal card carry the
- *   device's client id, so that device doesn't light its own Shopping dot.
- *
- * From Plan lines a Meal already put on Shopping:
- * - The picker and the writer key the Meal's amount differently, so the
- *   picker shows a line as on the list that the writer would add, or the
- *   other way round.
- * - A request that names such a line anyway adds a row, a contribution or
- *   an amount, or rewrites the row.
- * - A line whose amount sits on a Later row can't be moved to Next shop
- *   from From Plan, or picking it adds a second row instead of moving it,
- *   or the answer doesn't say a row moved.
- *
- * Row Edit and Remove generated amount (status codes the page acts on):
- * - A stale version answers 409 with the row as it is now, and saves nothing.
- * - A page that sends no version answers 400.
- * - Another Household's row answers 404.
- */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
 
 vi.mock('#app/utils/household-events.server.ts', () => ({
 	emitHouseholdEvent: vi.fn(),
 }))
-import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { getWeekStart } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { action as shoppingCheckAction } from '../resources/shopping-check.tsx'
@@ -70,36 +33,18 @@ const SHOPPING_ARGS = {
 }
 
 async function setupUser() {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: {
-					create: {
-						...createUser(),
-						subscription: { create: { tier: 'pro' } },
-					},
-				},
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Test Household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-				// Since #289 the availability seam knows only what the household
-				// saved, so the fixture's salt is a Staple, not a hardcoded guess.
-				householdIngredients: {
-					create: {
-						displayName: 'salt',
-						canonicalKey: 'salt',
-						isStaple: true,
-					},
-				},
-			},
-		})
-		return { ...session, householdId: household.id }
+	const user = await createSignedInHousehold({ tier: 'pro' })
+	// The availability seam knows only what the household saved, so the
+	// fixture's salt is a Staple.
+	await prisma.householdIngredient.create({
+		data: {
+			householdId: user.householdId,
+			displayName: 'salt',
+			canonicalKey: 'salt',
+			isStaple: true,
+		},
 	})
+	return user
 }
 
 async function makeRequest(
@@ -318,7 +263,7 @@ describe('Meal addedToShopping', () => {
 	})
 })
 
-describe('refreshMealShopping — one-Meal replacement (#110)', () => {
+describe('refreshMealShopping: one-Meal replacement', () => {
 	test('refreshes only the chosen Meal and preserves its display groups, manual row, and checked state', async () => {
 		const session = await setupUser()
 		const recipeA = await setupRecipe(
@@ -544,7 +489,7 @@ describe('refreshMealShopping — one-Meal replacement (#110)', () => {
 	})
 })
 
-describe('Shopping generated-group conversion (#110)', () => {
+describe('Shopping generated-group conversion', () => {
 	test('editing a generated-only group materializes one manual total and a later refresh recreates only the chosen Meal', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
@@ -788,7 +733,7 @@ describe('Shopping row Edit and Remove generated amount answer a changed row', (
 	})
 })
 
-describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
+describe('addMealToShopping: one-Meal demand and provenance', () => {
 	test('the explicit action puts one Recipe Meal on Shopping with current-state contributions', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
@@ -887,8 +832,8 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 		await prisma.shoppingListItem.deleteMany({})
 		await prisma.mealShoppingContribution.deleteMany({})
 
-		// From Plan's picker at its default ticks (#288) reconciles the same
-		// demand through the same path.
+		// From Plan's picker at its default ticks reconciles the same demand
+		// through the same path.
 		const choices = await runPlanPickerLoader(session)
 		await runShoppingAction(session, {
 			intent: 'add-from-plan',
@@ -971,8 +916,8 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 
 		await prisma.recipe.delete({ where: { id: recipe.id } })
 
-		// Existing contribution and rows stay — deletion must not rewrite a
-		// list that may be in use (#98 story 51).
+		// Existing contribution and rows stay. Deleting a Recipe must not rewrite a
+		// list that may be in use.
 		expect(await getContributions(session.householdId)).toEqual(before)
 		expect(await getShoppingRows(session.householdId)).toHaveLength(2)
 
@@ -1073,7 +1018,7 @@ describe('addMealToShopping — one-Meal demand and provenance (#108)', () => {
 			}),
 		).toMatchObject({ status: 'deleted' })
 
-		// Default is keeping Shopping (#98 story 70); the ask-dialog is #110.
+		// Keeping Shopping is the default.
 		expect(await getShoppingRows(session.householdId)).toHaveLength(2)
 		const contributions = await getContributions(session.householdId)
 		expect(contributions).toHaveLength(2)
@@ -1280,7 +1225,7 @@ async function runShoppingLoader(session: { id: string }) {
 	})
 }
 
-describe('addMealToShopping — multi-Recipe and note-line aggregation (#109)', () => {
+describe('addMealToShopping: multi-Recipe and note-line aggregation', () => {
 	test('note-card Shopping lines contribute on explicit add', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
@@ -1404,7 +1349,7 @@ describe('addMealToShopping — multi-Recipe and note-line aggregation (#109)', 
 	})
 })
 
-describe('Shopping display grouping — combined totals without rewriting identities (#109)', () => {
+describe('Shopping display grouping: combined totals without rewriting identities', () => {
 	async function getDisplayedItems(session: {
 		id: string
 		householdId: string
@@ -1476,7 +1421,7 @@ describe('Shopping display grouping — combined totals without rewriting identi
 		expect(lamb.unit).toBe('pack')
 	})
 
-	test('new Meals leave checked purchases separate and stale checks cannot swallow added demand (#226)', async () => {
+	test('new Meals leave checked purchases separate and stale checks cannot swallow added demand', async () => {
 		const session = await setupUser()
 		const recipe = await prisma.recipe.create({
 			data: {
@@ -1615,7 +1560,7 @@ describe('Shopping display grouping — combined totals without rewriting identi
 	})
 })
 
-describe('Meal Shopping contributions across horizons (#175)', () => {
+describe('Meal Shopping contributions across horizons', () => {
 	test('generated demand promotes an unchecked Later row in place and refresh promotes it again after a manual move', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
@@ -1932,6 +1877,7 @@ describe('cooked Recipe items never add Shopping amounts', () => {
 	})
 
 	describe('Meal → Shopping events name the device that made them', () => {
+		// The client id keeps that device from lighting its own Shopping dot.
 		test('Add to Shopping and Update Shopping carry the client id', async () => {
 			const session = await setupUser()
 			const recipe = await setupRecipe(session.userId, session.householdId)

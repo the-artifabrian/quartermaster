@@ -305,8 +305,8 @@ describe('requestAnthropicJson', () => {
 })
 
 /**
- * Failure list for giving back a daily use. A use comes back only when the
- * failure is ours or the provider's and a user can't cause it:
+ * A daily use comes back only when the failure is ours or the provider's and
+ * a user can't cause it. Those failures are:
  *
  * - the key is missing, so no request went out;
  * - the key is bad or revoked, or the model is retired (401, 403, 404);

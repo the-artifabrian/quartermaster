@@ -4,7 +4,6 @@ kill_signal = "SIGINT"
 # server/shutdown.ts bounds application cleanup at 4s. Leave enough platform
 # headroom for Fly to deliver SIGKILL only after that handler has completed.
 kill_timeout = 10
-processes = [ ]
 swap_size_mb = 512
 
 # Match the production machine explicitly so recreating it cannot silently
@@ -15,7 +14,6 @@ cpus = 1
 memory = "512mb"
 
 [experimental]
-allowed_public_ports = [ ]
 # Migrations run at boot and can be irreversible (e.g. DROP TABLE), so an
 # automatic rollback to a pre-migration release would 500 against the new
 # schema while healthchecks stay green. Roll back deliberately instead.
@@ -48,7 +46,6 @@ ignorefile = "/other/Dockerfile.dockerignore"
 internal_port = 8_080
 processes = [ "app" ]
 protocol = "tcp"
-script_checks = [ ]
 
   [services.concurrency]
   hard_limit = 100
@@ -84,7 +81,6 @@ script_checks = [ ]
   # that bounded wait to finish and for the route to return a useful 500.
   timeout = "7s"
   tls_skip_verify = false
-  headers = { }
 
   [[services.http_checks]]
   grace_period = "10s"

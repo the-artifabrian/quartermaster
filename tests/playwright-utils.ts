@@ -107,6 +107,7 @@ export const test = base.extend<{
 	// Inserts a user with no Household and no session. Production can't make
 	// that user, since signup always creates a Household, so give them one
 	// with `createOwnHousehold` before they sign in through the UI.
+	// oxlint-disable-next-line no-empty-pattern -- Playwright reads fixtures from an object pattern, even an empty one
 	insertNewUser: async ({}, use) => {
 		let userId: string | undefined = undefined
 		await use(async (options) => {
@@ -239,4 +240,51 @@ export async function openShopping(page: Page) {
 			),
 		].some((input) => input.value),
 	)
+}
+
+/** Checks that a control is visible and at least 44px tall, a thumb's height. */
+export async function expectThumbTall(control: Locator) {
+	await expect(control).toBeVisible()
+	const box = await control.boundingBox()
+	expect(box, 'control has a box').not.toBeNull()
+	expect(box!.height).toBeGreaterThanOrEqual(44)
+}
+
+/** Checks that a control is visible and at least 44px each way. */
+export async function expectThumbSized(control: Locator) {
+	await expectThumbTall(control)
+	expect((await control.boundingBox())!.width).toBeGreaterThanOrEqual(44)
+}
+
+/** Taps until the tap lands on a hydrated page and `then` holds. */
+export async function tapUntil(
+	control: Locator,
+	then: () => Promise<void>,
+	timeout = 10_000,
+) {
+	await expect(async () => {
+		await control.tap()
+		await then()
+	}).toPass({ timeout })
+}
+
+/**
+ * Waits two frames, so a transition that a change has just started is
+ * running, then until every animation on the page that ends has finished.
+ */
+export async function animationsFinished(page: Page) {
+	await page.evaluate(async () => {
+		await new Promise((resolve) =>
+			requestAnimationFrame(() => requestAnimationFrame(resolve)),
+		)
+		await Promise.all(
+			document
+				.getAnimations()
+				.filter(
+					(animation) =>
+						animation.effect?.getComputedTiming().endTime !== Infinity,
+				)
+				.map((animation) => animation.finished.catch(() => {})),
+		)
+	})
 }

@@ -912,15 +912,9 @@ Instructions
 		)
 	})
 
-	// Failure list for the number in a yield line, which parseAmount reads the
-	// way it reads an ingredient amount:
-	// - "Makes 1,000,000 cookies" is a million cookies.
-	// - "Makes 1,000 cookies" has no single value: no yield, and the line
-	//   stays in the description.
-	// - "Makes 1 000 cookies" is a thousand. A count before a size ("Makes 4
-	//   500 ml jars", "Yield: 3 250 g jars", "Makes 24 100g portions") is
-	//   that count, and "Makes 6 100-calorie bars" never groups.
-	// - "Serves 4." and "Yield: 1,5 litres" read as before.
+	// parseAmount reads the number in a yield line the way it reads an ingredient
+	// amount. A number with no single value gives no yield, and the line stays in
+	// the description.
 	test('reads the whole number in a yield line', () => {
 		const base = (line: string) => `Cookies
 

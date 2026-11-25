@@ -1,51 +1,6 @@
 /**
  * The demo route, which starts and ends a visitor's demo, and Log Out for a
  * demo user.
- *
- * Failure list:
- * Start
- * - A signed-in real user who posts gets a demo copy, or loses their own
- *   session, instead of going to their Recipes.
- * - A signed-in demo user gets a second copy, which holds a second live slot.
- * - A browser still holding the cookie of a demo that ran out is sent to the
- *   homepage with the cookie cleared, so the visitor has to tap twice.
- * - When the demo is full or has no template yet, a user or a session is
- *   made anyway, no message says why, or the redirect follows a `redirectTo`
- *   to another site.
- * - The demo session lasts the usual 30 days, so the visitor stays signed
- *   in after the demo ended, until the hourly sweep deletes the user.
- * - The cookie is remembered (it has an Expires) in a browser, or in the iOS
- *   app, where sign-ins are normally always remembered, or it keeps the
- *   Expires of an earlier remembered cookie on the same browser.
- * - A 2FA sign-in left pending on the browser carries over into the demo.
- * - The sample week is the server's week, not the visitor's, near midnight
- *   on a Sunday.
- * - One client with no cookie starts demo after demo and fills the cap on
- *   its own; the refusal is a bare 429 page, or says the demo is full and to
- *   try again in a few minutes, when this client can't start one for up to
- *   an hour; one client's starts refuse another's.
- * - The session step fails after the copy committed: the visitor gets a
- *   500 page, the user holds a live slot for two hours, and
- *   `demo_started` is counted for a demo nobody got.
- * - The copy throws something unexpected: a 500 page, or the error goes
- *   unlogged and unreported.
- * - `demo_started` goes to PostHog without `is_demo: true`, so the demo
- *   user's person can't be told apart from a real one's.
- * End (`intent=end`)
- * - A demo user's account stays, so it keeps a live slot, or their cookies
- *   stay, so /signup bounces them.
- * - A real user's account is deleted, or they are signed out.
- * - An absolute or `//` `redirectTo` sends the browser to another site.
- * - A browser holding a dead session's cookie keeps it, so /signup, which
- *   ends dead sessions by sending them home, bounces the visitor to `/`.
- * - The start limit refuses an end, or ends use up the client's starts.
- * - Deleting the demo user fails and the session row stays, so a kept copy
- *   of the cookie still signs in.
- * Other
- * - A GET starts or ends anything.
- * - Log Out leaves a demo user's account until the sweep, or deletes a real
- *   user's account, or a delete that fails keeps the session alive, or a
- *   database read that fails leaves the cookies in place.
  */
 import fs from 'node:fs/promises'
 import os from 'node:os'
@@ -473,6 +428,8 @@ function newClientKey() {
 	return `client-${Math.random().toString(36).slice(2)}`
 }
 
+// The refusal can't say the demo is full and to try again in a few minutes,
+// since this client can't start one for up to an hour.
 test('a client gets five starts an hour; the next is refused with a message of its own', async () => {
 	await buildTemplate()
 	productionLimits()
@@ -557,6 +514,7 @@ test('a session step that fails deletes the new demo user and says the demo isnâ
 	expect(reportServerError).toHaveBeenCalledWith(failure, expect.any(Request))
 })
 
+// Without is_demo the demo user's person can't be told apart from a real one's.
 test('demo_started is counted once the session exists, marked as a demo', async () => {
 	await buildTemplate()
 

@@ -1,18 +1,4 @@
-// Failure list for invite links in Household settings:
-// - a member who isn't the owner opens the page while an invite is live: the
-//   loader must not hand them its token, in any field
-// - the owner opens the same page: they still get the token, so the link can
-//   be copied
-// - a member who isn't the owner posts create-invite or revoke-invite: refused,
-//   and no invite is made or removed
-// Leaving:
-// - an owner can't leave, and nobody hears of a departure. The page they ask
-//   from may be from before they became owner, so the refusal says why in a
-//   toast instead of an error page
-// - a member who leaves is announced to the Household they left
-// Removing:
-// - someone who isn't the owner (any more) asks to remove a member: refused
-//   with a toast, nobody is removed and nobody hears of a departure
+// Invite links, leaving and removing members in Household settings.
 import { RouterContextProvider } from 'react-router'
 import { expect, test } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
@@ -160,6 +146,8 @@ async function toastFrom(result: unknown) {
 	return toast
 }
 
+// The refusal comes as a toast, since the page may be from before they became
+// owner.
 test('a member who has become owner since the page loaded cannot leave, and is told why', async () => {
 	const { owner, householdId } = await sharedHousehold()
 

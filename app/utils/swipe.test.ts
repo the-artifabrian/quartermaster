@@ -9,32 +9,6 @@ import {
 	sheetDragIntent,
 } from './swipe.ts'
 
-// Failure list, written before swipe.ts:
-// axis lock — no decision inside the slop; a mostly-horizontal move takes the
-//   x axis; a mostly-vertical one leaves it to scrolling; a diagonal tie goes
-//   to scrolling so a slanted scroll never opens a row.
-// rubber band — inside the range the finger is followed 1:1; past either end
-//   the travel shrinks, the further the more it resists, and never reverses.
-// reveal settle (Shopping row) — a short slow drag stays shut; a drag past
-//   half opens; a short fast flick opens; from open, a drag back past half
-//   or a flick back closes; a flick against a long drag wins; a drag the
-//   wrong way from shut stays shut.
-// release velocity — a steady drag reads its speed; a finger held still
-//   before lifting reads as still (iOS sends no moves while it rests); two
-//   moves a moment apart at the end don't read as a flick; a short drag
-//   never flicks however fast; no moves read as still.
-// commit settle (Plan week) — a short slow drag snaps back; past the
-//   distance threshold commits that way; a flick commits; a flick against
-//   the drag cancels.
-// sheet drag intent (BottomSheet) — no decision inside the slop; a pull down
-//   with the content at its top drags the sheet; a pull down with the content
-//   scrolled scrolls it back; a push up scrolls content that can scroll; a
-//   push up on content that can't scroll drags the sheet (and resists); a
-//   sideways move is not the sheet's.
-// dismiss settle (BottomSheet) — a short slow pull stays; a pull past the
-//   threshold dismisses; a short fast flick down dismisses; a flick up after
-//   a long pull stays; a sheet pushed up stays.
-
 describe('lockAxis', () => {
 	test('waits until the finger has moved past the slop', () => {
 		expect(lockAxis(5, 3)).toBeNull()
@@ -45,6 +19,7 @@ describe('lockAxis', () => {
 	test('leaves a mostly vertical move to scrolling', () => {
 		expect(lockAxis(4, -14)).toBe('y')
 	})
+	// A slanted scroll must never open a row.
 	test('gives a diagonal tie to scrolling', () => {
 		expect(lockAxis(10, 10)).toBe('y')
 	})
@@ -69,6 +44,7 @@ describe('rubberBand', () => {
 	})
 })
 
+// A Shopping row's swipe to reveal its actions.
 describe('settleReveal', () => {
 	const width = 144
 	test('a short slow drag from shut stays shut', () => {
@@ -94,6 +70,7 @@ describe('settleReveal', () => {
 	})
 })
 
+// The Plan's swipe between weeks.
 describe('settleCommit', () => {
 	const width = 360
 	test('a short slow drag snaps back', () => {
@@ -120,6 +97,7 @@ describe('releaseVelocity', () => {
 	test('a steady drag reads its speed', () => {
 		expect(releaseVelocity(steady, 100, -100)).toBeCloseTo(-1)
 	})
+	// iOS sends no moves while the finger rests.
 	test('a finger held still before lifting reads as still', () => {
 		expect(releaseVelocity(steady, 600, -100)).toBe(0)
 	})
@@ -148,6 +126,7 @@ describe('releaseVelocity', () => {
 	})
 })
 
+// Whether a drag on BottomSheet moves the sheet or scrolls its content.
 describe('sheetDragIntent', () => {
 	const top = { atTop: true, canScroll: true }
 	test('waits until the finger has moved past the slop', () => {
@@ -174,6 +153,7 @@ describe('sheetDragIntent', () => {
 	})
 })
 
+// BottomSheet's pull to dismiss.
 describe('settleDismiss', () => {
 	const height = 300
 	test('a short slow pull stays', () => {

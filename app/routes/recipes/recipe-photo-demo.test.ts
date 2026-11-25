@@ -1,23 +1,11 @@
 /**
- * Failure list for photos on a demo user's Recipe form (new and edit):
+ * Photos are off on a demo user's Recipe form, new and edit. The save says so,
+ * both when the action redirects (a toast cookie) and when a hydrated form
+ * leaves by itself (`{ done }`).
  *
- * 1. A demo user's new Recipe with a photo stores the file. It must save the
- *    Recipe without it and store nothing.
- * 2. A demo user's edit with a new photo replaces the Recipe's photo, or
- *    deletes the one it had (the template's, which other copies show). The
- *    Recipe must save with its old photo as it was, and store nothing.
- * 3. The photo is dropped without a word. The save must say photos are off
- *    in the demo, both when the action redirects (a toast cookie) and when a
- *    hydrated form leaves by itself (`{ done }`).
- * 3a. The `{ done }` answer carries the notice as a toast cookie. The form
- *    leaves at once, which cancels the root reload that read the cookie, so
- *    on a slow load the toast never shows. The notice must ride in the
- *    answer's data for the form to show, with no cookie, or it shows again
- *    on a later page.
- * 4. The photo is read and checked first, so a file that isn't a photo stops
- *    a demo user's save. The file must not be checked at all.
- * 5. A demo user's save without a photo gets the toast anyway.
- * 6. A real user's photo stops being saved.
+ * The `{ done }` answer carries the notice in its data, with no cookie. The
+ * form leaves at once, which cancels the root reload that would read a cookie,
+ * so on a slow load a toast would never show, or would show on a later page.
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -189,6 +177,7 @@ test("a demo user's new Recipe saves without its photo, stores nothing and says 
 	expect(await exists(user.uploads)).toBe(false)
 })
 
+// The photo the Recipe has may be the template's, which other copies show.
 test("a demo user's edit with a new photo keeps the old photo and stores nothing", async () => {
 	await using user = await cook({ demo: true })
 	const recipe = await prisma.recipe.create({

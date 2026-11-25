@@ -4,8 +4,8 @@
 
 Pick this week's dinners and the shopping list follows.
 
-I built it because 100 recipes in Apple Notes is not a meal plan. My partner
-and I use it every day on our phones. It runs at [useqm.app](https://useqm.app).
+I built it because 100 recipes in Apple Notes is not a meal plan. My partner and
+I use it every day on our phones. It runs at [useqm.app](https://useqm.app).
 
 **[Try the demo](https://useqm.app).** One tap on the homepage gives you your
 own copy of a lived-in Household for two hours, with 14 Recipes and a week
@@ -19,11 +19,11 @@ already under way. No sign-up.
 
 ## What it does
 
-Paste a link, some text or a screenshot and it becomes a Recipe. Put Recipes
-and reusable Menus on the week as Meals. When it's time to shop, open From
-Plan, pick the Meals you're shopping for, and their ingredients land on one
-list. Anything you keep as a Staple starts unticked, so you don't buy what's
-already in the cupboard.
+Paste a link, some text or a screenshot and it becomes a Recipe. Put Recipes and
+reusable Menus on the week as Meals. When it's time to shop, open From Plan,
+pick the Meals you're shopping for, and their ingredients land on one list.
+Anything you keep as a Staple starts unticked, so you don't buy what's already
+in the cupboard.
 
 AI reads Recipes from pasted text and screenshots, and turns what you say into
 Shopping items. Links are read from the page's own recipe data. AI is optional,
@@ -36,9 +36,9 @@ Capitalised words like Recipe and Staple are product terms, defined in
 
 - **Made for two phones.** On Pro, Shopping updates live on both.
   [How](docs/ARCHITECTURE.md#keeping-loader-data-fresh)
-- **One small machine.** SQLite on a single Fly Machine, with nightly backups,
-  a restore rehearsed against real backups, and watchdogs that restart it if
-  it stalls.
+- **One small machine.** SQLite on a single Fly Machine, with nightly backups, a
+  restore rehearsed against real backups, and watchdogs that restart it if it
+  stalls.
 - **A demo without sign-up.** Each visitor gets a two-hour copy of a sample
   Household.
 - **The iOS app wraps the web app** in a small Swift shell, so one codebase
@@ -81,18 +81,18 @@ The details, from the data model to how loader data stays fresh, are in
 
 ## Stack
 
-| Layer   | Tech                                                         |
-| ------- | ------------------------------------------------------------ |
-| Runtime | Bun, Express 5                                               |
-| App     | React Router 8, React 19, TypeScript                         |
-| Data    | Prisma 7, SQLite, LiteFS                                     |
-| UI      | Tailwind CSS 4, Radix UI                                     |
-| Auth    | Passwords, passkeys, emailed codes, TOTP                     |
-| AI      | Claude Haiku (text) and Sonnet (photos), Groq Whisper        |
-| Billing | Stripe (Pro is a reference implementation, see GLOSSARY)     |
-| iOS     | Swift shell, TestFlight only                                 |
-| Hosting | Fly.io, Cloudflare, Tigris                                   |
-| Tests   | Vitest, Playwright, oxlint                                   |
+| Layer   | Tech                                                     |
+| ------- | -------------------------------------------------------- |
+| Runtime | Bun, Express 5                                           |
+| App     | React Router 8, React 19, TypeScript                     |
+| Data    | Prisma 7, SQLite, LiteFS                                 |
+| UI      | Tailwind CSS 4, Radix UI                                 |
+| Auth    | Passwords, passkeys, emailed codes, TOTP                 |
+| AI      | Claude Haiku (text) and Sonnet (photos), Groq Whisper    |
+| Billing | Stripe (Pro is a reference implementation, see GLOSSARY) |
+| iOS     | Swift shell, TestFlight only                             |
+| Hosting | Fly.io, Cloudflare, Tigris                               |
+| Tests   | Vitest, Playwright, oxlint                               |
 
 ## Tests and CI
 
@@ -107,8 +107,7 @@ The details, from the data model to how loader data stays fresh, are in
 
 I build this with AI coding agents. I decide what to build and judge how it
 looks; agents write most of the code, and a separate agent reviews each pull
-request.
-[docs/HOW_I_WORK.md](docs/HOW_I_WORK.md) has the details.
+request. [docs/HOW_I_WORK.md](docs/HOW_I_WORK.md) has the details.
 
 ## Trade-offs
 
@@ -141,8 +140,8 @@ bun run dev
 Open [localhost:3000](http://localhost:3000) and log in as `sam` with the
 password `local-only`. Sam's Household has sample Recipes, plus a Plan and
 Shopping for the week you first seed. `robin`, with the same password, has an
-empty Household for trying invites. The seed is sample data for a local
-database only, and it refuses to run in production.
+empty Household for trying invites. The seed is sample data for a local database
+only, and it refuses to run in production.
 
 Seeding again puts back any sample Recipe or Staple you deleted without making
 copies, and leaves the Plan and Shopping alone once that week is over. To start

@@ -1,17 +1,3 @@
-// Failure list for IPv6 ranges that carry or stand in for another address:
-// - IPv4-compatible ::a.b.c.d (::/96), in dotted and hex spelling, private
-//   or public inside: refused, since it is deprecated and never a real host
-// - 6to4 2002::/16, with a private or a public IPv4 inside: refused
-// - Teredo 2001::/32: refused, its client address is obscured
-// - discard-only 100::/64: refused
-// - local-use NAT64 64:ff9b:1::/48: refused; the well-known 64:ff9b::/96 is
-//   still judged by the IPv4 address inside
-// - IPv4-translated ::ffff:0:a.b.c.d (::ffff:0:0:0/96): refused, while the
-//   neighbouring IPv4-mapped ::ffff:a.b.c.d still goes by the IPv4 rules
-// - deprecated site-local fec0::/10: refused
-// - a DNS answer in any of these ranges makes the whole name non-public
-// - ordinary global IPv6 next to them (2001:4860::, 2606:4700::) and
-//   IPv4-mapped public addresses still pass
 import { isIP } from 'node:net'
 import { http, HttpResponse } from 'msw'
 import { expect, test, vi } from 'vitest'
@@ -90,6 +76,9 @@ test('private and reserved address literals are refused in any spelling', async 
 	expect(lookups).toEqual([])
 })
 
+// IPv4-compatible ::a.b.c.d is deprecated and never a real host, and Teredo
+// obscures its client address. The well-known NAT64 64:ff9b::/96 and
+// IPv4-mapped ::ffff:a.b.c.d still go by the IPv4 address inside.
 test('IPv6 ranges that carry or stand in for another address are refused', async () => {
 	const { resolveHost, lookups } = resolverFor({})
 	for (const address of [

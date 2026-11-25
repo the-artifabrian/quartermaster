@@ -1,10 +1,9 @@
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test } from 'vitest'
-import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { MAX_RAW_TEXT_LENGTH } from '#app/utils/recipe-validation.ts'
 import { demandIdentity } from '#app/utils/shopping-demand.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold } from '#tests/db-utils.ts'
 import { consoleError } from '#tests/setup/setup-test-env.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader as exportLoader } from '../../resources/export-all-data.tsx'
@@ -28,41 +27,22 @@ function formWith(fields: Record<string, string>) {
 }
 
 async function setupUser({ tier = 'pro' as string | null } = {}) {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: {
-					create: {
-						...createUser(),
-						...(tier ? { subscription: { create: { tier } } } : {}),
-					},
+	const user = await createSignedInHousehold({ name: 'Import Household', tier })
+	await prisma.shoppingList.create({
+		data: {
+			userId: user.userId,
+			householdId: user.householdId,
+			items: {
+				create: {
+					name: 'Apples',
+					quantity: '2',
+					category: 'produce',
+					source: 'manual',
 				},
 			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Import Household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-			},
-		})
-		await tx.shoppingList.create({
-			data: {
-				userId: session.userId,
-				householdId: household.id,
-				items: {
-					create: {
-						name: 'Apples',
-						quantity: '2',
-						category: 'produce',
-						source: 'manual',
-					},
-				},
-			},
-		})
-		return { ...session, householdId: household.id }
+		},
 	})
+	return user
 }
 
 async function makeImportRequest(session: { id: string }) {
@@ -277,7 +257,7 @@ describe('Recipe classification recovery', () => {
 	})
 })
 
-// --- Menu recovery (#102) ---
+// --- Menu recovery ---
 
 async function importPayload(session: { id: string }, payload: unknown) {
 	const cookie = await getSessionCookieHeader(session)
@@ -365,8 +345,8 @@ describe('Recipe time and typed yield recovery', () => {
 					servings: 4,
 					prepTime: 10,
 					cookTime: 20,
-					// Written before #278 dropped the column. The restore ignores the
-					// key instead of failing the Recipe.
+					// Older exports carry this key. The restore ignores it instead of failing
+					// the Recipe.
 					isAiGenerated: true,
 					ingredients: [{ name: 'onion' }],
 					instructions: ['Cook the onion.'],
@@ -835,8 +815,8 @@ describe('household Staples recovery', () => {
 		})
 
 		const exported = await exportHousehold(source)
-		// The retired cutover boundary and legacy Pantry are no longer written
-		// (#289), and a Staple carries no state beyond being one.
+		// The export carries no household cutover field and no Pantry, and a Staple
+		// carries no state beyond being one.
 		expect(exported).not.toHaveProperty('household')
 		expect(exported).not.toHaveProperty('inventory')
 		expect(exported.householdIngredients).toEqual([
@@ -954,8 +934,7 @@ describe('household Staples recovery', () => {
 					isStaple: true,
 					isOut: true,
 				},
-				// Out on a non-Staple was rejected before #289; now the field is
-				// not read at all, so the row is simply restored as written.
+				// isOut isn't read at all, so the row is restored as written.
 				{
 					displayName: 'Lemons',
 					canonicalKey: 'lemons',
@@ -1007,7 +986,7 @@ describe('household Staples recovery', () => {
 	})
 })
 
-/** Two recipes plus the menu shapes #102 must round-trip: sections, recipe
+/** Two recipes plus the menu shapes a restore must round-trip: sections, recipe
  * cards with multipliers and notes, a note card with ordered Shopping lines,
  * and a missing card with only its frozen title. */
 async function seedMenuFixture(session: {
@@ -1416,9 +1395,9 @@ describe('menu import', () => {
 	})
 })
 
-// --- Meal parent recovery (#104) ---
+// --- Meal parent recovery ---
 
-/** A week plan carrying the Meal shapes #104 must round-trip: a multi-Recipe
+/** A week plan carrying the Meal shapes a restore must round-trip: a multi-Recipe
  * dinner with multipliers, cooked state, serving instant/timezone, guest
  * count, a source Menu link with revision, a missing card, and a completed
  * text-only Meal. */
@@ -1570,7 +1549,7 @@ describe('meal export', () => {
 			},
 		])
 		expect(JSON.stringify(exported.mealPlans)).not.toContain('"id"')
-		// The retired fixed-slot shape left the export in #106.
+		// The export carries no fixed-slot entries.
 		expect(exported.mealPlans[0].entries).toBeUndefined()
 	})
 })
@@ -1782,7 +1761,7 @@ describe('meal import', () => {
 		expect(result.results.meals).toEqual({ created: 0, skipped: 0, errored: 0 })
 	})
 
-	test('a pre-#104 export restores its fixed-slot entries as Meals under the backfill rules', async () => {
+	test('an export with no meals key restores its fixed-slot entries as Meals under the backfill rules', async () => {
 		const session = await setupUser()
 		// The entry with no Recipe in the file is logged as a failure.
 		consoleError.mockImplementation(() => {})
@@ -1795,7 +1774,7 @@ describe('meal import', () => {
 			mealPlans: [
 				{
 					weekStart: '2026-08-17T00:00:00.000Z',
-					// No `meals` key at all — the pre-#104 shape.
+					// No `meals` key at all, only fixed-slot entries.
 					entries: [
 						// Two dinner entries on one day (differing times of day)
 						// collapse into one multi-Recipe Meal by UTC day.
@@ -1923,7 +1902,7 @@ describe('meal import', () => {
 	})
 })
 
-/** A planned Menu snapshot (#107): frozen sections, an item display note, a
+/** A planned Menu snapshot: frozen sections, an item display note, a
  * note card with ordinary Shopping lines, and a missing card. */
 async function seedSnapshotMealFixture(session: {
 	userId: string
@@ -2018,7 +1997,7 @@ async function seedSnapshotMealFixture(session: {
 	return { meal, menu, revision }
 }
 
-describe('meal snapshot export/import (#107)', () => {
+describe('meal snapshot export/import', () => {
 	test('export carries the frozen snapshot and import restores it whole, idempotently', async () => {
 		const source = await setupUser()
 		await seedSnapshotMealFixture(source)
@@ -2187,7 +2166,7 @@ describe('meal snapshot export/import (#107)', () => {
 	})
 })
 
-describe('Shopping contribution recovery (#110)', () => {
+describe('Shopping contribution recovery', () => {
 	test('round-trips Meal refs, fingerprints, orphan state, and exact checked-row identity idempotently', async () => {
 		const source = await setupUser()
 		const lemonIdentity = demandIdentity('lemons')
@@ -2212,8 +2191,8 @@ describe('Shopping contribution recovery (#110)', () => {
 		const lemons = await prisma.shoppingListItem.create({
 			data: {
 				listId: list.id,
-				// #109 allowed a Meal-fed row to be renamed without moving its
-				// contribution. #110 recovery must preserve that legacy current state.
+				// A Meal-fed row can be renamed without moving its contribution. The
+				// restore must keep that state as it is.
 				name: 'Citrus basket',
 				quantity: '2',
 				checked: true,

@@ -9,14 +9,9 @@ import { action, loader } from './password.tsx'
 import '#tests/setup/db-setup.ts'
 import '#tests/setup/mocks-setup.ts'
 
-// Failure list for changing a password from Settings:
-// 1. The user is signed in on two other devices. Both of those sessions end;
-//    the session that made the change stays.
-// 2. Another user's sessions are untouched.
-// 3. A change refused for a wrong current password ends no session.
-// 4. An account with no password (one that only ever logged in with Google)
-//    can't set one here without proof. Settings sends it to Forgot password,
-//    which emails a code first, and says why.
+// Changing a password from Settings. An account with no password can't set one
+// here without proof, so Settings sends it to Forgot password, which emails a
+// code first.
 
 const oldPassword = 'old-password-1234'
 const newPassword = 'new-password-5678'

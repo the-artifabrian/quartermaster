@@ -9,15 +9,6 @@ import { action as logoutAction } from './logout.tsx'
 import '#tests/setup/db-setup.ts'
 import '#tests/setup/mocks-setup.ts'
 
-// Failure list for the places a redirectTo the browser sent picks where it
-// goes next:
-// 1. Logout takes redirectTo from the form (the verify page uses it), and a
-//    form on another site can post one. A value that browsers would turn into
-//    another site's address goes to the homepage instead.
-// 2. Logout still comes back to an ordinary path, such as a verify link.
-// 3. Login's ?redirectTo=/%09/evil.com arrives in the form decoded, with a
-//    real tab. After the password, the browser goes to Recipes instead.
-
 function args(request: Request, pattern: string) {
 	return {
 		request,
@@ -39,6 +30,9 @@ async function logOut(redirectTo: string) {
 	return (result as Response).headers.get('location')
 }
 
+// Logout takes redirectTo from the form, and a form on another site can post
+// one. A value browsers would turn into another site's address goes to the
+// homepage.
 test.each([
 	'/\t/evil.com',
 	'/\n/evil.com',
@@ -55,6 +49,8 @@ test('logout comes back to an ordinary path', async () => {
 	)
 })
 
+// Login's ?redirectTo=/%09/evil.com arrives in the form decoded, with a real
+// tab.
 test('login with a percent-encoded tab in redirectTo goes to Recipes', async () => {
 	const { username } = createUser()
 	const user = await prisma.user.create({

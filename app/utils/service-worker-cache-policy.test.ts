@@ -409,8 +409,8 @@ describe('service-worker lifecycle and public resources', () => {
 			'/assets/old.js',
 			new Response('OLD ASSET'),
 		)
-		// The fonts are self-hosted under /assets now; the old Google Fonts
-		// cache is reaped like any other stale qm- cache.
+		// The fonts are self-hosted under /assets, so a Google Fonts cache left in
+		// the browser is reaped like any other stale qm- cache.
 		await storage.seed(
 			'qm-fonts-v1',
 			'https://fonts.gstatic.com/font-0.woff2',
@@ -1244,7 +1244,7 @@ describe('session-scoped Route data', () => {
 	})
 })
 
-// #315: the browser can stop an idle worker while its page stays open. The
+// The browser can stop an idle worker while its page stays open. The
 // fresh worker has no session, so offline it asks the page that sent the
 // request, and serves only the cache that page names.
 describe('a restarted worker asks the page for its session', () => {

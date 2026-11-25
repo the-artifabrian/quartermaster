@@ -5,77 +5,6 @@
  * that decides; the ingredient, typed-item, speech and range parsers only
  * find where an amount starts and ends, and must not split a number on its
  * comma.
- *
- * Failure list (the rules these tests hold):
- * - "1,5" is 1.5, and "0,5" and "0,500" are 0.5: a group that starts with 0
- *   is never thousands.
- * - "1,25" and "1,0000" are decimals: only exactly three digits after the
- *   comma could be thousands.
- * - "1,000,000" and "1,000.5" can only be thousands.
- * - One to three digits, one comma or dot, then exactly three digits has no
- *   single value, so it keeps its spelling and stays out of sums:
- *   - "1,250", "1,000" and "10,000": a Romanian scale writes 1.25 kg as
- *     "1,250", and an English recipe means 1250;
- *   - "1.000" and "1.500": a thousands dot in Romanian, a decimal in
- *     English;
- *   - "1.333" and "1.125", the shape some sites give a fraction turned into
- *     a decimal.
- *   "0.125" and "1234.5" are plain decimals.
- * - "1.000,5", "1,00,000", "1.5.3", "1e3", "Infinity", "~2" and "2 large"
- *   are not one number. Nothing reads a number off the front of a string.
- * - "1 1⁄2" with a fraction slash reads like "1 1/2".
- * - "1,5–2" is a range: both ends scale, and neither sums. A range with an
- *   end that has no single value ("800–1,000", "1.000-2") or whose low end is
- *   above its high end ("2-1", "1,5-1,25") stays as written.
- * - "2 x 400" (also "2x400" and "2 × 400") is a count times a size. There is
- *   no pack-size idea in the app, so it stays as written: unscaled, unsummed.
- * - parseIngredient keeps "1,5 kg flour", "800–1,000 g flour" and
- *   "2 x 400 g tomatoes" whole instead of splitting the name at the comma or
- *   the "x". It takes "N x M" as one amount only when a unit follows, so
- *   "9x13 baking dish" and "20x30 cm tray" read as before. It still reads
- *   "2, chopped" style commas as notes, never starts an amount with a comma
- *   (",1 cup flour"), and reads "1 1⁄2 cups flour" as 1 1/2 cups.
- * - Shopping quick-add reads "1,5 kg flour" and "2 x 400 g tomatoes" the
- *   same way, and "9x13 pan" as before.
- * - Voice input that comes back as "1,5 kg făină" keeps 1,5 as one amount
- *   instead of splitting into two items at the comma.
- * - Shopping totals: "1,5 kg" + "500 g" is 2 kg; "1,000.5 g" + "500 g" is
- *   1.5 kg; "1,250 kg", "1.000 g", "2 x 400 g" and "2 large" sit beside a sum
- *   instead of joining it.
- * - Recipe display and scaling: "1,5" kg shows 1.5, and 3 at 2×.
- *
- * Spaces between thousands, as French sites write them, with a plain space,
- * a no-break space (U+00A0) or a narrow no-break space (U+202F):
- * - A space is never a decimal mark, so "1 000", "1 000 000" and "2 050" read
- *   as thousands: no size is written "000" or "050", and two groups can't be
- *   a count times a size. "1 000,5" and "1 000.5" are 1000.5, since after
- *   space groups the mark can only be a decimal.
- * - One group that doesn't start with 0 ("1 500", "2 400", "1 250") has no
- *   single value: "2 400 g" can be 2400 g or two 400 g tins, and "1 250 ml
- *   can" one 250 ml can. It stays as written and out of sums.
- * - "1 1/2" is still 1.5. "1 0000", "1000 000", "12 34" and "1 000 x" are not
- *   one number.
- * - parseIngredient keeps the groups together as the amount, with the space
- *   the source used, when a unit follows ("1 000 g flour", "1 000g flour",
- *   "2 400 g tomatoes"). With no unit it groups only an amount that reads as
- *   one number ("1 000 eggs"), so "6 100 calorie packs" is still six of them,
- *   and so does a dash after the digits ("6 100-calorie bars"). "1 1/2 cups
- *   flour" reads as before.
- * - A container after the unit makes the first number a count of them, as
- *   before: "2 400 g tins tomatoes", "1 250 ml can coconut milk", "2 250 ml
- *   cans coconut milk", "4 100 g bars chocolate", in the singular or plural,
- *   for tins, cans, jars, bars, packs, packets, bottles, cartons, sachets and
- *   tubs. So they scale and sum by count, also when Shopping re-reads a saved
- *   name that starts with them.
- * - Shopping quick-add does the same: "1 000 g flour", "2 400 g tomatoes",
- *   "1 000 eggs", "2 400 g tins tomatoes", and "6 100 calorie packs" as
- *   before.
- * - Voice input keeps its reading ("2 400 gram cans" is two cans): Whisper
- *   writes a thousand as "1000" or "1,000", and a spoken count before a size
- *   is common.
- * - Shopping totals: "1 000 g" + "500 g" is 1.5 kg, and "2 400 g" sits beside
- *   a sum. Scaling "1 000" g by 2 shows 2000, and "2 400" g keeps its
- *   spelling.
  */
 import { describe, expect, test } from 'vitest'
 import {
@@ -92,6 +21,8 @@ import {
 } from './shopping-demand.server.ts'
 
 describe('parseAmount', () => {
+	// A group that starts with 0 is never thousands, and only exactly three
+	// digits after the mark could be.
 	test.each([
 		['1,5', 1.5],
 		['0,5', 0.5],
@@ -111,6 +42,9 @@ describe('parseAmount', () => {
 		expect(parseAmount(amount)).toBe(value)
 	})
 
+	// One to three digits, a comma or dot, then exactly three digits has no
+	// single value. A Romanian scale writes 1.25 kg as "1,250", and an English
+	// recipe means 1250. Some sites write a fraction as "1.333".
 	test.each([
 		'1,250',
 		'1,000',
@@ -167,6 +101,7 @@ describe('Recipe display and scaling', () => {
 		expect(scaleAmount('1,5', 2, 'kg')).toBe('3')
 	})
 
+	// The app has no idea of a pack size, so "2 x 400" stays as written.
 	test('a pack size and an ambiguous amount keep their spelling when scaled', () => {
 		expect(scaleAmount('2 x 400', 2, 'g')).toBe('2 x 400')
 		expect(scaleAmountKitchen('1.000', 2, 'g')).toMatchObject({
@@ -175,7 +110,7 @@ describe('Recipe display and scaling', () => {
 		})
 	})
 
-	test('words after a number no longer scale the number alone', () => {
+	test('an amount with words after the number keeps its spelling when scaled', () => {
 		expect(scaleAmount('2 large', 2, null)).toBe('2 large')
 	})
 })
@@ -295,6 +230,10 @@ describe('Shopping totals', () => {
 	})
 })
 
+// French sites group thousands with a plain space, a no-break space (U+00A0)
+// or a narrow no-break space (U+202F). A space is never a decimal mark. One
+// group that doesn't start with 0 has no single value, since "2 400 g" can be
+// 2400 g or two 400 g tins.
 describe('spaces between thousands', () => {
 	const NBSP = '\u00a0'
 	const NNBSP = '\u202f'
@@ -405,6 +344,8 @@ describe('spaces between thousands', () => {
 		expect(parseTypedItem(text)).toEqual(parsed)
 	})
 
+	// Whisper writes a thousand as "1000" or "1,000", and a spoken count before a
+	// size is common.
 	test('voice input keeps a spoken count before a size', () => {
 		expect(parseSpeechItems('2 400 gram cans')).toEqual([
 			{ quantity: '2', unit: '', name: '400 gram cans' },

@@ -9,18 +9,8 @@ import {
 } from '#app/utils/date.ts'
 import { expect, test, waitForHydration } from '#tests/playwright-utils.ts'
 
-// Failure list for the public pages' links to the source code:
-// - a marketing page's footer has no link to the source (the footer is
-//   shared, but a page can leave the layout);
-// - the link points at the wrong place (a typo, another repo, a relative
-//   path);
-// - the link shows different words, or only an icon, so a reader can't tell
-//   where it goes;
-// - a fifth footer link pushes the row wider than a 390px phone, so a link
-//   runs off either edge or the page scrolls sideways;
-// - About leaves out the sentence that the app is open source, or links it
-//   somewhere else.
-
+// Every public page is checked on its own: the footer is shared, but a page
+// can leave the layout.
 const SOURCE_URL = 'https://github.com/the-artifabrian/quartermaster'
 const FOOTER_LINKS = [
 	'About',
@@ -82,16 +72,6 @@ test('About says the app is open source and links to the code', async ({
 	).toHaveAttribute('href', SOURCE_URL)
 })
 
-// Failure list for the homepage's mock Plans:
-// - the hero marks a fixed day as Today, so on any other day it is wrong;
-// - the dates come from the server's clock in UTC, so a visitor ahead of or
-//   behind UTC sees the wrong day for part of the day;
-// - the server and the browser draw different days and the page hydrates
-//   with a mismatch;
-// - the Plan section's week range stays on one week of the year, or isn't
-//   the week after the hero's;
-// - every Meal before today is struck through, so the hero (and the link
-//   preview made from it) changes with the weekday.
 test.describe('the homepage Plans follow the visitor’s calendar', () => {
 	// A zone on another date than UTC right now, so a loader that ignored the
 	// visitor's zone would draw the wrong day. Kiritimati is a day ahead of

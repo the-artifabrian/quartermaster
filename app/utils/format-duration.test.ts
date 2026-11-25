@@ -1,8 +1,6 @@
 import { expect, test } from 'vitest'
 import { formatDuration } from './format-duration.ts'
 
-// Failure list: each entry is an input that could render wrong.
-
 test('zero minutes reads as 0 min', () => {
 	expect(formatDuration(0)).toBe('0 min')
 })

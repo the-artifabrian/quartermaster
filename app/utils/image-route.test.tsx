@@ -1,11 +1,6 @@
-// Failure list for the sizes the pages ask the image route for:
-// - an <Img> at one of the app's sizes asks, through openimg's srcset and
-//   the app's breakpoints, for a size missing from the route's list, so the
-//   route serves something other than what the page laid out
-// - a size outside the list (a new <Img> with its own width) makes a URL
-//   the route snaps, so the page and the route disagree on the cached copy
-// - the form's preview of a picked file is a data: URL; it must reach the
-//   <img> unchanged, since the route refuses a src= request
+// The sizes the pages ask for must be on the image route's list. Otherwise the
+// route serves something other than what the page laid out, and the two
+// disagree on the cached copy.
 import { renderToStaticMarkup } from 'react-dom/server'
 import { type GetSrcArgs, Img, OpenImgContextProvider } from 'openimg/react'
 import { expect, test, vi } from 'vitest'
@@ -55,6 +50,8 @@ test('asks for the next listed size up when given a size outside the list', () =
 	expect(warn).toHaveBeenCalledOnce()
 })
 
+// The route refuses a src= request, so a picked file's preview must reach the
+// <img> unchanged.
 test('hands a data: preview to the <img> as it is', () => {
 	const src = 'data:image/png;base64,iVBORw0KGgo='
 	expect(

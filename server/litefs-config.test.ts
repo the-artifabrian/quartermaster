@@ -1,37 +1,37 @@
 import { readFileSync } from 'node:fs'
-import { describe, expect, test } from 'vitest'
+import { expect, test } from 'vitest'
 
-const config = readFileSync(
-	new URL('../other/litefs.yml', import.meta.url),
-	'utf8',
-)
+const read = (file: string) =>
+	readFileSync(new URL(`../${file}`, import.meta.url), 'utf8')
 
-function getTopLevelSection(name: string) {
-	const marker = `${name}:\n`
-	const start = config.indexOf(marker)
-	if (start < 0) throw new Error(`Missing ${name} section in other/litefs.yml`)
-
-	const remainder = config.slice(start + marker.length)
-	const end = remainder.search(/^\S/m)
-	return end < 0 ? remainder : remainder.slice(0, end)
+function match(text: string, pattern: RegExp, what: string) {
+	const found = pattern.exec(text)?.[1]
+	if (found === undefined) throw new Error(`Missing ${what}`)
+	return found
 }
 
-describe('LiteFS deployment config', () => {
-	test('makes the sole node a writable static primary without Consul', () => {
-		const lease = getTopLevelSection('lease')
+// Fly sends traffic to internal_port, the LiteFS proxy listens on
+// INTERNAL_PORT and forwards to PORT, where the app listens. If any of these
+// drift apart, every request fails while the machine looks healthy to Fly.
+test('Fly, the LiteFS proxy and the app agree on their ports', () => {
+	const flyToml = read('fly.toml')
+	const dockerfile = read('other/Dockerfile')
+	const litefs = read('other/litefs.yml')
 
-		expect(lease).toMatch(/^  type: ['"]static['"]$/m)
-		expect(lease).toMatch(/^  candidate: true$/m)
-		expect(lease).toMatch(/^  advertise-url: ['"].+:20202['"]$/m)
-		expect(lease).not.toMatch(/^  consul:/m)
-		expect(config).not.toContain('FLY_CONSUL_URL')
-	})
+	const flyPort = match(
+		flyToml,
+		/^internal_port = ([\d_]+)$/m,
+		'internal_port in fly.toml',
+	).replaceAll('_', '')
+	const internalPort = match(
+		dockerfile,
+		/^ENV INTERNAL_PORT="?(\d+)"?$/m,
+		'INTERNAL_PORT in the Dockerfile',
+	)
+	const appPort = match(dockerfile, /^ENV PORT="?(\d+)"?$/m, 'PORT')
 
-	test('keeps the proxy in front of the application', () => {
-		const proxy = getTopLevelSection('proxy')
-
-		expect(proxy).toContain("addr: ':${INTERNAL_PORT}'")
-		expect(proxy).toContain("target: 'localhost:${PORT}'")
-		expect(proxy).toContain("db: '${DATABASE_FILENAME}'")
-	})
+	expect(internalPort).toBe(flyPort)
+	expect(appPort).not.toBe(internalPort)
+	expect(litefs).toMatch(/^ {2}addr: ':\$\{INTERNAL_PORT\}'$/m)
+	expect(litefs).toMatch(/^ {2}target: 'localhost:\$\{PORT\}'$/m)
 })

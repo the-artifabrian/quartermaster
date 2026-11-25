@@ -4,7 +4,10 @@ import { prisma } from '#app/utils/db.server.ts'
 import {
 	browserToday,
 	expect,
+	expectThumbSized,
+	expectThumbTall,
 	openShopping,
+	tapUntil,
 	test,
 } from '#tests/playwright-utils.ts'
 
@@ -34,7 +37,7 @@ async function expectLocalPendingFeedback({
 	await expect(status).toBeHidden()
 }
 
-test('Recipe ingredient addition creates an outstanding purchase beside checked rice (#226)', async ({
+test('Recipe ingredient addition creates an outstanding purchase beside checked rice', async ({
 	page,
 	login,
 }) => {
@@ -205,7 +208,7 @@ test('a Meal joining a row added from Recipe detail shows the summed amount', as
 	})
 })
 
-test('a range amount added from a Recipe keeps both ends on Shopping (#384)', async ({
+test('a range amount added from a Recipe keeps both ends on Shopping', async ({
 	page,
 	login,
 }) => {
@@ -447,9 +450,8 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	await expect(
 		page.getByRole('menuitem', { name: 'Edit', exact: true }),
 	).toBeVisible()
-	// Delete is red from the start and deletes at once, with Undo.
+	// Delete deletes at once, with Undo.
 	const deleteFoil = page.getByRole('menuitem', { name: 'Delete', exact: true })
-	await expect(deleteFoil).toHaveCSS('color', 'rgb(168, 80, 64)')
 	await deleteFoil.click()
 	await expect(foil).toBeHidden()
 	await expect
@@ -505,12 +507,8 @@ test('From Plan shows what a Meal already put on Shopping as on the list, and th
 	page,
 	login,
 }) => {
-	// Failure list for the done Meal box:
-	// - The box disappears under keyboard focus when a toggle makes the Meal
-	//   done, and focus drops to the page.
-	// - Someone tabbing never hears that the Meal is done, because the text
-	//   saying so isn't tied to anything they can focus.
-	// - The Meal's button still says done once a line is ticked.
+	// The done Meal box keeps keyboard focus when a toggle makes the Meal done,
+	// and the words saying so belong to something a keyboard can reach.
 	const user = await login()
 	await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
 	const recipe = await prisma.recipe.create({
@@ -1074,8 +1072,8 @@ test('the old Shopping address still opens Shopping, and a form posted to it sav
 }) => {
 	const user = await login()
 
-	// A form posted to the old address used to be sent on to Shopping without
-	// its body, so the page saw no answer and nothing was saved.
+	// A form posted to the old address is refused rather than redirected, since
+	// a redirect drops its body and the page would take that as saved.
 	const posted = await page.request.post('/plan/shopping-list', {
 		form: { intent: 'add', name: 'oat milk' },
 		maxRedirects: 0,
@@ -1095,11 +1093,6 @@ test('the old Shopping address still opens Shopping, and a form posted to it sav
 	).toBeVisible()
 })
 
-// Failure list for the phone add sheet keeping what was typed:
-// - Close, the backdrop or Escape leaves the name, amount or unit in the
-//   fields, so the next open shows them and new typing runs on from the old
-//   text.
-// - Clearing on open breaks the add that follows, or leaves its text behind.
 test('the phone add sheet opens empty after each way of closing it, and still adds an item', async ({
 	page,
 	login,
@@ -1164,12 +1157,6 @@ test('the phone add sheet opens empty after each way of closing it, and still ad
 		.toEqual([{ name: 'Butter', quantity: '250', unit: 'g' }])
 })
 
-// Failure list for the add sheet's duplicate warning across a close:
-// - The warning for the last item is still showing when the sheet opens
-//   again, above an empty field.
-// - Its "add anyway" stays armed, so the next item is added without being
-//   checked against the list.
-// - Add anyway on the fresh warning no longer adds.
 test('the phone add sheet opens without the last item’s warning, and checks the next add again', async ({
 	page,
 	login,
@@ -1212,4 +1199,501 @@ test('the phone add sheet opens without the last item’s warning, and checks th
 	await sheet.getByRole('button', { name: 'Add anyway' }).click()
 	await expect(warning).toBeHidden()
 	await expect.poll(milkRows).toBe(2)
+})
+
+test.describe('swiping a row', () => {
+	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+	/**
+	 * Drags one finger across a locator's middle, from `fromX` to `toX` (as
+	 * fractions of its width), over `ms`. Chromium turns these touch events into
+	 * pointer events of type "touch".
+	 */
+	async function swipe(
+		page: Page,
+		target: Locator,
+		{
+			fromX,
+			toX,
+			ms,
+			holdMs = 0,
+			steps = 12,
+		}: {
+			fromX: number
+			toX: number
+			ms: number
+			holdMs?: number
+			steps?: number
+		},
+	) {
+		const box = (await target.boundingBox())!
+		const y = box.y + box.height / 2
+		const cdp = await page.context().newCDPSession(page)
+		const point = (x: number) => [{ x: box.x + box.width * x, y, id: 1 }]
+		await cdp.send('Input.dispatchTouchEvent', {
+			type: 'touchStart',
+			touchPoints: point(fromX),
+		})
+		for (let i = 1; i <= steps; i++) {
+			await cdp.send('Input.dispatchTouchEvent', {
+				type: 'touchMove',
+				touchPoints: point(fromX + ((toX - fromX) * i) / steps),
+			})
+			await page.waitForTimeout(ms / steps)
+		}
+		if (holdMs) await page.waitForTimeout(holdMs)
+		await cdp.send('Input.dispatchTouchEvent', {
+			type: 'touchEnd',
+			touchPoints: [],
+		})
+		await cdp.detach()
+	}
+
+	/** Where the row's sliding layer rests (px), once any settle has run. */
+	async function restingX(row: Locator) {
+		return row.evaluate(async (element) => {
+			const layer = element.querySelector<HTMLElement>('.touch-pan-y')!
+			await Promise.all(layer.getAnimations().map((a) => a.finished))
+			return new DOMMatrix(getComputedStyle(layer).transform).m41
+		})
+	}
+
+	const row = (page: Page, name: string) =>
+		page.getByRole('group', { name: `${name} shopping item` })
+
+	async function seed(user: { id: string; householdId: string }) {
+		await prisma.shoppingList.create({
+			data: {
+				userId: user.id,
+				householdId: user.householdId,
+				items: {
+					create: ['eggs', 'lemons', 'oat milk'].map((name) => ({ name })),
+				},
+			},
+		})
+	}
+
+	test('swiping a Shopping row left reveals Later and Delete; Delete removes it at once, with Undo', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seed(user)
+		await openShopping(page)
+
+		const eggs = row(page, 'eggs')
+		const deleteButton = eggs.getByRole('button', { name: 'Delete' })
+		await expect(deleteButton).toBeHidden()
+
+		await swipe(page, eggs, { fromX: 0.8, toX: 0.2, ms: 240 })
+		await expect(deleteButton).toBeVisible()
+		await expect(eggs.getByRole('button', { name: 'Later' })).toBeVisible()
+		// The row sits clear of both actions.
+		await expect.poll(() => restingX(eggs)).toBe(-152)
+		// The drag did not also check the item off.
+		await expect(
+			eggs.getByRole('button', { name: 'Check off eggs' }),
+		).toBeVisible()
+
+		// Opening another row shuts this one.
+		const lemons = row(page, 'lemons')
+		await swipe(page, lemons, { fromX: 0.8, toX: 0.2, ms: 240 })
+		await expect(lemons.getByRole('button', { name: 'Delete' })).toBeVisible()
+		await expect(deleteButton).toBeHidden()
+
+		// Delete goes at once and offers Undo; it is saved once the toast goes.
+		await lemons.getByRole('button', { name: 'Delete' }).click()
+		await expect(lemons).toBeHidden()
+		await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible()
+		await expect
+			.poll(
+				() =>
+					prisma.shoppingListItem.findMany({
+						where: { list: { householdId: user.householdId } },
+						select: { name: true, checked: true },
+						orderBy: { name: 'asc' },
+					}),
+				{ timeout: 10_000 },
+			)
+			.toEqual([
+				{ name: 'eggs', checked: false },
+				{ name: 'oat milk', checked: false },
+			])
+	})
+
+	test('a short, slow swipe snaps back, and a tap on an open row only shuts it', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seed(user)
+		await openShopping(page)
+
+		const oatMilk = row(page, 'oat milk')
+		await swipe(page, oatMilk, { fromX: 0.8, toX: 0.7, ms: 600 })
+		await expect(oatMilk.getByRole('button', { name: 'Delete' })).toBeHidden()
+		await expect.poll(() => restingX(oatMilk)).toBe(0)
+		// A quick short drag held still before lifting is not a flick.
+		await swipe(page, oatMilk, {
+			fromX: 0.8,
+			toX: 0.63,
+			ms: 0,
+			steps: 3,
+			holdMs: 400,
+		})
+		await expect(oatMilk.getByRole('button', { name: 'Delete' })).toBeHidden()
+		await expect.poll(() => restingX(oatMilk)).toBe(0)
+
+		await swipe(page, oatMilk, { fromX: 0.8, toX: 0.2, ms: 240 })
+		await expect(oatMilk.getByRole('button', { name: 'Delete' })).toBeVisible()
+		await oatMilk.getByText('oat milk', { exact: true }).click()
+		await expect(oatMilk.getByRole('button', { name: 'Delete' })).toBeHidden()
+		await expect(
+			oatMilk.getByRole('button', { name: 'Check off oat milk' }),
+		).toBeVisible()
+		expect(
+			await prisma.shoppingListItem.findFirst({
+				where: { name: 'oat milk', list: { householdId: user.householdId } },
+				select: { checked: true },
+			}),
+		).toEqual({ checked: false })
+	})
+
+	test('a swipe that starts on the row menu button leaves the menu shut', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seed(user)
+		await openShopping(page)
+
+		const eggs = row(page, 'eggs')
+		await swipe(page, eggs, { fromX: 0.96, toX: 0.4, ms: 240 })
+		await expect(eggs.getByRole('button', { name: 'Delete' })).toBeVisible()
+		await expect(page.getByRole('menu')).toBeHidden()
+
+		// A tap on the button still opens the menu.
+		await eggs.getByText('eggs', { exact: true }).click()
+		await expect(eggs.getByRole('button', { name: 'Delete' })).toBeHidden()
+		await eggs.getByRole('button', { name: 'Item actions' }).tap()
+		await expect(
+			page.getByRole('menuitem', { name: 'Edit', exact: true }),
+		).toBeVisible()
+	})
+})
+
+test.describe('tapping a row on a phone', () => {
+	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+	const ITEMS = [
+		'canned tomatoes',
+		'coriander',
+		'eggs',
+		'lemons',
+		'oat milk',
+		'ricotta',
+		'salmon fillets',
+		'spaghetti',
+		'washing-up liquid',
+		'yogurt',
+	]
+
+	async function seedList(user: { id: string; householdId: string }) {
+		await prisma.shoppingList.create({
+			data: {
+				userId: user.id,
+				householdId: user.householdId,
+				items: {
+					create: [
+						...ITEMS.map((name) => ({ name })),
+						{ name: 'bread', checked: true },
+					],
+				},
+			},
+		})
+	}
+
+	const row = (page: Page, name: string) =>
+		page.getByRole('group', { name: `${name} shopping item` })
+
+	test('a tap near the edge of a Shopping row checks the item off', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seedList(user)
+		await openShopping(page)
+
+		const oatMilk = row(page, 'oat milk')
+		const box = await oatMilk.boundingBox()
+		expect(box).not.toBeNull()
+		// A one-line row keeps room around its name, not just a thumb's height.
+		expect(box!.height).toBeGreaterThanOrEqual(60)
+		// Two pixels inside the row's top edge, over the name rather than the box.
+		await page.mouse.click(box!.x + box!.width / 2, box!.y + 2)
+
+		await expect(
+			oatMilk.getByRole('button', { name: 'Uncheck oat milk' }),
+		).toBeVisible()
+		await expect
+			.poll(async () =>
+				prisma.shoppingListItem.findFirst({
+					where: { name: 'oat milk', list: { householdId: user.householdId } },
+					select: { checked: true },
+				}),
+			)
+			.toEqual({ checked: true })
+	})
+
+	test('a row menu near the bottom opens clear of the add button and tab bar', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seedList(user)
+		await openShopping(page)
+
+		// The row whose menu would open across the add button: the last row that
+		// starts above the button's top edge.
+		const addButton = page.getByRole('button', { name: 'Add item' })
+		const fab = (await addButton.boundingBox())!
+		let target = ''
+		for (const name of ITEMS) {
+			const box = await row(page, name).boundingBox()
+			if (box && box.y + box.height <= fab.y) target = name
+		}
+		expect(target).not.toBe('')
+
+		await row(page, target)
+			.getByRole('button', { name: 'Item actions' })
+			.click()
+		const deleteItem = page.getByRole('menuitem', { name: /^Delete/ })
+		await expect(deleteItem).toBeVisible()
+		// The whole menu sits above both, so nothing covers any of its items.
+		// Measured once it has finished growing in.
+		await page
+			.getByRole('menu')
+			.evaluate((element) =>
+				Promise.all(element.getAnimations().map((a) => a.finished)),
+			)
+		const menu = (await page.getByRole('menu').boundingBox())!
+		const tabBar = (await page.locator('[data-bottom-nav]').boundingBox())!
+		expect(menu.y + menu.height).toBeLessThanOrEqual(fab.y)
+		expect(menu.y + menu.height).toBeLessThanOrEqual(tabBar.y)
+		// And its items are thumb-sized on a touch screen.
+		expect((await deleteItem.boundingBox())!.height).toBeGreaterThanOrEqual(44)
+		await expect(deleteItem).toHaveText('Delete')
+
+		await deleteItem.click()
+		await expect(row(page, target)).toBeHidden()
+		// Saved once its Undo toast has gone.
+		await expect
+			.poll(
+				() =>
+					prisma.shoppingListItem.count({
+						where: { name: target, list: { householdId: user.householdId } },
+					}),
+				{ timeout: 10_000 },
+			)
+			.toBe(0)
+	})
+
+	test('Shopping row and add-sheet controls are thumb-sized', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seedList(user)
+		await openShopping(page)
+
+		await expectThumbSized(
+			row(page, 'eggs').getByRole('button', { name: 'Item actions' }),
+		)
+		await expectThumbSized(
+			page.getByRole('button', { name: 'Clear checked items from Next shop' }),
+		)
+
+		await page.getByRole('button', { name: 'Add item' }).click()
+		const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
+		const qtyToggle = sheet.getByRole('button', { name: '+ Qty & unit' })
+		await expectThumbSized(qtyToggle)
+		await qtyToggle.click()
+		await expectThumbSized(sheet.getByRole('button', { name: 'Hide' }))
+	})
+})
+
+test.describe('controls on a phone', () => {
+	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+	async function createRecipe(user: { id: string; householdId: string }) {
+		return prisma.recipe.create({
+			data: {
+				title: 'Miso Soup',
+				userId: user.id,
+				householdId: user.householdId,
+				ingredients: {
+					create: { name: 'miso', amount: '2', unit: 'tbsp', order: 0 },
+				},
+				instructions: { create: { content: 'Whisk.', order: 0 } },
+			},
+		})
+	}
+
+	async function box(locator: Locator) {
+		await expect(locator).toBeVisible()
+		const rect = (await locator.boundingBox())!
+		return {
+			left: Math.round(rect.x),
+			right: Math.round(rect.x + rect.width),
+			top: Math.round(rect.y),
+			bottom: Math.round(rect.y + rect.height),
+		}
+	}
+
+	/** Within a pixel: glyph boxes land on half pixels. */
+	function expectNear(actual: number, expected: number) {
+		expect(Math.abs(actual - expected)).toBeLessThanOrEqual(1)
+	}
+
+	test('Shopping From Staples, From Plan and the item editor Save are thumb-sized', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		// From Plan shows once something is planned.
+		const recipe = await createRecipe(user)
+		const today = browserToday()
+		await prisma.mealPlan.create({
+			data: {
+				householdId: user.householdId,
+				weekStart: getWeekStart(today),
+				meals: {
+					create: {
+						date: today,
+						order: 0,
+						recipeItems: {
+							create: {
+								recipeId: recipe.id,
+								recipeTitle: recipe.title,
+								order: 0,
+							},
+						},
+					},
+				},
+			},
+		})
+		await prisma.shoppingList.create({
+			data: {
+				userId: user.id,
+				householdId: user.householdId,
+				items: { create: { name: 'Foil' } },
+			},
+		})
+
+		await openShopping(page)
+		await expectThumbTall(page.getByRole('button', { name: /^From Staples/ }))
+		await expectThumbTall(page.getByRole('button', { name: /^From Plan/ }))
+
+		const foil = page.getByRole('group', { name: 'Foil shopping item' })
+		await foil.getByRole('button', { name: 'Item actions' }).tap()
+		await page.getByRole('menuitem', { name: 'Edit', exact: true }).tap()
+		await expectThumbTall(
+			page
+				.getByRole('dialog', { name: 'Edit item' })
+				.getByRole('button', { name: 'Save' }),
+		)
+	})
+
+	test('From Plan turns the week with thumb-sized chevrons', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createRecipe(user)
+		const today = browserToday()
+		const thisWeek = getWeekStart(today)
+		const nextWeek = new Date(thisWeek.getTime() + 7 * 24 * 60 * 60 * 1000)
+		for (const weekStart of [thisWeek, nextWeek]) {
+			await prisma.mealPlan.create({
+				data: {
+					householdId: user.householdId,
+					weekStart,
+					meals: {
+						create: {
+							date: weekStart,
+							order: 0,
+							recipeItems: {
+								create: {
+									recipeId: recipe.id,
+									recipeTitle: recipe.title,
+									order: 0,
+								},
+							},
+						},
+					},
+				},
+			})
+		}
+
+		await openShopping(page)
+		const next = page.getByRole('button', { name: 'Next week' })
+		await tapUntil(page.getByRole('button', { name: /^From Plan/ }), () =>
+			expect(next).toBeVisible({ timeout: 2000 }),
+		)
+		const previous = page.getByRole('button', { name: 'Previous week' })
+		// Measure once the sheet has finished sliding in: mid-slide its transform
+		// leaves the chevrons a fraction of a pixel short of 44.
+		const sheet = page.getByRole('dialog', { name: 'Add from the Plan' })
+		await sheet.evaluate((element) =>
+			Promise.all(element.getAnimations().map((a) => a.finished)),
+		)
+		for (const [control, icon] of [
+			[previous, /#chevron-left$/],
+			[next, /#chevron-right$/],
+		] as const) {
+			await expectThumbSized(control)
+			await expect(control.locator('use')).toHaveAttribute('href', icon)
+		}
+		await expect(previous).toBeDisabled()
+		// The sheet's primary action spans it, inside its 20px side padding.
+		const add = sheet.getByRole('button', { name: /^Add / })
+		await expect(add).toBeVisible()
+		const sheetBox = (await sheet.boundingBox())!
+		expect((await add.boundingBox())!.width).toBeCloseTo(sheetBox.width - 40, 0)
+		await next.tap()
+		await expect(next).toBeDisabled()
+		await expect(previous).toBeEnabled()
+	})
+
+	test('Shopping rows start on the content edge and end their dots on it', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await prisma.shoppingList.create({
+			data: {
+				userId: user.id,
+				householdId: user.householdId,
+				items: { create: [{ name: 'Milk' }, { name: 'Fennel' }] },
+			},
+		})
+
+		await openShopping(page)
+		const heading = await box(page.getByRole('heading', { level: 1 }))
+		const milk = page.getByRole('group', { name: 'Milk shopping item' })
+		const checkbox = await box(
+			milk
+				.getByRole('button', { name: 'Check off Milk' })
+				.locator('div')
+				.first(),
+		)
+		expectNear(checkbox.left, heading.left)
+		// The page's right content edge: the From Staples chip starts on the left
+		// one, so measure against the list's hairline row instead.
+		const row = await box(page.locator('[data-shopping-horizon]').first())
+		const dots = await box(
+			milk.getByRole('button', { name: 'Item actions' }).locator('svg'),
+		)
+		expectNear(dots.right, row.right)
+	})
 })

@@ -47,7 +47,7 @@ function renderList(props: { canAddToShopping?: boolean } = {}) {
 test('every unchecked ingredient offers Shopping, and nothing claims availability', () => {
 	renderList()
 
-	// No have/missing reading of the household's Staples (#289).
+	// No have/missing reading of the household's Staples.
 	expect(screen.queryByText(/You have/)).not.toBeInTheDocument()
 	expect(
 		screen.queryByRole('button', { name: 'Usually on hand' }),

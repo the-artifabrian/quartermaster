@@ -1,32 +1,6 @@
-// Failure list for the check a Recipe photo passes before it is stored (a
-// stored file the image route can't decode answers every view with an error,
-// and one that costs too much to decode can take the server's memory):
-// - real JPEG, PNG and WebP photos pass, and keep the type of their bytes
-// - the type comes from the bytes, never the browser's type or the name: a
-//   JPEG sent as image/png or named .png is still a JPEG
-// - a text file named .jpg and sent as image/jpeg is refused as unusable
-// - an empty file is refused, and so is one shorter than any signature
-// - a JPEG cut off partway is refused, though its header still reads
-// - a PNG signature followed by anything else is refused
-// - decoded size counts channels and bytes per sample: a PNG at the limit
-//   passes and one row more is refused as too big, even as a small file;
-//   the same pixels at 16 bits are refused
-// - a progressive JPEG, an interlaced PNG or a WebP decodes whole, so it is
-//   refused at a size its baseline or plain twin passes
-// - a 48 MP phone photo, as a baseline JPEG, passes; one past the JPEG limit
-//   is refused
-// - a photo the browser leaves unshrunk stays under every limit, even an
-//   interlaced 16-bit RGBA PNG at the browser's PNG limit
-// - an iPhone HEIC is refused by its signature, whatever type it is sent as
-// - formats sharp reads that the form doesn't offer (GIF, SVG, AVIF) are
-//   refused
-// The queue every photo job waits in:
-// - two overlapping jobs run one at a time, in order
-// - a job that waits past its limit never runs, and the queue carries on
-// - a job whose request is aborted while it waits never runs
-// - a job that throws gives its turn to the next
-// - once MAX_WAITING_PHOTO_JOBS are waiting, the next job is refused at once
-//   and never runs, while the waiting ones still run
+// The check a Recipe photo passes before it is stored. A stored file the image
+// route can't decode answers every view with an error, and one that costs too
+// much to decode can take the server's memory.
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import sharp, { type Sharp } from 'sharp'
@@ -147,6 +121,8 @@ describe('decoded size', () => {
 		expect(await check(deep, 'deep.png', 'image/png')).toEqual(tooBig)
 	})
 
+	// These decode whole, so they are refused at a size their baseline or plain
+	// twins pass.
 	test.each([
 		[
 			'a progressive JPEG',

@@ -6,7 +6,7 @@ import {
 	setHomeIndicatorInset,
 	setShellSafeArea,
 } from '#tests/native-shell.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { expect, openShopping, test } from '#tests/playwright-utils.ts'
 
 // The iOS app registers `haptic`, `theme`, `refresh` and `launch` message
 // handlers on its web view. These stand-ins record what the page posts to them.
@@ -45,18 +45,6 @@ async function createShoppingList(user: { id: string; householdId: string }) {
 		include: { items: true },
 	})
 	return { list, rice: list.items[0]! }
-}
-
-// Shopping fills its client id once it has hydrated.
-async function openShopping(page: Page) {
-	await page.goto('/shopping')
-	await page.waitForFunction(() =>
-		[
-			...document.querySelectorAll<HTMLInputElement>(
-				'input[name="originClientId"]',
-			),
-		].some((input) => input.value),
-	)
 }
 
 /**
@@ -413,5 +401,33 @@ test.describe('in a browser', () => {
 
 		expect(await viewport(page)).not.toContain('viewport-fit')
 		await expect(page.locator('[data-status-bar-backdrop]')).toHaveCount(0)
+	})
+})
+
+test.describe('in the iOS app on a phone', () => {
+	test.use({
+		viewport: { width: 390, height: 844 },
+		hasTouch: true,
+		userAgent: SHELL_UA,
+	})
+
+	test('the header is opaque, so the page never shows through it', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		await page.goto('/plan')
+		const header = page.locator('[data-site-header]')
+		await expect(header).toHaveCount(1)
+		const background = await header.evaluate(
+			(node) => getComputedStyle(node).backgroundColor,
+		)
+		// Every colour syntax writes transparency as a fourth value: rgba(…, a)
+		// or "/ a" in the newer ones. An opaque colour has none, or 1.
+		const alpha =
+			/\/\s*([\d.]+%?)\s*\)$/.exec(background)?.[1] ??
+			/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/.exec(background)?.[1] ??
+			'1'
+		expect({ background, alpha }).toEqual({ background, alpha: '1' })
 	})
 })

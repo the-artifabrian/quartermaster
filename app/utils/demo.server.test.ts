@@ -1,80 +1,5 @@
 /**
  * The demo template and the per-visitor copy made from it.
- *
- * Failure list:
- * Template
- * - A second build with the same content and photos writes anything: a
- *   second template, new Recipes, new uploads.
- * - A changed photo or changed content doesn't reach the database, because
- *   the build skips Recipes it already has by title.
- * - A rebuild leaves the old template user and Household behind, or deletes
- *   a photo a live copy still shows, or keeps one nobody shows any more.
- * - A missing photo file fails the whole build, or the Recipe is skipped
- *   instead of saved without a photo. When the file turns up later, nothing
- *   picks it up.
- * - A photo the check turns away, which can be for a passing reason (the
- *   photo queue was busy, a decode ran out of time), leaves its Recipe
- *   without a photo, and the stored version says the template is current,
- *   so no later run tries again.
- * - A change to what the template doesn't hold (the Plan, Shopping, the
- *   Menus) rebuilds it anyway, or blocks copies until it is rebuilt.
- * - Two builds at once leave two templates, or the losing build's user and
- *   photos stay behind, or the losing build reports its own deleted user as
- *   the template.
- * - A build that died partway leaves its user and photos behind for good, or
- *   the clean-up removes a build that is still running, or removes the
- *   current template once its owner is more than an hour old.
- * - A clean-up that fails after a failed build hides the build's own error.
- * - The template's owner can sign in (a password, a passkey, a session), has
- *   a `demoExpiresAt` that expiry would act on, or has a username a visitor
- *   could register first.
- * - The template holds a Plan, Shopping or a Menu, which every copy would
- *   then carry from the week it was built.
- * Copy
- * - There is no template yet, or it was built from other content than the
- *   running code's (the window after a deploy), and the copy goes ahead and
- *   fails partway, or makes a user anyway.
- * - At the live-demo cap a copy is still made; expired demo users or real
- *   users count toward the cap.
- * - Parallel starts all pass the cap, because the count and the create are
- *   not one transaction, or another process writes between them.
- * - Copies hold the database lock so long that other starts wait past
- *   Prisma's limit to begin a transaction, and those starts throw instead of
- *   being refused.
- * - The template is rebuilt between the visitor's user being made and the
- *   library copy, and the copy reads a template that is gone.
- * - The demo user isn't on Pro, has no expiry, isn't the owner of a Household
- *   of their own, or has a username or email a real signup could take.
- * - The copy misses Recipes, lines, steps, classification, Staples,
- *   favourites or photos, or its Recipes still belong to the template user.
- * - The copied Recipes all get the same time, so the Recipes list (newest or
- *   last changed first) shows them in a different order from the template.
- * - A sub-Recipe link in the copy points back into the template.
- * - The Menu is missing, or its cards point at the template's Recipes.
- * - The copy's Plan is in the template's week, or the wrong week on a Monday
- *   or a Sunday.
- * - A copy made on some weekday has Meals cooked that are still to come, or
- *   misses ones already gone, or its Shopping lists nothing still to buy.
- * - Expiring the copy deletes the template's photos or rows.
- * - From Plan in the copy offers the Meals' lines as still to buy, or as on
- *   the list from somewhere else, when the copy's own Meals put them there.
- *   Or a Meal opens unticked instead of done, because of its Staple lines.
- * - A copy that fails after its user is made leaves the user for expiry, so
- *   it holds a live slot for two hours; or a clean-up that fails too turns
- *   the refusal into a thrown error.
- * Expiry
- * - It deletes a demo user who still has time, a real user, or the
- *   template's owner, none of whom it may touch.
- * - A demo user whose time ran out exactly now stays.
- * - One user that can't be deleted stops the rest from going.
- * - A demo user something else deleted first (Log Out, another process)
- *   counts as a failure; or a not-found error while the user is still there
- *   is taken as "already gone", so a failed delete goes unreported.
- * - Deleting a demo user by id deletes a real user or the template's owner
- *   when handed one.
- * - The copy doesn't say when the demo ends, so the session has to read the
- *   user again to match it.
- * - Expiring a copy deletes the template's photos.
  */
 import fs from 'node:fs/promises'
 import os from 'node:os'
@@ -503,6 +428,9 @@ test('a build that died partway is cleaned up by the next one, and one still run
 	).not.toBeNull()
 })
 
+// The check can refuse a photo for a passing reason, such as a busy photo
+// queue or a decode that ran out of time. The build must not then call the
+// template current, or no later run would try again.
 test.each(['busy', 'unusable'] as const)(
 	'a photo the check refuses (%s) fails the build, and the next build has it',
 	async (reason) => {
@@ -1043,6 +971,8 @@ function slowFirstTransaction(db: PrismaClient, ms: number): PrismaClient {
 	})
 }
 
+// Copies hold the database lock, so other starts can wait past Prisma's limit
+// to begin a transaction.
 test('starts that wait too long for the database are refused, not thrown', async () => {
 	await using _photos = await photos()
 	await build({ content: SMALL })
@@ -1296,6 +1226,7 @@ test('a not-found error while the demo user is still there is thrown, not taken 
 	expect(await prisma.user.count({ where: { id: visitor.id } })).toBe(1)
 })
 
+// The session takes the end from here instead of reading the user again.
 test('a copy says when the demo ends', async () => {
 	await using _photos = await photos()
 	await build({ content: SMALL })

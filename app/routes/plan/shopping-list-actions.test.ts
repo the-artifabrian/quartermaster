@@ -1,28 +1,7 @@
 /**
- * Failure list for bulk add (the Staples picker and multi-item voice add):
- * - An item that isn't an object with a string name (a number, null, a
- *   missing name) answers 400, not a 500, and adds nothing.
- * - A name longer than any caller sends, or a quantity or unit longer than
- *   single add allows, answers 400.
- * - More items than the cap answers 400.
- * - What the callers really send still adds: names only (Staples), and
- *   empty-string quantity and unit (voice).
- * - A refused bulk add answers with a message the page shows, not a thrown
- *   error that replaces Shopping with the error page.
- *
- * Failure list for Edit:
- * - A row named by a long Staple (101 to 200 characters) can be edited and
- *   keep its name; longer names are refused.
- *
- * Failure list for an intent the page no longer sends (a tab still holding a
- * page from before Undo, whose deletes now go to resources/undo-delete):
- * - An old `delete` or `clear-checked` gets a 400 the page reads as data,
- *   nothing is deleted, and the other member hears nothing. Never a 200 that
- *   saved nothing (the page would take it as done), a thrown error (the
- *   error page) or a 500.
- * - A form posted to /plan/shopping-list, Shopping's old address, gets a 405
- *   rather than a redirect that drops its body (tests/e2e/shopping-list.test.ts,
- *   since only the built router answers a route with no action).
+ * A form posted to Shopping's old address, /plan/shopping-list, must get a
+ * 405, since a redirect would drop its body. tests/e2e/shopping.test.ts checks
+ * that, because only the built router answers a route with no action.
  */
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test, vi } from 'vitest'
@@ -30,12 +9,11 @@ import { describe, expect, test, vi } from 'vitest'
 vi.mock('#app/utils/household-events.server.ts', () => ({
 	emitHouseholdEvent: vi.fn(),
 }))
-import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { getWeekStart } from '#app/utils/date.ts'
 import { createPrismaClient, prisma } from '#app/utils/db.server.ts'
 import { emitHouseholdEvent } from '#app/utils/household-events.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { action as shoppingCheckAction } from '../resources/shopping-check.tsx'
 import { loader as shoppingStaplesLoader } from '../resources/shopping-staples.tsx'
@@ -56,29 +34,7 @@ const STAPLE_RESOURCE_ARGS_BASE = {
 	url: new URL(`${BASE_URL}/resources/shopping-staples`),
 }
 
-async function setupUser() {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: {
-					create: {
-						...createUser(),
-						subscription: { create: { tier: 'pro' } },
-					},
-				},
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Test Household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-			},
-		})
-		return { ...session, householdId: household.id }
-	})
-}
+const setupUser = () => createSignedInHousehold({ tier: 'pro' })
 
 async function setupMealPlanWithRecipe(userId: string, householdId: string) {
 	const recipe = await prisma.recipe.create({
@@ -648,8 +604,8 @@ describe('shopping list actions', () => {
 			userId: session.userId,
 			householdId: session.householdId,
 		})
-		// Rows From Plan wrote before #288 are ordinary rows now; nothing reads
-		// their source value any more.
+		// A row with a 'generated' source is an ordinary row. Nothing reads its
+		// source value.
 		const legacy = await prisma.shoppingListItem.create({
 			data: {
 				listId: list.id,
@@ -731,7 +687,7 @@ describe('shopping list actions', () => {
 		])
 	})
 
-	test('typed entry keeps checked purchases separate and still warns about unchecked duplicates (#226)', async () => {
+	test('typed entry keeps checked purchases separate and still warns about unchecked duplicates', async () => {
 		const session = await setupUser()
 		const list = await ensureShoppingList(prisma, session)
 		const purchased = await prisma.shoppingListItem.create({
@@ -890,6 +846,9 @@ describe('shopping list actions', () => {
 		])
 	})
 
+	// The Staples picker and multi-item voice add use bulk add. A refusal answers
+	// with a message the page shows, since a thrown error would replace Shopping
+	// with the error page.
 	test('bulk-add refuses malformed or oversized items and adds nothing', async () => {
 		const session = await setupUser()
 		const bulkAdd = async (items: unknown) =>
@@ -1002,6 +961,10 @@ describe('shopping list actions', () => {
 	})
 })
 
+// A tab holding an out-of-date page can still post `delete` or
+// `clear-checked`. Deletes go through resources/undo-delete, so these get a
+// 400 the page reads as data and the other member hears nothing. A 200 that
+// saved nothing would look done to the page.
 test('an old page that deletes a row gets a 400, and the row stays', async () => {
 	const session = await setupUser()
 	const list = await ensureShoppingList(prisma, session)

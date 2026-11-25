@@ -1,12 +1,19 @@
+import { type Locator, type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
-import { expect, hydrated, test } from '#tests/playwright-utils.ts'
+import {
+	animationsFinished,
+	expect,
+	expectThumbTall,
+	hydrated,
+	test,
+} from '#tests/playwright-utils.ts'
 
 /**
- * Release 1A critical path (#102): the Recipes / Menus switch, a five-Recipe
+ * The Menu critical path: the Recipes / Menus switch, a five-Recipe
  * two-section Menu with a note card and Shopping line, reorder and
  * cross-section move, save, reopen, edit, missing-Recipe behavior, and full
- * JSON recovery. Recipes are seeded directly so this never depends on the
- * Recipe form (its Playwright test is a known pre-existing failure).
+ * JSON recovery. Recipes are seeded directly so this doesn't depend on the
+ * Recipe form.
  */
 test('Menu critical path: build, reorder, save, reopen, missing recipe, recover', async ({
 	page,
@@ -348,4 +355,129 @@ test('a Menu card another member adds while the edit form is open survives Save'
 		noteId,
 		added.id,
 	])
+})
+
+/**
+ * Records, from every frame, whether an element matching `selector` ran a CSS
+ * transition, into `window[flag]`. Installed before each page load, so it
+ * also sees a transition that plays while a page hydrates.
+ */
+async function recordTransitions(page: Page, selector: string, flag: string) {
+	await page.addInitScript(
+		({ selector, flag }) => {
+			const record = window as unknown as Record<string, boolean>
+			record[flag] = false
+			const tick = () => {
+				for (const element of document.querySelectorAll(selector)) {
+					if (
+						element
+							.getAnimations()
+							.some((animation) => animation instanceof CSSTransition)
+					) {
+						record[flag] = true
+					}
+				}
+				requestAnimationFrame(tick)
+			}
+			requestAnimationFrame(tick)
+		},
+		{ selector, flag },
+	)
+	return {
+		reset: () =>
+			page.evaluate((flag) => {
+				;(window as unknown as Record<string, boolean>)[flag] = false
+			}, flag),
+		seen: () =>
+			page.evaluate(
+				(flag) => (window as unknown as Record<string, boolean>)[flag],
+				flag,
+			),
+	}
+}
+
+/** Waits until React has hydrated the element `selector` matches. */
+async function waitForHydration(page: Page, selector: string) {
+	await page.waitForFunction((selector) => {
+		const element = document.querySelector(selector)
+		return element
+			? Object.keys(element).some((key) => key.startsWith('__reactFiber'))
+			: false
+	}, selector)
+}
+
+/** Whether the sage pill now sits under `tab`. */
+async function pillUnder(pill: Locator, tab: Locator) {
+	const [p, t] = await Promise.all([pill.boundingBox(), tab.boundingBox()])
+	const center = p!.x + p!.width / 2
+	return center > t!.x && center < t!.x + t!.width
+}
+
+test.describe('on a phone', () => {
+	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+	test('Recipes and Menus switch with a thumb-sized segmented control', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		const pillSlid = await recordTransitions(
+			page,
+			'[data-slot="segmented-pill"]',
+			'pillSlid',
+		)
+		await page.goto('/recipes')
+		const library = page.getByRole('navigation', { name: 'Library' })
+		const recipes = library.getByRole('link', { name: 'Recipes', exact: true })
+		const menus = library.getByRole('link', { name: 'Menus', exact: true })
+		await expect(recipes).toHaveAttribute('aria-current', 'page')
+		await expectThumbTall(menus)
+
+		// A tap before hydration is a plain page load, which has nothing to slide.
+		await waitForHydration(page, 'nav[aria-label="Library"] a')
+		// Each list draws its own switch; the arriving one slides its pill over
+		// from the link just left rather than appearing in place.
+		await pillSlid.reset()
+		await menus.tap()
+		await expect(page).toHaveURL(/\/recipes\/menus$/)
+		await expect.poll(pillSlid.seen).toBe(true)
+		await expect(menus).toHaveAttribute('aria-current', 'page')
+		await expect(recipes).not.toHaveAttribute('aria-current', 'page')
+
+		await pillSlid.reset()
+		await recipes.tap()
+		await expect(page).toHaveURL(/\/recipes$/)
+		await expect(recipes).toHaveAttribute('aria-current', 'page')
+		await expect.poll(pillSlid.seen).toBe(true)
+
+		// Back and Forward return to pages already arrived on: no slide.
+		for (const [step, url] of [
+			['back', /\/recipes\/menus$/],
+			['forward', /\/recipes$/],
+		] as const) {
+			// Let the slide from the step before finish first.
+			await animationsFinished(page)
+			await pillSlid.reset()
+			await (step === 'back' ? page.goBack() : page.goForward())
+			await expect(page).toHaveURL(url)
+			// The switch shows the entry once the router has committed it; only
+			// then would a slide have started.
+			await expect(step === 'back' ? menus : recipes).toHaveAttribute(
+				'aria-current',
+				'page',
+			)
+			await animationsFinished(page)
+			expect(await pillSlid.seen(), `no slide on ${step}`).toBe(false)
+		}
+
+		// A reload keeps the entry's state, but it is not a switch.
+		await page.reload()
+		await waitForHydration(page, 'nav[aria-label="Library"] a')
+		await animationsFinished(page)
+		expect(await pillSlid.seen(), 'no slide on reload').toBe(false)
+		await expect(recipes).toHaveAttribute('aria-current', 'page')
+		expect(
+			await pillUnder(library.locator('[data-slot="segmented-pill"]'), recipes),
+		).toBe(true)
+	})
 })

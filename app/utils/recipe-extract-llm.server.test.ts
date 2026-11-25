@@ -824,9 +824,9 @@ describe('extractRecipeFromText', () => {
 
 		await extractRecipeFromText('some recipe text')
 
-		// The response shape is now stated twice, and additionalProperties: false
-		// makes the schema the one that binds: a field added to the example alone
-		// is a field the model is no longer able to return.
+		// The response shape is stated twice, and additionalProperties: false makes
+		// the schema the one that binds. A field added to the example alone is a
+		// field the model can't return.
 		const marker = 'Return a single JSON object with this exact structure:'
 		const prompt = buildExtractPrompt('text', 'some recipe text')
 		const example = JSON.parse(

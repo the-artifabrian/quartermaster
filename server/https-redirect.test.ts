@@ -2,27 +2,8 @@ import { type Request, type Response } from 'express'
 import { expect, test, vi } from 'vitest'
 import { httpsRedirect } from './https-redirect.ts'
 
-// Failure list: the HTTP→HTTPS redirect must send the browser to the app's
-// own host, whatever the request says about where it was sent.
-// 1. A forwarded-host header naming another host.
-// 2. A Host header naming another host.
-// 3. Both at once, with a port, on a path with a query string.
-// 4. A request that is already HTTPS, or isn't a GET, passes through.
-//
-// In production, www plus the app's host moves to the app's own origin, since
-// passkeys, emailed links and Stripe returns only work there:
-// 5. A GET or HEAD on www keeps its path and query and gets a 301.
-// 6. The Host header in capitals or with a port still counts as www.
-// 7. The app's own host, the fly.dev host and other hosts pass through,
-//    including one that only contains the www host.
-// 8. The healthcheck never redirects, whatever the host.
-// 9. A POST on www passes through, so a form submission isn't turned into a
-//    GET.
-// 10. Outside production nothing moves.
-// 11. A host with a trailing dot ("www.app.example.") is the same host.
-// 12. A request target that isn't a path (absolute form, or anything else
-//     that doesn't start with "/") never moves, so the Location can't be the
-//     origin glued to another URL.
+// The HTTP→HTTPS redirect must send the browser to the app's own host,
+// whatever the request says about where it was sent.
 
 const APP_ORIGIN = 'https://app.example'
 
@@ -118,6 +99,8 @@ test('an HTTPS request or a non-GET passes through untouched', () => {
 
 const passedThrough = { location: null, status: null, passedThrough: true }
 
+// In production, www plus the app's host moves to the app's own origin, since
+// passkeys, emailed links and Stripe returns only work there.
 test.each(['GET', 'HEAD'])(
 	'a %s on www moves to the app origin for good, keeping path and query',
 	(method) => {
@@ -169,6 +152,7 @@ test('the healthcheck never redirects, even on www', () => {
 	).toEqual(passedThrough)
 })
 
+// Moving a POST would turn a form submission into a GET.
 test('a POST on www passes through', () => {
 	expect(
 		run({
@@ -198,6 +182,7 @@ test('www with a trailing dot moves to the app origin', () => {
 	})
 })
 
+// Otherwise the Location could be the origin glued to another URL.
 test('a request target that is not a path never redirects', () => {
 	for (const url of [
 		'http://app.example/recipes',

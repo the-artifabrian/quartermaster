@@ -83,8 +83,8 @@ describe('evaluateHeartbeat', () => {
 	})
 
 	test('a wall-clock jump cannot fake a stall', () => {
-		// The reason this policy counts progress instead of comparing
-		// timestamps: an NTP step larger than the stall threshold used to look
+		// This policy counts progress instead of comparing timestamps. With
+		// timestamps, an NTP step larger than the stall threshold would look
 		// exactly like a wedged loop, and the response to that is SIGKILL.
 		// Counter readings are unaffected by any clock change.
 		const { graceChecks } = checksFor(config)

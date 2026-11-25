@@ -344,21 +344,17 @@ describe('convertTemperatures', () => {
 	})
 
 	test('converts 375F (no space)', () => {
-		expect(convertTemperatures('Set oven to 375F')).toBe(
-			'Set oven to 190°C',
-		)
+		expect(convertTemperatures('Set oven to 375F')).toBe('Set oven to 190°C')
 	})
 
 	test('does not match small numbers', () => {
-		expect(convertTemperatures('Add 15 F of sugar')).toBe(
-			'Add 15 F of sugar',
-		)
+		expect(convertTemperatures('Add 15 F of sugar')).toBe('Add 15 F of sugar')
 	})
 
 	test('converts multiple temperatures', () => {
-		expect(
-			convertTemperatures('Start at 450°F, then reduce to 350°F'),
-		).toBe('Start at 230°C, then reduce to 175°C')
+		expect(convertTemperatures('Start at 450°F, then reduce to 350°F')).toBe(
+			'Start at 230°C, then reduce to 175°C',
+		)
 	})
 
 	test('no temperatures returns unchanged text', () => {

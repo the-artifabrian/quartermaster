@@ -1,15 +1,6 @@
 /**
  * A Meal's day is a calendar day, sent as `yyyy-MM-dd` and kept as that UTC
  * calendar day. Anything that names an instant instead could land a day off.
- *
- * Failure list:
- * - A full datetime (`2026-11-21T10:00:00Z`) or one with an offset is read as
- *   an instant, which is another day in some zones: refused.
- * - A timestamp (`1795438249407`) is read as an instant: refused.
- * - An impossible day (`2026-02-30`) rolls over into March: refused.
- * - A day with no padding (`2026-1-5`) or empty: refused.
- * - `2026-11-21` is UTC midnight of the 21st, whatever the server's zone.
- * - All five schemas that take a Meal's day agree, and keep their messages.
  */
 import { describe, expect, test } from 'vitest'
 import {

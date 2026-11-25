@@ -389,8 +389,11 @@ test('Undo after the item was added again in the meantime does not double it', a
 		.poll(() => savedNames(user.householdId))
 		.toEqual(['eggs', 'milk'])
 
+	const undone = page.waitForResponse((response) =>
+		UNDO_ROUTE(new URL(response.url())),
+	)
 	await undoButton(page).click()
-	await page.waitForTimeout(1000)
+	await undone
 	// One milk, the one asked for since, with its amount.
 	expect(
 		(await saved(user.householdId)).map(({ name, quantity }) => [
@@ -522,8 +525,7 @@ test('a deleted Meal is deleted at once and collapses; Undo puts it back; the da
 
 	await soup.click()
 	const deleteMeal = page.getByRole('menuitem', { name: 'Delete', exact: true })
-	// Red from the start: no arming.
-	await expect(deleteMeal).toHaveCSS('color', 'rgb(168, 80, 64)')
+	// No arming: one tap deletes.
 	await recordCollapses(page)
 	await deleteMeal.click()
 	await expect(soup).toBeHidden()
@@ -708,7 +710,7 @@ test('a Meal delete that fails offline brings it back and says so', async ({
 	expect(await mealOrder(user.householdId)).toEqual(['Soup'])
 })
 
-// A phone deletes a Staple by a swipe (consistency-leftovers.test.ts); a
+// A phone deletes a Staple by a swipe (staples.test.ts); a
 // mouse has the trash button.
 test.describe('with a mouse', () => {
 	test.use({ viewport: { width: 1024, height: 768 }, hasTouch: false })
@@ -736,8 +738,7 @@ test.describe('with a mouse', () => {
 		await page.goto('/inventory')
 
 		const remove = page.getByRole('button', { name: 'Delete Salt' })
-		// Red from the start: no arming.
-		await expect(remove).toHaveCSS('color', 'rgb(168, 80, 64)')
+		// No arming: one tap deletes.
 		await recordCollapses(page)
 		await remove.click()
 		await expect(remove).toBeHidden()

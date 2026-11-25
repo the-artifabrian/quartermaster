@@ -215,12 +215,9 @@ test('error messages and replay page addresses lose their codes and tokens', () 
 	expect(snapshotText).toContain('"width":390')
 })
 
-// Failure list for long error messages, which run in the browser before an
-// event is sent:
-// - A message made of a long run of slashes, or of "a/", which a URL search
-//   would retry from every slash: the work must stop growing with the
-//   message.
-// - A URL with a token past the part that is read must not be sent as it is.
+// Error messages are cleaned in the browser before an event is sent. A URL
+// search would retry from every slash in a run of slashes or "a/", so the work
+// must not grow with the message.
 function sendException(message: string) {
 	vi.clearAllMocks()
 	posthog.__loaded = false
@@ -262,12 +259,10 @@ test('a long error message is cut, so a token past the cut is not sent', () => {
 	expect(String(event.properties.$exception_message).length).toBeLessThan(3_000)
 })
 
-// Failure list for what replays record of form fields:
-// - every input type the SDK masks when told to mask all inputs stays masked
-// - hidden inputs, which carry invite tokens and redirectTo values on the
-//   login, signup, onboarding, verify and join forms, are masked too; the
-//   SDK's "mask all inputs" list leaves them out, and it replaces any list
-//   of our own, so it has to be off for ours to count
+// Hidden inputs carry invite tokens and redirectTo values on the login,
+// signup, onboarding, verify and join forms. The SDK's "mask all inputs" list
+// leaves them out, and it replaces any list of our own, so it has to be off for
+// ours to count.
 test('replays mask every input type, hidden ones included', () => {
 	vi.clearAllMocks()
 	posthog.__loaded = false

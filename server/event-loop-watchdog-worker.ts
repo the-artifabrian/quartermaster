@@ -23,11 +23,7 @@ let state = initialHeartbeatState()
 // The parent calls worker.unref() instead, so the watchdog never holds the
 // process open by itself.
 setInterval(() => {
-	const result = evaluateHeartbeat(
-		state,
-		Atomics.load(heartbeat, 0),
-		config,
-	)
+	const result = evaluateHeartbeat(state, Atomics.load(heartbeat, 0), config)
 	state = result.state
 	if (result.reason === null) return
 

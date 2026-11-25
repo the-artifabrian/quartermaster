@@ -80,6 +80,7 @@ export function useShoppingChecks(serverItems: Item[], listId: string) {
 					item.lastCheckMutationId === sent.mutationId &&
 					item.checked === sent.checked
 				if (ownCommit && entry.desired !== item.checked) {
+					// oxlint-disable-next-line react/immutability -- pending checks live in a ref and change in place; redraw() below shows them
 					entry.item = item
 					entry.sent = undefined
 				} else {

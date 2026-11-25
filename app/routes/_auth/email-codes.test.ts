@@ -35,106 +35,9 @@ import {
 } from './verify.server.ts'
 import '#tests/setup/db-setup.ts'
 
-// Failure list for emailed codes (signup, password reset, email change).
-//
-// Someone who knows only a username or email address:
-// 1. Asks for reset codes for the owner, by username and by email, again and
-//    again. The code the owner got first still works, and so does its link.
-// 2. Fills the cap. The owner's earliest code still works, the next request
-//    answers exactly like the others and sends nothing, and once the codes
-//    expire a request sends again.
-// 3. Sends many requests at once. No more than the cap go out or get stored.
-// 4. Submits many wrong codes, from many addresses. The owner's code still
-//    works afterwards.
-// 5. Asks for a reset for an account that doesn't exist. The answer is the
-//    same, nothing is stored and nothing is sent.
-//
-// Reset by username and by email:
-// 6. Asked for by username, then by email: one bucket and one cap, and both
-//    codes work, whichever form of the account the verify step is given.
-//
-// Using codes:
-// 7. The same code submitted twice at once: exactly one succeeds.
-// 8. A used code stops working, and using one code ends the target's other
-//    live codes.
-// 9. A code past its 10 minutes fails.
-// 10. A code typed in lowercase works.
-// 11. The emailed link works without the typed code, and a link for one
-//     target fails for another.
-// 12. A code for one target fails for another target, and a reset code fails
-//     as a signup code.
-// 13. Codes and link tokens are never stored as they were sent.
-// 14. A code whose email is still going out can't be used yet.
-//
-// Code kinds:
-// 15. An emailed code submitted as a 2FA code fails, and an authenticator
-//     code submitted as an emailed code fails, at the form and in the
-//     functions behind it.
-//
-// Sending:
-// 16. A failed email send stores nothing and leaves earlier codes working.
-// 17. Signup with a mixed-case address stores the code under the address as
-//     the account will store it.
-//
-// Email change:
-// 18. A request for address A and then for B: A's code can't set the email
-//     to B.
-// 19. A code submitted without the requesting device's cookie fails.
-//
-// Past the cap, what the person is told:
-// 20. Forgot-password answers exactly as it does under the cap.
-// 21. Signup already says when an address has an account, so past the cap it
-//     says plainly that no new email went out and earlier codes still work.
-// 22. Change email is signed in, so it says the same, and keeps the address
-//     list in the cookie as it was.
-//
-// Logs:
-// 23. The link token is redacted, including inside redirectTo.
-//
-// A new password or email ends reset codes:
-// 24. A reset code sent to the old address stops working once the email
-//     changes.
-// 25. Changing the password in Settings ends reset codes.
-// 26. The reset itself ends codes asked for after the verify step.
-//
-// More:
-// 27. A code sent from one device can't be used on another device that
-//     asked for a different address.
-// 28. In a burst of requests each one ends as sent or as past the cap; none
-//     fails on the database.
-// 29. A stored hash can't be checked without the server's secret: it isn't a
-//     plain SHA-256 of the code or token, and a code stops checking under
-//     another secret.
-// 30. If the code can't be marked as sent after its email went out, the
-//     person is told the send failed, and no half-made code holds a place
-//     under the cap.
-//
-// Forgot-password answers before it sends:
-// 31. A known account gets its answer while the email is still going out, so
-//     it doesn't answer slower than an unknown one. The code then arrives and
-//     works.
-// 32. A send that fails after the answer leaves no working code, and the
-//     failure is logged rather than lost or thrown at the request.
-// 33. The work after the answer throws (the database read fails): the error
-//     is caught and logged, and never becomes an unhandled rejection, which
-//     would take the process down.
-//
-// Links opened on a device that is logged in (the iOS app always is):
-// 34. A signup link or typed code used while logged in uses nothing up. The
-//     answer names who is logged in, and the same code works once they log
-//     out.
-// 35. A signup code used with a session cookie whose session has gone works
-//     as if logged out.
-// 36. A reset code used while logged in, as that account or another, goes on
-//     to the new-password form.
-//
-// An account with no password (it only ever logged in with Google, which is
-// gone):
-// 37. Forgot password by its email sends a code, the code leads to the
-//     new-password form, and the new password logs in.
-//
-// GET /verify consuming nothing is checked in tests/e2e/onboarding.test.ts,
-// through the real page.
+// Emailed codes for signup, password reset and email change. GET /verify
+// consuming nothing is checked through the real page in
+// tests/e2e/onboarding.test.ts.
 
 const CAP = 5
 const CODE_LIFETIME_MS = 10 * 60 * 1000
@@ -463,6 +366,8 @@ describe('someone asking for codes for another person', () => {
 	})
 })
 
+// Answering before the send keeps a known account from answering slower than
+// an unknown one.
 describe('forgot-password answers before it sends', () => {
 	test('a known account is answered while its email is still going out, and the code then works', async () => {
 		let release!: () => void
@@ -495,6 +400,7 @@ describe('forgot-password answers before it sends', () => {
 		expect(consoleError).toHaveBeenCalled()
 	})
 
+	// An unhandled rejection would take the process down.
 	test('work that throws after the answer is logged, not left unhandled', async () => {
 		consoleError.mockImplementation(() => {})
 		const unhandled: Array<unknown> = []
@@ -963,6 +869,8 @@ describe('email change', () => {
 	})
 })
 
+// Signup already says when an address has an account, so past the cap it can
+// say plainly that no new email went out.
 describe('signup past the cap', () => {
 	test('it says no new email went out, and earlier codes still work', async () => {
 		const sent = captureEmails()
@@ -980,6 +888,7 @@ describe('signup past the cap', () => {
 	})
 })
 
+// The iOS app is always logged in.
 describe('links opened while logged in', () => {
 	async function loggedInCookie(userId: string) {
 		const session = await prisma.session.create({
@@ -1143,6 +1052,7 @@ describe('a new password or email ends reset codes', () => {
 	})
 })
 
+// An account that only ever logged in with Google, which is gone.
 describe('an account with no password', () => {
 	test('sets one with Forgot password and then logs in with it', async () => {
 		const sent = captureEmails()

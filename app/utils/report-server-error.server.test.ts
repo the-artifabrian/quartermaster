@@ -1,10 +1,6 @@
-// Failure list for marking a demo user's server errors in PostHog:
-// - A server error on a demo user's request has no `is_demo`, so demo
-//   traffic can't be told apart from real errors.
-// - A real user's or a signed-out request's error gets `is_demo` (as false,
-//   or at all), which changes existing filters.
-// - The demo lookup fails (the database may be why the request failed) and
-//   the error goes unreported.
+// A demo user's server errors are marked is_demo in PostHog, so demo traffic
+// can be told apart from real errors. An is_demo on anyone else, even false,
+// would change existing filters.
 import { expect, test, vi } from 'vitest'
 import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { backgroundWorkSettled } from '#app/utils/background.server.ts'
@@ -66,6 +62,7 @@ test("a real user's and a signed-out request's errors have no is_demo", async ()
 	expect(await reported()).not.toHaveProperty('is_demo')
 })
 
+// The database may be why the request failed in the first place.
 test('an error is still reported when the demo lookup fails', async () => {
 	const cookie = await signedIn({ demo: true })
 	using _lookup = vi

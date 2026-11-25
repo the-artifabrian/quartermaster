@@ -188,8 +188,6 @@ async function launchThenInstallUpdate(
 	return { ...rendered, registration, worker }
 }
 
-// Failure list: a cold launch with a waiting worker activates it before the
-// first interaction and reloads at most once.
 test('a cold launch applies a waiting update without asking and reloads once', async () => {
 	using _environment = setupBrowserEnvironment()
 	const worker = new FakeWorker()
@@ -231,8 +229,8 @@ test('a cold launch applies a waiting update without asking and reloads once', a
 	})
 })
 
-// Failure list: a browser can hold the activation for minutes. The reload
-// must not land on someone who has started using the page meanwhile.
+// A browser can hold the activation for minutes. The reload must not land on
+// someone who has started using the page meanwhile.
 test('an activation that completes after a tap keeps the page', async () => {
 	using _environment = setupBrowserEnvironment()
 	const worker = new FakeWorker()
@@ -284,7 +282,6 @@ test('a launch update reloads after activation when the page is not controlled',
 	await waitFor(() => expect(page.reload).toHaveBeenCalledTimes(1))
 })
 
-// Failure list: a worker that becomes waiting mid-session does not reload.
 test('a worker that becomes waiting mid-session stays waiting', async () => {
 	using _environment = setupBrowserEnvironment()
 	const { worker } = await launchThenInstallUpdate()
@@ -295,8 +292,7 @@ test('a worker that becomes waiting mid-session stays waiting', async () => {
 	expect(analytics.capture).not.toHaveBeenCalled()
 })
 
-// Failure list: a resume after 29 minutes does not reload; after 31 it does,
-// once. Thirty minutes is the boundary.
+// Thirty minutes away is the boundary for applying an update on return.
 test.each([{ minutes: 1 }, { minutes: 29 }])(
 	'a return after $minutes minutes away applies the update: false',
 	async ({ minutes }) => {
@@ -381,7 +377,7 @@ test('a launch that found no update does not apply one installed later in the se
 	expect(worker.postMessage).not.toHaveBeenCalled()
 })
 
-// Failure list: offline resume, no activation and no reload loop.
+// Offline there is no activation, so there is no reload loop either.
 test('offline launches and resumes keep the current page', async () => {
 	using environment = setupBrowserEnvironment()
 	environment.online.mockReturnValue(false)
@@ -425,9 +421,8 @@ test('an activation the worker cannot receive keeps the page and forgets its tel
 	expect(sessionStorage.getItem(PWA_UPDATE_STORAGE_KEY)).toBeNull()
 })
 
-// Failure list: a newer deploy installs over the worker being activated. The
-// replaced worker goes redundant and the next long resume applies the newer
-// one.
+// A newer deploy can install over the worker being activated. The replaced
+// worker goes redundant, and the next long resume applies the newer one.
 test('a worker that goes redundant during activation does not block the next update', async () => {
 	using environment = setupBrowserEnvironment()
 	const replaced = new FakeWorker()
@@ -458,8 +453,8 @@ test('a worker that goes redundant during activation does not block the next upd
 	expect(page.reload).not.toHaveBeenCalled()
 })
 
-// Failure list: two open windows. The other window's activation must not
-// reload this one; the retained N-1 cache keeps it working.
+// The retained N-1 cache keeps this window working after another window
+// applies the update.
 test('an update applied by another window does not reload this one', async () => {
 	using environment = setupBrowserEnvironment()
 	const { worker, registration, serviceWorkers } =
@@ -477,7 +472,7 @@ test('an update applied by another window does not reload this one', async () =>
 	expect(worker.postMessage).not.toHaveBeenCalled()
 })
 
-// Failure list: the iOS shell's pull to refresh is not a launch.
+// Pull to refresh in the iOS shell is not a launch.
 test('pull to refresh in the iOS shell does not apply a waiting update', async () => {
 	using _environment = setupBrowserEnvironment()
 	const { worker } = await launchThenInstallUpdate()

@@ -37,6 +37,7 @@ const test = base.extend<{
 		name: string | null
 	}>
 }>({
+	// oxlint-disable-next-line no-empty-pattern -- Playwright reads fixtures from an object pattern, even an empty one
 	getOnboardingData: async ({}, use) => {
 		const userData = createUser()
 		await use(() => {

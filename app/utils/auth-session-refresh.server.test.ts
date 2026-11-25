@@ -10,19 +10,6 @@ import { prisma } from './db.server.ts'
 import { authSessionStorage } from './session.server.ts'
 import '#tests/setup/db-setup.ts'
 
-// Failure list for refreshSessionIfNeeded:
-// 1. No cookie at all: nothing to refresh, and no query.
-// 2. A cookie without a sessionId (e.g. only a verified-time): no query.
-// 3. Browser-session cookie (no `expires`) close to the end: left alone, so it
-//    stays a browser-session cookie.
-// 4. Remembered session with plenty of time left: no write, no cookie.
-// 5. Remembered session close to the end: row pushed out a full session
-//    length, cookie recommitted with that Expires and its other values kept.
-// 6. Remembered session already expired: not revived (getUserId logs it out).
-// 7. Remembered cookie whose Session row is gone (logged out elsewhere):
-//    nothing created, no cookie.
-// 8. A second request right after a refresh: does nothing.
-
 const DAY = 1000 * 60 * 60 * 24
 
 function parseSetCookie(setCookie: string | null) {

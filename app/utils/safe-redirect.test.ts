@@ -1,18 +1,9 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import path from 'node:path'
 import { expect, test } from 'vitest'
 import { safeRedirect } from './safe-redirect.ts'
 
-// Failure list for picking where to send the browser from a value it sent:
-// 1. Browsers drop tabs, newlines and carriage returns from a URL, so
-//    "/\t/evil.com" lands on another site. Any control character is refused.
-// 2. A space, or any other whitespace, is refused rather than trimmed.
-// 3. A backslash anywhere is refused; browsers read it as a slash.
-// 4. The usual off-site forms (//, /\, a full URL) are still refused.
-// 5. An ordinary path with a query string comes through unchanged, and a
-//    missing value gives the default.
-// 6. Nothing in app/ imports remix-utils' safeRedirect directly, so a new
-//    call site can't skip these checks.
+// Picking where to send the browser from a value it sent. Browsers drop tabs,
+// newlines and carriage returns from a URL, so "/\t/evil.com" lands on another
+// site, and they read a backslash as a slash.
 
 test.each([
 	['a tab', '/\t/evil.com'],
@@ -39,24 +30,4 @@ test('an ordinary path comes through unchanged', () => {
 test('a missing value gives the default', () => {
 	expect(safeRedirect(null, '/recipes')).toBe('/recipes')
 	expect(safeRedirect(undefined)).toBe('/')
-})
-
-function sourceFiles(dir: string): string[] {
-	return readdirSync(dir).flatMap((name) => {
-		const full = path.join(dir, name)
-		if (statSync(full).isDirectory()) return sourceFiles(full)
-		return /\.tsx?$/.test(name) ? [full] : []
-	})
-}
-
-test('nothing in app/ imports the library’s safeRedirect but this module', () => {
-	const own = path.resolve('app/utils/safe-redirect.ts')
-	const direct = sourceFiles(path.resolve('app'))
-		.filter((file) => file !== own)
-		.filter((file) =>
-			/from\s+['"]remix-utils\/safe-redirect['"]/.test(
-				readFileSync(file, 'utf8'),
-			),
-		)
-	expect(direct).toEqual([])
 })

@@ -36,6 +36,10 @@ jobs:
       - name: 🔬 Lint
         run: bun run lint
 
+      - name: 💅 Format
+        if: ${{ !cancelled() }}
+        run: bunx prettier --check .
+
       # Vitest runs under Node, and production runs under Bun, so this checks
       # the Recipe URL import's address pinning under the Bun above. It takes
       # about a second, so it rides along in the fastest job that gates
@@ -99,7 +103,7 @@ jobs:
         run: bunx prisma migrate deploy && bunx prisma generate
 
       - name: ⚡ Run vitest
-        run: bun run test --coverage
+        run: bun run test --run
 
   playwright:
     name: 🎭 Playwright
@@ -149,7 +153,7 @@ jobs:
         env:
           DEMO_PHOTO_DIR: ${{ runner.temp }}/demo-photos
           # Runner load makes the 34 ms bottom-nav feedback budget flaky; the
-          # number is still logged to the report (#304).
+          # number is still logged to the report.
           BOTTOM_NAV_FEEDBACK_TRACE_ONLY: '1'
 
       - name: 📊 Upload report

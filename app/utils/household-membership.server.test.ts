@@ -1,38 +1,5 @@
 /**
- * Failure list for leaving a Household, by joining another or by leaving:
- *
- * 1. The owner of a two-member Household joins another. The member left
- *    behind must become owner, or the Household has nobody who can invite,
- *    rename or remove.
- * 2. The owner of a three-member Household joins another. The longest-standing
- *    remaining member becomes owner, by join time and not by row id, and the
- *    other stays a member.
- * 3. A member who isn't the owner joins another Household. Nobody's role
- *    changes.
- * 4. A sole owner joins another Household. Their Recipes, Shopping and Plan
- *    move with them, and the old Household goes with nothing left behind on a
- *    missing Household. A moved Recipe's photo, also shown by a copy in a third
- *    Household, keeps its file and both image rows.
- * 5. The last member of a Household leaves (one left without an owner by an
- *    earlier join). The Household dissolves: its Recipes, including a departed
- *    member's, its Shopping list, Plan and Menus are deleted, not left behind
- *    without a Household. A photo only a deleted Recipe showed is removed from
- *    storage; one the leaver's copy still shows stays.
- * 6. A member leaves a Household that already has no owner, with others still
- *    in it. The longest-standing remaining member becomes owner.
- * 7. A share link to a Recipe of a dissolved Household answers 404.
- * 8. A member starts leaving while the owner joins another Household. The
- *    role the leave read must still hold when it commits, so the join waits
- *    for the leave. The owner is then alone and takes everything along, and
- *    the original Recipe is never deleted.
- * 9. Both members of a two-member Household join other Households at once.
- *    The old Household goes, and nothing is left without a Household.
- * 10. An owner removes a member while joining another Household. The checks
- *    that they are owner and the member is theirs must hold until the member
- *    is out, so the join waits for the removal to finish.
- * 11. The owner joins another Household first, and the member who became
- *    owner then asks to leave. The leave is refused, and the Household and
- *    its Recipes stay with them.
+ * Leaving a Household, by joining another or by leaving.
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -203,6 +170,7 @@ function pauseAfterFirstMembershipRead(
 }
 
 describe('an owner joining another Household', () => {
+	// Otherwise the Household has nobody who can invite, rename or remove.
 	test('from a two-member Household, the member left behind becomes owner', async () => {
 		const owner = await insertUser()
 		const member = await insertUser()
@@ -226,6 +194,7 @@ describe('an owner joining another Household', () => {
 		await expectNothingLeftBehind()
 	})
 
+	// Seniority goes by join time, never by row id.
 	test('from a three-member Household, the longest-standing member becomes owner', async () => {
 		const owner = await insertUser()
 		const newer = await insertUser()
@@ -471,6 +440,7 @@ describe('leaving a Household', () => {
 })
 
 describe('two people leaving at once', () => {
+	// The role the leave read must still hold when it commits.
 	test('an owner joining elsewhere waits for a member’s leave, then takes everything along', async () => {
 		await using database = await createWalDatabase()
 		const { db } = database
@@ -560,6 +530,8 @@ describe('two people leaving at once', () => {
 		).toEqual({ householdId: home.id })
 	})
 
+	// The checks that they are owner and the member is theirs must hold until the
+	// member is out.
 	test('an owner joining elsewhere waits for a removal they started to finish', async () => {
 		await using database = await createWalDatabase()
 		const { db } = database

@@ -1,7 +1,6 @@
 node_modules
 
 /build
-/public/build
 .env
 
 /test-results/
@@ -11,4 +10,5 @@ node_modules
 /coverage
 /prisma/migrations
 
-package-lock.json
+# Xcode writes these in its own format
+/ios/**/*.xcassets

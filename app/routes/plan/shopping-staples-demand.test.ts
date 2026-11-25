@@ -5,10 +5,9 @@ vi.mock('#app/utils/household-events.server.ts', () => ({
 	emitHouseholdEvent: vi.fn(),
 }))
 
-import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { getWeekStart } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold } from '#tests/db-utils.ts'
 import { BASE_URL, getSessionCookieHeader } from '#tests/utils.ts'
 import { loader as planPickerLoader } from '../resources/shopping-plan.tsx'
 import { action as shoppingAction } from '../shopping.tsx'
@@ -36,34 +35,19 @@ type TestSession = {
 }
 
 async function setupHousehold(stapleNames: string[]): Promise<TestSession> {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: {
-					create: {
-						...createUser(),
-						subscription: { create: { tier: 'pro' } },
-					},
-				},
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Staples test household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-				householdIngredients: {
-					create: stapleNames.map((displayName) => ({
-						displayName,
-						canonicalKey: displayName.toLowerCase(),
-						isStaple: true,
-					})),
-				},
-			},
-		})
-		return { ...session, householdId: household.id }
+	const user = await createSignedInHousehold({
+		name: 'Staples test household',
+		tier: 'pro',
 	})
+	await prisma.householdIngredient.createMany({
+		data: stapleNames.map((displayName) => ({
+			householdId: user.householdId,
+			displayName,
+			canonicalKey: displayName.toLowerCase(),
+			isStaple: true,
+		})),
+	})
+	return user
 }
 
 async function makeRequest(
@@ -163,7 +147,7 @@ async function getRows(householdId: string) {
 	})
 }
 
-describe('household Staple annotation at explicit Shopping actions (#116)', () => {
+describe('household Staple annotation at explicit Shopping actions', () => {
 	test('the Plan picker unticks each household\u2019s own Staples', async () => {
 		const stocked = await setupHousehold(['chicken'])
 		const unstocked = await setupHousehold([])

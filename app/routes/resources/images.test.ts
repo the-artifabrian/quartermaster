@@ -1,46 +1,6 @@
-// Failure list for the public image route (no login in front of it):
-// - a `src` naming a file in public/ that isn't an image (site.webmanifest)
-//   must answer, not take the process down
-// - a `src` naming another site must not make the server fetch it
-// - a stored object whose bytes aren't an image must answer with an error,
-//   not take the process down, and must keep doing so on a repeat
-// - a stored image that costs more to decode than an upload may must answer
-//   with an error before it is decoded, in every format and with no size,
-//   since one may have been stored before uploads were checked
-// - a decode waits for its turn with every other photo job
-// - no size serves the photo upright, at most 2048 px, without the stored
-//   bytes' metadata: an upload's EXIF can hold where the photo was taken
-// - a valid stored image still serves, through the signed storage fetch
-//   production uses (its origin must match the allowlist), and its AVIF
-//   transform is cached under the source's own path
-// Keys:
-// - keys both writers produce (an upload, a copy) are served
-// - anything else is refused with a 400, the same way in mocks mode and in
-//   production mode: another prefix, a `..` or `.` segment, a dot in an id,
-//   an extra or missing segment, a leading slash, an empty file name, a slash
-//   still encoded after one decode, a backslash, a space, non-ASCII, a query
-//   character, a file name too long to cache
-// Sizes:
-// - a listed size is served at exactly that size
-// - an unlisted width is served at the next listed size up, and one past the
-//   largest at the largest; all of them share the listed size's one cached
-//   copy
-// - a width or a height on its own is snapped too, so it can't make a
-//   full-size copy per number
-// - no size at all serves the photo in its own format (the data export
-//   links to it), but a format with no size is refused, since nothing asks
-//   for one
-// - `fit=cover` (share links) and no fit (every <Img>) mean the same crop,
-//   so they share one cached copy; with no size, `fit=cover` makes no second
-//   full-size copy
-// - a format or fit the app never asks for is refused
-// - a width that isn't a positive whole number is refused
-// Deleting a photo:
-// - its cached resizes go with it, so it stops being served, in mocks mode
-//   and through storage; another photo's resizes stay
-// - a resize that was being made when the photo was deleted, and lands in
-//   the cache after that, goes a couple of minutes later. The cache is far
-//   under the prune limit in production, so nothing else would remove it.
+// The public image route has no login in front of it. A bad `src` or a stored
+// object that isn't an image must get an answer and never take the process
+// down, and a `src` naming another site must not make the server fetch it.
 import {
 	copyFile,
 	mkdir,
@@ -211,6 +171,8 @@ async function storedBytes(name: string, bytes: Buffer, extension = 'png') {
 	}
 }
 
+// One may have been stored before uploads were checked, so every format is
+// refused before it is decoded, with or without a size.
 test.each([
 	['a resize', { w: '72', h: '72' }],
 	['a WebP resize', { w: '72', h: '72', format: 'webp' }],
@@ -407,6 +369,7 @@ describe('sizes', () => {
 		expect(result).toMatchObject(expected)
 	})
 
+	// Snapping keeps any number from making a full-size copy of its own.
 	test.each([
 		['an unlisted width', { w: '700', h: '525' }, { width: 768, height: 576 }],
 		[
@@ -434,6 +397,7 @@ describe('sizes', () => {
 		])
 	})
 
+	// `fit=cover` (share links) and no fit (every <Img>) mean the same crop.
 	test.each([
 		['a listed size', { w: '400', h: '300', format: 'webp' }],
 		['no size', {}],
@@ -451,6 +415,7 @@ describe('sizes', () => {
 		},
 	)
 
+	// The data export links to the original.
 	test('serves the original when no size is asked for', async () => {
 		const result = await dimensions(await storedImage(PHOTO, {}))
 		expect(result).toEqual({ width: 1024, height: 1024, format: 'png' })
@@ -506,6 +471,8 @@ describe('deleting a photo', () => {
 		expect(await cachedResizes(PHOTO)).toEqual(otherBefore)
 	})
 
+	// The cache is far under the prune limit in production, so nothing else would
+	// remove a resize that lands after its photo was deleted.
 	test('a resize that lands after the delete goes a couple of minutes later', async () => {
 		await using photo = await uploadedPhoto('late')
 		vi.stubEnv('MOCKS', 'true')

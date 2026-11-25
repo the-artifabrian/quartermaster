@@ -129,14 +129,14 @@ test('a client that accepts no encoding gets the plain file', async () => {
 	expect(response.body.toString()).toBe(script)
 })
 
-test('an asset without a twin is served as before', async () => {
+test('an asset without a twin is compressed on the fly', async () => {
 	const base = await startApp()
 	const response = await request(`${base}/assets/lone-def456.css`, {
 		'accept-encoding': 'gzip, deflate, br',
 	})
 	expect(response.status).toBe(200)
 	expect(response.headers['content-type']).toBe('text/css; charset=utf-8')
-	// The compression middleware still compresses it on the fly, as before.
+	// The compression middleware compresses it on the fly.
 	expect(response.headers['content-encoding']).toBe('br')
 	expect(brotliDecompressSync(response.body).toString()).toBe(style)
 })

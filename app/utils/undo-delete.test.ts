@@ -1,22 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { createUndoStore, type UndoStoreJob } from './undo-delete.ts'
 
-// Failure list, written before the store that deletes at once:
-// delete — the rows hide the moment it is tapped; a delete that fails shows
-//   them again and says so; one that finds nothing there (gone) leaves them
-//   hidden, since they are gone.
-// undo — after the delete has answered, Undo sends its snapshot back; while
-//   the delete is still on its way, Undo waits for it and then restores; Undo
-//   of a delete that failed or found nothing restores nothing; a double tap
-//   restores once.
-// restore — a restored row shows again and is marked as coming back (so it
-//   opens rather than pops in), for a while; a restore that fails leaves the
-//   rows deleted and says so; one that finds its target gone says so too.
-// closing the toast — after it closes Undo does nothing, and the rows are let
-//   go a beat later (the refreshed list no longer has them); closed while the
-//   delete is still on its way, they are let go once it answers.
-// snapshot — keeps its identity until something changes.
-
 const RELEASE_MS = 3000
 const ENTER_MS = 1500
 
@@ -170,6 +154,7 @@ describe('restore', () => {
 })
 
 describe('closing the toast', () => {
+	// By then the refreshed list doesn't have them.
 	test('ends Undo, and lets the rows go a beat later', async () => {
 		const store = setup()
 		const restore = vi.fn(async () => 'restored' as const)
@@ -215,10 +200,6 @@ test('the snapshot keeps its identity until something changes', async () => {
 	expect(store.getSnapshot()).toBe(second)
 })
 
-// Added with the review: a failed or gone restore lets its rows go; a
-// double tap while a delete is out is one delete, but a job whose toast has
-// closed is over and a new one replaces it; letting go of an old job never
-// takes the new one's rows; a failed restore does not stay stuck restoring.
 describe('ending', () => {
 	test('a failed or gone restore lets its rows go once the toast has closed', async () => {
 		const store = setup()

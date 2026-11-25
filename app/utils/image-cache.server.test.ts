@@ -1,19 +1,5 @@
-// Failure list for pruning the resized-photo cache (it sits on the same
-// volume as the database, so it must not grow without end):
-// - the cache folder doesn't exist yet, or is empty
-// - the cache is under the limit: nothing goes
-// - the cache is over the limit: the oldest files go first, and only until
-//   it's back under
-// - resizes sit in nested folders, one per photo
-// - openimg's metadata.json is not a resize and must stay
-// - a file is deleted by someone else between the listing and the stat, or
-//   between the stat and the delete
-// - a resize is being written while the prune runs: openimg makes its folder,
-//   writes the file, then reopens it by path to answer, so a fresh file and
-//   every folder must be left alone
-// - a folder it can't read, or a file it isn't allowed to stat or delete,
-//   must not stop the prune; it's skipped, counted, and the rest is pruned
-// - removing one photo's resizes when the folder doesn't exist
+// The resized-photo cache sits on the same volume as the database, so pruning
+// must keep it from growing without end.
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -114,6 +100,8 @@ test('never removes openimg’s metadata file', async () => {
 	expect(await remaining()).toEqual(['metadata.json'])
 })
 
+// openimg makes its folder, writes the file, then reopens it by path to
+// answer, so a fresh file and every folder must be left alone.
 test('never removes a file written in the last few minutes, even over the limit', async () => {
 	await cached('a/old.webp', 100, 3 * HOUR)
 	await cached('a/writing.webp', 100, 1000)

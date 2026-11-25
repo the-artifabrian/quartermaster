@@ -1,23 +1,3 @@
-/**
- * Menu edit failure list (the save keeps what changed while the form was
- * open):
- * - A card another member added while the form was open is deleted by the
- *   save, or lands among the editor's cards.
- * - A section another member added meanwhile is deleted with its cards.
- * - A card added meanwhile to a section the editor removed goes with that
- *   section, or keeps the section and leaves two unnamed sections behind.
- * - A card the editor changed, which another member removed meanwhile, fails
- *   the whole save.
- * - A card or section id from another Menu changes that Menu.
- * - A card or section the editor loaded and removed stays.
- * - A form from before the loaded-ids field stops removing cards.
- * - A missing card (its Recipe deleted) that another member removed
- *   meanwhile fails the save.
- * - A Save that reaches the server twice adds its new cards and sections
- *   twice.
- * - A card added and saved, whose answer was lost, then removed before Save
- *   is pressed again, stays as if another member had added it.
- */
 import { createId } from '@paralleldrive/cuid2'
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test } from 'vitest'
@@ -27,7 +7,7 @@ import {
 	menuTitleKey,
 	ONE_UNNAMED_SECTION_MESSAGE,
 } from '#app/utils/menu-validation.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold, createUser } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { loader as detailLoader } from './$menuId.tsx'
 import { action as editAction, loader as editLoader } from './$menuId_.edit.tsx'
@@ -62,24 +42,7 @@ function makeMenuArgs(menuId: string, suffix = '') {
 	}
 }
 
-async function setupUser() {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: { create: createUser() },
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Test Household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-			},
-		})
-		return { ...session, householdId: household.id }
-	})
-}
+const setupUser = () => createSignedInHousehold()
 
 async function addHouseholdMember(householdId: string) {
 	return prisma.$transaction(async (tx) => {

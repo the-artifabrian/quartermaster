@@ -2,49 +2,6 @@
  * The sample Household builder fills one Household with Recipes, Staples, a
  * Plan for the week of `today` and the Shopping that Plan leads to, through
  * the same writers real use goes through.
- *
- * Failure list:
- * - Running it twice on the same day adds a second copy of the Recipes,
- *   Meals, Staples or Shopping rows, or doubles the Meals' amounts.
- * - Running it again a week later plans a second week and stacks its
- *   amounts on Shopping.
- * - Running it on Monday and again on Thursday ends somewhere a clean
- *   Thursday run doesn't (Meals not cooked, amounts added twice).
- * - A run that stopped partway (some Recipes or Meals saved, Shopping not
- *   built) can't be finished by running it again.
- * - A Shopping row doesn't match its Meal's demand, so Update Shopping on a
- *   seeded Meal changes the list.
- * - A Meal lands outside the week of `today` (a Sunday or Monday edge, or a
- *   day shifted by a timezone), so the Plan opens on an empty week.
- * - Meals before today aren't cooked, or a Meal from today on is.
- * - The cooked state depends on the weekday in a way that changes Shopping:
- *   a Meal marked cooked before its amounts are added adds nothing.
- * - A Recipe line doesn't parse into amount, unit and name ("2 tins
- *   chickpeas" read as an ingredient called "tins chickpeas"), so it can't
- *   scale or combine with the same ingredient elsewhere.
- * - A Staple's ingredient still lands on Shopping, because the Staples were
- *   saved after the Meals were added.
- * - A sample Staple matches no ingredient in the sample Recipes, so it hides
- *   nothing and the cupboard basics (sugar, cornflour) stay on Shopping.
- * - A sample Staple is written in another case than the Staples the app adds
- *   itself, so Need puts "Rice" on a list of lowercase rows.
- * - The wrong rows are checked, or a check is made before the Meal amounts
- *   it should cover arrive.
- * - Shopping doesn't read as a week part-way through: a row only Meals up
- *   to the bought day need is left unchecked, a row a later Meal also needs
- *   is checked, the typed rows lose their own checked flags, or the unchecked
- *   list is far from the 8 to 12 rows a real list holds.
- * - On a day after the bought day, Shopping still lists rows only for
- *   Meals already cooked.
- * - Sunday's Meals are checked off as bought, so the list has nothing
- *   left for the days still to come.
- * - A fuller week turns Shopping into a list nobody would keep, far more
- *   rows than a week's shop.
- * - The favourites aren't marked, or a run marks others.
- * - The Menu is missing, saved twice on a second run, names a Recipe outside
- *   the Household, loses its note card's Shopping lines, or isn't a shape the
- *   Menu builder can load (no unnamed section, a Recipe card with no
- *   multiplier).
  */
 import { expect, test } from 'vitest'
 import { createOwnHousehold } from '#app/utils/auth.server.ts'

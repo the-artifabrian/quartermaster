@@ -1,13 +1,4 @@
-// Failure list for `exclusively` (e2e-lock.ts), the lock Playwright's
-// workers share:
-// - A worker dies holding the lock. Every later test waits for it until its
-//   own timeout, or until a fixed "stale" age that is longer than the
-//   timeout.
-// - Several waiters find the dead holder at once and all take the lock
-//   over, so their work overlaps.
-// - A live holder in another process is taken for dead, and two tests run
-//   at once.
-// - Work that throws keeps the lock.
+// `exclusively` (e2e-lock.ts) is the lock Playwright's workers share.
 import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
@@ -104,6 +95,8 @@ function counter() {
 	}
 }
 
+// Waiting for a fixed "stale" age, longer than a test's timeout, would fail
+// every later test.
 test('a lock whose holder died is passed at once', async () => {
 	const holder = holderProcess(60_000)
 	await holder.held

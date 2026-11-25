@@ -3,7 +3,13 @@ import sharp from 'sharp'
 import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { SHELL_UA, setShellSafeArea } from '#tests/native-shell.ts'
-import { expect, hydrated, test } from '#tests/playwright-utils.ts'
+import {
+	animationsFinished,
+	browserToday,
+	expect,
+	hydrated,
+	test,
+} from '#tests/playwright-utils.ts'
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
@@ -230,7 +236,7 @@ test('a page opened from a scrolled page does not start with its title in the ba
 	await expect(
 		page.getByRole('heading', { level: 1, name: 'Household' }),
 	).toBeVisible()
-	await page.waitForTimeout(300)
+	await animationsFinished(page)
 	const frames = await page.evaluate(
 		() => (window as unknown as { __frames: string[] }).__frames,
 	)
@@ -422,7 +428,7 @@ test('Save in the nav bar saves the edit and returns to the Recipe', async ({
 	expect(saved.title).toBe('Red lentil soup')
 
 	// Back from the saved Recipe steps over the edit form to the list. (The
-	// slide is the iOS app's: push-slide.test.ts.)
+	// slide is the iOS app's: page-transitions.test.ts.)
 	await backButton(page, 'Recipes').tap()
 	await expect(page).toHaveURL('/recipes')
 	expect(await historyIdx(page)).toBe(listIdx)
@@ -543,13 +549,6 @@ test('Settings goes back to the tab it came from, and its pages back to Settings
 	await expect(brand(page)).toBeVisible()
 })
 
-function todayUTC() {
-	const today = new Date()
-	return new Date(
-		Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
-	)
-}
-
 /** A JPEG over the 3 MB upload limit, so the form shrinks it first. */
 async function bulkyPhoto() {
 	const jpeg = await sharp({
@@ -575,7 +574,7 @@ test('a Recipe opened from the Plan goes back to the Plan where it was', async (
 	for (let i = 1; i <= 12; i++) {
 		recipes.push(await createLongRecipe(user, `Dish ${i}`))
 	}
-	const today = todayUTC()
+	const today = browserToday()
 	const weekStart = getWeekStart(today)
 	await prisma.mealPlan.create({
 		data: {
@@ -889,7 +888,9 @@ test('changing the scale keeps the Recipe where it was, small title and all', as
 	await scale.tap()
 	await page.getByRole('button', { name: 'Increase Recipe scale' }).tap()
 	await expect(page).toHaveURL(/scale=/)
-	await page.waitForTimeout(300)
+	// The new scale has rendered, so anything it moves has started moving.
+	await expect(scale).toHaveCount(0)
+	await animationsFinished(page)
 	expect(Math.abs((await scrollY(page)) - before)).toBeLessThan(5)
 	const frames = await page.evaluate(
 		() => (window as unknown as { __frames: boolean[] }).__frames,
@@ -1055,7 +1056,7 @@ test('opening a form from a list commits Cancel and Save with the form', async (
 	await newMenu.tap()
 	await expect(page).toHaveURL('/recipes/menus/new')
 	await expect(page.locator('[data-nav-save]')).toBeVisible()
-	await page.waitForTimeout(300)
+	await animationsFinished(page)
 	const frames = await page.evaluate(
 		() => (window as unknown as { __frames: string[] }).__frames,
 	)

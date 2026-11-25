@@ -84,13 +84,6 @@ test('invalid optional details reopen and focus the field before saving', async 
 	await waitFor(() => expect(save).toHaveBeenCalledOnce())
 })
 
-// Failure list for the photo after a Save the server refused because of it:
-// - a file it can't use or that is too big comes off the input, and the
-//   preview goes back to none, so the next Save goes through without it
-// - so does one the upload parser stopped at for size, whose reply has no
-//   reason
-// - a photo the server had no turn to check stays, with its preview, so
-//   the next Save tries it again instead of saving without it
 /** Picks a photo, saves, and waits for the server's refusal of it. */
 async function saveRefusedPhoto(photoRefusal: string | undefined) {
 	const user = userEvent.setup()
@@ -132,6 +125,8 @@ async function saveRefusedPhoto(photoRefusal: string | undefined) {
 	return input
 }
 
+// A refused photo comes off the input, so the next Save goes through without
+// it. The upload parser's size stop replies with no reason at all.
 test.each([
 	['it can’t use', 'unusable'],
 	['that is too big', 'too-big'],

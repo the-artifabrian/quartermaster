@@ -1,10 +1,8 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { isNetworkFailure } from './network-failure.ts'
 
-// Failure list: a fetch that never got an answer, in each browser's words,
-// counts; so does any TypeError while the browser says it is offline. A server
-// error React Router rebuilds as a TypeError in development does not, nor does
-// anything that is not a TypeError.
+// Each test says whether an error counts as a network failure. In development
+// React Router rebuilds a server error as a TypeError.
 
 afterEach(() => {
 	vi.unstubAllGlobals()

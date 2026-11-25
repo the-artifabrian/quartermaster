@@ -1,24 +1,9 @@
 import { expect, test } from 'vitest'
 import { redactUrl } from './redact-url.ts'
 
-// Failure list: what could let a code, token or email address through to a
-// log line or an analytics event, or garble the parts we want to keep.
-//
-// 1. Each sensitive parameter (code, token, target, session_id, otp, state,
-//    email, password, secret) loses its value; the name stays so the log
-//    still says what kind of request it was.
-// 2. Everything else in the URL is kept byte for byte: the path, other
-//    parameters, their encoding, their order, and the hash.
-// 3. Absolute URLs (PostHog, request.url) and bare paths (morgan) both work.
-// 4. The name is matched in any case and percent-decoded (Code=, co%64e=).
-// 5. A parameter given twice is redacted both times; one with no value or no
-//    `=` doesn't break the rest.
-// 6. A sign-in redirect carries the original URL inside redirectTo, encoded
-//    once or twice. The token inside it is redacted too.
-// 7. The same, with the inner URL left unencoded.
-// 8. A malformed percent escape never throws, and a sensitive value next to
-//    it is still redacted.
-// 9. An email address in target (onboarding) doesn't survive in any form.
+// Nothing may let a code, token or email address through to a log line or an
+// analytics event, or garble the parts we keep. A redacted parameter keeps its
+// name, so the log still says what kind of request it was.
 
 test.each([
 	'code',

@@ -1,14 +1,14 @@
 # base bun image (Alpine / musl)
-FROM oven/bun:1.3.13-alpine as base
+FROM oven/bun:1.3.13-alpine AS base
 
 # set for base and all layer that inherit from it
-ENV NODE_ENV production
+ENV NODE_ENV="production"
 
 # Install openssl/sqlite/fuse3/ca-certs
 RUN apk add --no-cache fuse3 openssl sqlite ca-certificates
 
 # Install all node_modules, including dev dependencies
-FROM base as deps
+FROM base AS deps
 
 WORKDIR /myapp
 
@@ -19,7 +19,7 @@ ADD patches ./patches
 RUN NODE_ENV=development bun install --frozen-lockfile
 
 # Setup production node_modules
-FROM base as production-deps
+FROM base AS production-deps
 
 WORKDIR /myapp
 
@@ -28,7 +28,7 @@ ADD patches ./patches
 RUN bun install --frozen-lockfile --production
 
 # Build the app
-FROM base as build
+FROM base AS build
 
 ARG COMMIT_SHA
 ENV COMMIT_SHA=$COMMIT_SHA

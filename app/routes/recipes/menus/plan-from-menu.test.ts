@@ -1,11 +1,10 @@
 import { RouterContextProvider } from 'react-router'
 import { describe, expect, test } from 'vitest'
-import { getSessionExpirationDate } from '#app/utils/auth.server.ts'
 import { getWeekStart, serializeDate } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
 import { deleteMealItem } from '#app/utils/undo-delete.server.ts'
-import { createUser } from '#tests/db-utils.ts'
+import { createSignedInHousehold } from '#tests/db-utils.ts'
 import { getSessionCookieHeader, BASE_URL } from '#tests/utils.ts'
 import { action as planAction } from './$menuId.tsx'
 import '#tests/setup/db-setup.ts'
@@ -19,24 +18,7 @@ function makeMenuArgs(menuId: string) {
 	}
 }
 
-async function setupUser() {
-	return prisma.$transaction(async (tx) => {
-		const session = await tx.session.create({
-			data: {
-				expirationDate: getSessionExpirationDate(),
-				user: { create: createUser() },
-			},
-			select: { id: true, userId: true },
-		})
-		const household = await tx.household.create({
-			data: {
-				name: 'Test Household',
-				members: { create: { userId: session.userId, role: 'owner' } },
-			},
-		})
-		return { ...session, householdId: household.id }
-	})
-}
+const setupUser = () => createSignedInHousehold()
 
 async function planMenu(
 	session: { id: string },

@@ -1,55 +1,6 @@
 /**
- * Failure list for the demo guard (the root middleware that keeps a demo user
- * out of account, Household, backup, billing and admin changes):
- *
- * 1. A demo user's POST to a blocked route reaches its action. It must be
- *    refused before the action runs.
- * 2. A refused form post answers with a bare 403 or an error page, so the user
- *    sees nothing useful. It must go back to the page it came from with the
- *    message as a toast. A caller that sends JSON (the passkey page) gets a
- *    403 with the message it can show.
- * 3. The way back follows a Referer from another site, or a path starting
- *    with `//`, off this site. It must stay here.
- * 4. A real user's POST to a blocked route is refused or changed. It must
- *    reach the action untouched.
- * 5. A signed-out POST to a blocked route reads the database. It must pass
- *    on without a read; the route checks sign-in itself.
- * 6. A demo user's GET or HEAD to a blocked route is refused, or reads the
- *    user. Pages must still load, with no lookup.
- * 7. A demo user's POST to an allowed route reads the user. It must pass
- *    with no lookup.
- * 8. PUT, PATCH and DELETE get through where POST doesn't.
- * 9. A `.data` request (every hydrated form) isn't matched, or goes back to
- *    the `.data` URL, or gets a raw 403 the router can't read because its
- *    body isn't a form. It must go back to the page with the toast.
- * 9a. The no-lookup checks pass only because the read isn't counted. A
- *    signed-in post to a blocked route must count exactly one.
- * 10. A route with params is matched on the URL instead of the pattern, so a
- *    URL that happens to spell a blocked route's path is refused, or a
- *    blocked route is missed.
- * 11. The pattern comes with a leading slash and nothing matches.
- * 12. A demo user whose time is up but who hasn't been removed yet is let
- *    through.
- * 13. A session cookie whose session is gone throws or is refused. It must
- *    pass to the route, which answers it as signed out.
- * 14. Checkout and the billing portal: the `/upgrade` action doesn't refuse a
- *    user who is already Pro, and the portal opens for any user with a
- *    Stripe customer. A demo user's POST to either must never reach Stripe.
- *
- * Failure list for the route classification:
- *
- * 15. A new route with an action ships without anyone deciding whether a
- *    demo user may use it. Every route that exports an action must be on
- *    the blocked or the allowed list.
- * 16. A list names a route that no longer exists or no longer has an action,
- *    so the list reads as covering something it doesn't.
- * 17. A route sits on both lists.
- * 18. An entry has no reason.
- * 19. A layout route with its own action shares its pattern with an index
- *    route, so the index route's verdict covers the layout's action without
- *    anyone looking at it. It must be listed by route id.
- * 20. A route re-exports another module with `export * from`, which can
- *    carry an action the check never sees. It counts as having one.
+ * The demo guard, the root middleware that keeps a demo user out of account,
+ * Household, backup, billing and admin changes.
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -215,6 +166,7 @@ describe('demoGuardMiddleware', () => {
 		expect(await response.text()).toBe('the action ran')
 	})
 
+	// The route checks sign-in itself.
 	test('a signed-out post to a blocked route passes on without a read', async () => {
 		using counter = countReads()
 		const { ran } = await guard('settings/profile/household')
@@ -287,6 +239,7 @@ describe('demoGuardMiddleware', () => {
 		expect(response.headers.get('location')).toBe('/settings/profile/import')
 	})
 
+	// The no-lookup checks above mean something only if the read is counted.
 	test("a signed-in user's post to a blocked route takes exactly one lookup", async () => {
 		const session = await realUser()
 		using counter = countReads()
@@ -335,6 +288,8 @@ describe('demoGuardMiddleware', () => {
 	})
 })
 
+// The `/upgrade` action doesn't refuse a user who is already Pro, and the
+// portal opens for any user with a Stripe customer.
 describe('checkout and the billing portal', () => {
 	let stripeCalls: string[]
 
@@ -528,6 +483,8 @@ function unlistedLayoutActions(
 		.filter((id) => !(id in listed))
 }
 
+// A new route with an action can't ship without someone deciding whether a
+// demo user may use it.
 describe('every route with an action is classified for demo users', () => {
 	test('each route that exports an action is blocked or allowed', async () => {
 		const withAction = (await routeFiles()).filter(hasAction)
@@ -542,6 +499,7 @@ describe('every route with an action is classified for demo users', () => {
 		expect(unclassified).toEqual([])
 	})
 
+	// A stale entry would read as covering something it doesn't.
 	test('each listed route exists and has an action', async () => {
 		const routes = await routeFiles()
 		const withAction = new Set(
@@ -558,6 +516,8 @@ describe('every route with an action is classified for demo users', () => {
 		).toEqual([])
 	})
 
+	// Otherwise the index route's verdict would cover the layout's action without
+	// anyone looking at it.
 	test("a layout with an action that shares its index route's pattern is listed by id", async () => {
 		const routes = await routeFiles()
 		expect(
@@ -596,6 +556,8 @@ describe('every route with an action is classified for demo users', () => {
 		).toEqual([])
 	})
 
+	// `export * from` can carry an action the check never sees, so it counts as
+	// having one.
 	test('the action check counts every way a module can export one', () => {
 		expect(exportsAction('export async function action() {}')).toBe(true)
 		expect(exportsAction('export const action = make()')).toBe(true)

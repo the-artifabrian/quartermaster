@@ -13,18 +13,10 @@ import { requireRecentVerification } from './verify.server.ts'
 import '#tests/setup/db-setup.ts'
 import '#tests/setup/mocks-setup.ts'
 
-// Failure list. The emailed one-time-code link leaves the site, so it must
-// name APP_ORIGIN whatever the request says:
-// 1. A forwarded-host header naming another host.
-// 2. A forwarded-proto header asking for plain http.
-// 3. A Host header naming another host.
-// 4. A request URL on another host. The Express adapter builds request.url
-//    from the forwarded host, so it is no safer than the headers.
-// Redirects within the site stay relative, so the browser stays on the host
-// it used and keeps its cookies (a LAN IP in dev, the fly.dev host):
-// 5. Signup's redirect to the verify page.
-// 6. Change Email's redirect to the verify page.
-// 7. The reverify redirect before a sensitive settings page.
+// The emailed one-time-code link leaves the site, so it must name APP_ORIGIN
+// whatever the request says. Redirects within the site stay relative, so the
+// browser stays on the host it used and keeps its cookies (a LAN IP in dev, the
+// fly.dev host).
 
 const APP_ORIGIN = 'https://app.example'
 
@@ -130,6 +122,8 @@ test('a Host header naming another site still emails a link to APP_ORIGIN', asyn
 	await expectLinkOnAppOrigin(email)
 })
 
+// The Express adapter builds request.url from the forwarded host, so it is no
+// safer than the headers.
 test('a request URL on another host still emails a link to APP_ORIGIN', async () => {
 	using _env = stubEnv({ APP_ORIGIN })
 	const { email } = await signup({ url: 'http://other.example/signup' })

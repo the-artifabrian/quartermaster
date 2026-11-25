@@ -33,7 +33,7 @@ async function openMoreActions(page: Page) {
 	}).toPass({ timeout: 10_000 })
 }
 
-const importTabs = ['From URL', 'From text', 'From image']
+const importTabs = ['From link', 'From text', 'From image']
 
 test.describe('in the iOS app', () => {
 	test.use({ userAgent: SHELL_UA })
@@ -220,7 +220,7 @@ test.describe('in the iOS app', () => {
 	test('the logged-out pages say nothing about the trial or Pro', async ({
 		page,
 	}) => {
-		for (const path of ['/', '/signup']) {
+		for (const path of ['/', '/signup', '/about', '/support']) {
 			await page.goto(path)
 			await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 			await expect(
@@ -271,7 +271,7 @@ test.describe('in a browser', () => {
 		for (const path of ['/', '/signup']) {
 			await page.goto(path)
 			await expect(
-				page.getByText('New accounts get 14 days of Pro. No card needed.'),
+				page.getByText('Free to use. New accounts get 14 days of Pro.'),
 				path,
 			).toBeVisible()
 		}

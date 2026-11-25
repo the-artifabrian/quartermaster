@@ -4,6 +4,7 @@ import { Button } from '#app/components/ui/button.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
 import { baseMetaTags } from '#app/utils/meta.ts'
+import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { type Route } from './+types/about.ts'
 
 export const handle: SEOHandle = {
@@ -32,6 +33,8 @@ export function loader() {
 export const headers: Route.HeadersFunction = pipeHeaders
 
 export default function AboutRoute() {
+	// The iOS app shows no copy about Pro (ADR 0001).
+	const isNativeShell = useIsNativeShell()
 	return (
 		<div className="container max-w-2xl py-12">
 			<h1 className="font-serif text-[2.25rem] leading-[1.15] tracking-[-0.02em]">
@@ -72,16 +75,16 @@ export default function AboutRoute() {
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">Keep Recipes.</span>{' '}
 						Import one from a link or pasted text, or write your own with a
-						photo. On Pro, AI can read screenshots too.
+						photo.
+						{isNativeShell ? null : ' On Pro, AI can read screenshots too.'}
 					</p>
 				</div>
 				<div className="flex gap-3">
 					<Icon name="home" className="text-primary mt-0.5 size-5 shrink-0" />
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">Keep Staples.</span>{' '}
-						Save the ingredients your Household normally has. They start
-						unticked in From Plan, and any one of them goes on Shopping with a
-						tap.
+						Save the ingredients your Household normally has. Shopping leaves
+						them out, and one tap puts any of them back.
 					</p>
 				</div>
 				<div className="flex gap-3">
@@ -107,7 +110,10 @@ export default function AboutRoute() {
 					<p className="text-muted-foreground text-sm">
 						<span className="text-foreground font-medium">Cook together.</span>{' '}
 						Invite your partner or housemates to share Recipes, Staples, the
-						Plan and Shopping. On Pro, Shopping updates live on every phone.
+						Plan and Shopping.
+						{isNativeShell
+							? null
+							: ' On Pro, Shopping updates live on every phone.'}
 					</p>
 				</div>
 			</div>

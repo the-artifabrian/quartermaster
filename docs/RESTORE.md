@@ -6,15 +6,21 @@ migration or a wrong `DELETE` except the copies below.
 
 ## What exists
 
-| Copy                | Where                                                  | Taken                              | Kept                                         |
-| ------------------- | ------------------------------------------------------ | ---------------------------------- | -------------------------------------------- |
-| Daily offsite       | Tigris bucket, `backups/<app>/daily/`                  | `.github/workflows/backup.yml`     | 30 days, never fewer than 7                  |
-| Pre-migration       | `/data/backups/pre-migration/` on the machine's volume | `other/litefs.yml`, before migrate | 3 most recent                                |
-| Fly volume snapshot | Fly, per volume                                        | daily by Fly                       | 14 days (`snapshot_retention` in `fly.toml`) |
+| Copy                | Where                                                  | Taken                                                  | Kept                                         |
+| ------------------- | ------------------------------------------------------ | ------------------------------------------------------ | -------------------------------------------- |
+| Daily offsite       | Tigris bucket, `backups/<app>/daily/`                  | `.github/workflows/backup.yml`                         | 30 days, never fewer than 7                  |
+| Pre-migration       | `/data/backups/pre-migration/` on the machine's volume | `other/litefs.yml`, at a boot with migrations to apply | 3 most recent                                |
+| Fly volume snapshot | Fly, per volume                                        | daily by Fly                                           | 14 days (`snapshot_retention` in `fly.toml`) |
 
 Offsite backups are `VACUUM INTO` snapshots (a consistent copy taken under a
 read transaction), gzipped, integrity-checked with `PRAGMA quick_check`, and
 size-verified after upload.
+
+GitHub turns off scheduled workflows in a public repository after 60 days with
+no commits. The daily backup stops then, and so do the uptime check in
+`.github/workflows/uptime.yml` and the memory alert. If the newest `daily/`
+entry is more than a day old, open each of them in the Actions tab and choose
+**Enable workflow**.
 
 Everything below assumes `fly ssh console --app quartermaster-94e5`, and an
 org-scoped Fly token (a deploy token cannot open an SSH session).
@@ -145,7 +151,7 @@ order. The steps before `bun run start` run on the primary only
 - cmd: bun /myapp/scripts/validate-env.ts
 - cmd:
     bun /myapp/scripts/backup-db.ts --local-only --label pre-migration
-    --skip-if-missing
+    --skip-if-missing --only-if-migrations-pending
 - cmd: sqlite3 $DATABASE_PATH "PRAGMA journal_mode = DELETE;"
 - cmd: bunx prisma migrate deploy
 - cmd: bun prisma/run-seed-infrastructure.ts
@@ -157,7 +163,13 @@ order. The steps before `bun run start` run on the primary only
   changes the schema. `auto_rollback` is off in `fly.toml`, so a machine that
   migrated and then refused to start has no automatic way back.
 - **Dump second.** The local pre-migration snapshot is the only way back from a
-  bad migration; some migrations in the history are destructive.
+  bad migration; some migrations in the history are destructive. It runs only
+  when there is a migration to apply, so restarts after a migration (or after
+  one that failed partway, which blocks later ones) don't push it out of the 3
+  the volume keeps. If the check can't read the migration state, it dumps
+  anyway. Before running `prisma migrate resolve --rolled-back` on a failed
+  migration, copy the clean dump off the volume, because each resolve makes the
+  next boot dump the half-migrated database.
 - **Journal dance.** Prisma's schema engine opens SQLite with
   `locking_mode=EXCLUSIVE` (prisma-engines#4675), which LiteFS rejects on a WAL
   database (litefs#425), so any migration would crash-loop the boot. Exclusive

@@ -184,11 +184,11 @@ Consul. Adding or cloning a Machine with the current config would make every
 copy declare itself the primary.
 
 Merging to `master` deploys. At boot, `other/litefs.yml` checks the environment,
-dumps the database to the volume, runs the Prisma migrations, which only go
-forward, and starts the app. There are three kinds of copy: a daily offsite
-snapshot in Tigris, the last three pre-migration dumps on the volume, and Fly's
-volume snapshots. [RESTORE.md](./RESTORE.md) has the restore steps and the
-reasons for the boot order.
+dumps the database to the volume when there is a migration to apply, runs the
+Prisma migrations, which only go forward, and starts the app. There are three
+kinds of copy: a daily offsite snapshot in Tigris, the last three pre-migration
+dumps on the volume, and Fly's volume snapshots. [RESTORE.md](./RESTORE.md) has
+the restore steps and the reasons for the boot order.
 
 Two watchdogs end a stuck process, and Fly's `on-failure` restart policy starts
 it again. `server/memory-watchdog.ts` exits when the machine stays short of

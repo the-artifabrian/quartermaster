@@ -184,6 +184,15 @@ describe('Shopping totals', () => {
 			],
 		}).map(({ quantity, unit }) => ({ quantity, unit }))
 
+	test('a hyphenated mixed number sums with cups', () => {
+		expect(
+			quantityOf(
+				{ amount: '1-1/2', unit: 'cups' },
+				{ amount: '1/2', unit: 'cup' },
+			),
+		).toEqual([{ quantity: '2', unit: 'cups' }])
+	})
+
 	test('a comma decimal sums with grams', () => {
 		expect(
 			quantityOf({ amount: '1,5', unit: 'kg' }, { amount: '500', unit: 'g' }),

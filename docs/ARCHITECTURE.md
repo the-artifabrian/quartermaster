@@ -501,15 +501,17 @@ then three digits: a Romanian scale writes 1.25 kg as “1,250”, and “1.000�
 one thousand in Romanian but one in English. One group after a space that
 doesn't start with 0 is the same: “2 400 g” can be two 400 g tins. Ranges such
 as “1,5–2” scale end by end and never sum; a range with an end like that, or
-with its low end above its high end, stays as written. Yields go through it too,
-so “Makes 1,000 cookies” gives no yield rather than 1, and in “Makes 4 500 ml
-jars”, which it can't read, the first number is the yield. The import, paste,
-voice and Shopping quick-add parsers only find where an amount starts and ends,
-and they never split a number at its comma. The ingredient and quick-add parsers
-keep thousands split by spaces together when a unit follows, or when they read
-as one number. A container after the unit (“2 400 g tins tomatoes”) makes the
-first number a count of tins instead, as it read before. The voice parser never
-groups them, since a spoken count before a size is common.
+with its low end above its high end, stays as written. A whole number, a hyphen
+and a fraction below one (“1-1/2”) is a mixed number as US recipes write it, so
+it scales and sums as one value. Yields go through it too, so “Makes 1,000
+cookies” gives no yield rather than 1, and in “Makes 4 500 ml jars”, which it
+can't read, the first number is the yield. The import, paste, voice and Shopping
+quick-add parsers only find where an amount starts and ends, and they never
+split a number at its comma. The ingredient and quick-add parsers keep thousands
+split by spaces together when a unit follows, or when they read as one number. A
+container after the unit (“2 400 g tins tomatoes”) makes the first number a
+count of tins instead, as it read before. The voice parser never groups them,
+since a spoken count before a size is common.
 
 The paste, JSON-LD and ingredient parsers read text as long as a whole paste or
 a JSON-LD field, so their patterns must stay linear. Ingredient lines are cut at

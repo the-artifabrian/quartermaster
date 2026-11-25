@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import {
+	isRangeAmount,
 	parseAmount,
 	formatAmount,
 	scaleAmount,
@@ -281,6 +282,59 @@ describe('scaleAmount with a range', () => {
 
 	test('a range with an unparseable end passes through unchanged', () => {
 		expect(scaleAmount('1/0-2', 2)).toBe('1/0-2')
+	})
+})
+
+describe('a hyphenated mixed number', () => {
+	test('"1-1/2" is one and a half at every ratio', () => {
+		expect(scaleAmount('1-1/2', 1)).toBe('1 1/2')
+		expect(scaleAmount('1-1/2', 2)).toBe('3')
+		expect(scaleAmount('1-1/2', 0.5)).toBe('3/4')
+	})
+
+	test('"2-3/4" doubled is 5 1/2', () => {
+		expect(scaleAmount('2-3/4', 2)).toBe('5 1/2')
+	})
+
+	test('it scales for the kitchen as one value', () => {
+		expect(scaleAmountKitchen('1-1/2', 1.5, 'tsp')).toEqual({
+			display: '2 1/4',
+			approximate: false,
+			value: 2.25,
+		})
+	})
+
+	test('it is one number, not a range, so Shopping can sum it', () => {
+		expect(parseAmount('1-1/2')).toBe(1.5)
+		expect(isRangeAmount('1-1/2')).toBe(false)
+	})
+
+	test('"1-2", "1/2-1" and "1 1/2-2" still scale as ranges', () => {
+		expect(scaleAmount('1-2', 2)).toBe('2-4')
+		expect(scaleAmount('1/2-1', 2)).toBe('1-2')
+		expect(scaleAmount('1 1/2-2', 2)).toBe('3-4')
+	})
+
+	test('"0-1/2" is a range up to a half', () => {
+		expect(isRangeAmount('0-1/2')).toBe(true)
+		expect(scaleAmount('0-1/2', 2)).toBe('0-1')
+	})
+
+	test('a fraction of one or more after the hyphen keeps it a range', () => {
+		expect(parseAmount('1-3/2')).toBeNull()
+		expect(scaleAmount('1-3/2', 2)).toBe('2-3')
+	})
+
+	test('"to", a tilde or spaces around the hyphen keep it as written', () => {
+		for (const amount of ['1 to 1/2', '1~1/2', '1 - 1/2', '1–1/2']) {
+			expect(parseAmount(amount)).toBeNull()
+			expect(scaleAmount(amount, 2)).toBe(amount)
+		}
+	})
+
+	test('a zero denominator is no number', () => {
+		expect(parseAmount('1-1/0')).toBeNull()
+		expect(scaleAmount('1-1/0', 2)).toBe('1-1/0')
 	})
 })
 

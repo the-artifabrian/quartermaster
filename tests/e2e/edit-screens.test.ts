@@ -376,7 +376,7 @@ test.describe('no tab bar on edit screens', () => {
 		const positions = (target: Page) =>
 			Promise.all(
 				[
-					target.getByRole('button', { name: 'Add Step' }),
+					target.getByRole('button', { name: 'Add step' }),
 					target.getByRole('button', { name: 'Delete Recipe' }),
 				].map((control) =>
 					control.evaluate(

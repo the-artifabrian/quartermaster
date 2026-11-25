@@ -60,7 +60,7 @@ test('recipe form buttons, remove and classification chips are thumb-sized', asy
 	await expectThumbTall(
 		page.getByRole('button', { name: 'Ingredient', exact: true }),
 	)
-	await expectThumbTall(page.getByRole('button', { name: 'Add Step' }))
+	await expectThumbTall(page.getByRole('button', { name: 'Add step' }))
 	await expectThumbSized(
 		page.getByRole('button', { name: 'Remove ingredient' }).first(),
 	)

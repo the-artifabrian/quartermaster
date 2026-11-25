@@ -100,7 +100,7 @@ export function InstructionFields({
 					onClick={addInstruction}
 				>
 					<Icon name="plus" size="sm" />
-					Add Step
+					Add step
 				</Button>
 			</div>
 

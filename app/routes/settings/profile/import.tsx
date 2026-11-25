@@ -606,7 +606,7 @@ function parseImportData(
 		return { type: 'recipe-only', data: result.data }
 	}
 
-	return { error: 'Unrecognized format. Expected a Quartermaster export file.' }
+	return { error: 'This isn’t a Quartermaster export file.' }
 }
 
 // --- Preview types ---

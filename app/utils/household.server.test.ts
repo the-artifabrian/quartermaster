@@ -643,7 +643,7 @@ describe('acceptInvite', () => {
 		).toBe(0)
 	})
 
-	test('sole member: a Menu snapshot Meal moves whole — sections, notes, lines, and source reference survive', async () => {
+	test('sole member: a Menu snapshot Meal moves whole, with its sections, notes, lines and source reference', async () => {
 		const owner = await setupUserWithRecipe('Owner Dinner')
 		const joiner = await setupUserWithRecipe('Joiner Dinner')
 		const weekStart = new Date('2026-02-02T00:00:00.000Z')

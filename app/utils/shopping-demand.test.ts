@@ -414,7 +414,7 @@ describe('buildShoppingDemand — Recipe ingredient batches', () => {
 	})
 })
 
-describe('buildShoppingDemand — ordinary note Shopping lines', () => {
+describe('buildShoppingDemand: ordinary note Shopping lines', () => {
 	test('note lines pass through trimmed with their free-text quantity/unit', () => {
 		const lines = buildShoppingDemand({
 			noteLines: [
@@ -527,7 +527,7 @@ describe('buildShoppingDemand — ordinary note Shopping lines', () => {
 	})
 })
 
-describe('combineRowDisplay — grouped display without rewriting identities', () => {
+describe('combineRowDisplay: grouped display without rewriting identities', () => {
 	test('a compatible manual row and generated contribution display one combined total', () => {
 		expect(
 			combineRowDisplay({

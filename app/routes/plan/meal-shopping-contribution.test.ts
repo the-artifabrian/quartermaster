@@ -263,7 +263,7 @@ describe('Meal addedToShopping', () => {
 	})
 })
 
-describe('refreshMealShopping — one-Meal replacement', () => {
+describe('refreshMealShopping: one-Meal replacement', () => {
 	test('refreshes only the chosen Meal and preserves its display groups, manual row, and checked state', async () => {
 		const session = await setupUser()
 		const recipeA = await setupRecipe(
@@ -733,7 +733,7 @@ describe('Shopping row Edit and Remove generated amount answer a changed row', (
 	})
 })
 
-describe('addMealToShopping — one-Meal demand and provenance', () => {
+describe('addMealToShopping: one-Meal demand and provenance', () => {
 	test('the explicit action puts one Recipe Meal on Shopping with current-state contributions', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
@@ -1225,7 +1225,7 @@ async function runShoppingLoader(session: { id: string }) {
 	})
 }
 
-describe('addMealToShopping — multi-Recipe and note-line aggregation', () => {
+describe('addMealToShopping: multi-Recipe and note-line aggregation', () => {
 	test('note-card Shopping lines contribute on explicit add', async () => {
 		const session = await setupUser()
 		const recipe = await setupRecipe(session.userId, session.householdId)
@@ -1349,7 +1349,7 @@ describe('addMealToShopping — multi-Recipe and note-line aggregation', () => {
 	})
 })
 
-describe('Shopping display grouping — combined totals without rewriting identities', () => {
+describe('Shopping display grouping: combined totals without rewriting identities', () => {
 	async function getDisplayedItems(session: {
 		id: string
 		householdId: string

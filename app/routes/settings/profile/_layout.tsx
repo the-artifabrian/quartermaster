@@ -1,6 +1,7 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { Outlet, useMatches } from 'react-router'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
+import { OfflineErrorBoundary } from '#app/components/offline-error-boundary.tsx'
 import { TabTitle } from '#app/components/ui/title-add-button.tsx'
 import { requireUserId } from '#app/utils/auth.server.ts'
 import { settingsPageNav } from '#app/utils/nav-back.ts'
@@ -14,6 +15,10 @@ export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
 	nav: settingsPageNav,
 }
+
+// A tab's boundary: offline, a page this device has not loaded yet says so
+// inside the app, with the tab bar.
+export const ErrorBoundary = OfflineErrorBoundary
 
 export const meta: Route.MetaFunction = () => {
 	return [{ title: 'Settings | Quartermaster' }]

@@ -75,7 +75,10 @@ function bottomNav(page: Page) {
 		.filter({ has: page.getByRole('link', { name: 'Shopping', exact: true }) })
 }
 
-function tab(page: Page, label: 'Recipes' | 'Staples' | 'Plan' | 'Shopping') {
+function tab(
+	page: Page,
+	label: 'Recipes' | 'Staples' | 'Plan' | 'Shopping' | 'Settings',
+) {
 	return bottomNav(page).getByRole('link', { name: label, exact: true })
 }
 
@@ -142,6 +145,14 @@ test('offline, a tab keeps the app and its tab bar, and retries by itself once b
 	await tab(page, 'Shopping').click()
 	await expect(page).toHaveURL('/shopping')
 	await expect(page.getByText(NOT_LOADED_YET)).toBeVisible()
+	await expect(bottomNav(page)).toBeVisible()
+	// Settings is a tab too.
+	await tab(page, 'Settings').click()
+	await expect(page).toHaveURL('/settings/profile')
+	await expect(page.getByText(NOT_LOADED_YET)).toBeVisible()
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Settings' }),
+	).toBeVisible()
 	await expect(bottomNav(page)).toBeVisible()
 	expect(navigations).toEqual([])
 	expect(failedAssets).toEqual([])

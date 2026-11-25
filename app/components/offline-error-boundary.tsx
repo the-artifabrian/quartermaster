@@ -45,6 +45,7 @@ const TAB_NAMES: Array<[prefix: string, name: string]> = [
 	['/staples', 'Staples'],
 	['/plan', 'Plan'],
 	['/shopping', 'Shopping'],
+	['/settings', 'Settings'],
 ]
 
 function tabName(pathname: string) {

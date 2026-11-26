@@ -580,14 +580,23 @@ html {
 }
 
 /* A phone's Recipes list pins its search row under the status bar, with the
-   filter chips when they are open, so a focused control or a row a link
-   scrolls to lands below it. */
+   filter chips when they are open, so a focused control or a row scrolled to
+   lands below it. A margin on what can take focus, rather than padding on
+   the page, so focusing the pinned row's own controls scrolls nothing. */
 @media (width < 48rem) {
-	:root:has([data-recipes-tools]) {
-		scroll-padding-top: calc(var(--safe-top) + 5.25rem);
+	:root:has([data-recipes-tools])
+		#main-content
+		:is(a[href], button, input, select, textarea, [tabindex]):not(
+			[data-recipes-tools] *
+		) {
+		scroll-margin-top: calc(var(--safe-top) + 5.25rem);
 	}
-	:root:has([data-recipes-tools][data-filters-open]) {
-		scroll-padding-top: calc(var(--safe-top) + 8.5rem);
+	:root:has([data-recipes-tools][data-filters-open])
+		#main-content
+		:is(a[href], button, input, select, textarea, [tabindex]):not(
+			[data-recipes-tools] *
+		) {
+		scroll-margin-top: calc(var(--safe-top) + 8.5rem);
 	}
 }
 

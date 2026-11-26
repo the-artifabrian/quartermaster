@@ -253,6 +253,40 @@ test.describe('the search row', () => {
 		}
 	})
 
+	test('focusing its field or a chip from the keyboard scrolls nothing', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seedRecipes(user, many(30))
+		await page.goto('/recipes')
+		const toggle = page.getByRole('button', { name: 'Toggle filters' })
+		await hydrated(toggle)
+		const scrollY = () => page.evaluate(() => window.scrollY)
+		await page.evaluate(() => window.scrollTo(0, 1500))
+		await expect.poll(scrollY).toBe(1500)
+		await toggle.focus()
+		await page.keyboard.press('Shift+Tab')
+		await expect(searchField(page)).toBeFocused()
+		expect(await scrollY()).toBe(1500)
+
+		await toggle.tap()
+		const sort = page.getByRole('combobox', { name: 'Sort Recipes' })
+		await expect(sort).toBeVisible()
+		await page.evaluate(() => window.scrollTo(0, 1500))
+		await expect.poll(scrollY).toBe(1500)
+		await toggle.focus()
+		for (const control of [
+			sort,
+			page.getByRole('combobox', { name: 'Filter by cook time' }),
+			page.getByRole('button', { name: 'Show favorites only' }),
+		]) {
+			await page.keyboard.press('Tab')
+			await expect(control).toBeFocused()
+			expect(await scrollY()).toBe(1500)
+		}
+	})
+
 	test.describe('in the iOS app', () => {
 		test.use({ userAgent: SHELL_UA })
 

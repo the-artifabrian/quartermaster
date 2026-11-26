@@ -617,30 +617,44 @@ test.describe('a row', () => {
 		).toHaveText('Time unknown')
 	})
 
-	test('at 320px a name wraps to three lines beside its photo without clipping', async ({
+	test('at 320px a name wraps to three lines beside its photo without clipping, and a longer one stops at three', async ({
 		page,
 		login,
 	}) => {
-		await page.setViewportSize({ width: 320, height: 640 })
+		// The test browser keeps a 15px scrollbar gutter a phone doesn't have,
+		// so a 320px phone's layout needs a 335px window here.
+		await page.setViewportSize({ width: 335, height: 640 })
 		const user = await login()
-		const title =
-			'Slow-roasted shoulder of lamb with anchovy, rosemary and white beans'
-		await seedRecipes(user, [{ title, totalTime: 300, photo: true }])
+		const fits = 'Slow-roasted lamb shoulder with anchovy and white beans'
+		const tooLong =
+			'Slow-roasted shoulder of lamb with anchovy, rosemary, garlic, lemon and white beans'
+		await seedRecipes(user, [
+			{ title: fits, totalTime: 300, photo: true },
+			{ title: tooLong, photo: true },
+		])
 		await page.goto('/recipes')
-		const link = recipeLink(page, title)
-		const name = link.getByRole('heading')
-		const look = await name.evaluate((element) => ({
-			lines: Math.round(
-				element.getBoundingClientRect().height /
-					parseFloat(getComputedStyle(element).lineHeight),
-			),
-			clipped: element.scrollHeight > element.clientHeight + 1,
-		}))
-		expect(look).toEqual({ lines: 3, clipped: false })
-		const nameBox = await box(name)
+		const look = (title: string) =>
+			recipeLink(page, title)
+				.getByRole('heading')
+				.evaluate((heading) => {
+					// The clamp is on the name inside the heading.
+					const name = heading.firstElementChild as HTMLElement
+					return {
+						lines: Math.round(
+							name.getBoundingClientRect().height /
+								parseFloat(getComputedStyle(name).lineHeight),
+						),
+						clipped: name.scrollHeight > name.clientHeight + 1,
+					}
+				})
+		expect(await look(fits)).toEqual({ lines: 3, clipped: false })
+		expect(await look(tooLong)).toEqual({ lines: 3, clipped: true })
+		const link = recipeLink(page, fits)
+		const nameBox = await box(link.getByRole('heading'))
 		const photo = await box(link.locator('img'))
+		const row = await box(link)
 		expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(photo.x)
-		expect(photo.x + photo.width).toBeLessThanOrEqual(320 - 16 + 0.5)
+		expect(photo.x + photo.width).toBeCloseTo(row.x + row.width - 16, 0)
 	})
 
 	test('keeps its letter tile on a desktop card only', async ({

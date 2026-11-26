@@ -112,7 +112,9 @@ export function RecipeCard({
 						)}
 					>
 						<span ref={nameRef} className="line-clamp-3 md:line-clamp-2">
-							{title}
+							{/* Its own element, so the name reads as itself apart from the
+							    heart's words. */}
+							<span>{title}</span>
 							{isFavorite && (
 								// On a phone the heart follows the name, and says so to a
 								// screen reader. A name cut at three lines cuts it off

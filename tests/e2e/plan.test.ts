@@ -1980,6 +1980,7 @@ test.describe('on a phone', () => {
 		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
 		const header = page.locator('[data-plan-header]')
 		const strip = page.locator('[data-slot="mobile-week-days"]')
+		await hydrated(header)
 		const before = await box(header)
 		expect(before.top).toBe(0)
 

@@ -579,3 +579,52 @@ describe('Clear checked', () => {
 		).toEqual(['apples'])
 	})
 })
+
+describe('the order rows arrived in', () => {
+	test('a row cleared from the list drops out of it, and comes back by Undo in its place by name', () => {
+		const start = list(['apples'], ['bread', true], ['rice'])
+		const moved = checkAndMove(NO_MOVES, start, 'rice')
+		expect(moved.state.arrived).toEqual(['rice'])
+		// Cleared: gone from the list.
+		const cleared = list(['apples'])
+		let state = settleMoves(moved.state, savedState(cleared), {
+			reducedMotion: false,
+		})
+		expect(state.arrived).toEqual([])
+		// Undo brings rice back, checked.
+		const restored = list(['apples'], ['bread', true], ['rice', true])
+		state = settleMoves(state, savedState(restored), { reducedMotion: false })
+		expect(place(restored, state).done).toEqual(['bread', 'rice'])
+	})
+
+	test('a row unchecked elsewhere drops out of it', () => {
+		const start = list(['apples'], ['bread', true], ['rice'])
+		const moved = checkAndMove(NO_MOVES, start, 'rice')
+		const unchecked = list(['apples'], ['bread', true], ['rice'])
+		let state = settleMoves(moved.state, savedState(unchecked), {
+			reducedMotion: false,
+		})
+		expect(state.arrived).toEqual([])
+		// Checked again on the other phone, it goes by name.
+		const again = list(['apples'], ['bread', true], ['rice', true])
+		state = settleMoves(state, savedState(again), { reducedMotion: false })
+		expect(place(again, state).done).toEqual(['bread', 'rice'])
+	})
+
+	test('a row on its way back from Checked keeps its place in it until it has moved', () => {
+		const start = list(['apples'], ['bread', true], ['rice'])
+		const moved = checkAndMove(NO_MOVES, start, 'rice')
+		const state = tapRow(moved.state, {
+			id: 'rice',
+			shownChecked: true,
+			checkedAfterTap: false,
+		})
+		const rows = list(['apples'], ['bread', true], ['rice'])
+		const settled = settleMoves(
+			state,
+			savedState(rows, { rice: { resting: true, pending: true } }),
+			{ reducedMotion: false },
+		)
+		expect(settled.arrived).toEqual(['rice'])
+	})
+})

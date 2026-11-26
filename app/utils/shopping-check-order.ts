@@ -143,10 +143,17 @@ export function settleMoves(
 	rows: readonly SettleRow[],
 	{ reducedMotion }: { reducedMotion: boolean },
 ): CheckMoves {
-	if (state.moves.size === 0) return state
 	const byId = new Map(rows.map((row) => [row.id, row]))
-	let next = state
-	for (const [id, move] of state.moves) {
+	// The arrival order keeps only rows still checked on the list; one that
+	// left (cleared, unchecked elsewhere) goes by name if it comes back.
+	const arrived = state.arrived.filter((id) => {
+		const row = byId.get(id)
+		return row !== undefined && (row.resting || state.moves.has(id))
+	})
+	let next =
+		arrived.length === state.arrived.length ? state : { ...state, arrived }
+	if (next.moves.size === 0) return next
+	for (const [id, move] of next.moves) {
 		const row = byId.get(id)
 		if (!row) {
 			next = withMove(next, id, null)

@@ -1980,6 +1980,8 @@ test.describe('on a phone', () => {
 		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
 		const header = page.locator('[data-plan-header]')
 		const strip = page.locator('[data-slot="mobile-week-days"]')
+		// Before hydration the day is barely taller than the window, so a
+		// scroll then stops short.
 		await hydrated(header)
 		const before = await box(header)
 		expect(before.top).toBe(0)

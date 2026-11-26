@@ -543,97 +543,91 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 						data-shopping-horizon={NEXT_SHOP}
 						data-testid="next-shopping-items"
 					>
-						{openNextShowing ? (
-							<ShoppingItems
-								checks={rowChecks}
-								rows={next.open}
-								voiceAddedNames={voiceAddedNames}
-								moving={isMoving}
-								group="to-buy"
-							/>
-						) : doneNextShowing ? (
-							!search && (
-								<div className="py-8 text-center md:hidden">
-									<h2 className="font-serif text-[1.375rem]">
-										Everything is checked
-									</h2>
-									<p className="text-muted-foreground mx-auto mt-1 max-w-sm text-base">
-										Clear the checked rows when you are home, or add what you
-										forgot.
+						{!openNextShowing &&
+							(doneNextShowing ? (
+								!search && (
+									<div className="py-8 text-center md:hidden">
+										<h2 className="font-serif text-[1.375rem]">
+											Everything is checked
+										</h2>
+										<p className="text-muted-foreground mx-auto mt-1 max-w-sm text-base">
+											Clear the checked rows when you are home, or add what you
+											forgot.
+										</p>
+									</div>
+								)
+							) : !search ? (
+								<div className="py-10 text-center">
+									<div className="border-border mx-auto flex size-14 items-center justify-center rounded-full border-2 border-dashed">
+										<Icon
+											name="cart"
+											className="text-muted-foreground/40 size-6"
+										/>
+									</div>
+									<h3 className="mt-3 font-serif text-lg">
+										Nothing in Next shop
+									</h3>
+									<p className="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
+										{hasMealPlan ? (
+											<>
+												Open <strong>From Plan</strong> to pick Meals, or add an
+												item by hand.
+											</>
+										) : (
+											<>
+												<Link
+													to="/plan"
+													className="text-primary font-medium underline underline-offset-2"
+												>
+													Plan a Meal
+												</Link>{' '}
+												or add an item by hand.
+											</>
+										)}
 									</p>
 								</div>
-							)
-						) : !search ? (
-							<div className="py-10 text-center">
-								<div className="border-border mx-auto flex size-14 items-center justify-center rounded-full border-2 border-dashed">
-									<Icon
-										name="cart"
-										className="text-muted-foreground/40 size-6"
-									/>
-								</div>
-								<h3 className="mt-3 font-serif text-lg">
-									Nothing in Next shop
-								</h3>
-								<p className="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
-									{hasMealPlan ? (
-										<>
-											Open <strong>From Plan</strong> to pick Meals, or add an
-											item by hand.
-										</>
-									) : (
-										<>
-											<Link
-												to="/plan"
-												className="text-primary font-medium underline underline-offset-2"
-											>
-												Plan a Meal
-											</Link>{' '}
-											or add an item by hand.
-										</>
-									)}
-								</p>
-							</div>
-						) : null}
-						{next.done.length > 0 && (
-							// On a phone the checked rows are their own group under a
-							// heading; wider they carry on the list, as one.
-							<section
-								aria-labelledby={
-									doneNextShowing ? 'shopping-checked-heading' : undefined
-								}
-								className="max-md:mt-6"
-							>
-								{doneNextShowing && (
-									<div className="border-border flex min-h-11 items-center gap-2 border-b md:hidden">
-										<h2
-											id="shopping-checked-heading"
-											className="text-[0.84375rem] font-semibold"
+							) : null)}
+						{next.open.length + next.done.length > 0 && (
+							// One keyed list, so a row its check moves stays the same
+							// element. On a phone the checked rows sit under their own
+							// heading; wider they carry on the list.
+							<ShoppingItems
+								checks={rowChecks}
+								rows={[
+									...next.open.map((row) => ({
+										...row,
+										group: 'to-buy' as const,
+									})),
+									...next.done.map((row) => ({
+										...row,
+										group: 'checked' as const,
+									})),
+								]}
+								voiceAddedNames={voiceAddedNames}
+								moving={isMoving}
+								checkedHeading={
+									doneNextShowing && (
+										<div
+											data-shopping-checked-heading=""
+											className="border-border flex min-h-11 items-center gap-2 border-b max-md:mt-6 md:hidden"
 										>
-											Checked
-										</h2>
-										<span className="text-muted-foreground text-[0.84375rem] tabular-nums">
-											{nextItems.length - toBuy} of {nextItems.length}
-										</span>
-										{!search && (
-											<ClearCheckedControl
-												checked={clearableNext}
-												horizon={NEXT_SHOP}
-												inHeading
-											/>
-										)}
-									</div>
-								)}
-								<ShoppingItems
-									checks={rowChecks}
-									rows={next.done}
-									voiceAddedNames={voiceAddedNames}
-									moving={isMoving}
-									group="checked"
-									className={cn(
-										openNextShowing && 'md:border-border/40 md:border-t',
-									)}
-								/>
-							</section>
+											<h2 className="text-[0.84375rem] font-semibold">
+												Checked
+											</h2>
+											<span className="text-muted-foreground text-[0.84375rem] tabular-nums">
+												{nextItems.length - toBuy} of {nextItems.length}
+											</span>
+											{!search && (
+												<ClearCheckedControl
+													checked={clearableNext}
+													horizon={NEXT_SHOP}
+													inHeading
+												/>
+											)}
+										</div>
+									)
+								}
+							/>
 						)}
 						{!search && (
 							<div className="hidden md:block">

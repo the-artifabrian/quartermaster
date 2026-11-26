@@ -1,5 +1,5 @@
 // The rows and controls inside each Shopping horizon.
-import { useRef, useState } from 'react'
+import { Fragment, type ReactNode, useRef, useState } from 'react'
 import { useFetcher } from 'react-router'
 import { ShoppingListItemCard } from '#app/components/shopping-list-item.tsx'
 import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
@@ -89,31 +89,41 @@ export function LaterQuickAdd() {
 	)
 }
 
+/** A row placed by its check, and the part of Next shop it shows in. */
+export type ListedRow = PlacedRow<DisplayShoppingItem> & {
+	group?: 'to-buy' | 'checked'
+}
+
+/**
+ * One keyed list, so a row whose check moves it stays the same element (an
+ * open editor, menu or swipe stays with it). `checkedHeading` goes before the
+ * first checked row.
+ */
 export function ShoppingItems({
 	checks,
 	rows,
 	voiceAddedNames,
 	moving,
-	group,
+	checkedHeading,
 	className,
 }: {
-	rows: Array<PlacedRow<DisplayShoppingItem>>
+	rows: ListedRow[]
 	checks: ReturnType<typeof useShoppingChecks>
 	voiceAddedNames: Set<string>
 	/** Whether a row's check is moving it (useCheckMoves). */
 	moving: (id: string) => boolean
-	/** Next shop's rows to buy, or its checked rows under them. */
-	group?: 'to-buy' | 'checked'
+	checkedHeading?: ReactNode
 	className?: string
 }) {
 	const hidden = useHiddenRows()
 	const entering = useEnteringRows()
+	const firstChecked = rows.findIndex((row) => row.group === 'checked')
 	return (
-		<div
-			data-shopping-group={group}
-			className={cn('divide-border/40 divide-y', className)}
-		>
-			{rows.map(({ item, folding, arriving }) => (
+		<div className={cn('divide-border/40 divide-y', className)}>
+			{rows.flatMap(({ item, folding, arriving, group }, index) => [
+				...(index === firstChecked && checkedHeading
+					? [<Fragment key="checked-heading">{checkedHeading}</Fragment>]
+					: []),
 				// A deleted row closes its gap, and Undo opens it again. A row
 				// its check moves folds the same way, and opens in its new place.
 				<RowCollapse
@@ -129,8 +139,8 @@ export function ShoppingItems({
 						isVoiceAdded={voiceAddedNames.has(item.name.toLowerCase().trim())}
 						moving={moving(item.id)}
 					/>
-				</RowCollapse>
-			))}
+				</RowCollapse>,
+			])}
 		</div>
 	)
 }

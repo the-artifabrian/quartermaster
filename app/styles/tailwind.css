@@ -867,6 +867,15 @@ html {
 	border-top-color: transparent;
 }
 
+/* On a phone Shopping's Checked heading starts a group of its own: the row
+   above it ends the rows to buy with no line under it. Wider, the heading is
+   hidden and the list reads as one. */
+@media (width < 48rem) {
+	[data-row-collapse]:has(+ [data-shopping-checked-heading]) {
+		border-bottom-color: transparent;
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	*,
 	::before,

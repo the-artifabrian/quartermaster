@@ -427,7 +427,7 @@ test.describe('a row checked off on a phone', () => {
 		expect(await namesIn(page, 'checked')).toEqual(['Rice'])
 	})
 
-	test('in a list of 200 rows, moving three leaves every other row element in place', async ({
+	test('in a list of 200 rows, moving three re-creates no row element, moved or not', async ({
 		page,
 		login,
 	}) => {
@@ -462,19 +462,14 @@ test.describe('a row checked off on a phone', () => {
 		await page.clock.runFor(510)
 		await advanceUntil(page, 'checked', [...moved].reverse())
 
-		const remounted = await page.evaluate((movedNames) => {
+		const remounted = await page.evaluate(() => {
 			const seen = (window as unknown as { __seenRows: WeakSet<Element> })
 				.__seenRows
 			return [...document.querySelectorAll('[aria-label$=" shopping item"]')]
-				.map((element) => ({
-					name: element
-						.getAttribute('aria-label')!
-						.replace(/ shopping item$/, ''),
-					same: seen.has(element),
-				}))
-				.filter((entry) => !movedNames.includes(entry.name) && !entry.same)
-				.map((entry) => entry.name)
-		}, moved)
+				.filter((element) => !seen.has(element))
+				.map((element) => element.getAttribute('aria-label'))
+		})
+		// The moved rows too: each row stays one element through its move.
 		expect(remounted).toEqual([])
 		expect(await namesIn(page, 'to-buy')).toHaveLength(197)
 	})
@@ -786,3 +781,45 @@ test('the add sheet’s Undo leaves a row that changed since it was added, and o
 		.poll(() => savedChecks(user.householdId))
 		.toEqual({ Bread: false, milk: false })
 })
+
+for (const width of [1280, 390]) {
+	test(`an open editor stays open with what was typed when the other phone checks its row (${width}px)`, async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seed(user, [{ name: 'Apples' }, { name: 'Rice' }])
+		await page.setViewportSize({ width, height: width < 768 ? 844 : 800 })
+		await openShopping(page)
+		await row(page, 'Rice')
+			.getByRole('button', { name: 'Item actions' })
+			.click()
+		await page.getByRole('menuitem', { name: 'Edit', exact: true }).click()
+		// On a phone the editor is a sheet; wider, it takes the row's place.
+		const editor =
+			width < 768
+				? page.getByRole('dialog', { name: 'Edit item' })
+				: page.getByRole('group', { name: 'Rice shopping item' })
+		const quantity = editor.getByPlaceholder('Qty')
+		await quantity.fill('750')
+
+		// The other phone checks Rice off, and adds something, which this page
+		// hears of and reloads for.
+		await prisma.shoppingListItem.updateMany({
+			where: { name: 'Rice', list: { householdId: user.householdId } },
+			data: { checked: true },
+		})
+		const reloaded = page.waitForResponse(
+			(response) =>
+				response.request().method() === 'GET' &&
+				response.url().includes('/shopping.data'),
+		)
+		await page.request.post('/shopping', {
+			form: { intent: 'add', name: 'Cheese', originClientId: 'other-phone' },
+		})
+		await reloaded
+		await expect(row(page, 'Cheese')).toBeVisible()
+		await expect(quantity).toBeVisible()
+		await expect(quantity).toHaveValue('750')
+	})
+}

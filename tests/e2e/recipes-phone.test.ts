@@ -93,6 +93,16 @@ const pinnedRow = (page: Page) => page.locator('[data-recipes-tools]')
 const recipeLink = (page: Page, title: string) =>
 	page.getByRole('link', { name: title })
 
+/** Waits for the offline notice to settle, and returns its box. */
+async function offlineNotice(page: Page) {
+	const notice = page
+		.locator('[data-sonner-toast]')
+		.filter({ hasText: "You're offline" })
+	await expect(notice).toBeVisible()
+	await animationsFinished(page)
+	return box(notice)
+}
+
 /** The contrast of an element's text on the page behind it. */
 function contrastOnPage(locator: Locator) {
 	return locator.evaluate((element) => {
@@ -288,6 +298,71 @@ test.describe('the search row', () => {
 		}
 	})
 
+	test('the offline notice opens below it, at the top of the list and scrolled, filters open or not', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seedRecipes(user, many(30))
+		await page.goto('/recipes')
+		const toggle = page.getByRole('button', { name: 'Toggle filters' })
+		await hydrated(toggle)
+		await page.context().setOffline(true)
+		await offlineNotice(page)
+		const scrollY = () => page.evaluate(() => window.scrollY)
+
+		for (const open of [false, true]) {
+			if (open) {
+				await toggle.tap()
+				await expect(
+					page.getByRole('combobox', { name: 'Sort Recipes' }),
+				).toBeVisible()
+			}
+			// At the top the row sits under the title; scrolled, it is pinned.
+			for (const y of [0, 1500]) {
+				await page.evaluate((y) => window.scrollTo(0, y), y)
+				await expect.poll(scrollY).toBe(y)
+				const row = await box(pinnedRow(page))
+				expect(row.y).toBe(y === 0 ? 56 : 0)
+				expect((await offlineNotice(page)).y).toBeGreaterThanOrEqual(
+					row.y + row.height,
+				)
+			}
+		}
+	})
+
+	test('with the demo banner, the offline notice opens below it at the top of the list, filters open or not', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await prisma.user.update({
+			where: { id: user.id },
+			data: { demoExpiresAt: new Date(Date.now() + 60 * 60 * 1000) },
+		})
+		await seedRecipes(user, many(30))
+		await page.goto('/recipes')
+		const toggle = page.getByRole('button', { name: 'Toggle filters' })
+		await hydrated(toggle)
+		await expect(page.getByRole('region', { name: 'Demo' })).toBeVisible()
+		await page.context().setOffline(true)
+		await offlineNotice(page)
+
+		for (const open of [false, true]) {
+			if (open) {
+				await toggle.tap()
+				await expect(
+					page.getByRole('combobox', { name: 'Sort Recipes' }),
+				).toBeVisible()
+			}
+			const row = await box(pinnedRow(page))
+			expect(row.y).toBeGreaterThan(56 + 40)
+			expect((await offlineNotice(page)).y).toBeGreaterThanOrEqual(
+				row.y + row.height,
+			)
+		}
+	})
+
 	test.describe('in the iOS app', () => {
 		test.use({ userAgent: SHELL_UA })
 
@@ -301,6 +376,24 @@ test.describe('the search row', () => {
 			await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(1500)
 			expect((await box(pinnedRow(page))).y).toBe(47)
 			expect((await box(searchField(page))).y).toBe(47 + 14)
+		})
+
+		test('the offline notice opens below it under the status bar inset', async ({
+			page,
+			login,
+		}) => {
+			const user = await login()
+			await seedRecipes(user, many(30))
+			await setShellSafeArea(page, { top: 47, bottom: 34 })
+			await page.goto('/recipes')
+			await hydrated(searchField(page))
+			await page.evaluate(() => window.scrollTo(0, 1500))
+			await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(1500)
+			await page.context().setOffline(true)
+			const notice = await offlineNotice(page)
+			const row = await box(pinnedRow(page))
+			expect(row.y).toBe(47)
+			expect(notice.y).toBeGreaterThanOrEqual(row.y + row.height)
 		})
 	})
 

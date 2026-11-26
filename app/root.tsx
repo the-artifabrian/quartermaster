@@ -464,7 +464,7 @@ function App() {
 	const editScreen = useEditFormOnScreen(navBar?.form, navBar?.loaded ?? false)
 	const toastTop = navBar
 		? 'var(--nav-bar-bottom, calc(var(--safe-top) + 44px))'
-		: 'var(--safe-top)'
+		: 'var(--pinned-header-bottom, var(--safe-top))'
 
 	return (
 		<NavTiming>
@@ -577,7 +577,8 @@ function App() {
 					theme={theme}
 					// Sonner's default offsets, pushed below the status bar in the iOS
 					// app (the inset is 0 everywhere else), and below a pushed page's
-					// pinned header (its nav bar on phones and on desktop edit screens).
+					// pinned header (its nav bar on phones and on desktop edit screens)
+					// or the rows a phone's Plan and Recipes pin (tailwind.css).
 					offset={{ top: `calc(24px + ${toastTop})` }}
 					mobileOffset={{ top: `calc(16px + ${toastTop})` }}
 				/>

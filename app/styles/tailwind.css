@@ -571,19 +571,25 @@ html {
 	padding-top: var(--safe-top);
 }
 
-/* A phone's Plan pins its title row and date strip (MealPlanCalendar), so a
-   focused control or a Meal a link scrolls to lands below them. */
+/* On a phone, Plan pins its title row and date strip under the status bar
+   (MealPlanCalendar), and the Recipes list its search row, with the filter
+   chips while they are open. A focused control, a Meal a link opens or a row
+   scrolled to lands below the pinned block. A margin on what can take focus,
+   rather than padding on the page, so focusing the block's own controls
+   scrolls nothing.
+   --pinned-header-bottom is the lowest the block's bottom edge sits: where it
+   rests at the top of the page, under the demo banner when there is one.
+   Recipes' row rests under the title and pins higher up. Top toasts open
+   below it (root.tsx), so they clear the block at rest and scrolled. It is
+   set on the toaster alone, so opening the filters restyles only that. */
 @media (width < 48rem) {
-	:root:has([data-plan-header]) {
-		scroll-padding-top: calc(var(--safe-top) + 10.5rem);
+	:root:has([data-plan-header])
+		#main-content
+		:is(a[href], button, input, select, textarea, [tabindex]):not(
+			[data-plan-header] *
+		) {
+		scroll-margin-top: calc(var(--safe-top) + 10.5rem);
 	}
-}
-
-/* A phone's Recipes list pins its search row under the status bar, with the
-   filter chips when they are open, so a focused control or a row scrolled to
-   lands below it. A margin on what can take focus, rather than padding on
-   the page, so focusing the pinned row's own controls scrolls nothing. */
-@media (width < 48rem) {
 	:root:has([data-recipes-tools])
 		#main-content
 		:is(a[href], button, input, select, textarea, [tabindex]):not(
@@ -597,6 +603,21 @@ html {
 			[data-recipes-tools] *
 		) {
 		scroll-margin-top: calc(var(--safe-top) + 8.5rem);
+	}
+	:root:has([data-plan-header]) [data-sonner-toaster] {
+		--pinned-header-bottom: calc(
+			var(--safe-top) + var(--demo-banner-h, 0px) + 9.875rem
+		);
+	}
+	:root:has([data-recipes-tools]) [data-sonner-toaster] {
+		--pinned-header-bottom: calc(
+			var(--safe-top) + var(--demo-banner-h, 0px) + 8.0625rem
+		);
+	}
+	:root:has([data-recipes-tools][data-filters-open]) [data-sonner-toaster] {
+		--pinned-header-bottom: calc(
+			var(--safe-top) + var(--demo-banner-h, 0px) + 11.1875rem
+		);
 	}
 }
 

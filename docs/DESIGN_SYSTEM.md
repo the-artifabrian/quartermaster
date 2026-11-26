@@ -224,10 +224,12 @@ each screen:
   and the row slides open while it has focus.
 - A delete that can be undone (a Meal, a Recipe in a Meal, a Shopping item,
   Clear checked, deleting a Staple) happens at once with an Undo toast at the
-  bottom, above the tab bar; every other toast stays at the top. A deleted row,
-  Staple or Meal closes its gap and Undo opens it again; Clear checked goes at
-  once. The delete is saved at once and Undo puts back what it removed. Opening
-  a sheet closes the Undo toast, so it never sits over a sheet.
+  bottom, above the tab bar; every other toast stays at the top, below whatever
+  is pinned there (a pushed page's nav bar, the pinned rows of a phone's Plan
+  and Recipes). A deleted row, Staple or Meal closes its gap and Undo opens it
+  again; Clear checked goes at once. The delete is saved at once and Undo puts
+  back what it removed. Opening a sheet closes the Undo toast, so it never sits
+  over a sheet.
 - A delete that cannot be undone (Recipe, Menu, account, passkey, removing a
   member, leaving the Household, disabling 2FA) opens a confirm sheet
   (`ConfirmSheet`): the question as the title, one line on what is lost, a
@@ -355,10 +357,12 @@ On a phone the Recipes and Menus lists share a title and a row shape:
   and below, and stay pinned under the status bar while the list scrolls,
   opaque, with a hairline under them. A focused row or control lands below them
   (a scroll margin on what can take focus outside the pinned row), and focusing
-  the pinned field or a chip scrolls nothing. The field has a clear button,
-  named "Clear the search field", once it has text, and the browser's own is
-  hidden. A search or a filter takes the page back to the top, so the new list
-  starts under the search row.
+  the pinned field or a chip scrolls nothing. Toasts open below the row where it
+  rests under the title (and under the demo banner in a demo), chips included,
+  so they never cover it, at the top of the list or scrolled. The field has a
+  clear button, named "Clear the search field", once it has text, and the
+  browser's own is hidden. A search or a filter takes the page back to the top,
+  so the new list starts under the search row.
 - The filter button opens the chips as one row that scrolls sideways, edge to
   edge, inside the pinned row: sort, cook time, Favorites, then Cuisine, Season
   and Course. Sort and cook time are the phone's own pickers. A chosen chip is
@@ -421,8 +425,12 @@ On a phone Plan shows one day at a time:
 
 - The title, the week's chevrons around its range, and the round + share one
   row, with the date strip under it. Both stay pinned under the status bar,
-  opaque, with a hairline under the strip. A range too long for the row breaks
-  after its dash. On another week, "This week" heads the day under the strip.
+  opaque, with a hairline under the strip. A focused control or a Meal a link
+  opens lands below them (a scroll margin on what can take focus outside the
+  pinned rows, as on Recipes), and focusing a chevron or a day scrolls nothing.
+  Toasts open below the strip where it rests, under the demo banner in a demo
+  too. A range too long for the row breaks after its dash. On another week,
+  "This week" heads the day under the strip.
 - The strip shows each date as a 38px circle under its weekday. The day showing
   is a green fill with white text; today, when another day shows, is green text
   with a green weekday; past days are in faint text, which turns muted on a

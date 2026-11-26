@@ -12,8 +12,9 @@ import {
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
-import { SHELL_UA } from '#tests/native-shell.ts'
+import { SHELL_UA, setShellSafeArea } from '#tests/native-shell.ts'
 import {
+	animationsFinished,
 	browserToday,
 	expect,
 	expectThumbSized,
@@ -1125,6 +1126,56 @@ async function box(locator: Locator) {
 	}
 }
 
+/**
+ * Fourteen one-dish Dinners, "Dish 1" to "Dish 14", on the Monday of last
+ * week, a day far taller than the screen. Returns that week's start.
+ */
+async function seedLongDay(user: { id: string; householdId: string }) {
+	const weekStart = addDaysUTC(getWeekStart(browserToday()), -7)
+	const recipes = await Promise.all(
+		Array.from({ length: 14 }, (_, index) =>
+			prisma.recipe.create({
+				data: {
+					title: `Dish ${index + 1}`,
+					userId: user.id,
+					householdId: user.householdId,
+				},
+			}),
+		),
+	)
+	await prisma.mealPlan.create({
+		data: {
+			householdId: user.householdId,
+			weekStart,
+			meals: {
+				create: recipes.map((recipe, order) => ({
+					date: weekStart,
+					order,
+					label: 'dinner',
+					recipeItems: {
+						create: {
+							recipeId: recipe.id,
+							recipeTitle: recipe.title,
+							order: 0,
+						},
+					},
+				})),
+			},
+		},
+	})
+	return weekStart
+}
+
+/** Waits for the offline notice to settle, and returns its box. */
+async function offlineNotice(page: Page) {
+	const notice = page
+		.locator('[data-sonner-toast]')
+		.filter({ hasText: "You're offline" })
+	await expect(notice).toBeVisible()
+	await animationsFinished(page)
+	return box(notice)
+}
+
 /** Within a pixel: glyph boxes land on half pixels. */
 function expectNear(actual: number, expected: number) {
 	expect(Math.abs(actual - expected)).toBeLessThanOrEqual(1)
@@ -1522,6 +1573,27 @@ test.describe('in the iOS app on a phone', () => {
 			47,
 		)
 	})
+
+	test('the offline notice opens below the pinned title row and strip, under the status bar inset', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const weekStart = await seedLongDay(user)
+		await setShellSafeArea(page, { top: 47, bottom: 34 })
+		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+		const header = page.locator('[data-plan-header]')
+		await hydrated(header)
+		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+		await expect
+			.poll(() => page.evaluate(() => window.scrollY))
+			.toBeGreaterThan(500)
+		await page.context().setOffline(true)
+		const notice = await offlineNotice(page)
+		const pinned = await box(header)
+		expect(pinned.top).toBe(47)
+		expect(notice.top).toBeGreaterThanOrEqual(pinned.bottom)
+	})
 })
 
 test.describe('with a keyboard', () => {
@@ -1908,6 +1980,9 @@ test.describe('on a phone', () => {
 		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
 		const header = page.locator('[data-plan-header]')
 		const strip = page.locator('[data-slot="mobile-week-days"]')
+		// Before hydration the day is barely taller than the window, so a
+		// scroll then stops short.
+		await hydrated(header)
 		const before = await box(header)
 		expect(before.top).toBe(0)
 
@@ -1980,6 +2055,98 @@ test.describe('on a phone', () => {
 		await expect(
 			page.getByText(formatWeekRange(weekStart, serializeDate(browserToday()))),
 		).toBeVisible()
+	})
+
+	test('focusing Next week or a strip day from the keyboard while a long day scrolls moves nothing', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const weekStart = await seedLongDay(user)
+		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+		const next = page.getByRole('link', { name: 'Next week' })
+		await hydrated(next)
+		const scrollY = () => page.evaluate(() => window.scrollY)
+		await page.evaluate(() => window.scrollTo(0, 933))
+		await expect.poll(scrollY).toBe(933)
+
+		await next.focus()
+		expect(await scrollY()).toBe(933)
+		// The round + comes before the strip.
+		await page.keyboard.press('Tab')
+		const days = page
+			.locator('[data-slot="mobile-week-days"]')
+			.getByRole('button')
+		for (const index of [0, 1, 2]) {
+			await page.keyboard.press('Tab')
+			await expect(days.nth(index)).toBeFocused()
+			expect(await scrollY()).toBe(933)
+		}
+	})
+
+	test('a control in the day that takes focus under the pinned rows comes out below them', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const weekStart = await seedLongDay(user)
+		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+		const header = page.locator('[data-plan-header]')
+		await hydrated(header)
+		const dish = page
+			.getByTestId('mobile-plan')
+			.getByRole('link', { name: 'Dish 6', exact: true })
+		// Scroll the dish under the strip, still inside the viewport.
+		await dish.evaluate((element) =>
+			window.scrollBy(0, element.getBoundingClientRect().top - 60),
+		)
+		await expect.poll(async () => (await box(dish)).top).toBe(60)
+		const pinned = await box(header)
+		expect(pinned.top).toBe(0)
+
+		await dish.focus()
+		await expect(dish).toBeFocused()
+		expect((await box(dish)).top).toBeGreaterThanOrEqual(pinned.bottom)
+	})
+
+	test('the offline notice opens below the title row and the strip while a long day scrolls', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const weekStart = await seedLongDay(user)
+		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+		const header = page.locator('[data-plan-header]')
+		await hydrated(header)
+		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+		await expect
+			.poll(() => page.evaluate(() => window.scrollY))
+			.toBeGreaterThan(500)
+		await page.context().setOffline(true)
+		const notice = await offlineNotice(page)
+		const pinned = await box(header)
+		expect(pinned.top).toBe(0)
+		expect(notice.top).toBeGreaterThanOrEqual(pinned.bottom)
+	})
+
+	test('with the demo banner, the offline notice opens below the title row and the strip at the top of the page', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await prisma.user.update({
+			where: { id: user.id },
+			data: { demoExpiresAt: new Date(Date.now() + 60 * 60 * 1000) },
+		})
+		await page.goto('/plan')
+		const header = page.locator('[data-plan-header]')
+		await hydrated(header)
+		await expect(page.getByRole('region', { name: 'Demo' })).toBeVisible()
+		await page.context().setOffline(true)
+		const notice = await offlineNotice(page)
+		const block = await box(header)
+		expect(block.top).toBeGreaterThan(40)
+		expect(notice.top).toBeGreaterThanOrEqual(block.bottom)
 	})
 
 	test('in the picker a Recipe’s photo ends its row, and a Recipe without one shows none', async ({

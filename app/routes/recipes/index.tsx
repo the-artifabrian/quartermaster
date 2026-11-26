@@ -679,7 +679,11 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					)}
 				</div>
 
-				<GettingStartedChecklist onboarding={onboarding} />
+				<GettingStartedChecklist
+					onboarding={onboarding}
+					// On a phone the wrapper above steps aside, so its margin goes too.
+					className="max-md:mt-3"
+				/>
 
 				{displayRecipes.length > 0 ? (
 					<RecipeCardGrid>

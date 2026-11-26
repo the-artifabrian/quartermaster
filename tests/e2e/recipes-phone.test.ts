@@ -613,6 +613,44 @@ test.describe('the filters', () => {
 	})
 })
 
+test.describe('the Getting started checklist', () => {
+	test('keeps its space under the search row and the count line, and the list follows it', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seedRecipes(user, [
+			{ title: 'Lemon rice', totalTime: 25 },
+			{ title: 'Toast' },
+		])
+		const checklist = page.locator('[data-getting-started]')
+		const first = recipeLink(page, 'Lemon rice')
+		const gap = async (above: Locator, below: Locator) => {
+			const a = await box(above)
+			return Math.round((await box(below)).y - (a.y + a.height))
+		}
+		await page.goto('/recipes')
+		await expect(checklist).toBeVisible()
+		expect(await gap(pinnedRow(page), checklist)).toBe(12)
+		expect(await gap(checklist, first)).toBeGreaterThan(0)
+
+		await page.goto('/recipes?maxTime=30')
+		await expect(checklist).toBeVisible()
+		const line = page.locator('[data-recipes-filtered]')
+		expect(await gap(pinnedRow(page), line)).toBe(0)
+		expect(await gap(line, checklist)).toBe(12)
+
+		// Without it the list starts right under the search row.
+		await page
+			.getByRole('button', { name: 'Dismiss getting started checklist' })
+			.click()
+		await expect(checklist).toHaveCount(0)
+		await page.goto('/recipes')
+		await expect(first).toBeVisible()
+		expect(await gap(pinnedRow(page), first)).toBe(0)
+	})
+})
+
 test.describe('a row', () => {
 	test('is the name, a heart for a favourite, the time and description on one line, and the photo at the right', async ({
 		page,

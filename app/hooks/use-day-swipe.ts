@@ -4,6 +4,12 @@ import { lockAxis } from '#app/utils/swipe.ts'
 
 /** A click this soon after a sideways drag ends is the drag's, not a tap. */
 const SWALLOW_CLICK_MS = 400
+/**
+ * Sideways travel (px) past which a gesture is a drag and its click is
+ * swallowed. Below it a tap that drifted a little, under the browser's own
+ * tap slop, still taps what it landed on.
+ */
+const DRAG_DISTANCE = 20
 
 /**
  * A sideways swipe on a phone's Plan day that steps to the next day or the
@@ -11,8 +17,10 @@ const SWALLOW_CLICK_MS = 400
  * changes at once. The surface needs `touch-action: pan-y`, so a vertical
  * drag stays a scroll (the browser cancels the pointer) and only a sideways
  * one reaches here. Mouse pointers are ignored: the strip is a click away.
- * The click that ends a sideways drag is swallowed, so a swipe that starts on
- * a dish name never opens the Recipe.
+ * The click that ends a sideways drag of 20px or more is swallowed, so a
+ * swipe that starts on a dish name never opens the Recipe. Before the day
+ * steps, a field being edited inside it loses focus, so it saves what was
+ * typed before the old day goes.
  */
 export function useDaySwipe<T extends HTMLElement>({
 	enabled,
@@ -35,6 +43,7 @@ export function useDaySwipe<T extends HTMLElement>({
 		if (!canStartDaySwipe(event.currentTarget, event.target)) return
 		cleanup.current?.()
 
+		const surface = event.currentTarget
 		const pointerId = event.pointerId
 		const startX = event.clientX
 		const startY = event.clientY
@@ -50,11 +59,19 @@ export function useDaySwipe<T extends HTMLElement>({
 			if (up.pointerId !== pointerId) return
 			stop()
 			if (axis !== 'x') return
-			swallowClickUntil.current = up.timeStamp + SWALLOW_CLICK_MS
-			const step = daySwipeStep(up.clientX - startX, up.clientY - startY)
-			if (step !== 0 && optionsRef.current.enabled) {
-				optionsRef.current.onStep(step)
+			const dx = up.clientX - startX
+			if (Math.abs(dx) >= DRAG_DISTANCE) {
+				swallowClickUntil.current = up.timeStamp + SWALLOW_CLICK_MS
 			}
+			const step = daySwipeStep(dx, up.clientY - startY)
+			if (step === 0 || !optionsRef.current.enabled) return
+			// A field unmounted while focused never blurs, and the scale field
+			// saves on blur.
+			const active = document.activeElement
+			if (active instanceof HTMLElement && surface.contains(active)) {
+				active.blur()
+			}
+			optionsRef.current.onStep(step)
 		}
 
 		const onCancel = (cancel: PointerEvent) => {

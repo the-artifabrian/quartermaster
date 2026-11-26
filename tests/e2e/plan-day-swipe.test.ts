@@ -121,21 +121,123 @@ test('a sideways swipe on the bare foot of a short day steps the day, and past S
 	await expectDay(page, 'Sunday', 'Nov 22')
 })
 
-test('a swipe that starts on a dish name steps the day and leaves the Recipe shut', async ({
+/** A tap whose finger drifts `dx` px sideways before it lifts. */
+async function wobbleTap(page: Page, target: Locator, dx: number) {
+	const box = (await target.boundingBox())!
+	await touchDrag(page, box.x + box.width / 2, box.y + box.height / 2, [
+		[dx / 2, 1],
+		[dx, 2],
+	])
+}
+
+test('a tap that drifts a little sideways on a dish name still opens the Recipe', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await seedRecipeMeal(user, '2026-11-18')
+	await page.goto('/plan?weekStart=2026-11-16&day=2026-11-18')
+	const dish = page.getByTestId('mobile-plan').getByRole('link', {
+		name: 'Miso Soup',
+	})
+	await hydrated(dish)
+	await wobbleTap(page, dish, 10)
+	await expect(page).toHaveURL(new RegExp(`/recipes/${recipe.id}$`))
+})
+
+test('a tap that drifts a little sideways on the cooked circle still marks the dish cooked', async ({
 	page,
 	login,
 }) => {
 	const user = await login()
 	await seedRecipeMeal(user, '2026-11-18')
 	await page.goto('/plan?weekStart=2026-11-16&day=2026-11-18')
+	const circle = page
+		.getByTestId('mobile-plan')
+		.getByRole('button', { name: 'Mark Miso Soup cooked' })
+	await hydrated(circle)
+	await wobbleTap(page, circle, 10)
+	await expect(
+		page
+			.getByTestId('mobile-plan')
+			.getByRole('button', { name: 'Mark Miso Soup not cooked' }),
+	).toBeVisible()
+	await expect
+		.poll(
+			async () =>
+				(
+					await prisma.mealRecipeItem.findFirstOrThrow({
+						where: {
+							recipeTitle: 'Miso Soup',
+							meal: { mealPlan: { householdId: user.householdId } },
+						},
+					})
+				).cooked,
+		)
+		.toBe(true)
+})
+
+test('a short sideways drag that ends on a dish name opens nothing and stays on the day', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await seedRecipeMeal(user, '2026-11-18', 'Miso Soup with Tofu')
+	await page.goto('/plan?weekStart=2026-11-16&day=2026-11-18')
 	const dish = page.getByTestId('mobile-plan').getByRole('link', {
-		name: 'Miso Soup',
+		name: 'Miso Soup with Tofu',
 	})
 	await hydrated(dish)
-	await swipeOn(page, dish, -150)
-	await expectDay(page, 'Thursday', 'Nov 19')
+	// From near the name's right end, 40px left, still over the name.
+	const box = (await dish.boundingBox())!
+	await touchDrag(page, box.x + box.width - 8, box.y + box.height / 2, [
+		[-12, 0],
+		[-26, 0],
+		[-40, 0],
+	])
 	await page.waitForTimeout(400)
-	await expect(page).toHaveURL(/\/plan\?weekStart=2026-11-16&day=2026-11-19$/)
+	await expect(page).toHaveURL(/\/plan\?weekStart=2026-11-16&day=2026-11-18$/)
+	await expectDay(page, 'Wednesday', 'Nov 18')
+})
+
+test('a multiplier typed but not yet saved is saved when a swipe changes the day', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await seedRecipeMeal(user, '2026-11-18')
+	// A phone, and the width where the day's pickers open in place.
+	for (const [width, value] of [
+		[390, '3'],
+		[700, '2.5'],
+	] as const) {
+		await page.setViewportSize({ width, height: 844 })
+		await page.goto('/plan?weekStart=2026-11-16&day=2026-11-18')
+		const field = page
+			.getByTestId('mobile-plan')
+			.getByRole('textbox', { name: 'Scale multiplier' })
+		await hydrated(field)
+		await field.tap()
+		await expect(field).toBeFocused()
+		await field.fill(value)
+		// No Done: the swipe on the bare day under its Add Meal is next.
+		const foot = (await page
+			.getByTestId('mobile-plan')
+			.getByRole('button', { name: 'Add Meal', exact: true })
+			.boundingBox())!
+		await swipeAt(page, width - 90, foot.y + foot.height + 40, -150)
+		await expectDay(page, 'Thursday', 'Nov 19')
+		await expect
+			.poll(
+				async () =>
+					(
+						await prisma.mealRecipeItem.findFirstOrThrow({
+							where: { meal: { mealPlan: { householdId: user.householdId } } },
+						})
+					).scaleMultiplier,
+			)
+			.toBe(Number(value))
+	}
 })
 
 test('a scroll that drifts sideways leaves the day alone', async ({

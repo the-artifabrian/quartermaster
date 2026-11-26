@@ -31,23 +31,32 @@ export function RecipeCard({
 	// True while this card's Recipe page slides in or out; the image moves
 	// between the card and the page.
 	const isTransitioning = useViewTransitionState(to)
+	const phoneTime =
+		totalTime != null
+			? formatDuration(totalTime)
+			: showUnknownTime
+				? 'Time unknown'
+				: null
 
 	return (
 		<PushLink
 			to={to}
 			// Outside the iOS app too: a cross-fade.
 			viewTransition
-			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-primary/30 md:active:bg-card flex flex-row items-center gap-3.5 px-4 py-3 transition-colors sm:px-8 md:flex-col md:items-stretch md:gap-0 md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-colors md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
+			// On a phone a row: the name, the time and description under it, the
+			// photo at the right. Wider, a card with the image on top.
+			className="group active:bg-muted/40 md:border-border/60 md:bg-card md:text-card-foreground md:hover:border-primary/30 md:active:bg-card flex flex-row items-center gap-3.5 px-4 py-2.5 transition-colors max-md:min-h-[73px] sm:px-8 md:flex-col md:items-stretch md:gap-0 md:overflow-hidden md:rounded-md md:border md:p-0 md:transition-colors md:duration-[180ms] md:ease-[var(--ease-hover-lift)]"
 		>
 			<div
 				data-recipe-image-transition={
 					isTransitioning && imageObjectKey ? '' : undefined
 				}
 				className={cn(
-					'relative shrink-0 overflow-hidden rounded-lg md:rounded-none',
+					'relative shrink-0 overflow-hidden rounded-md max-md:order-last md:rounded-none',
 					imageObjectKey
-						? 'size-16 md:aspect-[4/3] md:h-auto md:w-full'
-						: 'flex size-16 md:h-28 md:w-full',
+						? 'size-[52px] md:aspect-[4/3] md:h-auto md:w-full'
+						: // No letter tile on a phone: the row ends with its text.
+							'flex size-[52px] max-md:hidden md:h-28 md:w-full',
 				)}
 			>
 				<div className="absolute top-2 right-2 z-10 hidden items-center gap-1 md:flex">
@@ -93,24 +102,33 @@ export function RecipeCard({
 				)}
 			>
 				<div className="flex items-center gap-1.5">
-					<h3 className="min-w-0 font-serif text-[17px] leading-[1.4] md:text-base md:leading-[1.3] md:tracking-[-0.005em]">
-						<span className="line-clamp-2">{title}</span>
-					</h3>
-					{isFavorite && (
-						<span className="shrink-0 md:hidden">
-							<Icon name="heart-filled" className="text-primary size-3.5" />
+					<h3 className="text-list-name min-w-0 font-serif md:text-base md:leading-[1.3] md:tracking-[-0.005em]">
+						<span className="line-clamp-3 md:line-clamp-2">
+							{title}
+							{isFavorite && (
+								<Icon
+									name="heart-filled"
+									data-favorite=""
+									className="text-primary ml-2 inline-block size-3.5 align-baseline md:hidden"
+								/>
+							)}
 						</span>
-					)}
+					</h3>
 				</div>
 
-				{(totalTime != null || showUnknownTime) && (
-					<div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-[13px] md:hidden">
-						<span className="flex items-center gap-1">
-							<Icon name="clock" size="xs" />
-							{totalTime != null ? formatDuration(totalTime) : 'Time unknown'}
-						</span>
-					</div>
-				)}
+				{phoneTime || description ? (
+					<p
+						data-recipe-meta=""
+						className="text-muted-foreground mt-[3px] flex min-w-0 gap-2.5 text-[0.90625rem] leading-snug md:hidden"
+					>
+						{phoneTime ? (
+							<span className="shrink-0 font-semibold">{phoneTime}</span>
+						) : null}
+						{description ? (
+							<span className="min-w-0 truncate">{description}</span>
+						) : null}
+					</p>
+				) : null}
 
 				{description && (
 					<p

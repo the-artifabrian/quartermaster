@@ -413,8 +413,10 @@ async function pillUnder(pill: Locator, tab: Locator) {
 	return center > t!.x && center < t!.x + t!.width
 }
 
-test.describe('on a phone', () => {
-	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+// A phone's title is the two libraries; a tablet's touch screen keeps the
+// segmented switch under the title.
+test.describe('on a tablet', () => {
+	test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true })
 
 	test('Recipes and Menus switch with a thumb-sized segmented control', async ({
 		page,

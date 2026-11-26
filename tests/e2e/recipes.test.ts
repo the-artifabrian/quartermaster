@@ -91,7 +91,9 @@ test('Recipe CRUD flow: create → list → detail → edit → delete', async (
 
 	// Lands on the Recipes list, not back on /recipes/:id or its edit form
 	await expect(page).toHaveURL('/recipes')
-	await expect(page.getByRole('heading', { name: /^Recipes \(/ })).toBeVisible()
+	await expect(
+		page.getByRole('heading', { name: /^Recipes( \(|$)/ }),
+	).toBeVisible()
 	await expect(page.getByText('E2E Updated Pasta')).toHaveCount(0)
 	expect(await prisma.recipe.findUnique({ where: { id: recipeId } })).toBeNull()
 })
@@ -756,17 +758,21 @@ test('going back to phone Recipes lands on the old position without scrolling th
 			)
 			.toBe('1200')
 	}).toPass()
-	// The first Recipe card fully on screen and not under a bar, so clicking
-	// it scrolls nothing.
+	// The first Recipe card fully on screen and not under a bar (the pinned
+	// search row), so clicking it scrolls nothing.
 	const href = await page.evaluate(
 		() =>
 			[...document.querySelectorAll<HTMLAnchorElement>('a[href^="/recipes/"]')]
 				.find((link) => {
 					const box = link.getBoundingClientRect()
+					const bar =
+						document
+							.querySelector('[data-recipes-tools]')
+							?.getBoundingClientRect().bottom ?? 0
 					return (
 						link.textContent?.includes('Weeknight Recipe') &&
 						box.height > 0 &&
-						box.top >= 0 &&
+						box.top >= bar &&
 						box.left >= 0 &&
 						box.bottom <= window.innerHeight &&
 						box.right <= window.innerWidth &&

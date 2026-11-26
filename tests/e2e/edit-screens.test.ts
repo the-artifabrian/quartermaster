@@ -65,7 +65,7 @@ const recipeTitle = (id: string) =>
 /** Opens the list, then the Recipe from it, and returns both entries. */
 async function openRecipeFromList(page: Page, title: string) {
 	await page.goto('/recipes')
-	const card = page.getByRole('link', { name: `${title} recipe` })
+	const card = page.getByRole('link', { name: new RegExp(`^${title}`) })
 	await hydrated(card)
 	const listIdx = await historyIdx(page)
 	await card.tap()
@@ -754,7 +754,9 @@ test.describe('history after Save and Delete', () => {
 		await hydrated(recipesTab)
 		await recipesTab.tap()
 		await expect(page).toHaveURL('/recipes')
-		const card = page.getByRole('link', { name: `${recipe.title} recipe` })
+		const card = page.getByRole('link', {
+			name: new RegExp(`^${recipe.title}`),
+		})
 		await hydrated(card)
 		const listIdx = await historyIdx(page)
 		await card.tap()
@@ -796,7 +798,7 @@ test.describe('history after Save and Delete', () => {
 			.tap()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^Recipes \(/ }),
+			page.getByRole('heading', { name: /^Recipes( \(|$)/ }),
 		).toBeVisible()
 		expect(await historyIdx(page)).toBe(0)
 
@@ -896,7 +898,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await page.goBack()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^Recipes \(/ }),
+			page.getByRole('heading', { name: /^Recipes( \(|$)/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 	})
@@ -921,7 +923,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await page.goBack()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^Recipes \(/ }),
+			page.getByRole('heading', { name: /^Recipes( \(|$)/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 	})
@@ -945,7 +947,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await page.goBack()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^Recipes \(/ }),
+			page.getByRole('heading', { name: /^Recipes( \(|$)/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 	})
@@ -993,7 +995,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await page.goBack()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^Recipes \(/ }),
+			page.getByRole('heading', { name: /^Recipes( \(|$)/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 		await prisma.household.delete({ where: { id: elsewhere.id } })
@@ -1014,7 +1016,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await page.goBack()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^Recipes \(/ }),
+			page.getByRole('heading', { name: /^Recipes( \(|$)/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 	})
@@ -1041,7 +1043,7 @@ test.describe('a deleted Recipe left in the history', () => {
 		await context.setOffline(false)
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^Recipes \(/ }),
+			page.getByRole('heading', { name: /^Recipes( \(|$)/ }),
 		).toBeVisible()
 		expect(await sawNotFound(page)).toBe(false)
 	})
@@ -1058,7 +1060,9 @@ test.describe('a deleted Recipe left in the history', () => {
 
 		// Deleted by another member after the list loaded.
 		await page.goto('/recipes')
-		const card = page.getByRole('link', { name: `${recipe.title} recipe` })
+		const card = page.getByRole('link', {
+			name: new RegExp(`^${recipe.title}`),
+		})
 		await hydrated(card)
 		await prisma.recipe.delete({ where: { id: recipe.id } })
 		await card.tap()

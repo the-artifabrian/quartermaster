@@ -60,7 +60,7 @@ export function IngredientList({
 								key={ingredient.id}
 								className="phone:col-span-full phone:mt-3.5 phone:first:mt-0"
 							>
-								<p className="text-muted-foreground border-border/50 text-label phone:mb-0.5 phone:border-b-0 phone:pb-0 mt-4 mb-1.5 border-b pb-1 font-sans font-semibold first:mt-0 print:mt-2 print:mb-0.5 print:break-inside-avoid-column print:px-0 print:text-[10px] print:font-medium print:tracking-widest print:uppercase">
+								<p className="text-muted-foreground border-border/50 text-label phone:mb-0.5 phone:border-b-0 phone:pb-0 mt-4 mb-1.5 border-b pb-1 font-sans font-semibold first:mt-0 print:mt-2 print:mb-0.5 print:break-inside-avoid-column print:px-0 print:text-[10px] print:leading-(--text-xs--line-height) print:font-medium print:tracking-widest print:uppercase">
 									{ingredient.name}
 								</p>
 							</li>

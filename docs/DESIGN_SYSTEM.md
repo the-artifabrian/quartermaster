@@ -354,8 +354,8 @@ On a phone the Recipes and Menus lists share a title and a row shape:
 - Recipes' search field and the filter button sit under the title, 14px above
   and below, and stay pinned under the status bar while the list scrolls,
   opaque, with a hairline under them. The field has a clear button once it has
-  text, and the browser's own is hidden. A search or filter started far down the
-  list starts the new list under the pinned row.
+  text, and the browser's own is hidden. A search or a filter takes the page
+  back to the top, so the new list starts under the search row.
 - The filter button opens the chips as one row that scrolls sideways, edge to
   edge, inside the pinned row: sort, cook time, Favorites, then Cuisine, Season
   and Course. Sort and cook time are the phone's own pickers. A chosen chip is

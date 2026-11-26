@@ -284,8 +284,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	}, [])
 
 	const [filtersOpen, setFiltersOpen] = useState(false)
-	const toolsRef = useRef<HTMLDivElement>(null)
-	const toolsAnchorRef = useRef<HTMLDivElement>(null)
 	const searchRef = useRef<HTMLInputElement>(null)
 	// Controlled so "Clear search" in the no-results state empties the box too
 	const [searchInput, setSearchInput] = useState(search)
@@ -332,17 +330,6 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	const navigateParams = (params: URLSearchParams) => {
 		intendedParams.current = params
 		setSearchParams(params, { replace: true })
-		// On a phone the search row stays pinned, so a search or a filter can
-		// start far down the list. The new list starts under the pinned row.
-		const tools = toolsRef.current
-		const anchor = toolsAnchorRef.current
-		if (tools && anchor && getComputedStyle(tools).position === 'sticky') {
-			const stuckAt =
-				anchor.getBoundingClientRect().top +
-				window.scrollY -
-				parseFloat(getComputedStyle(tools).top)
-			if (window.scrollY > stuckAt) window.scrollTo(0, stuckAt)
-		}
 	}
 
 	const paramsWithSearch = (value: string) => {
@@ -491,15 +478,12 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 			<div className="container-grid md:py-4">
 				<LibrarySwitch active="recipes" className="max-md:hidden" />
 
-				{/* Where the search row sits when it isn't pinned. */}
-				<div ref={toolsAnchorRef} aria-hidden="true" />
 				{/* On a phone this wrapper steps aside, so the search row pins for
 				    the whole list rather than only inside it. */}
 				<div className="max-md:contents md:mb-3 md:space-y-1.5">
 					{/* On a phone the search row, and the chips while open, stay
 					    pinned under the status bar, opaque, edge to edge. */}
 					<div
-						ref={toolsRef}
 						data-recipes-tools=""
 						data-filters-open={filtersOpen ? '' : undefined}
 						className="max-md:bg-background max-md:border-border max-md:sticky max-md:top-(--safe-top) max-md:z-30 max-md:-mx-4 max-md:border-b max-md:px-4 max-md:py-3.5 sm:max-md:-mx-8 sm:max-md:px-8 md:space-y-1.5"

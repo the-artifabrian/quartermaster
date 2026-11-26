@@ -390,7 +390,7 @@ function Document({
 				) : null}
 				<Links />
 			</head>
-			<body className="bg-background text-foreground paper-grain">
+			<body className="bg-background text-foreground relative">
 				<a
 					href="#main-content"
 					className="focus:bg-card focus:shadow-warm-lg sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:rounded-md focus:px-4 focus:py-2 focus:text-sm focus:font-medium"

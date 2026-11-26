@@ -443,6 +443,121 @@ test('a step field partly under the bar on the edit screen comes out below it wh
 		.toBeGreaterThanOrEqual(barBottom)
 })
 
+/** Recipe A (the soup) and its sub-Recipe, tall enough at the top that its
+ * Ingredients heading starts below the fold. */
+async function createTallSubRecipe(user: Owner) {
+	const recipe = await createSoup(user, { photo: true })
+	const dough = await prisma.recipe.findFirstOrThrow({
+		where: { householdId: user.householdId, title: 'Pizza dough' },
+		select: { id: true },
+	})
+	const objectKey = `users/${user.id}/recipes/dough/images/photo.png`
+	const file = path.join('tests/fixtures/uploaded', objectKey)
+	await fs.mkdir(path.dirname(file), { recursive: true })
+	await fs.writeFile(file, TINY_PNG)
+	await prisma.recipe.update({
+		where: { id: dough.id },
+		data: {
+			title: 'Overnight pizza dough for a crisp base',
+			description:
+				'A soft dough that rests overnight in the fridge, then bakes into a crisp, chewy base with a few big bubbles.',
+			activeTime: 15,
+			totalTime: 720,
+			sourceUrl: 'https://www.example.com/pizza-dough',
+			notes:
+				'Use the strong flour. Leave it out for an hour before stretching, or it springs back.',
+			image: { create: { objectKey, altText: 'Dough in a bowl' } },
+			ingredients: {
+				create: [{ name: 'flour', amount: '500', unit: 'g', order: 0 }],
+			},
+			instructions: { create: [{ content: 'Mix and rest.', order: 0 }] },
+		},
+	})
+	return { recipe, dough }
+}
+
+const ingredientsPill = (page: Page) =>
+	page.getByRole('button', { name: /^Ingredients ·/ })
+
+/** On the sub-Recipe: its heading is below the fold, so nothing has passed. */
+async function expectNoPillOnTallSubRecipe(page: Page, doughId: string) {
+	await expect(page).toHaveURL(new RegExp(`/recipes/${doughId}$`))
+	await expect(
+		page.getByRole('heading', {
+			level: 1,
+			name: 'Overnight pizza dough for a crisp base',
+		}),
+	).toBeVisible()
+	const heading = await box(
+		page.getByRole('heading', { name: 'Ingredients' }).first(),
+	)
+	expect(heading.y).toBeGreaterThan(844)
+	await expect(ingredientsPill(page)).toHaveCount(0)
+	await page.getByRole('button', { name: 'Add to Plan' }).click({ trial: true })
+	// Its own heading passing above the screen still brings the button.
+	await page
+		.getByRole('heading', { name: 'Ingredients' })
+		.first()
+		.evaluate((heading) =>
+			window.scrollBy(0, heading.getBoundingClientRect().bottom + 20),
+		)
+	await expect(ingredientsPill(page)).toBeVisible()
+	await page.evaluate(() => window.scrollTo(0, 0))
+	await expect(ingredientsPill(page)).toHaveCount(0)
+}
+
+test('a sub-Recipe opened from a Recipe scrolled past its Ingredients starts without the floating Ingredients button', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const { recipe, dough } = await createTallSubRecipe(user)
+	await page.goto(`/recipes/${recipe.id}`)
+	const link = page.getByRole('link', { name: 'pizza dough' })
+	await hydrated(link)
+	// The heading just above the screen, the sub-Recipe's row still on it.
+	await page
+		.getByRole('heading', { name: 'Ingredients' })
+		.first()
+		.evaluate((heading) =>
+			window.scrollBy(0, heading.getBoundingClientRect().bottom + 20),
+		)
+	await expect(ingredientsPill(page)).toBeVisible()
+	await expect(link).toBeInViewport()
+	await link.tap()
+	await expectNoPillOnTallSubRecipe(page, dough.id)
+
+	// Back to the first Recipe, where it was: the button is back.
+	await page.goBack()
+	await expect(page).toHaveURL(new RegExp(`/recipes/${recipe.id}$`))
+	await expect(ingredientsPill(page)).toBeVisible()
+})
+
+test.describe('in the iOS app, from the Ingredients sheet', () => {
+	// The app's push closes the sheet it starts from.
+	test.use({ userAgent: SHELL_UA })
+
+	test('a sub-Recipe opened from the Ingredients sheet starts without the floating Ingredients button', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const { recipe, dough } = await createTallSubRecipe(user)
+		await page.goto(`/recipes/${recipe.id}`)
+		await hydrated(page.getByRole('heading', { name: 'Instructions' }))
+		await page
+			.locator('[data-step-id]')
+			.nth(6)
+			.evaluate((step) => step.scrollIntoView({ block: 'center' }))
+		await ingredientsPill(page).tap()
+		const sheet = page.getByRole('dialog', { name: 'Ingredients' })
+		await expect(sheet).toBeVisible()
+		await sheet.getByRole('link', { name: 'pizza dough' }).tap()
+		await expect(sheet).toBeHidden()
+		await expectNoPillOnTallSubRecipe(page, dough.id)
+	})
+})
+
 test.describe('at 320px', () => {
 	test.use({ viewport: { width: 335, height: 700 } })
 

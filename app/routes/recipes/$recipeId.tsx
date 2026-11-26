@@ -583,7 +583,16 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	// after the heading has passed above the viewport. Observing the whole tall
 	// column kept it intersecting until the end of long Recipes.
 	const ingredientsHeaderRef = useRef<HTMLDivElement>(null)
-	const [ingredientsPassed, setIngredientsPassed] = useState(false)
+	// Per Recipe: a sub-Recipe link keeps this page and shows another Recipe,
+	// whose heading can start below the fold. An observer only reports a
+	// change, and above the screen to below it is none, so each Recipe gets
+	// its own observer, and a reading from the one before never shows.
+	const [ingredientsPassedFor, setIngredientsPassedFor] = useState<{
+		recipeId: string
+		passed: boolean
+	} | null>(null)
+	const ingredientsPassed =
+		ingredientsPassedFor?.recipeId === recipe.id && ingredientsPassedFor.passed
 	useEffect(() => {
 		const el = ingredientsHeaderRef.current
 		if (!el || typeof IntersectionObserver === 'undefined') return
@@ -601,16 +610,18 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			([entry]) => {
 				if (!entry) return
 				const viewportTop = entry.rootBounds?.top ?? 0
-				setIngredientsPassed(
-					!entry.isIntersecting &&
+				setIngredientsPassedFor({
+					recipeId: recipe.id,
+					passed:
+						!entry.isIntersecting &&
 						entry.boundingClientRect.bottom < viewportTop,
-				)
+				})
 			},
 			{ rootMargin: `-${barBottom}px 0px 0px 0px` },
 		)
 		observer.observe(el)
 		return () => observer.disconnect()
-	}, [])
+	}, [recipe.id])
 	const nonHeadingIngredients = recipe.ingredients.filter((i) => !i.isHeading)
 	const checkedIngredientCount = nonHeadingIngredients.filter((i) =>
 		checkedIngredients.has(i.id),

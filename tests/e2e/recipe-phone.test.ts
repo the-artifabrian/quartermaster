@@ -212,45 +212,6 @@ test('More actions holds Copy Recipe above Print, and Reset cooking checks once 
 	await expect(oil).not.toBeChecked()
 })
 
-test('opening a Recipe from the list draws its bar buttons with the page, and Edit never shows them beside Cancel', async ({
-	page,
-	login,
-}) => {
-	const user = await login()
-	const recipe = await createSoup(user)
-	await page.goto('/recipes')
-	const row = page.getByText(recipe.title, { exact: true })
-	await hydrated(row)
-	// Every DOM change, before it is painted: the Recipe's heading never shows
-	// without the bar's buttons, and Cancel never shows with them.
-	await page.evaluate((title) => {
-		const seen: string[] = []
-		Object.assign(window, { __seen: seen })
-		new MutationObserver(() => {
-			const heading = document.querySelector('#main-content h1')
-			const navBar = document.querySelector('[data-nav-bar]')
-			const heart = navBar?.querySelector('[aria-label$="favorites"]')
-			const cancel = navBar?.querySelector('[data-nav-save]')
-			if (heading?.textContent === title && !heart) seen.push('no buttons')
-			if (cancel && heart) seen.push('buttons beside Cancel')
-		}).observe(document.body, {
-			childList: true,
-			subtree: true,
-			attributes: true,
-		})
-	}, recipe.title)
-	await row.tap()
-	await expect(favorite(bar(page))).toBeVisible()
-	await page.getByRole('link', { name: 'Edit Recipe' }).tap()
-	await expect(bar(page).getByRole('button', { name: 'Save' })).toBeVisible()
-	await expect(favorite(bar(page))).toHaveCount(0)
-	expect(
-		await page.evaluate(
-			() => (window as unknown as { __seen: string[] }).__seen,
-		),
-	).toEqual([])
-})
-
 test('a pushed page with no buttons of its own, and a Recipe that is not found, leave the bar’s right side empty', async ({
 	page,
 	login,

@@ -18,11 +18,7 @@ function face(locator: Locator) {
 	})
 }
 
-test('row names read in the sans and titles stay in the serif on Shopping, Recipes, Menus and Plan', async ({
-	page,
-	login,
-}) => {
-	const user = await login()
+async function seed(user: { id: string; householdId: string }) {
 	const recipe = await prisma.recipe.create({
 		data: {
 			title: 'Lemon pasta',
@@ -71,11 +67,23 @@ test('row names read in the sans and titles stay in the serif on Shopping, Recip
 			},
 		},
 	})
+}
 
+test('Shopping keeps its title in the serif and its items in the sans', async ({
+	page,
+	login,
+}) => {
+	await seed(await login())
 	await page.goto('/shopping')
 	expect(await face(page.getByRole('heading', { level: 1 }))).toBe(SERIF)
 	expect(await face(page.getByText('lemons', { exact: true }))).toBe(SANS)
+})
 
+test('the Recipes list keeps its title in the serif and its rows in the sans', async ({
+	page,
+	login,
+}) => {
+	await seed(await login())
 	await page.goto('/recipes')
 	expect(
 		await face(page.getByRole('heading', { level: 1, name: 'Recipes' })),
@@ -83,19 +91,28 @@ test('row names read in the sans and titles stay in the serif on Shopping, Recip
 	expect(await face(page.getByRole('heading', { name: 'Lemon pasta' }))).toBe(
 		SANS,
 	)
+})
 
+test('the Menus list sets its rows in the sans', async ({ page, login }) => {
+	await seed(await login())
 	await page.goto('/recipes/menus')
 	expect(await face(page.getByRole('heading', { name: 'Mezze night' }))).toBe(
 		SANS,
 	)
+})
 
+test('Plan keeps its title and day heading in the serif, its dishes in the sans, and a typed Meal upright and muted', async ({
+	page,
+	login,
+}) => {
+	await seed(await login())
 	await page.goto('/plan?weekStart=2026-10-19&day=2026-10-21')
 	const day = page.getByTestId('mobile-plan')
 	expect(await face(page.getByRole('heading', { level: 1 }))).toBe(SERIF)
 	expect(await face(day.getByRole('heading', { level: 2 }).first())).toBe(SERIF)
 	expect(await face(day.getByText('Lemon pasta', { exact: true }))).toBe(SANS)
-	// A typed Meal is upright too, muted at the running weight, so it stays
-	// apart from a Recipe's name.
+	// A typed Meal is muted at the running weight, so it stays apart from a
+	// Recipe's name.
 	const typed = day.getByText('Leftovers', { exact: true })
 	expect(await face(typed)).toBe('Schibsted Grotesk normal 400')
 	await expect(typed).toHaveCSS('color', 'rgb(105, 102, 94)')

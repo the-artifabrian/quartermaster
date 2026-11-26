@@ -10,7 +10,7 @@ import {
  * Optimistically render items from in-flight `add` / `bulk-add` submissions so a
  * newly added item appears instantly instead of waiting for the server round-trip
  * + revalidation. Reads every shopping fetcher via useFetchers, so it captures all
- * add entry points at once (desktop quick-add, mobile FAB, voice bulk-add). Items
+ * add entry points at once (desktop quick-add, the phone's add sheet, voice bulk-add). Items
  * show only while the fetcher is non-idle; by the time it returns to idle the
  * fetcher's own revalidation has landed the real row, and the merge dedups by name
  * to avoid a duplicate during any overlap (e.g. a concurrent SSE revalidation).

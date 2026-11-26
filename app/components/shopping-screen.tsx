@@ -64,7 +64,7 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 	const magnifierRef = useRef<HTMLButtonElement>(null)
 	const [laterExpanded, setLaterExpanded] = useState(false)
 	const [quickAddOpen, setQuickAddOpen] = useState(false)
-	const [fabOpen, setFabOpen] = useState(false)
+	const [addSheetOpen, setAddSheetOpen] = useState(false)
 	const [warningDismissed, setWarningDismissed] = useState(false)
 	const [voiceAddedNames, setVoiceAddedNames] = useState<Set<string>>(new Set())
 
@@ -696,8 +696,8 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			<ShoppingAddBar
-				open={fabOpen}
-				onOpenChange={setFabOpen}
+				open={addSheetOpen}
+				onOpenChange={setAddSheetOpen}
 				isProActive={isProActive}
 				onVoiceItemsAdded={handleMobileVoiceItems}
 			/>

@@ -1125,6 +1125,46 @@ async function box(locator: Locator) {
 	}
 }
 
+/**
+ * Fourteen one-dish Dinners, "Dish 1" to "Dish 14", on the Monday of last
+ * week, a day far taller than the screen. Returns that week's start.
+ */
+async function seedLongDay(user: { id: string; householdId: string }) {
+	const weekStart = addDaysUTC(getWeekStart(browserToday()), -7)
+	const recipes = await Promise.all(
+		Array.from({ length: 14 }, (_, index) =>
+			prisma.recipe.create({
+				data: {
+					title: `Dish ${index + 1}`,
+					userId: user.id,
+					householdId: user.householdId,
+				},
+			}),
+		),
+	)
+	await prisma.mealPlan.create({
+		data: {
+			householdId: user.householdId,
+			weekStart,
+			meals: {
+				create: recipes.map((recipe, order) => ({
+					date: weekStart,
+					order,
+					label: 'dinner',
+					recipeItems: {
+						create: {
+							recipeId: recipe.id,
+							recipeTitle: recipe.title,
+							order: 0,
+						},
+					},
+				})),
+			},
+		},
+	})
+	return weekStart
+}
+
 /** Within a pixel: glyph boxes land on half pixels. */
 function expectNear(actual: number, expected: number) {
 	expect(Math.abs(actual - expected)).toBeLessThanOrEqual(1)
@@ -1980,6 +2020,58 @@ test.describe('on a phone', () => {
 		await expect(
 			page.getByText(formatWeekRange(weekStart, serializeDate(browserToday()))),
 		).toBeVisible()
+	})
+
+	test('focusing Next week or a strip day from the keyboard while a long day scrolls moves nothing', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const weekStart = await seedLongDay(user)
+		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+		const next = page.getByRole('link', { name: 'Next week' })
+		await hydrated(next)
+		const scrollY = () => page.evaluate(() => window.scrollY)
+		await page.evaluate(() => window.scrollTo(0, 933))
+		await expect.poll(scrollY).toBe(933)
+
+		await next.focus()
+		expect(await scrollY()).toBe(933)
+		// The round + comes before the strip.
+		await page.keyboard.press('Tab')
+		const days = page
+			.locator('[data-slot="mobile-week-days"]')
+			.getByRole('button')
+		for (const index of [0, 1, 2]) {
+			await page.keyboard.press('Tab')
+			await expect(days.nth(index)).toBeFocused()
+			expect(await scrollY()).toBe(933)
+		}
+	})
+
+	test('a control in the day that takes focus under the pinned rows comes out below them', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const weekStart = await seedLongDay(user)
+		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+		const header = page.locator('[data-plan-header]')
+		await hydrated(header)
+		const dish = page
+			.getByTestId('mobile-plan')
+			.getByRole('link', { name: 'Dish 6', exact: true })
+		// Scroll the dish under the strip, still inside the viewport.
+		await dish.evaluate((element) =>
+			window.scrollBy(0, element.getBoundingClientRect().top - 60),
+		)
+		await expect.poll(async () => (await box(dish)).top).toBe(60)
+		const pinned = await box(header)
+		expect(pinned.top).toBe(0)
+
+		await dish.focus()
+		await expect(dish).toBeFocused()
+		expect((await box(dish)).top).toBeGreaterThanOrEqual(pinned.bottom)
 	})
 
 	test('in the picker a Recipe’s photo ends its row, and a Recipe without one shows none', async ({

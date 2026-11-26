@@ -283,19 +283,23 @@ tab's page that opened one directly, and Upgrade to whatever page opened it.
 Pages do not add their own “Back to…”, arrow or Cancel links.
 
 A pushed page may put its own buttons at the right of the bar on a phone: a
-Recipe's Favourite, Share and dots, ink icons with a green filled heart for a
+Recipe's Favorite, Share and dots, ink icons with a green filled heart for a
 favorite. The route's handle names them (`navActions`) and the bar draws them
 from the route's loader data, so they come with the server's HTML and the page's
 first frame. What they send goes through the page's own fetchers (a fetcher
 answers an error at the route it was made in, and the bar is the root's), and
-the page says whether there are cooking checks to reset. The page registers
-while it is on screen (`useNavBarActions`), so an edit screen, an error page and
-an error after load (a favorite tapped on a Recipe deleted meanwhile) show none.
-Wider screens show the page's own row instead. Beside them the small title takes
-the room between Back and the buttons rather than the bar's centre. Focusing
-Back or a button in the bar never scrolls the page: what can take focus in the
-page has a scroll margin that clears the bar, rather than the page having a
-scroll padding.
+the page says whether there are cooking checks to reset. An edit screen's route
+names none. The bar needs the loader's data and the page on screen (it registers
+with `useNavBarActions`), so a page that failed to load, a loader that fails on
+a later navigation, and an error after load (a favorite tapped on a Recipe
+deleted meanwhile) show none. Wider screens show the page's own row instead.
+Beside them the small title takes the room between Back and the buttons rather
+than the bar's centre. Focusing Back or a button in the bar never scrolls the
+page: what can take focus in the page has a scroll margin that clears the bar,
+rather than the page having a scroll padding. A textarea is the exception, since
+Chromium scrolls it by its caret and leaves out the margin: while one in the
+page has focus, the page takes the padding too, so a step field partly under the
+bar comes out below it.
 
 Edit screens (Recipe edit and new, Menu edit and new) put Cancel on the left of
 the bar and Save on the right (green, semibold, dimmed while disabled, a spinner
@@ -416,7 +420,7 @@ On a phone the Recipes and Menus lists share a title and a row shape:
   Newsreader, then the facts: Active, Total and what it makes (at the current
   scale), each a small label over its value, only those the Recipe has, with the
   source site under them. Add to Plan is a full-width green button with a quiet
-  Edit beside it; Favourite, Share and the dots are in the nav bar, and Copy
+  Edit beside it; Favorite, Share and the dots are in the nav bar, and Copy
   Recipe is the dots' first item after Reset cooking checks. Wider screens keep
   the title and facts beside the photo and the row of icon actions.
 - On a phone an ingredient row is the amount, right-aligned in a column as wide

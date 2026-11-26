@@ -233,6 +233,42 @@ test.describe('a row checked off on a phone', () => {
 		await advanceUntil(page, 'checked', ['Rice', 'Bread'])
 	})
 
+	test('Clear checked inside the half second clears the rows under Checked and leaves the held row to move', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seed(user, [
+			{ name: 'Apples' },
+			{ name: 'Bread', checked: true },
+			{ name: 'Rice' },
+		])
+		await page.clock.install()
+		await openShopping(page)
+		await pauseClock(page)
+
+		const saved = page.waitForResponse(isCheckWrite)
+		await row(page, 'Rice')
+			.getByRole('button', { name: 'Check off Rice' })
+			.click()
+		await saved
+		await page
+			.getByRole('button', { name: 'Clear checked items from Next shop' })
+			.click()
+		await expect(row(page, 'Bread')).toBeHidden()
+		// The delete goes at once; the held row is not part of it.
+		await expect
+			.poll(() => savedChecks(user.householdId))
+			.toEqual({ Apples: false, Rice: true })
+		expect(await namesIn(page, 'to-buy')).toEqual(['Apples', 'Rice'])
+
+		await page.clock.runFor(510)
+		await advanceUntil(page, 'checked', ['Rice'])
+		await expect(
+			page.getByRole('heading', { name: 'Checked', exact: true }),
+		).toBeVisible()
+	})
+
 	test('three rows checked together each move on their own, and one unchecked in time stays', async ({
 		page,
 		login,
@@ -579,11 +615,13 @@ test('the docked Add an item bar opens a tall sheet with focus in the tap; it li
 	await sheet.getByRole('button', { name: 'Undo adding lemons' }).click()
 	await expect(added.getByRole('listitem')).toHaveText([/^Butter/])
 	await expect(name).toBeFocused()
-	// Taking back an add is final: no Undo toast for it.
-	await expect(page.locator('.undo-toaster [data-sonner-toast]')).toHaveCount(0)
 	await expect
 		.poll(() => savedChecks(user.householdId))
 		.toEqual({ Butter: false, Milk: false })
+	// Taking back an add is final: no Undo toast for it, now that the delete
+	// has answered.
+	await expect(page.getByText('Deleted lemons')).toHaveCount(0)
+	await expect(page.locator('.undo-toaster [data-sonner-toast]')).toHaveCount(0)
 	await expect(row(page, 'lemons')).toHaveCount(0)
 
 	// The list starts empty on the next open.

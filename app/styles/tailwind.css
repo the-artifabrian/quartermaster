@@ -259,6 +259,17 @@
 }
 
 @theme {
+	/* Small labels: sentence case at weight 600 with no tracking (`text-label
+	   font-semibold`). */
+	--text-label: 0.84375rem;
+	--text-label--line-height: 1.3;
+	/* A dish on a phone's Plan day, and the dishes of a Dinner that shows its
+	   photo. */
+	--text-dish: 1.375rem;
+	--text-dish--line-height: 1.2;
+	--text-dish-photo: 1.625rem;
+	--text-dish-photo--line-height: 1.15;
+
 	--animate-roll-reveal: roll-reveal 0.4s cubic-bezier(0.22, 1.28, 0.54, 0.99);
 	--animate-slide-left: slide-left 0.3s ease-out;
 	--animate-slide-top: slide-top 0.3s ease-out;
@@ -554,6 +565,14 @@ html {
    bar readable over whatever scrolls under it. */
 :root[data-native-shell] [data-site-header] {
 	padding-top: var(--safe-top);
+}
+
+/* A phone's Plan pins its title row and date strip (MealPlanCalendar), so a
+   focused control or a Meal a link scrolls to lands below them. */
+@media (width < 48rem) {
+	:root:has([data-plan-header]) {
+		scroll-padding-top: calc(var(--safe-top) + 10.5rem);
+	}
 }
 
 /* A pushed page's nav bar stays pinned at the top (NavBar), so the field a

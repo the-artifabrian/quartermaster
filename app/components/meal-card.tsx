@@ -1,4 +1,5 @@
 import { type SubmissionResult } from '@conform-to/react'
+import { Img } from 'openimg/react'
 import { useEffect, useRef, useState } from 'react'
 import { useFetcher, useSearchParams } from 'react-router'
 import {
@@ -32,9 +33,11 @@ import { Input } from '#app/components/ui/input.tsx'
 import { RowCollapse } from '#app/components/ui/row-collapse.tsx'
 import { useFetcherSettled } from '#app/hooks/use-fetcher-settled.ts'
 import { MEAL_TYPES, MEAL_TYPE_LABELS, type MealType } from '#app/utils/date.ts'
+import { IMG_SIZES } from '#app/utils/image-route.ts'
 import { groupSnapshotEntries } from '#app/utils/menu-snapshot.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { mealPhoto } from '#app/utils/plan-day-swipe.ts'
 import { formatServingTime, servingWallTime } from '#app/utils/serving-time.ts'
 import { haptic } from '#app/utils/shell-bridge.ts'
 import { PushLink } from './push-link.tsx'
@@ -122,9 +125,15 @@ function MultiplierControl({ item }: { item: PlanMealItem }) {
 }
 
 /**
- * A Meal's rows share two left edges: the cooked circle (and the icon of a
- * note or Add Recipe row) on the content edge, and every title 32px in. On a
- * phone the circle's 44px tap box hangs into the page gutter.
+ * Where a Meal shows: `day` is a phone's one picked day, `agenda` the desktop
+ * week. Each mounts its own Meals, so the two can differ.
+ */
+export type MealLayout = 'day' | 'agenda'
+
+/**
+ * In the agenda a Meal's rows share two left edges: the cooked circle (and
+ * the icon of a note or Add Recipe row) on the content edge, and every title
+ * 32px in.
  */
 const COOKED_TOGGLE =
 	'-ml-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-center desktop:mx-0 desktop:-ml-1 desktop:min-h-0 desktop:min-w-0 desktop:p-1'
@@ -133,15 +142,49 @@ const COOKED_TOGGLE =
 const TRAILING_ICON_SLOT =
 	'size-11 shrink-0 -mr-[15px] desktop:size-7 desktop:-mr-[7px]'
 
+/**
+ * On a phone's day the cooked circle ends each dish row: its 44px tap box
+ * hangs 10px into the gutter, so the 24px circle ends on the content edge.
+ * Plan is the one screen whose check sits at the right (DESIGN_SYSTEM, Plan).
+ */
+const DAY_COOKED_TOGGLE =
+	'group/cooked -mr-2.5 flex size-11 shrink-0 items-center justify-center'
+
+/** The circle itself on a phone's day: Shopping's check circle. */
+function DayCookedCircle({ cooked }: { cooked: boolean }) {
+	return (
+		<span
+			className={cn(
+				'flex size-6 items-center justify-center rounded-full border-2 transition-[scale,background-color,border-color] duration-150 ease-(--ease-micro) group-active/cooked:scale-[0.97]',
+				cooked
+					? 'border-primary-fill bg-primary-fill text-primary-foreground'
+					: 'border-control-edge group-hover/cooked:border-primary',
+			)}
+		>
+			{cooked ? <Icon name="check" className="size-3.5" /> : null}
+		</span>
+	)
+}
+
+/** A 44px icon button in a Meal's label line on a phone's day. */
+const DAY_LINE_BUTTON =
+	'text-muted-foreground hover:text-foreground active:text-foreground flex size-11 shrink-0 items-center justify-center transition-colors'
+
 function ItemRow({
 	item,
 	showRemove,
+	layout,
+	withPhoto,
 }: {
 	item: PlanMealItem
 	showRemove: boolean
+	layout: MealLayout
+	/** On a phone's day: the dish of a Dinner showing its photo. */
+	withPhoto: boolean
 }) {
 	const cookedFetcher = useFetcher()
 	const deleteWithUndo = useDeleteWithUndo()
+	const day = layout === 'day'
 
 	// Optimistic cooked state while the toggle is in flight. It reads the
 	// submitted target value, so repeat taps each show their own state.
@@ -150,119 +193,164 @@ function ItemRow({
 		: item.cooked
 
 	const missing = item.recipe == null
+
+	// Each Recipe item has its own cooked state.
+	const cookedToggle = (
+		<cookedFetcher.Form
+			method="POST"
+			className="shrink-0"
+			// Marking cooked lands like a done task; unmarking just ticks.
+			onSubmit={() => haptic(isCooked ? 'selection' : 'success')}
+		>
+			<input type="hidden" name="intent" value="setItemCooked" />
+			<input type="hidden" name="itemId" value={item.id} />
+			{/* The target value, not a server-side flip, so double-taps and
+			    two people toggling at once stay last-write-wins. */}
+			<input type="hidden" name="cooked" value={String(!isCooked)} />
+			<button
+				type="submit"
+				className={day ? DAY_COOKED_TOGGLE : COOKED_TOGGLE}
+				aria-label={
+					isCooked
+						? `Mark ${item.recipeTitle} not cooked`
+						: `Mark ${item.recipeTitle} cooked`
+				}
+			>
+				{day ? (
+					<DayCookedCircle cooked={isCooked} />
+				) : isCooked ? (
+					<span className="border-primary-fill bg-primary-fill text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">
+						<Icon name="check" className="size-3" />
+					</span>
+				) : (
+					<span className="border-control-edge hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
+				)}
+			</button>
+		</cookedFetcher.Form>
+	)
+
+	const title = (
+		<h4
+			className={cn(
+				'flex min-w-0 flex-1 font-serif',
+				day
+					? withPhoto
+						? 'text-dish-photo'
+						: 'text-dish'
+					: 'text-[15px] leading-snug',
+				// A cooked dish fades only its text, on the page or a card.
+				// Faint is too light on today's tint in the desktop week.
+				isCooked &&
+					'text-faint [[data-tinted]_&]:text-muted-foreground line-through',
+			)}
+		>
+			{item.recipe ? (
+				<PushLink
+					to={
+						item.scaleMultiplier !== 1
+							? `/recipes/${item.recipe.id}?scale=${formatScaleMultiplier(item.scaleMultiplier)}`
+							: `/recipes/${item.recipe.id}`
+					}
+					className={cn(
+						'flex min-h-11 min-w-0 items-center hover:underline',
+						day ? 'py-1.5' : 'desktop:inline desktop:min-h-0',
+						!isCooked && 'text-foreground',
+					)}
+					onClick={(e) => e.stopPropagation()}
+				>
+					{/* A long word breaks rather than widen the page. */}
+					<span
+						className={cn('min-w-11 wrap-anywhere', !day && 'line-clamp-2')}
+					>
+						{item.recipeTitle}
+					</span>
+				</PushLink>
+			) : (
+				<span
+					className={cn(
+						'text-muted-foreground min-w-0 wrap-anywhere',
+						day ? 'py-1.5' : 'line-clamp-2',
+					)}
+				>
+					{item.recipeTitle}
+				</span>
+			)}
+		</h4>
+	)
+
+	const scale = missing ? (
+		<p className="text-muted-foreground shrink-0 text-xs">Recipe deleted</p>
+	) : (
+		<MultiplierControl item={item} />
+	)
+
+	// Remove item: at once, with Undo.
+	const remove = showRemove ? (
+		<Button
+			type="button"
+			size="sm"
+			variant="ghost"
+			className={cn(
+				'text-foreground-destructive hover:text-foreground-destructive p-0',
+				day ? 'size-11 shrink-0' : TRAILING_ICON_SLOT,
+			)}
+			aria-label={`Remove ${item.recipeTitle} from this Meal`}
+			onClick={() =>
+				deleteWithUndo({
+					key: `meal-item:${item.id}`,
+					hides: [item.id],
+					message: `Removed ${item.recipeTitle}`,
+					what: item.recipeTitle,
+					verb: 'remove',
+					request: { intent: 'delete-meal-item', itemId: item.id },
+				})
+			}
+		>
+			<Icon name="trash" className="size-3.5" />
+		</Button>
+	) : null
+
+	const note = item.note ? (
+		<p className="text-muted-foreground text-xs leading-snug break-words">
+			{item.note}
+		</p>
+	) : null
+
+	if (day) {
+		// The name, then the trash when there is one, the scale field and the
+		// cooked circle on the right edge. The circles and the scale fields of
+		// a day each form a column.
+		return (
+			<div>
+				<div className="flex items-center gap-1">
+					{title}
+					{remove}
+					{scale}
+					{cookedToggle}
+				</div>
+				{note}
+			</div>
+		)
+	}
+
 	return (
 		<div className="flex items-center gap-2">
-			{/* Each Recipe item has its own cooked state. */}
-			<cookedFetcher.Form
-				method="POST"
-				className="shrink-0"
-				// Marking cooked lands like a done task; unmarking just ticks.
-				onSubmit={() => haptic(isCooked ? 'selection' : 'success')}
-			>
-				<input type="hidden" name="intent" value="setItemCooked" />
-				<input type="hidden" name="itemId" value={item.id} />
-				{/* The target value, not a server-side flip, so double-taps and
-				    two people toggling at once stay last-write-wins. */}
-				<input type="hidden" name="cooked" value={String(!isCooked)} />
-				<button
-					type="submit"
-					className={COOKED_TOGGLE}
-					aria-label={
-						isCooked
-							? `Mark ${item.recipeTitle} not cooked`
-							: `Mark ${item.recipeTitle} cooked`
-					}
-				>
-					{isCooked ? (
-						<span className="border-primary-fill bg-primary-fill text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">
-							<Icon name="check" className="size-3" />
-						</span>
-					) : (
-						<span className="border-control-edge hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
-					)}
-				</button>
-			</cookedFetcher.Form>
+			{cookedToggle}
 
-			{/* Title + multiplier. On a phone they share one line, the
-			    multiplier trailing, so each is 44px tall without the row
-			    growing; stacked, two 44px targets would not fit. */}
+			{/* Title + multiplier share one line, the multiplier trailing, so
+			    each is 44px tall to a finger without the row growing; stacked,
+			    two 44px targets would not fit. */}
 			<div className="min-w-0 flex-1">
 				<div className="flex min-w-0 items-center gap-2">
-					<h4
-						className={cn(
-							'flex min-w-0 flex-1 font-serif text-[15px] leading-snug',
-							// Faint is too light on today's tint in the desktop week.
-							isCooked &&
-								'text-faint [[data-tinted]_&]:text-muted-foreground line-through',
-						)}
-					>
-						{item.recipe ? (
-							<PushLink
-								to={
-									item.scaleMultiplier !== 1
-										? `/recipes/${item.recipe.id}?scale=${formatScaleMultiplier(item.scaleMultiplier)}`
-										: `/recipes/${item.recipe.id}`
-								}
-								className={cn(
-									'desktop:inline desktop:min-h-0 flex min-h-11 min-w-0 items-center hover:underline',
-									!isCooked && 'text-foreground',
-								)}
-								onClick={(e) => e.stopPropagation()}
-							>
-								{/* A long word breaks rather than widen the page. */}
-								<span className="line-clamp-2 min-w-11 wrap-anywhere">
-									{item.recipeTitle}
-								</span>
-							</PushLink>
-						) : (
-							<span className="text-muted-foreground line-clamp-2 min-w-0 wrap-anywhere">
-								{item.recipeTitle}
-							</span>
-						)}
-					</h4>
-					{missing ? (
-						<p className="text-muted-foreground shrink-0 text-xs">
-							Recipe deleted
-						</p>
-					) : (
-						<MultiplierControl item={item} />
-					)}
+					{title}
+					{scale}
 				</div>
-				{item.note ? (
-					<p className="text-muted-foreground text-xs leading-snug break-words">
-						{item.note}
-					</p>
-				) : null}
+				{note}
 			</div>
 
-			{/* Remove item: at once, with Undo. A Recipe without one keeps its
-			    place, so the scale fields of a day line up. */}
-			{showRemove ? (
-				<Button
-					type="button"
-					size="sm"
-					variant="ghost"
-					className={cn(
-						'text-foreground-destructive hover:text-foreground-destructive p-0',
-						TRAILING_ICON_SLOT,
-					)}
-					aria-label={`Remove ${item.recipeTitle} from this Meal`}
-					onClick={() =>
-						deleteWithUndo({
-							key: `meal-item:${item.id}`,
-							hides: [item.id],
-							message: `Removed ${item.recipeTitle}`,
-							what: item.recipeTitle,
-							verb: 'remove',
-							request: { intent: 'delete-meal-item', itemId: item.id },
-						})
-					}
-				>
-					<Icon name="trash" className="size-3.5" />
-				</Button>
-			) : (
-				<span aria-hidden="true" className={TRAILING_ICON_SLOT} />
-			)}
+			{/* A Recipe without a trash keeps its place, so the scale fields of
+			    a day line up. */}
+			{remove ?? <span aria-hidden="true" className={TRAILING_ICON_SLOT} />}
 		</div>
 	)
 }
@@ -504,12 +592,15 @@ export function MealCard({
 	choices,
 	canMoveUp,
 	canMoveDown,
+	layout,
 }: {
 	meal: PlanMeal
 	choices: PlanChoices
 	canMoveUp: boolean
 	canMoveDown: boolean
+	layout: MealLayout
 }) {
+	const day = layout === 'day'
 	const moveFetcher = useFetcher()
 	const [searchParams] = useSearchParams()
 	const targetMealId = searchParams.get('mealId')
@@ -590,6 +681,18 @@ export function MealCard({
 	const rows = isText ? [] : buildMealRows(meal)
 	const hidden = useHiddenRows()
 	const entering = useEnteringRows()
+	// On a phone's day a Dinner shows its first Recipe's photo.
+	const photo = day
+		? mealPhoto(
+				{
+					label: meal.label,
+					items: rows.flatMap((row) =>
+						row.kind === 'recipe' ? [row.item] : [],
+					),
+				},
+				hidden,
+			)
+		: null
 	const visibleItemCount = meal.items.filter(
 		(item) => !hidden.has(item.id),
 	).length
@@ -717,6 +820,9 @@ export function MealCard({
 	const hasHeader = Boolean(
 		meal.label || timeText || meal.guestCount != null || meal.sourceMenu,
 	)
+	// On a phone's day every Meal has its label line: it holds Add Recipe and
+	// the dots, whether or not it has a label to show.
+	const hasLabelLine = day || hasHeader
 	const detailsPanel = editingDetails && !detailsInSheet && (
 		<div className="border-border/50 bg-background mt-1 rounded-md border p-3">
 			<MealDetailsForm meal={meal} onDone={() => setEditingDetails(false)} />
@@ -742,12 +848,20 @@ export function MealCard({
 						}
 						menuPointer.current = null
 					}}
-					// 32px to the eye on a phone, 44px to the thumb: the
-					// pseudo-element takes taps without growing the header.
-					className="text-muted-foreground hover:text-foreground active:bg-muted desktop:-mr-[5px] desktop:min-h-6 desktop:min-w-6 desktop:before:hidden relative -mr-[9px] flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded transition-colors before:absolute before:-inset-1.5 before:content-['']"
+					// In the agenda: 32px to the eye, 44px to a finger, as the
+					// pseudo-element takes taps without growing the header. On a
+					// phone's day the glyph ends on the content edge.
+					className={
+						day
+							? cn(DAY_LINE_BUTTON, '-mr-3')
+							: "text-muted-foreground hover:text-foreground active:bg-muted desktop:-mr-[5px] desktop:min-h-6 desktop:min-w-6 desktop:before:hidden relative -mr-[9px] flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded transition-colors before:absolute before:-inset-1.5 before:content-['']"
+					}
 					aria-label={`Meal actions for ${mealActionName}`}
 				>
-					<Icon name="dots-horizontal" className="size-3.5" />
+					<Icon
+						name="dots-horizontal"
+						className={day ? 'size-5' : 'size-3.5'}
+					/>
 				</button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end">
@@ -793,7 +907,7 @@ export function MealCard({
 				<DropdownMenuItem
 					onSelect={() => {
 						setDetailsInSheet(opensAsSheet())
-						setDetailsUnderHeader(hasHeader)
+						setDetailsUnderHeader(hasLabelLine)
 						setDetailsOpens((count) => count + 1)
 						setEditingDetails(true)
 					}}
@@ -857,6 +971,41 @@ export function MealCard({
 		</DropdownMenu>
 	)
 
+	const addRecipeButtonProps = {
+		ref: addRecipeButtonRef,
+		type: 'button' as const,
+		onClick: () => {
+			choices.load()
+			setRecipeInSheet(opensAsSheet())
+			setRecipeOpens((count) => count + 1)
+			setAddingRecipe(true)
+		},
+		'aria-label': `Add Recipe to ${mealActionName}`,
+	}
+
+	const cookedCircle = (
+		<button
+			type="button"
+			onClick={() => submitMealCooked(!isComplete)}
+			className={day ? DAY_COOKED_TOGGLE : COOKED_TOGGLE}
+			aria-label={
+				isComplete
+					? `Mark ${mealActionName} not cooked`
+					: `Mark ${mealActionName} cooked`
+			}
+		>
+			{day ? (
+				<DayCookedCircle cooked={isComplete} />
+			) : isComplete ? (
+				<span className="border-primary-fill bg-primary-fill text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">
+					<Icon name="check" className="size-3" />
+				</span>
+			) : (
+				<span className="border-control-edge hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
+			)}
+		</button>
+	)
+
 	return (
 		<div
 			ref={cardRef}
@@ -864,28 +1013,34 @@ export function MealCard({
 			data-meal-id={meal.id}
 			// A flat row under the day heading; the day draws the dividers
 			// between Meals (MealCards).
-			className="group focus-visible:ring-ring relative rounded-sm py-3 focus-visible:ring-2 md:py-1.5"
+			className={cn(
+				'group focus-visible:ring-ring relative rounded-sm focus-visible:ring-2',
+				day ? 'pb-2' : 'py-3 md:py-1.5',
+			)}
 		>
 			{/* Header: optional label, time and guests on the left (display only,
 			    never what orders the day), controls on the right. */}
-			{hasHeader && (
-				<div className="flex min-h-7 items-center gap-1.5">
-					<div className="text-muted-foreground flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-[11px] font-semibold tracking-wider uppercase">
+			{hasLabelLine && (
+				<div
+					className={cn(
+						'flex items-center gap-1.5',
+						day ? '-mb-1 min-h-11 gap-0' : 'min-h-7',
+					)}
+				>
+					<div className="text-muted-foreground text-label flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 font-semibold">
 						{meal.label ? <span>{mealLabelText(meal.label)}</span> : null}
 						{timeText && (
-							<span className="inline-flex items-center gap-0.5 normal-case">
+							<span className="inline-flex items-center gap-0.5">
 								<Icon name="clock" className="size-3" />
 								{timeText}
 							</span>
 						)}
-						{meal.guestCount != null && (
-							<span className="normal-case">· {meal.guestCount} guests</span>
-						)}
+						{meal.guestCount != null && <span>· {meal.guestCount} guests</span>}
 						{/* Where the snapshot came from: a link, not live data. */}
 						{meal.sourceMenu && (
 							<PushLink
 								to={`/recipes/menus/${meal.sourceMenu.id}`}
-								className="hover:text-foreground inline-flex max-w-full min-w-0 items-center gap-0.5 normal-case transition-colors"
+								className="hover:text-foreground inline-flex max-w-full min-w-0 items-center gap-0.5 transition-colors"
 							>
 								<Icon name="file-text" className="size-3 shrink-0" />
 								<span className="truncate">{meal.sourceMenu.title}</span>
@@ -893,6 +1048,12 @@ export function MealCard({
 						)}
 					</div>
 
+					{/* On a phone's day Add Recipe is a + beside the dots. */}
+					{day && !isText ? (
+						<button {...addRecipeButtonProps} className={DAY_LINE_BUTTON}>
+							<Icon name="plus" className="size-5" />
+						</button>
+					) : null}
 					{actions}
 				</div>
 			)}
@@ -917,39 +1078,47 @@ export function MealCard({
 				</BottomSheet>
 			)}
 
+			{photo ? (
+				// Decorative: the dish names beside it say what it is.
+				<Img
+					src={`/resources/images?objectKey=${encodeURIComponent(photo)}`}
+					alt=""
+					draggable={false}
+					className="mt-1 mb-1 h-[152px] w-full rounded-md object-cover select-none [-webkit-touch-callout:none]"
+					{...IMG_SIZES.hero}
+				/>
+			) : null}
+
 			{isText ? (
 				// Text-only Meal: its own completed state, no Recipe items, and
 				// nothing for Shopping.
-				<div className="flex items-center gap-2">
-					<button
-						type="button"
-						onClick={() => submitMealCooked(!isComplete)}
-						className={COOKED_TOGGLE}
-						aria-label={
-							isComplete
-								? `Mark ${mealActionName} not cooked`
-								: `Mark ${mealActionName} cooked`
-						}
-					>
-						{isComplete ? (
-							<span className="border-primary-fill bg-primary-fill text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">
-								<Icon name="check" className="size-3" />
-							</span>
-						) : (
-							<span className="border-control-edge hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
-						)}
-					</button>
-					<p
-						className={cn(
-							'flex min-w-0 flex-1 font-serif text-[15px] leading-snug md:block',
-							isComplete &&
-								'text-faint [[data-tinted]_&]:text-muted-foreground line-through',
-						)}
-					>
-						{meal.genericText}
-					</p>
-					{!hasHeader && actions}
-				</div>
+				day ? (
+					<div className="flex items-center gap-1">
+						<p
+							className={cn(
+								'text-dish min-w-0 flex-1 py-1.5 font-serif font-normal wrap-anywhere italic',
+								isComplete && 'text-faint line-through',
+							)}
+						>
+							{meal.genericText}
+						</p>
+						{cookedCircle}
+					</div>
+				) : (
+					<div className="flex items-center gap-2">
+						{cookedCircle}
+						<p
+							className={cn(
+								'flex min-w-0 flex-1 font-serif text-[15px] leading-snug md:block',
+								isComplete &&
+									'text-faint [[data-tinted]_&]:text-muted-foreground line-through',
+							)}
+						>
+							{meal.genericText}
+						</p>
+						{!hasHeader && actions}
+					</div>
+				)
 			) : (
 				<div className="space-y-0">
 					{rows.map((row, index) => {
@@ -964,6 +1133,7 @@ export function MealCard({
 							before = candidate
 						}
 						const insetLine =
+							!day &&
 							row.kind !== 'heading' &&
 							before != null &&
 							before.kind !== 'heading'
@@ -975,7 +1145,8 @@ export function MealCard({
 								className={cn(
 									row.kind === 'heading'
 										? index > 0 && 'mt-3'
-										: index > 0 &&
+										: !day &&
+												index > 0 &&
 												rows[index - 1]!.kind !== 'heading' &&
 												'mt-2 pt-2',
 									// Inset from the cooked toggle, so it reads as inside the
@@ -985,12 +1156,19 @@ export function MealCard({
 								)}
 							>
 								{row.kind === 'heading' ? (
-									<h5 className="text-muted-foreground pl-8 text-[10px] font-semibold tracking-wider uppercase">
+									<h5
+										className={cn(
+											'text-muted-foreground text-label font-semibold',
+											day ? 'pt-1' : 'pl-8',
+										)}
+									>
 										{row.name}
 									</h5>
 								) : row.kind === 'recipe' ? (
 									<ItemRow
 										item={row.item}
+										layout={layout}
+										withPhoto={photo != null}
 										// The last Recipe goes with its Meal: Delete in its menu.
 										showRemove={
 											visibleItemCount > 1 || meal.noteItems.length > 0
@@ -1011,28 +1189,22 @@ export function MealCard({
 							{recipePicker}
 						</div>
 					) : null}
-					<div className="flex items-center gap-2 md:mt-1">
-						{addingRecipe && !recipeInSheet ? null : (
-							<button
-								ref={addRecipeButtonRef}
-								type="button"
-								onClick={() => {
-									choices.load()
-									setRecipeInSheet(opensAsSheet())
-									setRecipeOpens((count) => count + 1)
-									setAddingRecipe(true)
-								}}
-								aria-label={`Add Recipe to ${mealActionName}`}
-								className="text-muted-foreground hover:text-foreground desktop:min-h-9 flex min-h-11 items-center gap-3 text-xs font-semibold transition-colors"
-							>
-								<span className="flex w-5 justify-center">
-									<Icon name="plus" className="size-3" />
-								</span>
-								Add Recipe
-							</button>
-						)}
-						{!hasHeader && <div className="ml-auto">{actions}</div>}
-					</div>
+					{day ? null : (
+						<div className="flex items-center gap-2 md:mt-1">
+							{addingRecipe && !recipeInSheet ? null : (
+								<button
+									{...addRecipeButtonProps}
+									className="text-muted-foreground hover:text-foreground desktop:min-h-9 flex min-h-11 items-center gap-3 text-xs font-semibold transition-colors"
+								>
+									<span className="flex w-5 justify-center">
+										<Icon name="plus" className="size-3" />
+									</span>
+									Add Recipe
+								</button>
+							)}
+							{!hasHeader && <div className="ml-auto">{actions}</div>}
+						</div>
+					)}
 					{recipeInSheet && (
 						<BottomSheet
 							open={addingRecipe}

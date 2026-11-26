@@ -301,7 +301,7 @@ function ItemSelector({
 
 function PickerGroupLabel({ children }: { children: React.ReactNode }) {
 	return (
-		<p className="text-muted-foreground px-2 pt-2 pb-0.5 text-xs font-medium tracking-wide uppercase first:pt-1">
+		<p className="text-muted-foreground text-label px-2 pt-2 pb-0.5 font-semibold first:pt-1">
 			{children}
 		</p>
 	)
@@ -351,13 +351,19 @@ function RecipeOption({
 }) {
 	const totalTime = getRecipeTotalTime(recipe)
 
+	// On a phone the photo ends the row, and a Recipe without one shows
+	// none; wider, the thumbnail (or its placeholder) leads it.
 	return (
 		<button
 			type="button"
 			onClick={() => onPick(recipe)}
-			className="hover:bg-muted/50 flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors"
+			className="hover:bg-muted/50 flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors"
 		>
-			<RecipeThumb title={recipe.title} image={recipe.image} />
+			<RecipeThumb
+				title={recipe.title}
+				image={recipe.image}
+				className="max-md:hidden"
+			/>
 			<div className="flex min-w-0 flex-1 items-center justify-between gap-2">
 				<p className="min-w-0 truncate text-sm font-medium">
 					{recipe.isFavorite && (
@@ -377,6 +383,13 @@ function RecipeOption({
 					)}
 				</span>
 			</div>
+			{recipe.image ? (
+				<RecipeThumb
+					title={recipe.title}
+					image={recipe.image}
+					className="md:hidden"
+				/>
+			) : null}
 		</button>
 	)
 }

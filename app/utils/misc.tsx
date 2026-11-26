@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from 'clsx'
 import { type GetSrcArgs } from 'openimg/react'
 import { useFormAction, useNavigation } from 'react-router'
-import { twMerge } from 'tailwind-merge'
+import { extendTailwindMerge } from 'tailwind-merge'
 import { snapImageSize } from './image-route.ts'
 
 export function getImgSrc({
@@ -61,6 +61,12 @@ export function getErrorMessage(error: unknown) {
 	console.error('Unable to get error message for error', error)
 	return 'Something went wrong'
 }
+
+// The font sizes `app/styles/tailwind.css` adds, so `text-dish` and a text
+// color in one `cn` keep both.
+const twMerge = extendTailwindMerge({
+	extend: { theme: { text: ['label', 'dish', 'dish-photo'] } },
+})
 
 export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs))

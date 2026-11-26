@@ -286,13 +286,16 @@ A pushed page may put its own buttons at the right of the bar on a phone: a
 Recipe's Favourite, Share and dots, ink icons with a green filled heart for a
 favorite. The route's handle names them (`navActions`) and the bar draws them
 from the route's loader data, so they come with the server's HTML and the page's
-first frame; the page shares only what the server cannot know (whether there are
-cooking checks to reset). An edit screen and an error page have none, and wider
-screens show the page's own row instead. Beside them the small title takes the
-room between Back and the buttons rather than the bar's centre. Focusing Back or
-a button in the bar never scrolls the page: what can take focus in the page has
-a scroll margin that clears the bar, rather than the page having a scroll
-padding.
+first frame. What they send goes through the page's own fetchers (a fetcher
+answers an error at the route it was made in, and the bar is the root's), and
+the page says whether there are cooking checks to reset. The page registers
+while it is on screen (`useNavBarActions`), so an edit screen, an error page and
+an error after load (a favorite tapped on a Recipe deleted meanwhile) show none.
+Wider screens show the page's own row instead. Beside them the small title takes
+the room between Back and the buttons rather than the bar's centre. Focusing
+Back or a button in the bar never scrolls the page: what can take focus in the
+page has a scroll margin that clears the bar, rather than the page having a
+scroll padding.
 
 Edit screens (Recipe edit and new, Menu edit and new) put Cancel on the left of
 the bar and Save on the right (green, semibold, dimmed while disabled, a spinner

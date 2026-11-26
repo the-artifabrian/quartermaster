@@ -252,15 +252,24 @@ test.describe('a row checked off on a phone', () => {
 			.getByRole('button', { name: 'Check off Rice' })
 			.click()
 		await saved
+		// The delete goes at once and reloads the list behind it.
+		const reloaded = page.waitForResponse(
+			(response) =>
+				response.request().method() === 'GET' &&
+				response.url().includes('/shopping.data'),
+		)
 		await page
 			.getByRole('button', { name: 'Clear checked items from Next shop' })
 			.click()
 		await expect(row(page, 'Bread')).toBeHidden()
-		// The delete goes at once; the held row is not part of it.
-		await expect
-			.poll(() => savedChecks(user.householdId))
-			.toEqual({ Apples: false, Rice: true })
-		expect(await namesIn(page, 'to-buy')).toEqual(['Apples', 'Rice'])
+		await reloaded
+		// The held row is not part of it, and still holds after the reload.
+		expect(await savedChecks(user.householdId)).toEqual({
+			Apples: false,
+			Rice: true,
+		})
+		await expect.poll(() => namesIn(page, 'to-buy')).toEqual(['Apples', 'Rice'])
+		await expect(wrapperIn(page, 'checked', 'Bread')).toHaveCount(0)
 
 		await page.clock.runFor(510)
 		await advanceUntil(page, 'checked', ['Rice'])

@@ -711,7 +711,9 @@ test.describe('tapping the open tab again', () => {
 		await expect(tab(page, 'Recipes')).toHaveAttribute('href', '/recipes/menus')
 		await tab(page, 'Recipes').click()
 		await expect(page).toHaveURL('/recipes/menus')
-		await expect(page.getByRole('heading', { name: /^Menus \(/ })).toBeVisible()
+		await expect(
+			page.getByRole('heading', { name: /^Menus( \(|$)/ }),
+		).toBeVisible()
 
 		// Leaving for another tab and coming back restores the page and keeps
 		// its Menus root.
@@ -731,12 +733,12 @@ test.describe('tapping the open tab again', () => {
 		// The same Recipe opened from the Recipes list pops back to Recipes.
 		await librarySwitch(page, 'Recipes').click()
 		await expect(page).toHaveURL('/recipes')
-		await page.getByRole('link', { name: 'Hummus recipe' }).click()
+		await page.getByRole('link', { name: /^Hummus/ }).click()
 		await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 		await tab(page, 'Recipes').click()
 		await expect(page).toHaveURL('/recipes')
 		await expect(
-			page.getByRole('heading', { name: /^Recipes \(/ }),
+			page.getByRole('heading', { name: /^Recipes( \(|$)/ }),
 		).toBeVisible()
 	})
 })

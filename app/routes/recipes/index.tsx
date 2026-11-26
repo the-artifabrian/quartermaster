@@ -2,7 +2,7 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigationType, useSearchParams } from 'react-router'
 import { GettingStartedChecklist } from '#app/components/getting-started-checklist.tsx'
-import { LibrarySwitch } from '#app/components/library-switch.tsx'
+import { LibrarySwitch, LibraryTitle } from '#app/components/library-switch.tsx'
 import { RecipeCard, RecipeCardGrid } from '#app/components/recipe-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Chip, chipClassName } from '#app/components/ui/chip.tsx'
@@ -240,7 +240,7 @@ clientLoader.hydrate = false as const
 const filterCompact =
 	'desktop:min-h-8 desktop:gap-1 desktop:px-2.5 desktop:text-xs'
 const filterSelect =
-	'h-11 min-w-0 desktop:h-8 desktop:min-h-8 desktop:px-2.5 desktop:text-xs'
+	'h-11 shrink-0 desktop:h-8 desktop:min-h-8 desktop:px-2.5 desktop:text-xs'
 
 export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	useStaleRevalidate(loaderData)
@@ -284,6 +284,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	}, [])
 
 	const [filtersOpen, setFiltersOpen] = useState(false)
+	const searchRef = useRef<HTMLInputElement>(null)
 	// Controlled so "Clear search" in the no-results state empties the box too
 	const [searchInput, setSearchInput] = useState(search)
 	const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -429,8 +430,9 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 	return (
 		<div className="pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
 			<div>
-				<TitleRow className="container-grid py-3 md:py-4">
-					<TabTitle>
+				<TitleRow className="container-grid py-3 max-md:pb-0 md:py-4">
+					<LibraryTitle active="recipes" className="md:hidden" />
+					<TabTitle className="max-md:hidden">
 						Recipes{' '}
 						<span className="text-muted-foreground text-base font-normal">
 							{/* While searching or filtering, the count says what you see. */}
@@ -473,145 +475,211 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 				</TitleRow>
 			</div>
 
-			<div className="container-grid py-4">
-				<LibrarySwitch active="recipes" />
+			<div className="container-grid md:py-4">
+				<LibrarySwitch active="recipes" className="max-md:hidden" />
 
-				<div className="mb-3 space-y-1.5">
-					<div className="flex items-center gap-2">
-						<div className="relative flex-1">
-							<Icon
-								name="magnifying-glass"
-								className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
-								size="sm"
-							/>
-							<Input
-								type="search"
-								inputMode="search"
-								enterKeyHint="search"
-								placeholder="Search by name or ingredient"
-								aria-label="Search by name or ingredient"
-								value={searchInput}
-								onChange={(e) => {
-									setSearchInput(e.target.value)
-									handleSearchChange(e.target.value)
-								}}
-								className="pl-9"
-							/>
-						</div>
-						<button
-							type="button"
-							onClick={() => setFiltersOpen((o) => !o)}
-							aria-expanded={filtersOpen}
-							aria-label="Toggle filters"
-							className={cn(
-								// The field's shape and height, so the two read as one row.
-								'relative flex size-11 shrink-0 items-center justify-center rounded-md border transition-colors md:hidden',
-								filtersOpen
-									? 'border-primary/30 bg-primary-tint text-primary'
-									: 'border-input bg-background text-muted-foreground',
-							)}
-						>
-							<Icon name="mixer-horizontal" size="sm" />
-							{activeFilterCount > 0 && (
-								<span className="bg-primary-fill text-primary-foreground absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full text-[10px] font-bold">
-									{activeFilterCount}
-								</span>
-							)}
-						</button>
-					</div>
-
+				{/* On a phone this wrapper steps aside, so the search row pins for
+				    the whole list rather than only inside it. */}
+				<div className="max-md:contents md:mb-3 md:space-y-1.5">
+					{/* On a phone the search row, and the chips while open, stay
+					    pinned under the status bar, opaque, edge to edge. */}
 					<div
-						className={cn(
-							'flex-wrap items-center gap-1.5 md:flex',
-							filtersOpen ? 'flex' : 'hidden',
-						)}
+						data-recipes-tools=""
+						data-filters-open={filtersOpen ? '' : undefined}
+						className="max-md:bg-background max-md:border-border max-md:sticky max-md:top-(--safe-top) max-md:z-30 max-md:-mx-4 max-md:border-b max-md:px-4 max-md:py-3.5 sm:max-md:-mx-8 sm:max-md:px-8 md:space-y-1.5"
 					>
-						<select
-							value={sort}
-							onChange={(e) => handleSortChange(e.target.value)}
-							aria-label="Sort Recipes"
-							className={cn(chipClassName(), filterSelect)}
-						>
-							{SORT_OPTIONS.map((option) => (
-								<option key={option.value} value={option.value}>
-									{option.label}
-								</option>
-							))}
-						</select>
-						<select
-							value={maxTime?.toString() ?? ''}
-							onChange={(e) => handleMaxTimeChange(e.target.value)}
-							aria-label="Filter by cook time"
-							className={cn(chipClassName(), filterSelect)}
-						>
-							<option value="">Any time</option>
-							<option value="30">Under 30 min</option>
-							<option value="60">Under 1 hour</option>
-							<option value="120">Under 2 hours</option>
-						</select>
-						<Chip
-							onClick={handleFavoritesToggle}
-							aria-label={
-								favoritesOnly ? 'Show all Recipes' : 'Show favorites only'
-							}
-							pressed={favoritesOnly}
-							icon={favoritesOnly ? 'heart-filled' : 'heart'}
-							className={filterCompact}
-						>
-							Favorites
-						</Chip>
-						{RECIPE_METADATA_DIMENSIONS.map((dimension) => {
-							const options = metadataOptions.filter(
-								(option) => option.dimension === dimension,
-							)
-							if (options.length === 0) return null
-							const selectedCount = metadataFilters[dimension].length
-							return (
-								<DropdownMenu key={dimension} modal={false}>
-									<DropdownMenuTrigger
-										className={cn(
-											chipClassName(selectedCount > 0),
-											filterCompact,
-										)}
+						<div className="flex items-center gap-2">
+							<div className="relative flex-1">
+								<Icon
+									name="magnifying-glass"
+									className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+									size="sm"
+								/>
+								<Input
+									ref={searchRef}
+									type="search"
+									inputMode="search"
+									enterKeyHint="search"
+									placeholder="Search by name or ingredient"
+									aria-label="Search by name or ingredient"
+									value={searchInput}
+									onChange={(e) => {
+										setSearchInput(e.target.value)
+										handleSearchChange(e.target.value)
+									}}
+									// The clear button below replaces the browser's own.
+									className={cn(
+										'pl-9 [&::-webkit-search-cancel-button]:hidden',
+										searchInput && 'pr-11',
+									)}
+								/>
+								{searchInput ? (
+									<button
+										type="button"
+										aria-label="Clear the search field"
+										// Focus stays in the field, so the keyboard stays up.
+										onMouseDown={(e) => e.preventDefault()}
+										onClick={() => {
+											handleClearSearch()
+											searchRef.current?.focus()
+										}}
+										className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-11 items-center justify-center transition-opacity active:opacity-60"
 									>
-										{RECIPE_METADATA_LABELS[dimension]}
-										{selectedCount > 0 && ` · ${selectedCount}`}
-										<Icon name="chevron-down" size="xs" />
-									</DropdownMenuTrigger>
-									<DropdownMenuContent align="start" className="min-w-44">
-										<DropdownMenuLabel>
+										<Icon name="cross-1" size="sm" />
+									</button>
+								) : null}
+							</div>
+							<button
+								type="button"
+								onClick={() => setFiltersOpen((o) => !o)}
+								aria-expanded={filtersOpen}
+								aria-label="Toggle filters"
+								className={cn(
+									// The field's shape and height, so the two read as one row.
+									'relative flex size-11 shrink-0 items-center justify-center rounded-md border transition-colors md:hidden',
+									filtersOpen
+										? 'border-primary/30 bg-primary-tint text-primary'
+										: 'border-input bg-background text-muted-foreground',
+								)}
+							>
+								<Icon name="mixer-horizontal" size="sm" />
+								{activeFilterCount > 0 && (
+									<span className="bg-primary-fill text-primary-foreground absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full text-[10px] font-bold">
+										{activeFilterCount}
+									</span>
+								)}
+							</button>
+						</div>
+
+						{/* On a phone one row that scrolls sideways, edge to edge, with
+						    room inside for the focus ring; wider, the row wraps. */}
+						<div
+							data-recipes-chips=""
+							// A chip reached from the keyboard comes fully into the row.
+							// A tap leaves the row where it is, so the chip stays under
+							// the finger.
+							onFocus={(e) => {
+								if (e.target.matches(':focus-visible')) {
+									e.target.scrollIntoView({
+										block: 'nearest',
+										inline: 'nearest',
+									})
+								}
+							}}
+							className={cn(
+								'items-center gap-2 max-md:-mx-4 max-md:mt-0.5 max-md:-mb-1 max-md:scroll-px-4 max-md:[scrollbar-width:none] max-md:flex-nowrap max-md:overflow-x-auto max-md:overscroll-x-contain max-md:px-4 max-md:py-1 sm:max-md:-mx-8 sm:max-md:scroll-px-8 sm:max-md:px-8 md:flex md:flex-wrap md:gap-1.5 max-md:[&::-webkit-scrollbar]:hidden',
+								filtersOpen ? 'flex' : 'hidden',
+							)}
+						>
+							<select
+								value={sort}
+								onChange={(e) => handleSortChange(e.target.value)}
+								aria-label="Sort Recipes"
+								className={cn(chipClassName(), filterSelect)}
+							>
+								{SORT_OPTIONS.map((option) => (
+									<option key={option.value} value={option.value}>
+										{option.label}
+									</option>
+								))}
+							</select>
+							<select
+								value={maxTime?.toString() ?? ''}
+								onChange={(e) => handleMaxTimeChange(e.target.value)}
+								aria-label="Filter by cook time"
+								className={cn(
+									chipClassName(Boolean(maxTime), 'tint'),
+									filterSelect,
+								)}
+							>
+								<option value="">Any time</option>
+								<option value="30">Under 30 min</option>
+								<option value="60">Under 1 hour</option>
+								<option value="120">Under 2 hours</option>
+							</select>
+							<Chip
+								onClick={handleFavoritesToggle}
+								aria-label={
+									favoritesOnly ? 'Show all Recipes' : 'Show favorites only'
+								}
+								pressed={favoritesOnly}
+								tone="tint"
+								icon={favoritesOnly ? 'heart-filled' : 'heart'}
+								className={cn('shrink-0', filterCompact)}
+							>
+								Favorites
+							</Chip>
+							{RECIPE_METADATA_DIMENSIONS.map((dimension) => {
+								const options = metadataOptions.filter(
+									(option) => option.dimension === dimension,
+								)
+								if (options.length === 0) return null
+								const selectedCount = metadataFilters[dimension].length
+								return (
+									<DropdownMenu key={dimension} modal={false}>
+										<DropdownMenuTrigger
+											className={cn(
+												chipClassName(selectedCount > 0, 'tint'),
+												'shrink-0',
+												filterCompact,
+											)}
+										>
 											{RECIPE_METADATA_LABELS[dimension]}
-										</DropdownMenuLabel>
-										{options.map((option) => (
-											<DropdownMenuCheckboxItem
-												key={option.id}
-												checked={metadataFilters[dimension].includes(
-													option.nameKey,
-												)}
-												onCheckedChange={() =>
-													handleMetadataToggle(dimension, option.nameKey)
-												}
-												onSelect={(event) => event.preventDefault()}
-											>
-												{option.name}
-											</DropdownMenuCheckboxItem>
-										))}
-									</DropdownMenuContent>
-								</DropdownMenu>
-							)
-						})}
+											{selectedCount > 0 && ` · ${selectedCount}`}
+											<Icon name="chevron-down" size="xs" />
+										</DropdownMenuTrigger>
+										<DropdownMenuContent align="start" className="min-w-44">
+											<DropdownMenuLabel>
+												{RECIPE_METADATA_LABELS[dimension]}
+											</DropdownMenuLabel>
+											{options.map((option) => (
+												<DropdownMenuCheckboxItem
+													key={option.id}
+													checked={metadataFilters[dimension].includes(
+														option.nameKey,
+													)}
+													onCheckedChange={() =>
+														handleMetadataToggle(dimension, option.nameKey)
+													}
+													onSelect={(event) => event.preventDefault()}
+												>
+													{option.name}
+												</DropdownMenuCheckboxItem>
+											))}
+										</DropdownMenuContent>
+									</DropdownMenu>
+								)
+							})}
+						</div>
 					</div>
 					{hasFilters && (
-						<div className="text-muted-foreground flex flex-wrap items-center gap-x-2 text-xs">
-							<span>
-								{restrictions.length > 0
-									? restrictions.join(' · ')
-									: `${displayRecipes.length} of ${totalRecipeCount} Recipes`}
-							</span>
+						<div
+							data-recipes-filtered=""
+							className="text-label text-muted-foreground flex flex-wrap items-center justify-between gap-x-3"
+						>
+							{/* On a phone the count leads, since the title has none. Wider,
+							    the title carries it, so the line names the filters, or
+							    counts for a search alone. */}
+							<p className="flex flex-wrap gap-x-1.5 py-2">
+								<span
+									className={cn(
+										'font-semibold',
+										restrictions.length > 0 && 'md:hidden',
+									)}
+								>
+									{displayRecipes.length} of {totalRecipeCount}{' '}
+									{totalRecipeCount === 1 ? 'Recipe' : 'Recipes'}
+								</span>
+								{restrictions.length > 0 ? (
+									<span className="max-md:before:mr-1.5 max-md:before:content-['·']">
+										{restrictions.join(' · ')}
+									</span>
+								) : null}
+							</p>
 							<button
 								type="button"
 								onClick={handleClearFilters}
-								className="text-muted-foreground hover:text-foreground min-h-11 font-medium underline underline-offset-2"
+								className="text-primary min-h-11 font-semibold transition-opacity active:opacity-60"
 							>
 								Clear search and filters
 							</button>
@@ -619,7 +687,11 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 					)}
 				</div>
 
-				<GettingStartedChecklist onboarding={onboarding} />
+				<GettingStartedChecklist
+					onboarding={onboarding}
+					// On a phone the wrapper above steps aside, so its margin goes too.
+					className="max-md:mt-3"
+				/>
 
 				{displayRecipes.length > 0 ? (
 					<RecipeCardGrid>
@@ -645,6 +717,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						}
 					/>
 				) : hasFilters ? (
+					// "Clear search and filters" above the list is the way out.
 					<div className="flex flex-col items-center justify-center py-16 text-center">
 						<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
 							<Icon
@@ -653,19 +726,13 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							/>
 						</div>
 						<h2 className="mt-4 font-serif text-xl">
-							Nothing matches those filters
+							No Recipes match these filters
 						</h2>
-						<p className="text-muted-foreground mt-2 max-w-sm">
-							Saved Recipes may be excluded by these filters.{' '}
-							<button
-								type="button"
-								onClick={handleClearFilters}
-								className="text-primary hover:text-primary/80 font-medium underline underline-offset-2"
-							>
-								clear all filters
-							</button>
-							.
-						</p>
+						{maxTime || favoritesOnly ? (
+							<p className="text-muted-foreground mt-2 max-w-sm">
+								Try a longer time, or turn Favorites off.
+							</p>
+						) : null}
 					</div>
 				) : (
 					<div className="flex flex-col items-center justify-center py-16 text-center">

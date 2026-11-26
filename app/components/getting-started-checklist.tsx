@@ -17,7 +17,9 @@ interface Step {
 
 export function GettingStartedChecklist({
 	onboarding,
+	className,
 }: {
+	className?: string
 	onboarding: {
 		hasRecipes: boolean
 		hasStaples: boolean
@@ -72,7 +74,10 @@ export function GettingStartedChecklist({
 	}
 
 	return (
-		<div className="bg-muted/40 mb-6 rounded-lg p-5">
+		<div
+			data-getting-started=""
+			className={cn('bg-muted/40 mb-6 rounded-lg p-5', className)}
+		>
 			<div className="mb-4 flex items-center justify-between">
 				<div>
 					<h2 className="font-serif text-lg">Getting started</h2>

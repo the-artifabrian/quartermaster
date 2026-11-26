@@ -65,7 +65,7 @@ export function getErrorMessage(error: unknown) {
 // The font sizes `app/styles/tailwind.css` adds, so `text-dish` and a text
 // color in one `cn` keep both.
 const twMerge = extendTailwindMerge({
-	extend: { theme: { text: ['label', 'dish', 'dish-photo'] } },
+	extend: { theme: { text: ['label', 'dish', 'dish-photo', 'list-name'] } },
 })
 
 export function cn(...inputs: ClassValue[]) {

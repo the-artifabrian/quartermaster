@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
-import { useLocation } from 'react-router'
+import { Link, useLocation } from 'react-router'
+import { cn } from '#app/utils/misc.tsx'
 import { SegmentedLinks } from './ui/segmented-control.tsx'
+import { TabTitle } from './ui/title-add-button.tsx'
 
 type Library = 'recipes' | 'menus'
 
@@ -17,9 +19,15 @@ let switchMounted = false
 /**
  * List-local switch between the Recipes and Menus libraries. Both live in the
  * global Recipes destination, so this is a pair of route links, not a tab
- * system.
+ * system. Wider screens show it under the title; a phone uses LibraryTitle.
  */
-export function LibrarySwitch({ active }: { active: Library }) {
+export function LibrarySwitch({
+	active,
+	className,
+}: {
+	active: Library
+	className?: string
+}) {
 	const location = useLocation()
 	const state = location.state as { librarySwitchFrom?: Library } | null
 	const from =
@@ -51,7 +59,66 @@ export function LibrarySwitch({ active }: { active: Library }) {
 			]}
 			current={PATHS[active]}
 			slideFrom={from}
-			className="mb-3 w-fit"
+			className={cn('mb-3 w-fit', className)}
 		/>
+	)
+}
+
+const LABELS = { recipes: 'Recipes', menus: 'Menus' } as const
+
+/**
+ * A phone's title on both lists: "Recipes" and "Menus" side by side at the
+ * tab title's size, two links. The list showing is the page's heading, in
+ * ink; the other is in the faint colour, which large text may take. Its
+ * hover and press darken the text, so it never fades below 3:1 or sits on a
+ * fill.
+ *
+ * Below 360px the two titles and the + no longer fit one row at 40px, so
+ * the titles step down to 34px there.
+ */
+export function LibraryTitle({
+	active,
+	className,
+}: {
+	active: Library
+	className?: string
+}) {
+	return (
+		<nav
+			aria-label="Library"
+			className={cn('flex min-w-0 items-center gap-4', className)}
+		>
+			{(['recipes', 'menus'] as const).map((library) => {
+				const current = library === active
+				const link = (
+					<Link
+						to={PATHS[library]}
+						// The same cross-fade as the switch.
+						viewTransition
+						aria-current={current ? 'page' : undefined}
+						className={cn(
+							'flex min-h-11 items-center',
+							current
+								? 'text-foreground transition-opacity active:opacity-60'
+								: 'text-faint hover:text-muted-foreground active:text-muted-foreground',
+						)}
+					>
+						{LABELS[library]}
+					</Link>
+				)
+				return current ? (
+					<TabTitle key={library} className="max-[22.5rem]:text-[2.125rem]">
+						{link}
+					</TabTitle>
+				) : (
+					<span
+						key={library}
+						className="font-serif text-[2.5rem] leading-[1.05] max-[22.5rem]:text-[2.125rem]"
+					>
+						{link}
+					</span>
+				)
+			})}
+		</nav>
 	)
 }

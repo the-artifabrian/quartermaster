@@ -56,15 +56,17 @@ Useful sizes:
 | Other page title                   | 24px Newsreader                              |
 | Recipe detail title                | 32px Newsreader                              |
 | Plan dish on a phone (`text-dish`) | 22px Newsreader, 26px under a Dinner's photo |
-| Recipe row title                   | 17px Newsreader                              |
+| Recipe or Menu row on a phone      | 21.5px Newsreader (`text-list-name`)         |
 | Body and ingredients               | 16px Schibsted Grotesk                       |
 | UI label                           | 14px Schibsted Grotesk                       |
 | Small label (`text-label`)         | 13.5px Schibsted Grotesk, weight 600         |
 | Caption                            | 13px Schibsted Grotesk                       |
 | Tiny navigation label              | 12px Schibsted Grotesk                       |
 
-The Plan dish sizes (`text-dish`, `text-dish-photo`) and `text-label` are font
-size tokens in `app/styles/tailwind.css`, each set once.
+The Plan dish sizes (`text-dish`, `text-dish-photo`), the list row size
+(`text-list-name`) and `text-label` are font size tokens in
+`app/styles/tailwind.css`, each set once, and `cn` in `app/utils/misc.tsx` knows
+them.
 
 A small label (a Meal's label, the weekday in Plan's strip and over its day, the
 groups of a picker) is sentence case at weight 600 with no tracking:
@@ -181,7 +183,9 @@ each screen:
   green fill when pressed (`aria-pressed`). Use it for picking days, labels, and
   classification values, and for one-tap suggestions with a leading `+`. A
   control that must stay its own element in a row of chips (a native `<select>`,
-  a menu trigger) takes the same look from `chipClassName`.
+  a menu trigger) takes the same look from `chipClassName`. The Recipes list's
+  filters show a chosen chip on the tint with a green ring and green text
+  (`tone="tint"`, `chipClassName(on, 'tint')`) instead of the fill.
 - **Segmented control** picks one of two or three equal-width options with a
   green pill that slides under the selection. Use tabs when it switches what the
   page shows, radios when it picks a setting, and `SegmentedLinks` when the
@@ -310,14 +314,16 @@ as wide but has no browser Back, so it keeps the bar on every pushed page.
 ## Imagery
 
 A Recipe thumbnail shows either its photo or the deterministic warm-gradient
-monogram from `recipe-placeholder.ts`. On a phone, a Dinner on Plan shows its
-first Recipe's photo full width, 152px tall, above its dishes, and the Plan
+monogram from `recipe-placeholder.ts`. A phone's Recipe row shows no monogram: a
+Recipe without a photo shows nothing there. On a phone, a Dinner on Plan shows
+its first Recipe's photo full width, 152px tall, above its dishes, and the Plan
 picker puts a Recipe's photo at the end of its row and shows none for a Recipe
 without one. Other Meals, and the desktop agenda, are text only.
 
 Typical square thumbnail sizes:
 
-- 64px in Recipe rows
+- 52px at the end of a Recipe row on a phone; a desktop card puts the photo on
+  top
 - 36–40px in pickers
 
 Recipe detail may use a full-bleed mobile hero and a side image on desktop.
@@ -337,6 +343,43 @@ placeholder.
   availability ordering.
 - Recently updated is the real default sort.
 - Search and visible filters keep the full library easy to reach.
+
+On a phone the Recipes and Menus lists share a title and a row shape:
+
+- The title is "Recipes" and "Menus" side by side at the tab title's size, two
+  links. The list showing is the page's heading in ink, the other is faint, and
+  the round + ends the row. It takes the place of a count in the title and of
+  the segmented switch, which wider screens keep under their title. Below 360px
+  the two titles step down to 34px so the + still fits.
+- Recipes' search field and the filter button sit under the title, 14px above
+  and below, and stay pinned under the status bar while the list scrolls,
+  opaque, with a hairline under them. A focused row or control lands below them
+  (a scroll margin on what can take focus outside the pinned row), and focusing
+  the pinned field or a chip scrolls nothing. The field has a clear button,
+  named "Clear the search field", once it has text, and the browser's own is
+  hidden. A search or a filter takes the page back to the top, so the new list
+  starts under the search row.
+- The filter button opens the chips as one row that scrolls sideways, edge to
+  edge, inside the pinned row: sort, cook time, Favorites, then Cuisine, Season
+  and Course. Sort and cook time are the phone's own pickers. A chosen chip is
+  tinted and ringed in green, and the button's badge counts what is set. A chip
+  reached from the keyboard scrolls fully into the row; a tapped one stays under
+  the finger.
+- While searching or filtering, a line above the list reads "8 of 24 Recipes",
+  then the filters by name, with "Clear search and filters" at its right. Wider
+  screens count in the title, so their line names the filters, or counts for a
+  search alone. Filters that leave nothing read "No Recipes match these
+  filters", with "Try a longer time, or turn Favorites off." only while cook
+  time or Favorites is set.
+- A row is the name in Newsreader at 21.5px, a green heart after it for a
+  favorite, and under it the total time at weight 600 then the first line of the
+  description, in the sans. A 52px photo ends the row on the content edge;
+  without one the row is text only. Names wrap to three lines; a longer one is
+  cut there and its heart ends the third line. The heart reads "Favorite" to a
+  screen reader.
+- A Menu's row is the same: its title, then "4 Recipes" at weight 600 and its
+  description, or the Recipes' names when it has none, with the guests at the
+  right.
 
 ### Recipe detail
 

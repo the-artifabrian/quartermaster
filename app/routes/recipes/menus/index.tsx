@@ -1,5 +1,5 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { LibrarySwitch } from '#app/components/library-switch.tsx'
+import { LibrarySwitch, LibraryTitle } from '#app/components/library-switch.tsx'
 import { MenuCard } from '#app/components/menu-card.tsx'
 import { RecipeCardGrid } from '#app/components/recipe-card.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -74,9 +74,11 @@ export default function MenusIndex({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
-			<div className="border-border/50 border-b">
+			{/* A phone's title has no rule under it, as on Recipes. */}
+			<div className="md:border-border/50 md:border-b">
 				<TitleRow className="container-grid py-3 md:py-4">
-					<TabTitle>
+					<LibraryTitle active="menus" className="md:hidden" />
+					<TabTitle className="max-md:hidden">
 						Menus{' '}
 						<span className="text-muted-foreground text-base font-normal">
 							({menus.length})
@@ -95,7 +97,7 @@ export default function MenusIndex({ loaderData }: Route.ComponentProps) {
 			</div>
 
 			<div className="container-grid py-4">
-				<LibrarySwitch active="menus" />
+				<LibrarySwitch active="menus" className="max-md:hidden" />
 
 				{menus.length > 0 ? (
 					<RecipeCardGrid>

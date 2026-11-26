@@ -76,7 +76,7 @@ test('Back from a Recipe returns to the list where it was', async ({
 	await expect(page.locator('[data-nav-bar]')).toHaveCount(0)
 
 	await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
-	const card = page.getByRole('link', { name: /^Soup \d+ recipe/ }).last()
+	const card = page.getByRole('link', { name: /^Soup \d+/ }).last()
 	await expect(card).toBeInViewport()
 	await hydrated(card)
 	const listScroll = await page.evaluate(() => window.scrollY)
@@ -116,7 +116,7 @@ test('Back from a deep-linked Recipe opens Recipes in its place', async ({
 	await backButton(page, 'Recipes').tap()
 	await expect(page).toHaveURL('/recipes')
 	await expect(
-		page.getByRole('heading', { level: 1, name: /^Recipes \(/ }),
+		page.getByRole('heading', { level: 1, name: /^Recipes( \(|$)/ }),
 	).toBeVisible()
 	// Replaced, so the Recipe is not left behind the list.
 	expect(await page.evaluate(() => window.history.length)).toBe(lengthBefore)
@@ -423,9 +423,9 @@ test('Save in the nav bar saves the edit and returns to the Recipe', async ({
 	const recipe = await createLongRecipe(user, 'Lentil soup')
 
 	await page.goto('/recipes')
-	await hydrated(page.getByRole('link', { name: 'Lentil soup recipe' }))
+	await hydrated(page.getByRole('link', { name: /^Lentil soup/ }))
 	const listIdx = await historyIdx(page)
-	await page.getByRole('link', { name: 'Lentil soup recipe' }).tap()
+	await page.getByRole('link', { name: /^Lentil soup/ }).tap()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
 	await page.getByRole('link', { name: 'Edit Recipe' }).tap()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
@@ -705,7 +705,7 @@ test('Back from a Recipe the tab bar restored returns to the filtered list where
 
 	await page.goto('/recipes?search=Soup')
 	await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
-	const card = page.getByRole('link', { name: /^Soup \d+ recipe/ }).last()
+	const card = page.getByRole('link', { name: /^Soup \d+/ }).last()
 	await expect(card).toBeInViewport()
 	await hydrated(card)
 	const listScroll = await scrollY(page)

@@ -289,7 +289,7 @@ test.describe('in the iOS app', () => {
 		})
 
 		await page.goto('/recipes')
-		const card = page.getByRole('link', { name: 'Lentil soup recipe' })
+		const card = page.getByRole('link', { name: /^Lentil soup/ })
 		await hydrated(card)
 		await ui.settled()
 		expect(await ui.haptics()).toEqual([])
@@ -328,7 +328,7 @@ test.describe('in the iOS app', () => {
 
 		// Cancel slides back too.
 		await ui.expectSlide('forward', () =>
-			page.getByRole('link', { name: 'Red lentil soup recipe' }).tap(),
+			page.getByRole('link', { name: /^Red lentil soup/ }).tap(),
 		)
 		await ui.expectSlide('forward', () =>
 			page.getByRole('link', { name: 'Edit Recipe' }).tap(),
@@ -679,7 +679,7 @@ test.describe('in the iOS app', () => {
 				.getByRole('button', { name: 'Discard Changes' })
 				.tap()
 		await page.goto('/recipes')
-		const card = page.getByRole('link', { name: 'Lentil soup recipe' })
+		const card = page.getByRole('link', { name: /^Lentil soup/ })
 		await hydrated(card)
 		await ui.expectSlide('forward', () => card.tap())
 
@@ -806,7 +806,7 @@ test.describe('in the iOS app', () => {
 
 		// The list right behind: a pop back to it.
 		await page.goto('/recipes')
-		const card = page.getByRole('link', { name: 'Lentil soup recipe' })
+		const card = page.getByRole('link', { name: /^Lentil soup/ })
 		await hydrated(card)
 		await ui.expectSlide('forward', () => card.tap())
 		await ui.expectSlide('forward', () =>
@@ -848,7 +848,7 @@ test.describe('in the iOS app', () => {
 		const user = await login()
 		const soup = await createRecipe(user, 'Lentil soup')
 		await page.goto('/recipes')
-		const card = page.getByRole('link', { name: 'Lentil soup recipe' })
+		const card = page.getByRole('link', { name: /^Lentil soup/ })
 		await hydrated(card)
 		await ui.expectSlide('forward', () => card.tap())
 		await ui.expectSlide('forward', () =>
@@ -1124,7 +1124,7 @@ test.describe('in Safari', () => {
 		const user = await login()
 		const soup = await createRecipe(user, 'Lentil soup')
 		await page.goto('/recipes')
-		const card = page.getByRole('link', { name: 'Lentil soup recipe' })
+		const card = page.getByRole('link', { name: /^Lentil soup/ })
 		await hydrated(card)
 
 		const before = (await ui.transitions()).length

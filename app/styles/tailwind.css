@@ -269,6 +269,10 @@
 	--text-dish--line-height: 1.2;
 	--text-dish-photo: 1.625rem;
 	--text-dish-photo--line-height: 1.15;
+	/* A Recipe's or a Menu's name in its row on a phone's Recipes and Menus
+	   lists. */
+	--text-list-name: 1.34375rem;
+	--text-list-name--line-height: 1.2;
 
 	--animate-roll-reveal: roll-reveal 0.4s cubic-bezier(0.22, 1.28, 0.54, 0.99);
 	--animate-slide-left: slide-left 0.3s ease-out;
@@ -572,6 +576,27 @@ html {
 @media (width < 48rem) {
 	:root:has([data-plan-header]) {
 		scroll-padding-top: calc(var(--safe-top) + 10.5rem);
+	}
+}
+
+/* A phone's Recipes list pins its search row under the status bar, with the
+   filter chips when they are open, so a focused control or a row scrolled to
+   lands below it. A margin on what can take focus, rather than padding on
+   the page, so focusing the pinned row's own controls scrolls nothing. */
+@media (width < 48rem) {
+	:root:has([data-recipes-tools])
+		#main-content
+		:is(a[href], button, input, select, textarea, [tabindex]):not(
+			[data-recipes-tools] *
+		) {
+		scroll-margin-top: calc(var(--safe-top) + 5.25rem);
+	}
+	:root:has([data-recipes-tools][data-filters-open])
+		#main-content
+		:is(a[href], button, input, select, textarea, [tabindex]):not(
+			[data-recipes-tools] *
+		) {
+		scroll-margin-top: calc(var(--safe-top) + 8.5rem);
 	}
 }
 

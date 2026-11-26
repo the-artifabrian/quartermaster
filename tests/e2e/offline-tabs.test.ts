@@ -115,7 +115,12 @@ test('offline, a tab keeps the app and its tab bar, and retries by itself once b
 	await waitForWarmWorker(page)
 
 	await tab(page, 'Recipes').click()
-	await expect(page.getByRole('heading', { name: /^Recipes \(/ })).toBeVisible()
+	// The list's own title, not the offline notice's heading.
+	await expect(
+		page
+			.getByRole('navigation', { name: 'Library' })
+			.getByRole('heading', { name: 'Recipes' }),
+	).toBeVisible()
 	await tab(page, 'Staples').click()
 	await expect(page.getByText('Oat milk')).toBeVisible()
 	await waitForCachedData(page, '/staples.data')
@@ -135,7 +140,11 @@ test('offline, a tab keeps the app and its tab bar, and retries by itself once b
 
 	// A tab visited this session shows its content.
 	await tab(page, 'Recipes').click()
-	await expect(page.getByRole('heading', { name: /^Recipes \(/ })).toBeVisible()
+	await expect(
+		page
+			.getByRole('navigation', { name: 'Library' })
+			.getByRole('heading', { name: 'Recipes' }),
+	).toBeVisible()
 	await tab(page, 'Staples').click()
 	await expect(page).toHaveURL('/staples')
 	await expect(page.getByText('Oat milk')).toBeVisible()

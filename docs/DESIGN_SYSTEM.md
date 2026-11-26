@@ -380,25 +380,30 @@ placeholder.
 - On a phone the title carries the count in the sans (“7 to buy”, “All
   checked”). From Staples and From Plan sit under it as two quiet 44px buttons.
   From 15 rows the search field waits behind a magnifier at the right of the
-  title row; it opens focused, with Done beside it, and Done clears the search.
+  title row; it opens focused, with Done beside it, and Done or Escape puts it
+  away and clears the search. Under 15 rows the field goes with its query.
   Wider, the title shows checked/total, the buttons follow it and the field
   shows from 15 rows.
 - On a phone checked rows gather under a small “Checked” heading with “3 of 12”
   and Clear checked at its right. A row checked there keeps its place for half a
-  second (tap again to take it back), then folds where it was and opens at the
-  top of Checked; unchecked, it goes back to its place by name the same way. The
-  half second outlasts the check's answer, a reload and a change from the other
-  phone, and a row whose check isn't confirmed waits where it is. With reduced
-  motion it moves without folding. When every row is checked, “Everything is
-  checked” takes the list's place. Later keeps its own checked rows at the end
-  of its list. Wider, the checked rows close the one list and Clear checked sits
-  under it.
+  second, then folds where it was and opens at the top of Checked; unchecked, it
+  goes back to its place by name the same way. A second tap takes it back, and
+  it stays where it is while that tap is out. The half second outlasts the
+  check's answer, a reload and a change from the other phone, and a row whose
+  check isn't confirmed waits where it is. Next shop stays one list, so a row
+  keeps its open editor, menu or swipe whichever group it is in, and one checked
+  from the keyboard keeps focus on its check once it lands. With reduced motion
+  it moves without folding. When every row is checked, “Everything is checked”
+  takes the list's place. Later keeps its own checked rows at the end of its
+  list. Wider, the checked rows close the one list and Clear checked sits under
+  it.
 - On a phone adding is a field-shaped “Add an item” bar docked above the tab
   bar. It opens Add to Shopping as a tall sheet with the field at the top,
   focused inside the tap so iOS raises the keyboard, which then covers only the
   empty lower half. The sheet stays open between adds and lists each one under
-  the field with an Undo that deletes it again, without a toast. Desktop keeps
-  its inline quick add.
+  the field with an Undo that takes the add back, without a toast, while the row
+  is still as it was added. A row someone has checked, edited or added to since
+  stays, and its line says so. Desktop keeps its inline quick add.
 - Generated and manual demand can share a displayed total, but UI actions must
   make corrections understandable.
 

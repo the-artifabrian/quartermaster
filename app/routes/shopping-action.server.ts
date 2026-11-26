@@ -187,7 +187,13 @@ export const shoppingActions = {
 				source: 'manual',
 				horizon,
 			},
-			select: { id: true, name: true, quantity: true, unit: true },
+			select: {
+				id: true,
+				name: true,
+				quantity: true,
+				unit: true,
+				checkVersion: true,
+			},
 		})
 
 		void emitHouseholdEvent({
@@ -202,7 +208,7 @@ export const shoppingActions = {
 			status: 'success' as const,
 			submission: submission.reply({ resetForm: true }),
 			// The row as saved ("2 lemons" is saved as lemons, 2), so the add
-			// sheet can list it and take it back.
+			// sheet can list it and take it back while it is unchanged.
 			item: created,
 		}
 	},

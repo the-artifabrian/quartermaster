@@ -12,6 +12,7 @@ import {
 	restoreShoppingRows,
 	restoreStaple,
 	sealUndo,
+	takeBackAddedShoppingRow,
 	redeemUndo,
 	type DeleteResult,
 	MAX_UNDO_ROWS,
@@ -43,6 +44,17 @@ const UndoRequest = z.discriminatedUnion('intent', [
 		itemIds: z.array(id).min(1).max(MAX_UNDO_ROWS),
 		/** Clear checked: only rows still checked go. */
 		checkedOnly: z.boolean().optional(),
+	}),
+	z.object({
+		// The add sheet's Undo: only the row as it was added goes.
+		intent: z.literal('take-back-add'),
+		itemId: id,
+		added: z.object({
+			checkVersion: z.number().int().nonnegative(),
+			name: z.string().max(200),
+			quantity: z.string().max(50).nullable(),
+			unit: z.string().max(20).nullable(),
+		}),
 	}),
 	z.object({
 		intent: z.literal('delete-meal'),
@@ -178,6 +190,16 @@ export async function action({ request }: Route.ActionArgs) {
 				})
 		}
 		return answer(result)
+	}
+	if (input.intent === 'take-back-add') {
+		const result = await takeBackAddedShoppingRow(prisma, {
+			...scope,
+			id: input.itemId,
+			added: input.added,
+		})
+		if (result.status === 'deleted')
+			emit('shopping_list_item_deleted', { name: result.name })
+		return Response.json({ status: result.status }, { headers })
 	}
 	if (input.intent === 'delete-meal') {
 		const result = await deleteMeal(prisma, { ...scope, ...input })

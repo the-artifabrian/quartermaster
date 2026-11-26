@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
 import { BottomSheet } from '#app/components/ui/bottom-sheet.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { useDeleteWithUndo } from '#app/components/undo-delete.tsx'
+import { invalidateServiceWorkerData } from '#app/components/service-worker-data-sync.tsx'
 import { useFetcherSettled } from '#app/hooks/use-fetcher-settled.ts'
 import {
 	useSpeechToText,
@@ -19,24 +19,63 @@ import { cn } from '#app/utils/misc.tsx'
 import { NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 
 /** A row this sheet added since it opened, as the server saved it. */
-type AddedLine = {
+type AddedRow = {
 	id: string
 	name: string
 	quantity: string | null
 	unit: string | null
+	checkVersion: number
 }
 
-function addedLine(data: unknown): AddedLine | null {
+type AddedLine = AddedRow & {
+	/** Its Undo: not tapped, waiting on the server, or refused and why. */
+	undo: 'ready' | 'sending' | 'failed' | 'changed'
+}
+
+function addedRow(data: unknown): AddedRow | null {
 	if (!data || typeof data !== 'object' || !('item' in data)) return null
-	const item = (data as { item?: Partial<AddedLine> }).item
-	return item && typeof item.id === 'string' && typeof item.name === 'string'
+	const item = (data as { item?: Partial<AddedRow> }).item
+	return item &&
+		typeof item.id === 'string' &&
+		typeof item.name === 'string' &&
+		typeof item.checkVersion === 'number'
 		? {
 				id: item.id,
 				name: item.name,
 				quantity: item.quantity ?? null,
 				unit: item.unit ?? null,
+				checkVersion: item.checkVersion,
 			}
 		: null
+}
+
+/**
+ * Takes back a row the sheet added, if it is still the row as added
+ * (resources/undo-delete): `changed` when someone checked, edited or added to
+ * it since, and it stays.
+ */
+async function takeBack(row: AddedRow) {
+	const response = await fetch('/resources/undo-delete', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'same-origin',
+		body: JSON.stringify({
+			intent: 'take-back-add',
+			itemId: row.id,
+			added: {
+				checkVersion: row.checkVersion,
+				name: row.name,
+				quantity: row.quantity,
+				unit: row.unit,
+			},
+			originClientId: getHouseholdClientId(),
+		}),
+	})
+	if (!response.ok) throw new Error(`Undo route answered ${response.status}`)
+	const { status } = (await response.json()) as { status: string }
+	if (status === 'deleted' || status === 'gone' || status === 'changed')
+		return status
+	throw new Error(`Unexpected answer: ${status}`)
 }
 
 /**
@@ -65,7 +104,6 @@ export function ShoppingAddBar({
 	const [added, setAdded] = useState<AddedLine[]>([])
 	const inputRef = useRef<HTMLInputElement>(null)
 	const qtyInputRef = useRef<HTMLInputElement>(null)
-	const deleteWithUndo = useDeleteWithUndo()
 
 	// What was typed clears when the sheet opens again, and so do the last
 	// add's warning and the list of what it added. Not on close: the sheet
@@ -106,27 +144,44 @@ export function ShoppingAddBar({
 			setQuantity('')
 			setUnit('')
 			setWarningDismissed(false)
-			const line = addedLine(data)
-			if (line)
+			const row = addedRow(data)
+			if (row)
 				setAdded((lines) => [
-					line,
-					...lines.filter((other) => other.id !== line.id),
+					{ ...row, undo: 'ready' },
+					...lines.filter((other) => other.id !== row.id),
 				])
 			inputRef.current?.focus()
 		}
 	})
 
-	function undoAdd(line: AddedLine) {
-		setAdded((lines) => lines.filter((other) => other.id !== line.id))
-		deleteWithUndo({
-			key: `shopping-item:${line.id}`,
-			hides: [line.id],
-			message: `Deleted ${line.name}`,
-			what: line.name,
-			request: { intent: 'delete-shopping', itemIds: [line.id] },
-			quiet: true,
-		})
+	const setUndo = (id: string, undo: AddedLine['undo']) =>
+		setAdded((lines) =>
+			lines.map((line) => (line.id === id ? { ...line, undo } : line)),
+		)
+
+	/**
+	 * The line stays until the server answers: it goes once the row is
+	 * deleted, says so if the row changed and stays, and offers Undo again if
+	 * the request failed.
+	 */
+	async function undoAdd(line: AddedLine) {
 		inputRef.current?.focus({ preventScroll: true })
+		setUndo(line.id, 'sending')
+		let answer: Awaited<ReturnType<typeof takeBack>>
+		try {
+			answer = await takeBack(line)
+		} catch {
+			setUndo(line.id, 'failed')
+			return
+		}
+		if (answer === 'changed') {
+			setUndo(line.id, 'changed')
+			return
+		}
+		// A write outside the Router: drop the caches and reload the list.
+		invalidateServiceWorkerData()
+		void revalidator.revalidate()
+		setAdded((lines) => lines.filter((other) => other.id !== line.id))
 	}
 
 	const bulkAddFetcher = useFetcher()
@@ -376,22 +431,34 @@ export function ShoppingAddBar({
 					>
 						{added.map((line) => (
 							<li key={line.id} className="flex min-h-12 items-center gap-3">
-								<p className="min-w-0 flex-1 break-words">
-									<span className="font-serif text-lg">{line.name}</span>
-									{(line.quantity || line.unit) && (
-										<span className="text-muted-foreground ml-2 text-sm">
-											{[line.quantity, line.unit].filter(Boolean).join(' ')}
-										</span>
+								<div className="min-w-0 flex-1 py-2">
+									<p className="break-words">
+										<span className="font-serif text-lg">{line.name}</span>
+										{(line.quantity || line.unit) && (
+											<span className="text-muted-foreground ml-2 text-sm">
+												{[line.quantity, line.unit].filter(Boolean).join(' ')}
+											</span>
+										)}
+									</p>
+									{(line.undo === 'changed' || line.undo === 'failed') && (
+										<p role="status" className="text-muted-foreground text-sm">
+											{line.undo === 'changed'
+												? 'It changed since you added it, so it stays.'
+												: 'Couldn’t take it back. Try again.'}
+										</p>
 									)}
-								</p>
-								<button
-									type="button"
-									onClick={() => undoAdd(line)}
-									aria-label={`Undo adding ${line.name}`}
-									className="text-primary -mr-3 flex min-h-11 shrink-0 items-center px-3 text-sm font-semibold"
-								>
-									Undo
-								</button>
+								</div>
+								{line.undo !== 'changed' && (
+									<button
+										type="button"
+										onClick={() => void undoAdd(line)}
+										disabled={line.undo === 'sending'}
+										aria-label={`Undo adding ${line.name}`}
+										className="text-primary -mr-3 flex min-h-11 shrink-0 items-center px-3 text-sm font-semibold disabled:opacity-50"
+									>
+										Undo
+									</button>
+								)}
 							</li>
 						))}
 					</ul>

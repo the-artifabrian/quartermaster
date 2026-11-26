@@ -631,3 +631,56 @@ test('the docked Add an item bar opens a tall sheet with focus in the tap; it li
 	await expect(name).toBeFocused()
 	await expect(added).toHaveCount(0)
 })
+
+test('the add sheet’s Undo leaves a row that changed since it was added, and offers Undo again when the request fails', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await seed(user, [{ name: 'Bread' }])
+	await openShopping(page)
+	await page.getByRole('button', { name: 'Add an item' }).click()
+	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
+	const name = sheet.getByPlaceholder('Add an item…')
+	for (const item of ['milk', 'eggs']) {
+		await name.fill(item)
+		await sheet.getByRole('button', { name: 'Add to Next shop' }).click()
+		await expect(
+			sheet.getByRole('button', { name: `Undo adding ${item}` }),
+		).toBeVisible()
+	}
+	const milk = await prisma.shoppingListItem.findFirstOrThrow({
+		where: { name: 'milk', list: { householdId: user.householdId } },
+	})
+	// The other phone edits milk's amount while the sheet is open.
+	await prisma.shoppingListItem.update({
+		where: { id: milk.id },
+		data: { quantity: '2', unit: 'l' },
+	})
+	await sheet.getByRole('button', { name: 'Undo adding milk' }).click()
+	const milkLine = sheet.getByRole('listitem').filter({ hasText: 'milk' })
+	await expect(milkLine).toContainText(
+		'It changed since you added it, so it stays.',
+	)
+	await expect(
+		sheet.getByRole('button', { name: 'Undo adding milk' }),
+	).toHaveCount(0)
+	expect(
+		await prisma.shoppingListItem.findUnique({
+			where: { id: milk.id },
+			select: { quantity: true, unit: true },
+		}),
+	).toEqual({ quantity: '2', unit: 'l' })
+
+	// Offline for a moment: the line stays, with its Undo, and says so.
+	await page.route('**/resources/undo-delete', (route) => route.abort())
+	await sheet.getByRole('button', { name: 'Undo adding eggs' }).click()
+	const eggsLine = sheet.getByRole('listitem').filter({ hasText: 'eggs' })
+	await expect(eggsLine).toContainText('Couldn’t take it back. Try again.')
+	await page.unroute('**/resources/undo-delete')
+	await sheet.getByRole('button', { name: 'Undo adding eggs' }).click()
+	await expect(eggsLine).toHaveCount(0)
+	await expect
+		.poll(() => savedChecks(user.householdId))
+		.toEqual({ Bread: false, milk: false })
+})

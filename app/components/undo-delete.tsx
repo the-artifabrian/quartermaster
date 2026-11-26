@@ -98,11 +98,6 @@ type DeleteWithUndo = {
 	what: string
 	verb?: UndoVerb
 	request: UndoRequest
-	/**
-	 * No toast and no Undo: the delete is final. For a delete that is itself
-	 * an undo, such as a line in the add sheet taking back its add.
-	 */
-	quiet?: boolean
 }
 
 /**
@@ -118,19 +113,16 @@ function deleteWithUndo({
 	what,
 	verb = 'delete',
 	request,
-	quiet = false,
 }: DeleteWithUndo) {
 	haptic('medium')
 	// A double tap: the first delete is still out, with its toast.
 	if (current?.key === key && store.active(key)) return
-	const toastId = `undo:${++toastCount}`
-	if (!quiet) {
-		if (current) {
-			toast.dismiss(current.toastId)
-			store.close(current.key)
-		}
-		current = { key, toastId }
+	if (current) {
+		toast.dismiss(current.toastId)
+		store.close(current.key)
 	}
+	const toastId = `undo:${++toastCount}`
+	current = { key, toastId }
 	store.start({
 		key,
 		hides,
@@ -168,10 +160,6 @@ function deleteWithUndo({
 		onRestoreGone: () =>
 			toast.error(`Couldn’t bring back ${what}: it changed in the meantime.`),
 	})
-	if (quiet) {
-		store.close(key)
-		return
-	}
 	toast(message, {
 		id: toastId,
 		toasterId: UNDO_TOASTER_ID,

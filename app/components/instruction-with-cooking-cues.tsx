@@ -78,7 +78,7 @@ export function InstructionWithCookingCues({
 						'font-semibold print:text-inherit print:no-underline',
 						isChecked
 							? 'text-faint decoration-faint/60 line-through'
-							: 'text-primary decoration-primary/40 underline decoration-2 underline-offset-4',
+							: 'text-primary decoration-primary/40 phone:text-foreground phone:decoration-primary phone:decoration-[1.5px] underline decoration-2 underline-offset-4',
 					)}
 				>
 					{content.slice(startIndex, endIndex)}

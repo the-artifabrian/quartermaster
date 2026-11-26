@@ -333,9 +333,10 @@ test('editing a step mid-cook keeps the other checks, every row id, and a row ad
 	])
 
 	// A double tap on the heart ends where the second tap left it.
-	const heart = page.locator(
-		'form:has(input[name="intent"][value="toggleFavorite"]) button',
-	)
+	// The page's own heart; the nav bar's (a phone's) is hidden here.
+	const heart = page
+		.getByRole('main')
+		.locator('form:has(input[name="intent"][value="toggleFavorite"]) button')
 	await hydrated(heart)
 	await expect(heart).toHaveAccessibleName('Add to favorites')
 	// The second tap can cancel the first in the browser after the server has

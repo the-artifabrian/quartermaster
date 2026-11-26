@@ -12,13 +12,12 @@ import {
 	formatScaleMultiplier,
 	ScaleMultiplierSchema,
 } from '#app/utils/menu-validation.ts'
-import { scaledYieldLabel } from '#app/utils/ingredient-plural.ts'
 import { cn } from '#app/utils/misc.tsx'
 import {
 	formatTargetYieldAmount,
-	getTypedYield,
-	scaleMultiplierToTargetYield,
+	scaledYield,
 } from '#app/utils/target-yield.ts'
+import { Chip } from './ui/chip.tsx'
 
 const SCALE_STEP = 0.5
 const SCALE_DRAFT_PATTERN = /^(?:0|[1-9]\d{0,2})?(?:[.,]\d{0,2})?$/
@@ -198,18 +197,7 @@ export function RecipeIngredientsControls({
 	useMetric,
 	onToggleMetric,
 }: RecipeIngredientsControlsProps) {
-	const recipeYield = getTypedYield({ yieldAmount, yieldLabel })
-	const derivedTarget = scaleMultiplierToTargetYield(
-		scaleMultiplier,
-		recipeYield,
-	)
-	const formattedTargetYield =
-		derivedTarget != null ? formatTargetYieldAmount(derivedTarget) : null
-	// "Makes 2 loaves", not "2 loaf".
-	const targetYieldLabel =
-		derivedTarget != null && recipeYield
-			? scaledYieldLabel(recipeYield.label, derivedTarget, scaleMultiplier)
-			: null
+	const targetYield = scaledYield(scaleMultiplier, { yieldAmount, yieldLabel })
 	const displayedMultiplier = formatScaleMultiplier(scaleMultiplier)
 	// A popover on wider screens, a bottom sheet on a phone (set on open).
 	const [open, setOpen] = useState(false)
@@ -245,7 +233,9 @@ export function RecipeIngredientsControls({
 
 	return (
 		<div className="mb-4 min-w-0">
-			<div className="flex min-w-0 items-center gap-1">
+			{/* Scale and Metric go under the heading when the row is too narrow
+			    for all three (a phone's larger heading at 320px). */}
+			<div className="phone:flex-wrap flex min-w-0 items-center gap-1">
 				<button
 					type="button"
 					aria-label="Ingredients"
@@ -256,7 +246,9 @@ export function RecipeIngredientsControls({
 				>
 					{/* The chevron trails, so the heading starts on the content edge
 					    like Instructions. */}
-					<h2 className="font-serif text-lg">Ingredients</h2>
+					<h2 className="phone:text-recipe-section font-serif text-lg">
+						Ingredients
+					</h2>
 					<Icon
 						name="chevron-down"
 						size="sm"
@@ -271,83 +263,79 @@ export function RecipeIngredientsControls({
 					Ingredients
 				</h2>
 
-				<Popover
-					open={open && !inSheet}
-					onOpenChange={(nextOpen) => {
-						if (nextOpen) setInSheet(opensAsSheet())
-						setOpen(nextOpen)
-					}}
-				>
-					<PopoverTrigger asChild>
-						<button
-							type="button"
-							aria-label={`Scale ${displayedMultiplier}×`}
-							// Radix reports its own state, which is closed while the
-							// sheet stands in for the popover.
-							aria-expanded={open}
-							className="text-muted-foreground hover:text-foreground focus-visible:ring-ring ml-auto flex min-h-11 shrink-0 items-center gap-1 rounded-sm px-2 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-hidden print:hidden"
+				<div className="ml-auto flex shrink-0 items-center gap-1">
+					<Popover
+						open={open && !inSheet}
+						onOpenChange={(nextOpen) => {
+							if (nextOpen) setInSheet(opensAsSheet())
+							setOpen(nextOpen)
+						}}
+					>
+						<PopoverTrigger asChild>
+							<button
+								type="button"
+								aria-label={`Scale ${displayedMultiplier}×`}
+								// Radix reports its own state, which is closed while the
+								// sheet stands in for the popover.
+								aria-expanded={open}
+								className="text-muted-foreground hover:text-foreground focus-visible:ring-ring ml-auto flex min-h-11 shrink-0 items-center gap-1 rounded-sm px-2 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-hidden print:hidden"
+							>
+								<span>Scale</span>
+								<span className="text-foreground tabular-nums">
+									{displayedMultiplier}×
+								</span>
+								<Icon name="chevron-down" size="xs" aria-hidden="true" />
+							</button>
+						</PopoverTrigger>
+						<PopoverContent align="end" className="w-64 p-3">
+							<p className="mb-2 text-sm font-medium">Scale this Recipe</p>
+							{scaleEditor}
+						</PopoverContent>
+					</Popover>
+					{inSheet && (
+						<BottomSheet
+							open={open}
+							onClose={closeSheet}
+							labelledBy="recipe-scale-sheet-title"
+							title="Scale this Recipe"
 						>
-							<span>Scale</span>
-							<span className="text-foreground tabular-nums">
-								{displayedMultiplier}×
-							</span>
-							<Icon name="chevron-down" size="xs" aria-hidden="true" />
-						</button>
-					</PopoverTrigger>
-					<PopoverContent align="end" className="w-64 p-3">
-						<p className="mb-2 text-sm font-medium">Scale this Recipe</p>
-						{scaleEditor}
-					</PopoverContent>
-				</Popover>
-				{inSheet && (
-					<BottomSheet
-						open={open}
-						onClose={closeSheet}
-						labelledBy="recipe-scale-sheet-title"
-						title="Scale this Recipe"
-					>
-						{scaleEditor}
-						<Button type="button" className="mt-4 w-full" onClick={closeSheet}>
-							Done
-						</Button>
-					</BottomSheet>
-				)}
+							{scaleEditor}
+							<Button
+								type="button"
+								className="mt-4 w-full"
+								onClick={closeSheet}
+							>
+								Done
+							</Button>
+						</BottomSheet>
+					)}
 
-				{onToggleMetric ? (
-					<button
-						type="button"
-						onClick={onToggleMetric}
-						aria-pressed={useMetric}
-						className="focus-visible:ring-ring focus-visible:ring-offset-background group/metric flex min-h-11 shrink-0 items-center rounded-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden print:hidden"
-					>
-						{/* The pill is 32px tall; the button keeps the 44px target */}
-						<span
-							className={cn(
-								'flex h-8 items-center rounded-full border px-2.5 text-xs font-medium transition-colors',
-								useMetric
-									? 'border-primary-fill bg-primary-fill text-primary-foreground'
-									: 'border-border/50 bg-secondary/50 text-muted-foreground group-hover/metric:bg-secondary group-hover/metric:text-foreground',
-							)}
+					{onToggleMetric ? (
+						<Chip
+							pressed={useMetric}
+							tone="tint"
+							onClick={onToggleMetric}
+							className="shrink-0 print:hidden"
 						>
 							Metric
-						</span>
-					</button>
-				) : null}
+						</Chip>
+					) : null}
+				</div>
 			</div>
 
-			{formattedTargetYield != null && recipeYield ? (
+			{targetYield ? (
 				<p
 					aria-live="polite"
 					className="text-muted-foreground min-w-0 text-xs leading-relaxed break-words print:hidden"
 				>
 					<span>
-						Makes {formattedTargetYield} {targetYieldLabel}
+						Makes {targetYield.amount} {targetYield.label}
 					</span>
 					{scaleMultiplier !== 1 ? (
 						<span>
 							<span aria-hidden="true"> · </span>
 							<span>
-								original: {formatTargetYieldAmount(recipeYield.amount)}
+								original: {formatTargetYieldAmount(targetYield.original.amount)}
 							</span>
 						</span>
 					) : null}

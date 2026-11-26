@@ -67,3 +67,62 @@ test('the anonymous share page offers no Shopping action', () => {
 	).not.toBeInTheDocument()
 	expect(screen.getByRole('checkbox', { name: 'rhubarb' })).toBeVisible()
 })
+
+test('splitting the amount from the name keeps each row’s text, its spoken name, and a place in the amount column', () => {
+	const Stub = createRoutesStub([
+		{
+			path: '/',
+			Component: () => (
+				<IngredientList
+					ingredients={[
+						...ingredients,
+						{
+							id: 'salt',
+							name: 'salt',
+							amount: null,
+							unit: null,
+							notes: 'to taste',
+							isHeading: false,
+						},
+						{
+							id: 'eggs',
+							name: 'egg',
+							amount: '1',
+							unit: null,
+							notes: null,
+							isHeading: false,
+						},
+					]}
+					checkedIngredients={new Set()}
+					onToggle={vi.fn()}
+					ratio={2}
+					recipeId="tart"
+				/>
+			),
+		},
+	])
+	render(<Stub />)
+
+	const rows = screen.getAllByRole('checkbox')
+	// What a print or a text selection reads: one run, as before the split.
+	expect(rows.map((row) => row.textContent)).toEqual([
+		'1000 g rhubarb',
+		'400 g sugar, optional',
+		'salt, to taste',
+		'2 eggs',
+	])
+	expect(rows.map((row) => row.getAttribute('aria-label'))).toEqual([
+		'rhubarb',
+		'sugar',
+		'salt',
+		'egg',
+	])
+	// A row with no amount keeps an empty cell, so its name lines up.
+	for (const row of rows) {
+		expect(row.querySelectorAll('[data-ingredient-amount]')).toHaveLength(1)
+		expect(row.querySelectorAll('[data-ingredient-name]')).toHaveLength(1)
+	}
+	expect(rows[2]!.querySelector('[data-ingredient-amount]')!.textContent).toBe(
+		'',
+	)
+})

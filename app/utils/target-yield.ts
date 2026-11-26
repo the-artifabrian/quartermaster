@@ -1,3 +1,5 @@
+import { scaledYieldLabel } from './ingredient-plural.ts'
+
 export type TypedYield = {
 	amount: number
 	label: string
@@ -42,4 +44,22 @@ export function scaleMultiplierToTargetYield(
 export function formatTargetYieldAmount(value: number): string {
 	const epsilon = Number.EPSILON * Math.max(1, Math.abs(value))
 	return String(Math.round((value + epsilon) * 100) / 100)
+}
+
+/**
+ * What a typed yield makes at this scale, worded as the scale control words
+ * it ("Makes 2 loaves", not "2 loaf"). Null without a typed yield.
+ */
+export function scaledYield(
+	scaleMultiplier: number,
+	recipe: { yieldAmount: number | null; yieldLabel: string | null },
+) {
+	const recipeYield = getTypedYield(recipe)
+	const target = scaleMultiplierToTargetYield(scaleMultiplier, recipeYield)
+	if (target == null || !recipeYield) return null
+	return {
+		amount: formatTargetYieldAmount(target),
+		label: scaledYieldLabel(recipeYield.label, target, scaleMultiplier),
+		original: recipeYield,
+	}
 }

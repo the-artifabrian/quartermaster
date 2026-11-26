@@ -333,7 +333,7 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 										</span>
 										<span
 											aria-hidden="true"
-											className="text-muted-foreground ml-2 hidden font-sans text-lg font-normal tabular-nums md:inline"
+											className="text-muted-foreground hidden font-sans text-lg font-normal tabular-nums md:inline"
 										>
 											({checkedNextItems}/{nextItems.length})
 										</span>

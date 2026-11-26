@@ -470,7 +470,13 @@ async function createTallSubRecipe(user: Owner) {
 			ingredients: {
 				create: [{ name: 'flour', amount: '500', unit: 'g', order: 0 }],
 			},
-			instructions: { create: [{ content: 'Mix and rest.', order: 0 }] },
+			// Long enough to scroll its heading off the top.
+			instructions: {
+				create: Array.from({ length: 10 }, (_, order) => ({
+					content: `Step ${order + 1}: knead, fold and let it rest a while.`,
+					order,
+				})),
+			},
 		},
 	})
 	return { recipe, dough }

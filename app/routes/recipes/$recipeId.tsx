@@ -580,13 +580,15 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		recipe.instructions.every((i) => checkedSteps.has(i.id))
 
 	// Mid-cook ingredient glances: show the floating Ingredients action only
-	// after the heading has passed above the viewport. Observing the whole tall
-	// column kept it intersecting until the end of long Recipes.
+	// after the heading has passed above the viewport, under the pinned header
+	// (the nav bar is its last row where it shows). Read on each scrolled
+	// frame rather than from an IntersectionObserver, which reports only a
+	// crossing: a jump from below the heading to the top of the page, or a
+	// sub-Recipe link that keeps this page and opens another Recipe at its
+	// top, takes the heading from one side of the screen to the other without
+	// crossing it, and the button stayed over the top of the page. A reading
+	// belongs to its Recipe, so one from the Recipe before never shows.
 	const ingredientsHeaderRef = useRef<HTMLDivElement>(null)
-	// Per Recipe: a sub-Recipe link keeps this page and shows another Recipe,
-	// whose heading can start below the fold. An observer only reports a
-	// change, and above the screen to below it is none, so each Recipe gets
-	// its own observer, and a reading from the one before never shows.
 	const [ingredientsPassedFor, setIngredientsPassedFor] = useState<{
 		recipeId: string
 		passed: boolean
@@ -595,32 +597,32 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		ingredientsPassedFor?.recipeId === recipe.id && ingredientsPassedFor.passed
 	useEffect(() => {
 		const el = ingredientsHeaderRef.current
-		if (!el || typeof IntersectionObserver === 'undefined') return
-		// The heading has passed once it is under the pinned header (the nav
-		// bar is its last row where it shows), not only once it leaves the
-		// screen.
-		const barBottom = Math.max(
-			0,
-			Math.round(
+		if (!el) return
+		const recipeId = recipe.id
+		let frame = 0
+		const read = () => {
+			frame = 0
+			const barBottom =
 				document.querySelector('[data-site-header]')?.getBoundingClientRect()
-					.bottom ?? 0,
-			),
-		)
-		const observer = new IntersectionObserver(
-			([entry]) => {
-				if (!entry) return
-				const viewportTop = entry.rootBounds?.top ?? 0
-				setIngredientsPassedFor({
-					recipeId: recipe.id,
-					passed:
-						!entry.isIntersecting &&
-						entry.boundingClientRect.bottom < viewportTop,
-				})
-			},
-			{ rootMargin: `-${barBottom}px 0px 0px 0px` },
-		)
-		observer.observe(el)
-		return () => observer.disconnect()
+					.bottom ?? 0
+			const passed = el.getBoundingClientRect().bottom < Math.max(0, barBottom)
+			setIngredientsPassedFor((prev) =>
+				prev?.recipeId === recipeId && prev.passed === passed
+					? prev
+					: { recipeId, passed },
+			)
+		}
+		const schedule = () => {
+			if (!frame) frame = requestAnimationFrame(read)
+		}
+		read()
+		window.addEventListener('scroll', schedule, { passive: true })
+		window.addEventListener('resize', schedule)
+		return () => {
+			cancelAnimationFrame(frame)
+			window.removeEventListener('scroll', schedule)
+			window.removeEventListener('resize', schedule)
+		}
 	}, [recipe.id])
 	const nonHeadingIngredients = recipe.ingredients.filter((i) => !i.isHeading)
 	const checkedIngredientCount = nonHeadingIngredients.filter((i) =>

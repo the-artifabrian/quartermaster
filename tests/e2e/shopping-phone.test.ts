@@ -823,3 +823,36 @@ for (const width of [1280, 390]) {
 		await expect(quantity).toHaveValue('750')
 	})
 }
+
+test('a row checked from the keyboard keeps focus on its check once it has moved, without scrolling the page', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await seed(
+		user,
+		Array.from({ length: 14 }, (_, index) => ({
+			name: `item ${String(index + 1).padStart(2, '0')}`,
+		})),
+	)
+	await openShopping(page)
+	await page.evaluate(() => window.scrollTo(0, 200))
+	const button = row(page, 'item 05').getByRole('button', {
+		name: 'Check off item 05',
+	})
+	await button.focus()
+	const scrolled = await page.evaluate(() => window.scrollY)
+	await page.keyboard.press('Space')
+	await expect.poll(() => namesIn(page, 'checked')).toEqual(['item 05'])
+	await expect(
+		row(page, 'item 05').getByRole('button', { name: 'Uncheck item 05' }),
+	).toBeFocused()
+	expect(await page.evaluate(() => window.scrollY)).toBe(scrolled)
+
+	// Unchecked from the keyboard, it keeps focus on the way back too.
+	await page.keyboard.press('Space')
+	await expect.poll(() => namesIn(page, 'checked')).toEqual([])
+	await expect(
+		row(page, 'item 05').getByRole('button', { name: 'Check off item 05' }),
+	).toBeFocused()
+})

@@ -79,12 +79,14 @@ export function useCheckMoves(rows: readonly SettleRow[]) {
 		}
 	}, [])
 
+	/** Returns whether the tap can move the row (on a phone). */
 	const tap = useCallback(
 		(id: string, shownChecked: boolean, checkedAfterTap: boolean) => {
-			if (!matches(PHONE_QUERY)) return
+			if (!matches(PHONE_QUERY)) return false
 			setState((current) =>
 				tapRow(current, { id, shownChecked, checkedAfterTap }),
 			)
+			return true
 		},
 		[],
 	)

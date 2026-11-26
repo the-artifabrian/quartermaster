@@ -104,6 +104,8 @@ export function ShoppingItems({
 	rows,
 	voiceAddedNames,
 	moving,
+	focusFollows,
+	onFocusFollowed,
 	checkedHeading,
 	className,
 }: {
@@ -112,6 +114,9 @@ export function ShoppingItems({
 	voiceAddedNames: Set<string>
 	/** Whether a row's check is moving it (useCheckMoves). */
 	moving: (id: string) => boolean
+	/** Rows to give focus back to their check once they have moved. */
+	focusFollows?: ReadonlySet<string>
+	onFocusFollowed?: (id: string) => void
 	checkedHeading?: ReactNode
 	className?: string
 }) {
@@ -138,6 +143,8 @@ export function ShoppingItems({
 						item={item}
 						isVoiceAdded={voiceAddedNames.has(item.name.toLowerCase().trim())}
 						moving={moving(item.id)}
+						followFocus={focusFollows?.has(item.id)}
+						onFocusFollowed={() => onFocusFollowed?.(item.id)}
 					/>
 				</RowCollapse>,
 			])}

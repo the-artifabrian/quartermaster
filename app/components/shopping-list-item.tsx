@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFetcher, useRevalidator } from 'react-router'
 import { toast } from 'sonner'
 import { useSpinDelay } from 'spin-delay'
@@ -74,6 +74,12 @@ type ShoppingListItemCardProps = {
 	 * and swipe wait, so nothing opens on a row about to fold away.
 	 */
 	moving?: boolean
+	/**
+	 * Its check had focus when tapped. Once it has moved, its check takes focus
+	 * back, if the move dropped it and nothing else has taken it.
+	 */
+	followFocus?: boolean
+	onFocusFollowed?: () => void
 }
 
 export function ShoppingListItemCard({
@@ -81,7 +87,18 @@ export function ShoppingListItemCard({
 	item,
 	isVoiceAdded,
 	moving = false,
+	followFocus = false,
+	onFocusFollowed,
 }: ShoppingListItemCardProps) {
+	const checkButtonRef = useRef<HTMLButtonElement>(null)
+	useEffect(() => {
+		if (!followFocus || moving) return
+		const active = document.activeElement
+		if (!active || active === document.body)
+			// Where it landed may be off screen: focus must not scroll there.
+			checkButtonRef.current?.focus({ preventScroll: true })
+		onFocusFollowed?.()
+	}, [followFocus, moving, onFocusFollowed])
 	const [isEditing, setIsEditing] = useState(false)
 	// On a phone the editor is a bottom sheet over the row; wider, it takes
 	// the row's place. Set when it opens.
@@ -373,6 +390,7 @@ export function ShoppingListItemCard({
 				{/* Whole row toggles checkbox */}
 				<div className="flex min-w-0 flex-1 items-center gap-3">
 					<button
+						ref={checkButtonRef}
 						type="button"
 						onClick={() => checks.toggle({ ...item, display })}
 						disabled={item.id.startsWith('optimistic:')}

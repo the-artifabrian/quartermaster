@@ -244,10 +244,30 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 	const doneIds = new Set(
 		[...next.done, ...later.done].map((row) => row.item.id),
 	)
+	// Rows whose check had focus when tapped: the move drops that focus (the
+	// fold makes the row inert), so the row takes it back once it lands.
+	const [focusFollows, setFocusFollows] = useState<ReadonlySet<string>>(
+		() => new Set(),
+	)
+	const focusFollowed = useCallback(
+		(id: string) =>
+			setFocusFollows((ids) => {
+				if (!ids.has(id)) return ids
+				const next = new Set(ids)
+				next.delete(id)
+				return next
+			}),
+		[],
+	)
 	const rowChecks: typeof checks = {
 		...checks,
 		toggle(item) {
-			moves.tap(item.id, doneIds.has(item.id), !item.checked)
+			const canMove = moves.tap(item.id, doneIds.has(item.id), !item.checked)
+			const focusedRow = document.activeElement
+				?.closest('[role="group"]')
+				?.getAttribute('aria-label')
+			if (canMove && focusedRow === `${item.name} shopping item`)
+				setFocusFollows((ids) => new Set(ids).add(item.id))
 			checks.toggle(item)
 		},
 	}
@@ -605,6 +625,8 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 								]}
 								voiceAddedNames={voiceAddedNames}
 								moving={isMoving}
+								focusFollows={focusFollows}
+								onFocusFollowed={focusFollowed}
 								checkedHeading={
 									doneNextShowing && (
 										<div
@@ -678,6 +700,8 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 									rows={[...later.open, ...later.done]}
 									voiceAddedNames={voiceAddedNames}
 									moving={isMoving}
+									focusFollows={focusFollows}
+									onFocusFollowed={focusFollowed}
 								/>
 							) : (
 								<p className="text-muted-foreground py-6 text-center text-sm">

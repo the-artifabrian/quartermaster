@@ -622,9 +622,13 @@ html {
 }
 
 /* A pushed page's nav bar stays pinned at the top (NavBar), so the field a
-   form focuses or the anchor a link scrolls to lands below it. */
-:root:has([data-site-header][data-pushed]) {
-	scroll-padding-top: calc(var(--nav-bar-bottom, 0px) + 0.75rem);
+   form focuses or a control scrolled to lands below it. A margin on what can
+   take focus in the page, rather than padding on the page, so focusing the
+   bar's own Back or buttons scrolls nothing. */
+:root:has([data-site-header][data-pushed])
+	#main-content
+	:is(a[href], button, input, select, textarea, summary, [tabindex]) {
+	scroll-margin-top: calc(var(--nav-bar-bottom, 0px) + 0.75rem);
 }
 
 /* In the iOS app the tab bar is a 54pt row and leaves 18pt under it on the

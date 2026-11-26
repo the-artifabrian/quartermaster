@@ -775,12 +775,23 @@ test.describe('Plan Meals as flat rows', () => {
 				.nth(1)
 				.evaluate((element) => getComputedStyle(element).borderTopWidth)
 			expect(divider).toBe('1px')
-			// Between the two Recipes of one Meal: a hairline that starts where
-			// the titles start, past the cooked toggle.
 			const salads = plan
 				.locator(`[data-meal-id="${pair.id}"]`)
 				.getByRole('link', { name: 'Cucumber Salad' })
 			await expect(salads).toBeVisible()
+			// On a phone the Recipes of one Meal follow each other with no line.
+			if (copy === 'mobile-plan') {
+				expect(
+					await salads.evaluate(
+						(link) =>
+							getComputedStyle(link.closest('[data-row-collapse]')!, '::before')
+								.borderTopWidth,
+					),
+				).toBe('0px')
+				continue
+			}
+			// In the agenda: a hairline that starts where the titles start, past
+			// the cooked toggle.
 			const inner = await salads.evaluate((link) => {
 				let row = link.parentElement
 				while (row && !row.parentElement?.matches('.space-y-0')) {
@@ -1217,17 +1228,19 @@ test('removing the first Recipe of a Meal takes the inset line above the next on
 			order: 1,
 		},
 	})
+	// The desktop agenda draws a line between the Recipes of a Meal.
+	await page.setViewportSize({ width: 1280, height: 800 })
 	await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
-	const mobile = page.getByTestId('mobile-plan')
-	const riceRow = mobile
+	const agenda = page.getByTestId('desktop-plan')
+	const riceRow = agenda
 		.getByRole('link', { name: 'Rice', exact: true })
 		.locator('xpath=ancestor::*[@data-row-collapse][1]')
 	expect(await drawsInsetLine(riceRow)).toBe(true)
 	await holdPlanReloads(page)
 	await tapUntil(
-		mobile.getByRole('button', { name: 'Remove Dal from this Meal' }),
+		agenda.getByRole('button', { name: 'Remove Dal from this Meal' }),
 		() =>
-			expect(mobile.getByRole('link', { name: 'Dal', exact: true })).toBeHidden(
+			expect(agenda.getByRole('link', { name: 'Dal', exact: true })).toBeHidden(
 				{ timeout: 1000 },
 			),
 	)
@@ -1256,18 +1269,20 @@ test('removing the first Recipe under a Menu heading leaves no line under the he
 			order,
 		})),
 	})
+	// The desktop agenda draws a line between the Recipes of a Meal.
+	await page.setViewportSize({ width: 1280, height: 800 })
 	await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
-	const mobile = page.getByTestId('mobile-plan')
-	await expect(mobile.getByRole('heading', { name: 'Mains' })).toBeVisible()
-	const riceRow = mobile
+	const agenda = page.getByTestId('desktop-plan')
+	await expect(agenda.getByRole('heading', { name: 'Mains' })).toBeVisible()
+	const riceRow = agenda
 		.getByRole('link', { name: 'Rice', exact: true })
 		.locator('xpath=ancestor::*[@data-row-collapse][1]')
 	expect(await drawsInsetLine(riceRow)).toBe(true)
 	await holdPlanReloads(page)
 	await tapUntil(
-		mobile.getByRole('button', { name: 'Remove Dal from this Meal' }),
+		agenda.getByRole('button', { name: 'Remove Dal from this Meal' }),
 		() =>
-			expect(mobile.getByRole('link', { name: 'Dal', exact: true })).toBeHidden(
+			expect(agenda.getByRole('link', { name: 'Dal', exact: true })).toBeHidden(
 				{ timeout: 1000 },
 			),
 	)

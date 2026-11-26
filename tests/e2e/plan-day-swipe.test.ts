@@ -1,0 +1,277 @@
+import { type Locator, type Page } from '@playwright/test'
+import { parseDate } from '#app/utils/date.ts'
+import { prisma } from '#app/utils/db.server.ts'
+import { expect, hydrated, test } from '#tests/playwright-utils.ts'
+
+test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+/**
+ * One finger from (x, y) through each of `moves` (px from the start), lifting
+ * at the last. CDP touch events arrive ~30ms apart.
+ */
+async function touchDrag(
+	page: Page,
+	x: number,
+	y: number,
+	moves: Array<[number, number]>,
+) {
+	const cdp = await page.context().newCDPSession(page)
+	await cdp.send('Input.dispatchTouchEvent', {
+		type: 'touchStart',
+		touchPoints: [{ x, y, id: 1 }],
+	})
+	for (const [dx, dy] of moves) {
+		await cdp.send('Input.dispatchTouchEvent', {
+			type: 'touchMove',
+			touchPoints: [{ x: x + dx, y: y + dy, id: 1 }],
+		})
+		await page.waitForTimeout(30)
+	}
+	await cdp.send('Input.dispatchTouchEvent', {
+		type: 'touchEnd',
+		touchPoints: [],
+	})
+	await cdp.detach()
+}
+
+/** A sideways swipe of `dx` px that starts at (x, y). */
+function swipeAt(page: Page, x: number, y: number, dx: number) {
+	const steps = 6
+	return touchDrag(
+		page,
+		x,
+		y,
+		Array.from({ length: steps }, (_, i) => [(dx * (i + 1)) / steps, 0]),
+	)
+}
+
+/** Swipes sideways across the middle of `target`. */
+async function swipeOn(page: Page, target: Locator, dx: number) {
+	const box = (await target.boundingBox())!
+	await swipeAt(page, box.x + box.width / 2, box.y + box.height / 2, dx)
+}
+
+/** The day showing: the strip's picked day, the heading and the URL agree. */
+async function expectDay(page: Page, weekday: string, monthDay: string) {
+	await expect(
+		page.locator('[data-slot="mobile-week-days"]').getByRole('button', {
+			name: new RegExp(`^Show ${weekday}, ${monthDay},`),
+		}),
+	).toHaveAttribute('aria-pressed', 'true')
+	await expect(
+		page.getByTestId('mobile-plan').getByRole('heading', { level: 2 }),
+	).toHaveText(monthDay)
+}
+
+async function seedRecipeMeal(
+	user: { id: string; householdId: string },
+	date: string,
+	title = 'Miso Soup',
+) {
+	const recipe = await prisma.recipe.create({
+		data: { title, userId: user.id, householdId: user.householdId },
+	})
+	await prisma.mealPlan.create({
+		data: {
+			householdId: user.householdId,
+			weekStart: parseDate('2026-11-16'),
+			meals: {
+				create: {
+					date: parseDate(date),
+					order: 0,
+					label: 'dinner',
+					recipeItems: {
+						create: { recipeId: recipe.id, recipeTitle: title, order: 0 },
+					},
+				},
+			},
+		},
+	})
+	return recipe
+}
+
+test('a sideways swipe on the bare foot of a short day steps the day, and past Sunday turns the week', async ({
+	page,
+	login,
+}) => {
+	await login()
+	await page.goto('/plan?weekStart=2026-11-16&day=2026-11-21')
+	const day = page.getByTestId('mobile-plan')
+	await hydrated(day)
+	await expectDay(page, 'Saturday', 'Nov 21')
+
+	// Well below the empty day's last line.
+	await swipeAt(page, 300, 640, -150)
+	await expectDay(page, 'Sunday', 'Nov 22')
+	await expect(page).toHaveURL(/weekStart=2026-11-16&day=2026-11-22$/)
+
+	await swipeAt(page, 300, 640, -150)
+	await expect(page).toHaveURL(/weekStart=2026-11-23&day=2026-11-23$/)
+	await expect(page.getByText('Nov 23 – 29')).toBeVisible()
+	await expectDay(page, 'Monday', 'Nov 23')
+
+	await hydrated(day)
+	await swipeAt(page, 90, 640, 150)
+	await expect(page).toHaveURL(/weekStart=2026-11-16&day=2026-11-22$/)
+	await expectDay(page, 'Sunday', 'Nov 22')
+
+	// A short swipe stays.
+	await swipeAt(page, 200, 640, -50)
+	await page.waitForTimeout(300)
+	await expectDay(page, 'Sunday', 'Nov 22')
+})
+
+test('a swipe that starts on a dish name steps the day and leaves the Recipe shut', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await seedRecipeMeal(user, '2026-11-18')
+	await page.goto('/plan?weekStart=2026-11-16&day=2026-11-18')
+	const dish = page.getByTestId('mobile-plan').getByRole('link', {
+		name: 'Miso Soup',
+	})
+	await hydrated(dish)
+	await swipeOn(page, dish, -150)
+	await expectDay(page, 'Thursday', 'Nov 19')
+	await page.waitForTimeout(400)
+	await expect(page).toHaveURL(/\/plan\?weekStart=2026-11-16&day=2026-11-19$/)
+})
+
+test('a scroll that drifts sideways leaves the day alone', async ({
+	page,
+	login,
+}) => {
+	await login()
+	await page.goto('/plan?weekStart=2026-11-16&day=2026-11-18')
+	await hydrated(page.getByTestId('mobile-plan'))
+	// Mostly up the page, with some sideways travel.
+	await touchDrag(page, 200, 600, [
+		[-4, -12],
+		[-30, -60],
+		[-70, -140],
+	])
+	// Starts sideways, then slants up: still too slanted to step.
+	await touchDrag(page, 300, 600, [
+		[-12, -2],
+		[-50, -30],
+		[-90, -70],
+	])
+	await page.waitForTimeout(300)
+	await expectDay(page, 'Wednesday', 'Nov 18')
+	await expect(page).toHaveURL(/day=2026-11-18$/)
+})
+
+test('a sideways drag in a sheet or menu the day opened leaves the day alone', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await seedRecipeMeal(user, '2026-11-18')
+	await page.goto('/plan?weekStart=2026-11-16&day=2026-11-18')
+	const day = page.getByTestId('mobile-plan')
+	await hydrated(day)
+
+	// The Add Meal at the foot of the day opens its sheet over the day.
+	await day.getByRole('button', { name: 'Add Meal', exact: true }).tap()
+	const sheet = page.getByRole('dialog', { name: 'Add Meal' })
+	await expect(sheet.getByRole('button', { name: 'Lunch' })).toBeVisible()
+	await swipeOn(page, sheet.getByRole('group', { name: /Label/ }), -200)
+	await sheet.getByRole('button', { name: 'Close', exact: true }).tap()
+	await expect(sheet).toBeHidden()
+
+	// So does the Meal's menu.
+	await day.getByRole('button', { name: 'Meal actions for Miso Soup' }).tap()
+	const menu = page.getByRole('menu')
+	await expect(menu).toBeVisible()
+	await swipeOn(page, menu, -150)
+	await page.keyboard.press('Escape')
+
+	await page.waitForTimeout(300)
+	await expectDay(page, 'Wednesday', 'Nov 18')
+	await expect(page).toHaveURL(/day=2026-11-18$/)
+})
+
+test('a swipe that starts in the scale field leaves the day alone', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await seedRecipeMeal(user, '2026-11-18')
+	await page.goto('/plan?weekStart=2026-11-16&day=2026-11-18')
+	const field = page
+		.getByTestId('mobile-plan')
+		.getByRole('textbox', { name: 'Scale multiplier' })
+	await hydrated(field)
+	await swipeOn(page, field, -150)
+	await page.waitForTimeout(300)
+	await expectDay(page, 'Wednesday', 'Nov 18')
+})
+
+test('days picked in quick succession, by tap or by swipe, end on the last one', async ({
+	page,
+	login,
+}) => {
+	await login()
+	await page.goto('/plan?weekStart=2026-11-16&day=2026-11-18')
+	const strip = page.locator('[data-slot="mobile-week-days"]')
+	await hydrated(strip)
+	const day = (name: string) =>
+		strip.getByRole('button', { name: new RegExp(`^Show ${name},`) })
+
+	await day('Thursday').tap()
+	await day('Friday').tap()
+	await expectDay(page, 'Friday', 'Nov 20')
+	await expect(page).toHaveURL(/day=2026-11-20$/)
+
+	// Away and straight back to where it started.
+	await day('Saturday').tap()
+	await day('Friday').tap()
+	await expectDay(page, 'Friday', 'Nov 20')
+	await expect(page).toHaveURL(/day=2026-11-20$/)
+
+	await swipeAt(page, 300, 640, -150)
+	await swipeAt(page, 90, 640, 150)
+	await expectDay(page, 'Friday', 'Nov 20')
+	await expect(page).toHaveURL(/day=2026-11-20$/)
+	await swipeAt(page, 300, 640, -150)
+	await swipeAt(page, 300, 640, -150)
+	await expectDay(page, 'Sunday', 'Nov 22')
+	await expect(page).toHaveURL(/day=2026-11-22$/)
+})
+
+test('a swipe while the next week loads waits, so the turn lands on Monday', async ({
+	page,
+	login,
+}) => {
+	await login()
+	await page.goto('/plan?weekStart=2026-11-16&day=2026-11-22')
+	await hydrated(page.getByTestId('mobile-plan'))
+	let release = () => {}
+	const held = new Promise<void>((resolve) => (release = resolve))
+	await page.route(/weekStart=2026-11-23/, async (route) => {
+		await held
+		await route.continue()
+	})
+	await swipeAt(page, 300, 640, -150)
+	// The first swipe's week is still on its way.
+	await swipeAt(page, 300, 640, -150)
+	release()
+	await expect(page).toHaveURL(/weekStart=2026-11-23&day=2026-11-23$/)
+	await expectDay(page, 'Monday', 'Nov 23')
+	await page.waitForTimeout(300)
+	await expect(page).toHaveURL(/day=2026-11-23$/)
+})
+
+test('a swipe on the strip turns the week without stepping the day', async ({
+	page,
+	login,
+}) => {
+	await login()
+	await page.goto('/plan?weekStart=2026-11-16&day=2026-11-18')
+	const strip = page.locator('[data-slot="mobile-week-days"]')
+	await hydrated(strip)
+	await swipeOn(page, strip, -220)
+	await expect(page).toHaveURL(/weekStart=2026-11-23$/)
+	await expect(page.getByText('Nov 23 – 29')).toBeVisible()
+})

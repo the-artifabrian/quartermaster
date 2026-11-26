@@ -19,6 +19,8 @@ function getServerSnapshot() {
 }
 
 const TOAST_ID = 'offline-indicator'
+/** Whether the notice is up, kept outside the component so a remount knows. */
+let shown = false
 
 /** Whether the browser reports a network; true during server rendering. */
 export function useIsOnline() {
@@ -35,8 +37,13 @@ export function OfflineIndicator() {
 				description: 'Some features may be unavailable.',
 				duration: Infinity,
 			})
-		} else {
+			shown = true
+		} else if (shown) {
+			// Only a notice that was shown: Sonner applies a dismiss a frame or
+			// two later, so one sent as the page hydrates online would close a
+			// notice opened right after it.
 			toast.dismiss(TOAST_ID)
+			shown = false
 		}
 	}, [isOnline])
 

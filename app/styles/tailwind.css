@@ -640,11 +640,17 @@ html {
 /* A pushed page's nav bar stays pinned at the top (NavBar), so the field a
    form focuses or a control scrolled to lands below it. A margin on what can
    take focus in the page, rather than padding on the page, so focusing the
-   bar's own Back or buttons scrolls nothing. */
+   bar's own Back or buttons scrolls nothing. Chromium scrolls a focused
+   textarea by its caret and leaves out the margin, so while one in the page
+   has focus the page takes the padding as well; the rule matches as focus
+   lands, before the scroll. */
 :root:has([data-site-header][data-pushed])
 	#main-content
 	:is(a[href], button, input, select, textarea, summary, [tabindex]) {
 	scroll-margin-top: calc(var(--nav-bar-bottom, 0px) + 0.75rem);
+}
+:root:has([data-site-header][data-pushed]):has(#main-content textarea:focus) {
+	scroll-padding-top: calc(var(--nav-bar-bottom, 0px) + 0.75rem);
 }
 
 /* In the iOS app the tab bar is a 54pt row and leaves 18pt under it on the

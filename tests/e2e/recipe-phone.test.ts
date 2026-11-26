@@ -273,6 +273,102 @@ test('a Recipe deleted while it is open takes the bar’s buttons with it when i
 	await expect(bar(page).getByRole('button')).toHaveCount(0)
 })
 
+test('a sub-Recipe deleted meanwhile opens as not found, with no bar buttons and the app still there', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createSoup(user)
+	await page.goto(`/recipes/${recipe.id}`)
+	const link = page.getByRole('link', { name: 'pizza dough' })
+	await hydrated(link)
+	await prisma.recipe.deleteMany({
+		where: { householdId: user.householdId, title: 'Pizza dough' },
+	})
+	await link.tap()
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Recipe not found' }),
+	).toBeVisible()
+	await expect(bar(page).locator('[data-nav-back]')).toBeVisible()
+	await expect(bar(page).getByRole('button')).toHaveCount(0)
+})
+
+test('a scale changed on a Recipe deleted meanwhile shows not found, with no bar buttons and the app still there', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createSoup(user)
+	await page.goto(`/recipes/${recipe.id}`)
+	const scale = page.getByRole('button', { name: 'Scale 1×' })
+	await hydrated(scale)
+	await scale.tap()
+	await prisma.recipe.delete({ where: { id: recipe.id } })
+	await page.getByRole('button', { name: 'Increase Recipe scale' }).tap()
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Recipe not found' }),
+	).toBeVisible()
+	await expect(bar(page).locator('[data-nav-back]')).toBeVisible()
+	await expect(bar(page).getByRole('button')).toHaveCount(0)
+})
+
+test('the bar’s heart on a sub-Recipe favourites that Recipe, and Back shows the first one’s own', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createSoup(user)
+	const isFavorite = async (id: string) =>
+		(
+			await prisma.recipe.findUniqueOrThrow({
+				where: { id },
+				select: { isFavorite: true },
+			})
+		).isFavorite
+	const dough = await prisma.recipe.findFirstOrThrow({
+		where: { householdId: user.householdId, title: 'Pizza dough' },
+		select: { id: true },
+	})
+	await page.goto(`/recipes/${recipe.id}`)
+	const link = page.getByRole('link', { name: 'pizza dough' })
+	await hydrated(link)
+	await link.tap()
+	await expect(page).toHaveURL(new RegExp(`/recipes/${dough.id}$`))
+	const heart = favorite(bar(page))
+	await expect(heart).toHaveAccessibleName('Add to favorites')
+	await heart.tap()
+	await expect(heart).toHaveAccessibleName('Remove from favorites')
+	await expect.poll(() => isFavorite(dough.id)).toBe(true)
+	expect(await isFavorite(recipe.id)).toBe(false)
+
+	await bar(page).locator('[data-nav-back]').tap()
+	await expect(page).toHaveURL(new RegExp(`/recipes/${recipe.id}$`))
+	await expect(heart).toHaveAccessibleName('Add to favorites')
+	await heart.tap()
+	await expect(heart).toHaveAccessibleName('Remove from favorites')
+	await expect.poll(() => isFavorite(recipe.id)).toBe(true)
+})
+
+test('Copy Recipe in the bar’s menu writes the amounts at the page’s scale', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createSoup(user)
+	await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+	await page.goto(`/recipes/${recipe.id}?scale=2`)
+	const more = bar(page).getByRole('button', { name: 'More actions' })
+	await hydrated(more)
+	await more.tap()
+	await page.getByRole('menuitem', { name: 'Copy Recipe' }).tap()
+	await expect
+		.poll(() => page.evaluate(() => navigator.clipboard.readText()))
+		.toContain('- 4 tbsp olive oil')
+	expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
+		'- 2 l stock',
+	)
+})
+
 test('focusing Back, Favourite, Share and More actions while scrolled leaves the page where it is', async ({
 	page,
 	login,
@@ -305,6 +401,44 @@ test('focusing Back, Favourite, Share and More actions while scrolled leaves the
 	await oil.focus()
 	const barBottom = (await box(bar(page))).y + 44
 	expect((await box(oil)).y).toBeGreaterThanOrEqual(barBottom)
+})
+
+test('a step field partly under the bar on the edit screen comes out below it when focused', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createSoup(user)
+	await page.goto(`/recipes/${recipe.id}/edit`)
+	const step = page.getByRole('textbox', { name: 'Step 4', exact: true })
+	await hydrated(step)
+	await step.evaluate((field) => {
+		;(document.activeElement as HTMLElement | null)?.blur()
+		window.scrollBy(0, field.getBoundingClientRect().top - 10)
+	})
+	expect(Math.round((await box(step)).y)).toBe(10)
+	await step.focus()
+	await expect(step).toBeFocused()
+	const barBottom = (await box(bar(page))).y + 44
+	await expect
+		.poll(async () => (await box(step)).y)
+		.toBeGreaterThanOrEqual(barBottom)
+
+	// The same by Tab, from the step's own Reorder button.
+	const reorder = page.getByRole('button', { name: 'Reorder step 4' })
+	await step.evaluate((field) => {
+		;(document.activeElement as HTMLElement | null)?.blur()
+		window.scrollBy(0, field.getBoundingClientRect().top - 10)
+	})
+	await reorder.evaluate((button) =>
+		(button as HTMLElement).focus({ preventScroll: true }),
+	)
+	expect(Math.round((await box(step)).y)).toBe(10)
+	await page.keyboard.press('Tab')
+	await expect(step).toBeFocused()
+	await expect
+		.poll(async () => (await box(step)).y)
+		.toBeGreaterThanOrEqual(barBottom)
 })
 
 test.describe('at 320px', () => {
@@ -562,8 +696,7 @@ test('amounts share one right-aligned column and names one edge, a row with no a
 		'none',
 	)
 
-	// A wider amount at twice the scale and in metric widens the column for
-	// every row.
+	// Metric rewrites the amounts; the names keep one edge.
 	await page.getByRole('button', { name: 'Metric' }).tap()
 	await expect(page.getByRole('button', { name: 'Metric' })).toHaveAttribute(
 		'aria-pressed',
@@ -573,6 +706,45 @@ test('amounts share one right-aligned column and names one edge, a row with no a
 		cells.map((cell) => Math.round(cell.getBoundingClientRect().left)),
 	)
 	expect(new Set(metricLefts).size).toBe(1)
+})
+
+test('a scale that makes the longest amount wider widens the column for every row', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Bread',
+			userId: user.id,
+			householdId: user.householdId,
+			ingredients: {
+				create: [
+					{ name: 'flour', amount: '1', unit: 'cup', order: 0 },
+					{ name: 'salt', amount: '1', unit: 'tsp', order: 1 },
+					{ name: 'water', notes: 'warm', order: 2 },
+				],
+			},
+		},
+		select: { id: true },
+	})
+	const nameLefts = () =>
+		page
+			.locator('[data-ingredient-name]')
+			.evaluateAll((cells) =>
+				cells.map((cell) => Math.round(cell.getBoundingClientRect().left)),
+			)
+	await page.goto(`/recipes/${recipe.id}`)
+	await expect(page.locator('[data-ingredient-name]')).toHaveCount(3)
+	const before = await nameLefts()
+	expect(new Set(before).size).toBe(1)
+	await page.goto(`/recipes/${recipe.id}?scale=12`)
+	await expect(
+		page.locator('[data-ingredient-amount]').filter({ hasText: '12 cups' }),
+	).toBeVisible()
+	const after = await nameLefts()
+	expect(new Set(after).size).toBe(1)
+	expect(after[0]).toBeGreaterThan(before[0]!)
 })
 
 test('an ingredient row is one checkbox named by the ingredient; a tap or Space checks it and strikes its name', async ({
@@ -649,6 +821,8 @@ test('step numerals are large and green, two digits clear the text, and a finish
 	const numeral = tenth.locator('[data-step-number]')
 	await expect(numeral).toHaveText('10')
 	await expect(numeral).toHaveCSS('font-size', '32px')
+	// The primary green in light.
+	await expect(numeral).toHaveCSS('color', 'rgb(31, 90, 61)')
 	const text = await box(tenth.locator('[data-step-text]'))
 	const number = await numeral.evaluate((el) => {
 		const range = document.createRange()

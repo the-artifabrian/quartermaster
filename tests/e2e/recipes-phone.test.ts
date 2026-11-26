@@ -2,6 +2,7 @@ import { type Locator, type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
 import { SHELL_UA, setShellSafeArea } from '#tests/native-shell.ts'
 import {
+	animationsFinished,
 	expect,
 	expectThumbSized,
 	expectThumbTall,
@@ -537,10 +538,15 @@ test.describe('the filters', () => {
 				type,
 				touchPoints: type === 'touchEnd' ? [] : [{ x, y: y + dy, id: 1 }],
 			})
+		// The row has just appeared: let it paint before the finger lands, and
+		// move the finger a frame at a time, as a real one does.
+		await animationsFinished(page)
 		const before = await page.evaluate(() => window.scrollY)
 		await touch('touchStart', 0)
-		for (const dy of [-10, -30, -60, -90, -120, -150])
+		for (const dy of [-10, -30, -60, -90, -120, -150]) {
 			await touch('touchMove', dy)
+			await page.waitForTimeout(30)
+		}
 		await touch('touchEnd', 0)
 		await cdp.detach()
 		await expect

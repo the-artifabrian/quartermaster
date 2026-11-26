@@ -295,6 +295,42 @@ function PageActions({
 	)
 }
 
+// A page whose route names buttons for the bar registers while it is on
+// screen, as an edit form does, so an error after load (a favourite tapped on
+// a Recipe someone deleted) takes the buttons away with the page.
+const mountedActions = new Map<NavActions, number>()
+
+/** Called by a page with the buttons its route's handle names. */
+export function useNavBarActions(actions: NavActions) {
+	useLayoutEffect(() => {
+		mountedActions.set(actions, (mountedActions.get(actions) ?? 0) + 1)
+		notifyForms()
+		return () => {
+			const count = (mountedActions.get(actions) ?? 1) - 1
+			if (count > 0) mountedActions.set(actions, count)
+			else mountedActions.delete(actions)
+			notifyForms()
+		}
+	}, [actions])
+}
+
+/** As useEditFormOnScreen: the route's state until the page has reported. */
+function useActionsOnScreen(actions: NavActions | undefined, loaded: boolean) {
+	const [actionsMount, setActionsMount] = useState<{
+		actions: NavActions
+		mounted: boolean
+	} | null>(null)
+	useLayoutEffect(() => {
+		if (!actions) return
+		const sync = () =>
+			setActionsMount({ actions, mounted: mountedActions.has(actions) })
+		sync()
+		return subscribeForms(sync)
+	}, [actions])
+	if (!actions) return false
+	return actionsMount?.actions === actions ? actionsMount.mounted : loaded
+}
+
 const barTextButton =
 	'text-primary flex min-h-11 items-center rounded-md px-2 text-[17px] leading-none transition-opacity active:opacity-60 md:text-base'
 
@@ -377,7 +413,8 @@ export function NavBar({
 		navigation.formMethod != null &&
 		navigation.formAction?.split('?')[0] === location.pathname
 	// A page's own buttons, on a page (not an edit screen, not an error).
-	const pageActions = !editing && loaded && Actions ? Actions : null
+	const actionsOnScreen = useActionsOnScreen(Actions, loaded)
+	const pageActions = !editing && actionsOnScreen && Actions ? Actions : null
 
 	return (
 		<div

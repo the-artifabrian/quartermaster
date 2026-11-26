@@ -30,13 +30,18 @@ type CopyableRecipe = Parameters<typeof formatRecipeForCopy>[0] & {
 
 /**
  * A Recipe's actions draw twice: in its own row on a wide screen, and in the
- * nav bar on a phone, which the bar draws from the loader's data. Both read
- * the same state: the favourite through one keyed fetcher, the suggestion
- * through another, and whether there are cooking checks to reset through the
- * page (`useShareCookingReset`).
+ * nav bar on a phone, which the bar draws from the loader's data. Both show
+ * the same state through keyed fetchers. What the bar sends goes through the
+ * page (`shareRecipePage`): a fetcher answers an error at the route it was
+ * made in, and the bar's is the root's, where a Recipe deleted meanwhile would
+ * replace the whole app with the error.
  */
+export function favoriteFetcherKey(recipeId: string) {
+	return `recipe-favorite:${recipeId}`
+}
+
 function useRecipeFavorite(recipe: { id: string; isFavorite: boolean }) {
-	const fetcher = useFetcher({ key: `recipe-favorite:${recipe.id}` })
+	const fetcher = useFetcher({ key: favoriteFetcherKey(recipe.id) })
 	// While a tap is on its way, show the state it asked for.
 	const isFavorite =
 		fetcher.formData?.get('intent') === 'toggleFavorite'
@@ -115,49 +120,50 @@ function useRecipeActions(recipe: CopyableRecipe) {
 	return { share, copy, enhance, enhancing: enhanceFetcher.state !== 'idle' }
 }
 
-// The page owns its cooking checks; it shares whether there are any, and how
-// to reset them, with the bar's ⋯.
-let cookingReset: { recipeId: string; reset: () => void } | null = null
-const cookingResetListeners = new Set<() => void>()
-
-/** Called by a Recipe's page with its reset while it has cooking checks. */
-export function shareCookingReset(
-	recipeId: string,
-	reset: (() => void) | null,
-) {
-	if (reset) cookingReset = { recipeId, reset }
-	else if (cookingReset?.recipeId === recipeId) cookingReset = null
-	else return
-	for (const listener of cookingResetListeners) listener()
+/** What a Recipe's page does for the bar's buttons. */
+export type RecipePageActions = {
+	toggleFavorite: (favorite: boolean) => void
+	enhance: () => void
+	/** While the page has cooking checks. */
+	reset?: () => void
 }
 
-function useCookingReset(recipeId: string) {
+let recipePage: { recipeId: string; actions: RecipePageActions } | null = null
+const recipePageListeners = new Set<() => void>()
+
+/** Called by a Recipe's page while it is on screen, null as it leaves. */
+export function shareRecipePage(
+	recipeId: string,
+	actions: RecipePageActions | null,
+) {
+	if (actions) recipePage = { recipeId, actions }
+	else if (recipePage?.recipeId === recipeId) recipePage = null
+	else return
+	for (const listener of recipePageListeners) listener()
+}
+
+function useRecipePage(recipeId: string) {
 	const shared = useSyncExternalStore(
 		(listener) => {
-			cookingResetListeners.add(listener)
+			recipePageListeners.add(listener)
 			return () => {
-				cookingResetListeners.delete(listener)
+				recipePageListeners.delete(listener)
 			}
 		},
-		() => cookingReset,
+		() => recipePage,
 		() => null,
 	)
-	return shared?.recipeId === recipeId ? shared.reset : undefined
+	return shared?.recipeId === recipeId ? shared.actions : undefined
 }
 
 function FavoriteButton({
 	recipe,
-	className,
-	iconClassName,
 }: {
 	recipe: { id: string; isFavorite: boolean }
-	className?: string
-	iconClassName?: string
 }) {
 	const { fetcher, isFavorite } = useRecipeFavorite(recipe)
 	const label = isFavorite ? 'Remove from favorites' : 'Add to favorites'
 	return (
-		// The bar draws outside the Recipe's route, so the form names it.
 		<fetcher.Form method="POST" action={`/recipes/${recipe.id}`}>
 			<input type="hidden" name="intent" value="toggleFavorite" />
 			<input
@@ -172,16 +178,9 @@ function FavoriteButton({
 						variant="ghost"
 						size="icon"
 						aria-label={label}
-						className={cn(
-							className,
-							isFavorite && 'text-primary hover:text-primary/80',
-						)}
+						className={cn(isFavorite && 'text-primary hover:text-primary/80')}
 					>
-						<Icon
-							name={isFavorite ? 'heart-filled' : 'heart'}
-							size="md"
-							className={iconClassName}
-						/>
+						<Icon name={isFavorite ? 'heart-filled' : 'heart'} size="md" />
 					</Button>
 				</TooltipTrigger>
 				<TooltipContent>{label}</TooltipContent>
@@ -201,14 +200,23 @@ export function RecipeNavActions({
 	recipe: CopyableRecipe & { isFavorite: boolean }
 	isProActive: boolean
 }) {
-	const { share, copy, enhance, enhancing } = useRecipeActions(recipe)
-	const reset = useCookingReset(recipe.id)
+	const { share, copy, enhancing } = useRecipeActions(recipe)
+	const { isFavorite } = useRecipeFavorite(recipe)
+	const page = useRecipePage(recipe.id)
 	const button =
 		'text-foreground hover:bg-transparent transition-opacity active:opacity-60'
 	const icon = 'size-[22px]'
 	return (
 		<>
-			<FavoriteButton recipe={recipe} className={button} iconClassName={icon} />
+			<Button
+				variant="ghost"
+				size="icon"
+				aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+				className={cn(button, isFavorite && 'text-primary')}
+				onClick={() => page?.toggleFavorite(!isFavorite)}
+			>
+				<Icon name={isFavorite ? 'heart-filled' : 'heart'} className={icon} />
+			</Button>
 			<Button
 				variant="ghost"
 				size="icon"
@@ -229,10 +237,10 @@ export function RecipeNavActions({
 						<Icon name="dots-horizontal" className={icon} />
 					</Button>
 				}
-				onResetCookingChecks={reset}
+				onResetCookingChecks={page?.reset}
 				onCopy={copy}
 				isProActive={isProActive}
-				onEnhance={enhance}
+				onEnhance={() => page?.enhance()}
 				enhancing={enhancing}
 			/>
 		</>

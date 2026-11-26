@@ -255,6 +255,24 @@ test('a pushed page with no buttons of its own, and a Recipe that is not found, 
 	}
 })
 
+test('a Recipe deleted while it is open takes the bar’s buttons with it when its page turns into not found', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createSoup(user)
+	await page.goto(`/recipes/${recipe.id}`)
+	const heart = favorite(bar(page))
+	await hydrated(heart)
+	await prisma.recipe.delete({ where: { id: recipe.id } })
+	await heart.tap()
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Recipe not found' }),
+	).toBeVisible()
+	await expect(bar(page).locator('[data-nav-back]')).toBeVisible()
+	await expect(bar(page).getByRole('button')).toHaveCount(0)
+})
+
 test('focusing Back, Favourite, Share and More actions while scrolled leaves the page where it is', async ({
 	page,
 	login,

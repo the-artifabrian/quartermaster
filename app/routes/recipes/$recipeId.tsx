@@ -5,7 +5,10 @@ import {
 	NotInHouseholdBoundary,
 	notFoundTitle,
 } from '#app/components/not-in-household.tsx'
-import { type NavBarHandle } from '#app/components/nav-bar.tsx'
+import {
+	type NavBarHandle,
+	useNavBarActions,
+} from '#app/components/nav-bar.tsx'
 import { recipeDetailNav } from '#app/utils/nav-back.ts'
 import { Img } from 'openimg/react'
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
@@ -22,9 +25,10 @@ import { toast } from 'sonner'
 import { EnhanceRecipeModal } from '#app/components/enhance-recipe-modal.tsx'
 import { ImportedRecipeNotice } from '#app/components/imported-recipe-notice.tsx'
 import {
+	favoriteFetcherKey,
 	RecipeActionBar,
 	RecipeNavActions,
-	shareCookingReset,
+	shareRecipePage,
 	useEnhanceFetcher,
 } from '#app/components/recipe-action-bar.tsx'
 import { IngredientList } from '#app/components/recipe-ingredient-list.tsx'
@@ -505,19 +509,32 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		instructions: recipe.instructions,
 	})
 	const enhanceFetcher = useEnhanceFetcher()
-	// The bar's ⋯ offers Reset cooking checks while there are some. A layout
+	// The nav bar's buttons send through the page, so an error answers here,
+	// and they go when the page does (an error after load).
+	useNavBarActions(RecipeBarActions)
+	const favoriteFetcher = useFetcher({ key: favoriteFetcherKey(recipe.id) })
+	// Reset cooking checks shows in the bar's ⋯ while there are some. A layout
 	// effect, so it is there in the frame the first check is.
 	const hasCookingChecks = checkedIngredients.size + checkedSteps.size > 0
-	const latestReset = useRef(reset)
+	const latest = useRef({ reset, favoriteFetcher, enhanceFetcher })
 	useLayoutEffect(() => {
-		latestReset.current = reset
+		latest.current = { reset, favoriteFetcher, enhanceFetcher }
 	})
 	useLayoutEffect(() => {
-		shareCookingReset(
-			recipe.id,
-			hasCookingChecks ? () => latestReset.current() : null,
-		)
-		return () => shareCookingReset(recipe.id, null)
+		shareRecipePage(recipe.id, {
+			toggleFavorite: (favorite) =>
+				void latest.current.favoriteFetcher.submit(
+					{ intent: 'toggleFavorite', isFavorite: String(favorite) },
+					{ method: 'POST', action: `/recipes/${recipe.id}` },
+				),
+			enhance: () =>
+				void latest.current.enhanceFetcher.submit(
+					{ recipeId: recipe.id },
+					{ method: 'POST', action: '/resources/enhance-recipe' },
+				),
+			reset: hasCookingChecks ? () => latest.current.reset() : undefined,
+		})
+		return () => shareRecipePage(recipe.id, null)
 	}, [recipe.id, hasCookingChecks])
 	const [showEnhanceModal, setShowEnhanceModal] = useState(false)
 	const [ingredientsExpanded, setIngredientsExpanded] = useState(true)

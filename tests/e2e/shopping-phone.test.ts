@@ -51,6 +51,22 @@ const wrapperIn = (page: Page, which: 'to-buy' | 'checked', name: string) =>
 		has: page.locator(`[aria-label="${name} shopping item"]`),
 	})
 
+/** The rows showing in Later, top to bottom. */
+async function namesInLater(page: Page) {
+	return page
+		.locator('#later-shopping-items [data-row-collapse]')
+		.evaluateAll((wrappers) =>
+			wrappers
+				.filter((wrapper) => !wrapper.hasAttribute('data-hidden'))
+				.map((wrapper) =>
+					wrapper
+						.querySelector('[aria-label$=" shopping item"]')!
+						.getAttribute('aria-label')!
+						.replace(/ shopping item$/, ''),
+				),
+		)
+}
+
 const isCheckWrite = (response: Response) =>
 	response.url().includes('/resources/shopping-check') &&
 	response.request().method() === 'POST'
@@ -166,7 +182,13 @@ test.describe('a row checked off on a phone', () => {
 		)
 		await sheet.getByRole('button', { name: 'Add to Next shop' }).click()
 		await reloaded
-		await expect(wrapperIn(page, 'to-buy', 'Cheese')).toBeAttached()
+		// The saved row, not the one shown while the add was out: the reload
+		// has rendered.
+		await expect(
+			page.locator(
+				'[aria-label="Cheese shopping item"]:not([data-optimistic-row])',
+			),
+		).toBeAttached()
 		await expect(
 			sheet.getByRole('button', { name: 'Undo adding Cheese' }),
 		).toBeVisible()
@@ -378,6 +400,205 @@ test.describe('a row checked off on a phone', () => {
 		await expect(
 			row(page, 'Rice').getByRole('button', { name: 'Retry' }),
 		).toBeVisible()
+	})
+
+	test('the count and its spoken form follow the tap while the check is out', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seed(user, [
+			{ name: 'Apples' },
+			{ name: 'Bread', checked: true },
+			{ name: 'Rice' },
+		])
+		let release: (() => void) | null = null
+		await page.route('**/resources/shopping-check?*', async (route) => {
+			if (route.request().method() !== 'POST') return route.continue()
+			await new Promise<void>((resolve) => (release = resolve))
+			await route.continue()
+		})
+		await openShopping(page)
+		const title = page.getByRole('heading', { level: 1 })
+		await row(page, 'Rice')
+			.getByRole('button', { name: 'Check off Rice' })
+			.click()
+		await expect.poll(() => release !== null).toBe(true)
+		await expect(title).toContainText('1 to buy')
+		await expect(title).toContainText(', 2 of 3 items for this shop checked')
+		release!()
+	})
+
+	test('a check that fails inside the half second leaves the row where it was, with Retry', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seed(user, [
+			{ name: 'Apples' },
+			{ name: 'Bread', checked: true },
+			{ name: 'Rice' },
+		])
+		await page.route('**/resources/shopping-check?*', (route) =>
+			route.request().method() === 'POST' ? route.abort() : route.continue(),
+		)
+		await page.clock.install()
+		await openShopping(page)
+		await pauseClock(page)
+
+		await row(page, 'Rice')
+			.getByRole('button', { name: 'Check off Rice' })
+			.click()
+		await expect(row(page, 'Rice').getByRole('alert')).toContainText(
+			'Couldn’t confirm this check',
+		)
+		await page.clock.runFor(1000)
+		expect(await namesIn(page, 'to-buy')).toEqual(['Apples', 'Rice'])
+		expect(await namesIn(page, 'checked')).toEqual(['Bread'])
+		await expect(
+			row(page, 'Rice').getByRole('button', { name: 'Uncheck Rice' }),
+		).toBeVisible()
+		await expect(
+			row(page, 'Rice').getByRole('button', { name: 'Retry' }),
+		).toBeVisible()
+		expect(await savedChecks(user.householdId)).toEqual({
+			Apples: false,
+			Bread: true,
+			Rice: false,
+		})
+	})
+
+	test('a row the other phone moves to Later inside the half second leaves Next shop and stays out', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seed(user, [
+			{ name: 'Apples' },
+			{ name: 'Bread', checked: true },
+			{ name: 'Rice' },
+		])
+		await page.clock.install()
+		await openShopping(page)
+		await pauseClock(page)
+
+		const saved = page.waitForResponse(isCheckWrite)
+		await row(page, 'Rice')
+			.getByRole('button', { name: 'Check off Rice' })
+			.click()
+		await saved
+		const rice = await prisma.shoppingListItem.findFirstOrThrow({
+			where: { name: 'Rice', list: { householdId: user.householdId } },
+		})
+		await page.request.post('/shopping', {
+			form: {
+				intent: 'move',
+				itemId: rice.id,
+				horizon: 'later',
+				originClientId: 'other-phone',
+			},
+		})
+		// An add from the sheet reloads the list inside the half second.
+		await page.getByRole('button', { name: 'Add an item' }).click()
+		const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
+		await sheet.getByPlaceholder('Add an item…').fill('Cheese')
+		const reloaded = page.waitForResponse(
+			(response) =>
+				response.request().method() === 'GET' &&
+				response.url().includes('/shopping.data'),
+		)
+		await sheet.getByRole('button', { name: 'Add to Next shop' }).click()
+		await reloaded
+		// The saved row, not the one shown while the add was out: the reload
+		// has rendered.
+		await expect(
+			page.locator(
+				'[aria-label="Cheese shopping item"]:not([data-optimistic-row])',
+			),
+		).toBeAttached()
+		expect(await namesIn(page, 'to-buy')).toEqual(['Apples', 'Cheese'])
+		expect(await namesIn(page, 'checked')).toEqual(['Bread'])
+		await expect(page.getByRole('button', { name: /^Later/ })).toContainText(
+			'(1)',
+		)
+
+		await page.clock.runFor(1000)
+		expect(await namesIn(page, 'to-buy')).toEqual(['Apples', 'Cheese'])
+		expect(await namesIn(page, 'checked')).toEqual(['Bread'])
+	})
+
+	test('a Later row checked on a phone holds its place, then moves to the checked end of Later', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seed(user, [
+			{ name: 'Milk' },
+			{ name: 'axe', horizon: 'later' },
+			{ name: 'tent', horizon: 'later' },
+			{ name: 'zip ties', horizon: 'later' },
+			{ name: 'sunscreen', horizon: 'later', checked: true },
+		])
+		await page.clock.install()
+		await openShopping(page)
+		await pauseClock(page)
+		await page.getByRole('button', { name: /^Later/ }).click()
+		expect(await namesInLater(page)).toEqual([
+			'axe',
+			'tent',
+			'zip ties',
+			'sunscreen',
+		])
+
+		const saved = page.waitForResponse(isCheckWrite)
+		await row(page, 'tent')
+			.getByRole('button', { name: 'Check off tent' })
+			.click()
+		await saved
+		await page.clock.runFor(450)
+		expect(await namesInLater(page)).toEqual([
+			'axe',
+			'tent',
+			'zip ties',
+			'sunscreen',
+		])
+		await page.clock.runFor(60)
+		await expect
+			.poll(
+				async () => {
+					await page.clock.runFor(100)
+					return namesInLater(page)
+				},
+				{ intervals: [50] },
+			)
+			.toEqual(['axe', 'zip ties', 'tent', 'sunscreen'])
+		// Nothing of Later's goes under Next shop's Checked.
+		expect(await namesIn(page, 'checked')).toEqual([])
+	})
+
+	test('wider than a phone, a checked row moves once its check is saved, with no half second', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seed(user, [
+			{ name: 'Apples' },
+			{ name: 'Bread', checked: true },
+			{ name: 'Rice' },
+		])
+		await page.setViewportSize({ width: 1280, height: 800 })
+		await page.clock.install()
+		await openShopping(page)
+		await pauseClock(page)
+
+		const saved = page.waitForResponse(isCheckWrite)
+		await row(page, 'Rice')
+			.getByRole('button', { name: 'Check off Rice' })
+			.click()
+		await saved
+		// The clock stands still: only the saved check moves it.
+		await expect.poll(() => namesIn(page, 'checked')).toEqual(['Bread', 'Rice'])
+		expect(await namesIn(page, 'to-buy')).toEqual(['Apples'])
 	})
 
 	test('three rows checked together each move on their own, and one unchecked in time stays', async ({
@@ -650,6 +871,19 @@ test('the search field waits behind a magnifier from 15 rows, takes focus in the
 		15,
 	)
 
+	// Escape puts it away the same way.
+	await magnifier.click()
+	await field.fill('lime')
+	await expect(page.getByRole('group', { name: /shopping item$/ })).toHaveCount(
+		3,
+	)
+	await page.keyboard.press('Escape')
+	await expect(field).toBeHidden()
+	await expect(magnifier).toBeFocused()
+	await expect(page.getByRole('group', { name: /shopping item$/ })).toHaveCount(
+		15,
+	)
+
 	// Wider, the field shows and there is no magnifier. A search narrows the
 	// list, not the count.
 	await page.setViewportSize({ width: 1280, height: 800 })
@@ -662,6 +896,29 @@ test('the search field waits behind a magnifier from 15 rows, takes focus in the
 		3,
 	)
 	await expect(title).toContainText('(1/15)')
+
+	// The other phone deletes a row, leaving 14: the field goes, and so does
+	// its query, rather than narrowing a list with no field to clear it.
+	const pear = await prisma.shoppingListItem.findFirstOrThrow({
+		where: { name: 'pear 4', list: { householdId: user.householdId } },
+	})
+	const reloaded = page.waitForResponse(
+		(response) =>
+			response.request().method() === 'GET' &&
+			response.url().includes('/shopping.data'),
+	)
+	await page.request.post('/resources/undo-delete', {
+		data: {
+			intent: 'delete-shopping',
+			itemIds: [pear.id],
+			originClientId: 'other-phone',
+		},
+	})
+	await reloaded
+	await expect(field).toHaveCount(0)
+	await expect(page.getByRole('group', { name: /shopping item$/ })).toHaveCount(
+		14,
+	)
 })
 
 test('the docked Add an item bar opens a tall sheet with focus in the tap; it lists each add with an Undo', async ({
@@ -864,4 +1121,62 @@ test('a row checked from the keyboard keeps focus on its check once it has moved
 	await expect(
 		row(page, 'item 05').getByRole('button', { name: 'Check off item 05' }),
 	).toBeFocused()
+})
+
+test.describe('swiping a row that holds', () => {
+	test.use({ hasTouch: true })
+
+	/** Drags one finger from 80% to 20% of the row's width. */
+	async function swipeLeft(page: Page, name: string) {
+		const box = (await row(page, name).boundingBox())!
+		const y = box.y + box.height / 2
+		const cdp = await page.context().newCDPSession(page)
+		const at = (fraction: number) => [
+			{ x: box.x + box.width * fraction, y, id: 1 },
+		]
+		await cdp.send('Input.dispatchTouchEvent', {
+			type: 'touchStart',
+			touchPoints: at(0.8),
+		})
+		for (let i = 1; i <= 12; i++) {
+			await cdp.send('Input.dispatchTouchEvent', {
+				type: 'touchMove',
+				touchPoints: at(0.8 - (0.6 * i) / 12),
+			})
+		}
+		await cdp.send('Input.dispatchTouchEvent', {
+			type: 'touchEnd',
+			touchPoints: [],
+		})
+		await cdp.detach()
+	}
+
+	test('does nothing until the row has moved', async ({ page, login }) => {
+		const user = await login()
+		await seed(user, [{ name: 'Apples' }, { name: 'Rice' }])
+		await page.clock.install()
+		await openShopping(page)
+		await pauseClock(page)
+
+		const saved = page.waitForResponse(isCheckWrite)
+		await row(page, 'Rice')
+			.getByRole('button', { name: 'Check off Rice' })
+			.click()
+		await saved
+		// A row that isn't moving swipes open, clock stopped or not.
+		await swipeLeft(page, 'Apples')
+		await expect(
+			row(page, 'Apples').getByRole('button', { name: 'Delete' }),
+		).toBeVisible()
+		// Rice's swipe would open Rice and shut Apples; it does neither.
+		await swipeLeft(page, 'Rice')
+		await page.waitForTimeout(300)
+		await expect(
+			row(page, 'Rice').getByRole('button', { name: 'Later' }),
+		).toBeHidden()
+		await expect(
+			row(page, 'Apples').getByRole('button', { name: 'Delete' }),
+		).toBeVisible()
+		expect(await namesIn(page, 'to-buy')).toEqual(['Apples', 'Rice'])
+	})
 })

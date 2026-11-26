@@ -235,11 +235,11 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 		clearableRows(visible(place(horizon, false).done), pendingIds)
 	const clearableNext = clearable(NEXT_SHOP)
 	const clearableLater = clearable(LATER)
-	const checkedNextItems = clearableNext.length
 	const checkedLaterItems = clearableLater.length
-	// The phone's count follows the circles: a row counts as checked the
-	// moment it is tapped.
+	// The counts follow the circles: a row counts as checked the moment it
+	// is tapped, on screen and in the spoken form alike.
 	const toBuy = nextItems.filter((item) => !item.checked).length
+	const checkedNextItems = nextItems.length - toBuy
 
 	const doneIds = new Set(
 		[...next.done, ...later.done].map((row) => row.item.id),
@@ -282,6 +282,12 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 		setSearchOpen(false)
 		magnifierRef.current?.focus()
 	}
+	// Under 15 rows the field goes, and its query with it: nothing would be
+	// left to clear it.
+	if (totalItems < 15 && (search || searchOpen)) {
+		setSearch('')
+		setSearchOpen(false)
+	}
 
 	// Determine if we should show a warning (from quick-add fetcher, not route actionData)
 	const warningData =
@@ -317,9 +323,11 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 								Shopping
 								{nextItems.length > 0 && (
 									<>
+										{/* A space, not a margin: when the count wraps under the
+										    title it starts on the title's edge. */}{' '}
 										<span
 											aria-hidden="true"
-											className="text-muted-foreground ml-3 inline-block font-sans text-base font-normal whitespace-nowrap tabular-nums md:hidden"
+											className="text-muted-foreground inline-block font-sans text-base font-normal whitespace-nowrap tabular-nums md:hidden"
 										>
 											{toBuy > 0 ? `${toBuy} to buy` : 'All checked'}
 										</span>
@@ -531,6 +539,14 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 								placeholder="Search Shopping…"
 								value={search}
 								onChange={(e) => setSearch(e.target.value)}
+								onKeyDown={(e) => {
+									if (e.key !== 'Escape') return
+									// On a phone Escape puts the field away, as Done does;
+									// wider, the field stays and only empties.
+									e.preventDefault()
+									if (searchOpen) closeSearch()
+									else setSearch('')
+								}}
 								className="pl-9"
 							/>
 						</div>

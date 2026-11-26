@@ -657,13 +657,21 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							data-recipes-filtered=""
 							className="text-label text-muted-foreground flex flex-wrap items-center justify-between gap-x-3"
 						>
+							{/* On a phone the count leads, since the title has none. Wider,
+							    the title carries it, so the line names the filters, or
+							    counts for a search alone. */}
 							<p className="flex flex-wrap gap-x-1.5 py-2">
-								<span className="font-semibold">
+								<span
+									className={cn(
+										'font-semibold',
+										restrictions.length > 0 && 'md:hidden',
+									)}
+								>
 									{displayRecipes.length} of {totalRecipeCount}{' '}
 									{totalRecipeCount === 1 ? 'Recipe' : 'Recipes'}
 								</span>
 								{restrictions.length > 0 ? (
-									<span className="before:mr-1.5 before:content-['·']">
+									<span className="max-md:before:mr-1.5 max-md:before:content-['·']">
 										{restrictions.join(' · ')}
 									</span>
 								) : null}

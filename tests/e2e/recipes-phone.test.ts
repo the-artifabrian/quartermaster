@@ -565,6 +565,21 @@ test.describe('the filters', () => {
 		await page.goto('/recipes?search=lemon')
 		await expect(line).toHaveText(/^1 of 4 Recipes\s*Clear search and filters$/)
 
+		// Wider, the title has the count, so the line names the filters, or
+		// counts for a search alone.
+		await page.setViewportSize({ width: 1280, height: 800 })
+		await page.goto('/recipes?maxTime=30')
+		await expect(
+			page.getByRole('heading', { level: 1, name: 'Recipes (3 of 4)' }),
+		).toBeVisible()
+		await expect(line).toHaveText(/^Up to 30 min\s*Clear search and filters$/, {
+			useInnerText: true,
+		})
+		await expect(line.getByText('3 of 4 Recipes')).toBeHidden()
+		await page.goto('/recipes?search=lemon')
+		await expect(line).toHaveText(/^1 of 4 Recipes\s*Clear search and filters$/)
+		await page.setViewportSize({ width: 390, height: 844 })
+
 		// Sort alone filters nothing.
 		await page.goto('/recipes?sort=alphabetical')
 		await expect(line).toHaveCount(0)

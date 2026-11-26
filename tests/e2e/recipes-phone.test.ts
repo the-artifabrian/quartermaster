@@ -693,6 +693,8 @@ test.describe('a row', () => {
 		)
 		expect(nameSize).toBe(21.5)
 		await expect(shakshuka.locator('[data-favorite]')).toBeVisible()
+		// The heart says so to a screen reader.
+		await expect(name).toHaveAccessibleName('Shakshuka Favorite')
 		await expect(
 			recipeLink(page, 'Toast').locator('[data-favorite]'),
 		).toHaveCount(0)
@@ -740,6 +742,13 @@ test.describe('a row', () => {
 		await expect(
 			recipeLink(page, 'Toast').locator('[data-recipe-meta]'),
 		).toHaveText('Time unknown')
+
+		// A desktop card says nothing of it, so it is never said twice.
+		await page.setViewportSize({ width: 1280, height: 800 })
+		await expect(
+			page.getByRole('heading', { name: 'Shakshuka', exact: true }),
+		).toBeVisible()
+		await expect(shakshuka).not.toHaveAccessibleName(/Favorite/)
 	})
 
 	test('at 320px a name wraps to three lines beside its photo without clipping, and a longer one stops at three', async ({
@@ -753,9 +762,14 @@ test.describe('a row', () => {
 		const fits = 'Slow-roasted lamb shoulder with anchovy and white beans'
 		const tooLong =
 			'Slow-roasted shoulder of lamb with anchovy, rosemary, garlic, lemon and white beans'
+		const favorite = 'Lemon rice with curry leaves and peanuts'
+		const longFavorite =
+			'Slow-cooked beans with garlic, sage, rosemary, lemon peel and a lot of olive oil'
 		await seedRecipes(user, [
 			{ title: fits, totalTime: 300, photo: true },
 			{ title: tooLong, photo: true },
+			{ title: favorite, photo: true, isFavorite: true },
+			{ title: longFavorite, photo: true, isFavorite: true },
 		])
 		await page.goto('/recipes')
 		const look = (title: string) =>
@@ -774,6 +788,31 @@ test.describe('a row', () => {
 				})
 		expect(await look(fits)).toEqual({ lines: 3, clipped: false })
 		expect(await look(tooLong)).toEqual({ lines: 3, clipped: true })
+		expect(await look(longFavorite)).toEqual({ lines: 3, clipped: true })
+
+		// A favorite's heart follows a name that fits, and ends the third line
+		// of one that doesn't, beside the photo.
+		const hearts = async (title: string) => {
+			const link = recipeLink(page, title)
+			const name = await box(link.getByRole('heading').locator(':scope > span'))
+			const photo = await box(link.locator('img'))
+			const shown = []
+			for (const heart of await link
+				.locator('[data-favorite]')
+				.filter({ visible: true })
+				.all()) {
+				const at = await box(heart)
+				if (at.y + at.height <= name.y + name.height + 0.5) shown.push(at)
+			}
+			return { shown, name, photo }
+		}
+		const fitting = await hearts(favorite)
+		expect(fitting.shown).toHaveLength(1)
+		const long = await hearts(longFavorite)
+		expect(long.shown).toHaveLength(1)
+		const heart = long.shown[0]!
+		expect(heart.x + heart.width).toBeLessThanOrEqual(long.photo.x)
+		expect(heart.y).toBeGreaterThan(long.name.y + long.name.height / 2)
 		const link = recipeLink(page, fits)
 		const nameBox = await box(link.getByRole('heading'))
 		const photo = await box(link.locator('img'))

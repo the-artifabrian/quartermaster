@@ -1,4 +1,5 @@
 import { Img } from 'openimg/react'
+import { type RefObject, useEffect, useRef, useState } from 'react'
 import { useViewTransitionState } from 'react-router'
 import { PushLink } from './push-link.tsx'
 import { formatDuration } from '#app/utils/format-duration.ts'
@@ -31,6 +32,8 @@ export function RecipeCard({
 	// True while this card's Recipe page slides in or out; the image moves
 	// between the card and the page.
 	const isTransitioning = useViewTransitionState(to)
+	const nameRef = useRef<HTMLSpanElement>(null)
+	const heartClipped = useClipped(nameRef, Boolean(isFavorite))
 	const phoneTime =
 		totalTime != null
 			? formatDuration(totalTime)
@@ -102,17 +105,35 @@ export function RecipeCard({
 				)}
 			>
 				<div className="flex items-center gap-1.5">
-					<h3 className="text-list-name min-w-0 font-serif md:text-base md:leading-[1.3] md:tracking-[-0.005em]">
-						<span className="line-clamp-3 md:line-clamp-2">
+					<h3
+						className={cn(
+							'text-list-name min-w-0 font-serif md:text-base md:leading-[1.3] md:tracking-[-0.005em]',
+							heartClipped && 'max-md:flex',
+						)}
+					>
+						<span ref={nameRef} className="line-clamp-3 md:line-clamp-2">
 							{title}
 							{isFavorite && (
-								<Icon
-									name="heart-filled"
-									data-favorite=""
-									className="text-primary ml-2 inline-block size-3.5 align-baseline md:hidden"
-								/>
+								// On a phone the heart follows the name, and says so to a
+								// screen reader. A name cut at three lines cuts it off
+								// too, so a second one then ends the third line.
+								<span className="md:hidden">
+									<Icon
+										name="heart-filled"
+										data-favorite=""
+										className="text-primary ml-2 inline-block size-3.5 align-baseline"
+									/>
+									<span className="sr-only"> Favorite</span>
+								</span>
 							)}
 						</span>
+						{heartClipped ? (
+							<Icon
+								name="heart-filled"
+								data-favorite="end"
+								className="text-primary mb-1.5 ml-1 size-3.5 shrink-0 self-end md:hidden"
+							/>
+						) : null}
 					</h3>
 				</div>
 
@@ -152,6 +173,26 @@ export function RecipeCard({
 			</div>
 		</PushLink>
 	)
+}
+
+/**
+ * Whether `ref`'s line clamp cuts off its text. The heart inside it stays in
+ * place either way, so showing a second heart outside never changes the
+ * answer.
+ */
+function useClipped(ref: RefObject<HTMLElement | null>, enabled: boolean) {
+	const [clipped, setClipped] = useState(false)
+	useEffect(() => {
+		const element = ref.current
+		if (!enabled || !element) return
+		const check = () =>
+			setClipped(element.scrollHeight > element.clientHeight + 1)
+		const observer = new ResizeObserver(check)
+		observer.observe(element)
+		check()
+		return () => observer.disconnect()
+	}, [ref, enabled])
+	return enabled && clipped
 }
 
 export function RecipeCardGrid({

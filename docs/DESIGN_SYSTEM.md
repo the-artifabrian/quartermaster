@@ -353,21 +353,30 @@ On a phone the Recipes and Menus lists share a title and a row shape:
   the two titles step down to 34px so the + still fits.
 - Recipes' search field and the filter button sit under the title, 14px above
   and below, and stay pinned under the status bar while the list scrolls,
-  opaque, with a hairline under them. The field has a clear button once it has
-  text, and the browser's own is hidden. A search or a filter takes the page
-  back to the top, so the new list starts under the search row.
+  opaque, with a hairline under them. A focused row or control lands below them
+  (a scroll margin on what can take focus outside the pinned row), and focusing
+  the pinned field or a chip scrolls nothing. The field has a clear button,
+  named "Clear the search field", once it has text, and the browser's own is
+  hidden. A search or a filter takes the page back to the top, so the new list
+  starts under the search row.
 - The filter button opens the chips as one row that scrolls sideways, edge to
   edge, inside the pinned row: sort, cook time, Favorites, then Cuisine, Season
   and Course. Sort and cook time are the phone's own pickers. A chosen chip is
-  tinted and ringed in green, and the button's badge counts what is set.
+  tinted and ringed in green, and the button's badge counts what is set. A chip
+  reached from the keyboard scrolls fully into the row; a tapped one stays under
+  the finger.
 - While searching or filtering, a line above the list reads "8 of 24 Recipes",
-  then the filters by name, with "Clear search and filters" at its right.
-  Filters that leave nothing read "No Recipes match these filters", with "Try a
-  longer time, or turn Favorites off." only while cook time or Favorites is set.
+  then the filters by name, with "Clear search and filters" at its right. Wider
+  screens count in the title, so their line names the filters, or counts for a
+  search alone. Filters that leave nothing read "No Recipes match these
+  filters", with "Try a longer time, or turn Favorites off." only while cook
+  time or Favorites is set.
 - A row is the name in Newsreader at 21.5px, a green heart after it for a
   favorite, and under it the total time at weight 600 then the first line of the
   description, in the sans. A 52px photo ends the row on the content edge;
-  without one the row is text only. Names wrap to three lines.
+  without one the row is text only. Names wrap to three lines; a longer one is
+  cut there and its heart ends the third line. The heart reads "Favorite" to a
+  screen reader.
 - A Menu's row is the same: its title, then "4 Recipes" at weight 600 and its
   description, or the Recipes' names when it has none, with the guests at the
   right.

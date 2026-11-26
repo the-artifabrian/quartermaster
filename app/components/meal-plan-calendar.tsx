@@ -18,6 +18,7 @@ import {
 	type PlanChoices,
 	usePlanChoices,
 } from '#app/components/plan-choices.tsx'
+import { useDaySwipe } from '#app/hooks/use-day-swipe.ts'
 import { useHorizontalSwipe } from '#app/hooks/use-horizontal-swipe.ts'
 import { type PlannedMealResult } from '#app/routes/plan/plan-action.server.ts'
 import {
@@ -32,6 +33,7 @@ import {
 } from '#app/utils/date.ts'
 import { formatScaleMultiplier } from '#app/utils/menu-validation.ts'
 import { cn } from '#app/utils/misc.tsx'
+import { stepDay } from '#app/utils/plan-day-swipe.ts'
 import { haptic } from '#app/utils/shell-bridge.ts'
 import { settleCommit } from '#app/utils/swipe.ts'
 import {
@@ -39,7 +41,7 @@ import {
 	resolveSelectedDay,
 	selectedDayFromUrl,
 } from '#app/utils/plan-day-param.ts'
-import { type PlanMeal, MealCard } from './meal-card.tsx'
+import { type MealLayout, type PlanMeal, MealCard } from './meal-card.tsx'
 import { RowCollapse } from './ui/row-collapse.tsx'
 import { useEnteringRows, useHiddenRows } from './undo-delete.tsx'
 import { type PlanItemChoice, PlanItemSelector } from './recipe-selector.tsx'
@@ -63,6 +65,8 @@ type MealPlanCalendarProps = {
 	 * so the title row is rendered in here too.
 	 */
 	renderHeader?: (titleAction: ReactNode) => ReactNode
+	/** On a phone, shown at the top of the day, under the pinned strip. */
+	belowStrip?: ReactNode
 }
 
 /**
@@ -75,7 +79,7 @@ let weekStripEntry: { side: -1 | 1; from: string } | null = null
 /** A week slower than this to load brings its old strip back meanwhile. */
 const WEEK_LOAD_GRACE_MS = 300
 
-type AddMealPresentation = 'title' | 'row' | 'empty-row'
+type AddMealPresentation = 'title' | 'foot' | 'row' | 'empty-row'
 
 type AddMealActionData = {
 	status: 'success' | 'error'
@@ -84,10 +88,11 @@ type AddMealActionData = {
 }
 
 /**
- * One add flow with two launch points: the round + beside the Plan title on a
- * phone, for the day showing, and a quiet row inside each desktop agenda day.
- * The + always opens a sheet (a centered dialog from `sm`), since the title
- * row has no room for the composer; the rows open it in place when wide.
+ * One add flow with three launch points: on a phone the round + beside the
+ * Plan title and the Add Meal row at the foot of the day, both for the day
+ * showing, and a quiet row inside each desktop agenda day. The phone's two
+ * always open a sheet (a centered dialog from `sm`); the agenda's rows open
+ * it in place when wide.
  */
 function AddMealControl({
 	date,
@@ -176,7 +181,11 @@ function AddMealControl({
 		setLabel(null)
 		setText('')
 		setMenuError(null)
-		setAsSheet(presentation === 'title' || opensAsSheet())
+		// The phone day's two always open the sheet: the title row has no room
+		// for the composer, and the foot row opens the same one.
+		setAsSheet(
+			presentation === 'title' || presentation === 'foot' || opensAsSheet(),
+		)
 		setOpen(true)
 	}
 
@@ -229,8 +238,8 @@ function AddMealControl({
 	const fields = (
 		<>
 			<fieldset className="mb-3">
-				<legend className="text-muted-foreground mb-1.5 text-[11px] font-semibold tracking-wide uppercase">
-					Label <span className="font-normal normal-case">(optional)</span>
+				<legend className="text-muted-foreground text-label mb-1.5 font-semibold">
+					Label <span className="font-normal">(optional)</span>
 				</legend>
 				<div className="flex flex-wrap gap-2">
 					{MEAL_TYPES.map((type) => (
@@ -359,6 +368,17 @@ function AddMealControl({
 				onClick={openComposer}
 				aria-label={`Add Meal to ${dateLabel}`}
 			/>
+		) : presentation === 'foot' ? (
+			// Its name is what it shows, so Voice Control taps it by "Add Meal";
+			// the day heading above names the day.
+			<button
+				type="button"
+				onClick={openComposer}
+				className="text-primary hover:text-primary/75 border-border flex min-h-11 w-full items-center gap-2 border-t text-[15px] font-semibold transition-colors"
+			>
+				<Icon name="plus" className="size-[18px]" />
+				Add Meal
+			</button>
 		) : presentation === 'empty-row' ? (
 			<button
 				type="button"
@@ -395,7 +415,7 @@ function AddMealControl({
 					<BottomSheet
 						open={open}
 						onClose={close}
-						labelledBy={`add-meal-${serializeDate(date)}-title`}
+						labelledBy={`add-meal-${presentation}-${serializeDate(date)}-title`}
 						title="Add Meal"
 						description={`${formatWeekdayName(date)} · ${formatMonthDay(date)}`}
 					>
@@ -419,9 +439,11 @@ function AddMealControl({
 function MealCards({
 	meals,
 	choices,
+	layout,
 }: {
 	meals: PlanMeal[]
 	choices: PlanChoices
+	layout: MealLayout
 }) {
 	const hidden = useHiddenRows()
 	const entering = useEnteringRows()
@@ -437,13 +459,18 @@ function MealCards({
 				hidden={index === -1}
 				entering={entering.has(meal.id)}
 				data-slot="meal-group"
-				// Flat Meal rows with a hairline between the ones showing
-				// (DESIGN_SYSTEM, Plan).
-				className={cn(index > 0 && 'border-border border-t md:mt-2 md:pt-2')}
+				// Flat Meal rows with a hairline between the ones showing; on a
+				// phone's day each Meal sits under one (DESIGN_SYSTEM, Plan).
+				className={cn(
+					layout === 'day'
+						? 'border-border border-t'
+						: index > 0 && 'border-border border-t md:mt-2 md:pt-2',
+				)}
 			>
 				<MealCard
 					meal={meal}
 					choices={choices}
+					layout={layout}
 					canMoveUp={index > 0}
 					canMoveDown={index !== -1 && index < shown.length - 1}
 				/>
@@ -458,6 +485,7 @@ export function MealPlanCalendar({
 	today: todayDate,
 	onSwipeWeek,
 	renderHeader,
+	belowStrip,
 }: MealPlanCalendarProps) {
 	// The strip follows the finger and turns the week past a quarter of its
 	// width or on a flick: right for the week before, left for the week after.
@@ -582,6 +610,8 @@ export function MealPlanCalendar({
 	}, [weekDays, meals, selectedDate, todayDate])
 
 	function selectDay(dateStr: string) {
+		// The new day starts at its heading, under the pinned strip.
+		if (dateStr !== selectedDate && window.scrollY > 0) window.scrollTo(0, 0)
 		setSelectedDate(dateStr)
 		// The day goes in the URL so back and reload return to it. Replace, so
 		// day taps add no history entries; the Meal link gives way to the day.
@@ -592,6 +622,21 @@ export function MealPlanCalendar({
 		if (next.toString() === search) return
 		setSearchParams(next, { replace: true, preventScrollReset: true })
 	}
+
+	// A sideways swipe on the day steps to the next day or the one before,
+	// past Sunday or before Monday into the next or last week. It waits while
+	// a week loads, so two swipes can't both go from the old week.
+	const navigate = useNavigate()
+	const daySwipe = useDaySwipe<HTMLDivElement>({
+		enabled: navigation.state === 'idle',
+		onStep: (step) => {
+			const next = stepDay(weekDays, selectedDate, step)
+			haptic('selection')
+			if (!next.weekStart) return selectDay(next.day)
+			if (window.scrollY > 0) window.scrollTo(0, 0)
+			void navigate(`/plan?weekStart=${next.weekStart}&day=${next.day}`)
+		},
+	})
 
 	// Counts and empty days leave out Meals deleted with Undo still waiting.
 	const hidden = useHiddenRows()
@@ -609,32 +654,39 @@ export function MealPlanCalendar({
 		weekDays[0]!
 	const selectedMeals = mealsByDay.get(selectedDate) ?? []
 
+	const selectedIsToday = isToday(selectedDay, todayDate)
+
 	return (
 		<>
-			{renderHeader?.(
-				// Phones only, like the day it adds to; the desktop agenda has an
-				// Add Meal in each day.
-				<div className="md:hidden">
-					<AddMealControl
-						key={selectedDate}
-						date={selectedDay}
-						choices={choices}
-						presentation="title"
-					/>
-				</div>,
-			)}
-			{/* Mobile: pick a day, then work with only that day's Meals. */}
-			<div data-testid="mobile-plan" className="md:hidden">
+			{/* On a phone the title row and the strip stay pinned under the
+			    status bar, opaque, edge to edge; wider, they scroll as before. */}
+			<div
+				data-plan-header=""
+				className="max-md:bg-background max-md:border-border max-md:sticky max-md:top-(--safe-top) max-md:z-30 max-md:-mx-4 max-md:border-b max-md:px-4 sm:max-md:-mx-8 sm:max-md:px-8"
+			>
+				{renderHeader?.(
+					// Phones only, like the day it adds to; the desktop agenda has an
+					// Add Meal in each day.
+					<div className="md:hidden">
+						<AddMealControl
+							key={selectedDate}
+							date={selectedDay}
+							choices={choices}
+							presentation="title"
+						/>
+					</div>,
+				)}
 				<div
 					ref={weekSwipe.ref}
 					{...weekSwipe.handlers}
 					data-slot="mobile-week-days"
-					className="grid touch-pan-y touch-pinch-zoom grid-cols-7 gap-1 py-1"
+					className="grid touch-pan-y touch-pinch-zoom grid-cols-7 pt-[18px] pb-2 md:hidden"
 				>
 					{weekDays.map((date) => {
 						const dateStr = serializeDate(date)
 						const selected = dateStr === selectedDate
 						const today = isToday(date, todayDate)
+						const past = !today && isPast(date, todayDate)
 						const mealCount = shownCount(mealsByDay.get(dateStr))
 						return (
 							<button
@@ -644,66 +696,95 @@ export function MealPlanCalendar({
 								aria-pressed={selected}
 								aria-current={today ? 'date' : undefined}
 								aria-label={`Show ${today ? 'Today' : formatWeekdayName(date)}, ${formatMonthDay(date)}, ${mealCount === 0 ? 'no Meals planned' : `${mealCount} ${mealCount === 1 ? 'Meal' : 'Meals'} planned`}`}
-								className={cn(
-									'relative flex min-h-16 min-w-0 flex-col items-center justify-center rounded-xl border px-0.5 transition-[color,background-color,border-color,box-shadow]',
-									selected
-										? 'border-primary-fill bg-primary-fill text-primary-foreground ring-primary/20 ring-2'
-										: today
-											? 'border-primary bg-primary-tint text-foreground'
-											: // Other days are flat; only the selected day and today
-												// are marked.
-												'hover:bg-secondary/50 border-transparent',
-									!selected &&
-										!today &&
-										isPast(date, todayDate) &&
-										// Faint is too light on the hover fill.
-										'text-faint hover:text-muted-foreground',
-								)}
+								className="group/day flex min-h-11 min-w-0 flex-col items-center gap-[5px]"
 							>
-								<span className="text-[9px] font-semibold tracking-wide uppercase">
-									{today ? 'Today' : formatWeekdayName(date).slice(0, 3)}
+								<span
+									className={cn(
+										'text-label font-semibold',
+										today ? 'text-primary' : 'text-muted-foreground',
+									)}
+								>
+									{formatWeekdayName(date).slice(0, 3)}
 								</span>
-								<span className="mt-0.5 font-serif text-lg">
+								{/* Past days are faint, so they never sit on a fill: hover
+								    turns them muted. */}
+								<span
+									className={cn(
+										'flex size-[38px] items-center justify-center rounded-full text-[17px] font-medium tabular-nums transition-colors',
+										selected
+											? 'bg-primary-fill text-primary-foreground font-semibold'
+											: cn(
+													'group-hover/day:bg-muted',
+													today
+														? 'text-primary font-semibold'
+														: past
+															? 'text-faint group-hover/day:text-muted-foreground'
+															: 'text-foreground',
+												),
+									)}
+								>
 									{date.getUTCDate()}
 								</span>
-								{mealCount > 0 ? (
-									<span
-										aria-hidden="true"
-										className={cn(
-											'absolute right-1.5 bottom-1.5 size-1.5 rounded-full',
-											selected ? 'bg-primary-foreground' : 'bg-primary',
-										)}
-									/>
-								) : null}
+								<span
+									aria-hidden="true"
+									className={cn(
+										'size-[5px] rounded-full',
+										mealCount === 0
+											? 'invisible'
+											: selected
+												? 'bg-primary'
+												: 'bg-control-edge',
+									)}
+								/>
 							</button>
 						)
 					})}
 				</div>
+			</div>
 
-				<div className="mt-7">
-					<p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-						{isToday(selectedDay, todayDate)
-							? 'Today'
-							: formatWeekdayName(selectedDay)}
+			{/* Mobile: pick a day, then work with only that day's Meals. The
+			    whole day takes the sideways swipe, its bare foot included. */}
+			<div
+				data-testid="mobile-plan"
+				{...daySwipe}
+				className="flex flex-1 touch-pan-y touch-pinch-zoom flex-col md:hidden"
+			>
+				{belowStrip}
+				<div className="pt-5 pb-3">
+					<p
+						className={cn(
+							'text-label font-semibold',
+							selectedIsToday ? 'text-primary' : 'text-muted-foreground',
+						)}
+					>
+						{selectedIsToday ? 'Today' : formatWeekdayName(selectedDay)}
 					</p>
-					<h2 className="mt-0.5 font-serif text-2xl">
+					<h2 className="mt-0.5 font-serif text-[31px] leading-[1.1]">
 						{formatMonthDay(selectedDay)}
 					</h2>
 				</div>
 
-				<div className="mt-2">
-					{shownCount(selectedMeals) > 0 ? (
-						<MealCards meals={selectedMeals} choices={choices} />
-					) : (
-						// Flat, like the Meals it stands in for.
-						<div className="py-3">
-							<p className="text-muted-foreground">Nothing planned</p>
-							<p className="text-muted-foreground mt-1 text-sm">
-								Tap + to plan a Recipe, Menu, or note.
-							</p>
-						</div>
-					)}
-				</div>
+				{shownCount(selectedMeals) > 0 ? (
+					<div>
+						<MealCards meals={selectedMeals} choices={choices} layout="day" />
+					</div>
+				) : (
+					// Flat, like the Meals it stands in for.
+					<div className="border-border border-t pt-[22px] pb-5">
+						<p className="font-serif text-[23px] leading-tight">
+							Nothing planned
+						</p>
+						<p className="text-muted-foreground mt-1 text-[15.5px]">
+							Tap + to plan a Recipe, Menu, or note.
+						</p>
+					</div>
+				)}
+				<AddMealControl
+					key={selectedDate}
+					date={selectedDay}
+					choices={choices}
+					presentation="foot"
+				/>
 			</div>
 
 			{/* Desktop: the whole week as one compact chronological agenda. */}
@@ -735,7 +816,7 @@ export function MealPlanCalendar({
 							>
 								<p
 									className={cn(
-										'text-muted-foreground text-[10px] font-semibold tracking-wider uppercase',
+										'text-muted-foreground text-label font-semibold',
 										isToday(date, todayDate) && 'text-primary',
 									)}
 								>
@@ -752,7 +833,11 @@ export function MealPlanCalendar({
 								{shownCount(dayMeals) > 0 ? (
 									<>
 										<div>
-											<MealCards meals={dayMeals} choices={choices} />
+											<MealCards
+												meals={dayMeals}
+												choices={choices}
+												layout="agenda"
+											/>
 										</div>
 										<AddMealControl
 											date={date}

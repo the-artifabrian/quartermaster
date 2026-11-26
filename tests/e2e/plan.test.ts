@@ -3,9 +3,11 @@ import {
 	addDaysUTC,
 	formatMonthDay,
 	formatWeekdayName,
+	formatWeekRange,
 	getWeekDays,
 	getWeekStart,
 	isToday,
+	parseDate,
 	serializeDate,
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
@@ -506,7 +508,7 @@ test('Meal plan: view Meals, add one fast, and mark as cooked', async ({
 		await page.setViewportSize(viewport)
 		if (viewport.width === 390) {
 			const mobileDayButtonLocator = page
-				.getByTestId('mobile-plan')
+				.locator('[data-slot="mobile-week-days"]')
 				.getByRole('button', {
 					name: /^Show .+, (?:no Meals|\d+ Meals?) planned$/,
 				})
@@ -807,7 +809,7 @@ test.describe('Picked day', () => {
 	const dayUrl = (date: Date) => `${weekUrl}&day=${serializeDate(date)}`
 
 	function dayButton(page: Page, date: Date) {
-		return page.getByTestId('mobile-plan').getByRole('button', {
+		return page.locator('[data-slot="mobile-week-days"]').getByRole('button', {
 			name: new RegExp(
 				`^Show ${formatWeekdayName(date)}, ${formatMonthDay(date)},`,
 			),
@@ -1212,8 +1214,16 @@ test.describe('in the iOS app on a phone', () => {
 			.tap()
 		const plus = page.getByRole('button', { name: `Add Meal to ${otherName}` })
 		await expect(plus).toBeVisible()
-		// The day heading has no Add Meal of its own.
-		await expect(page.getByRole('button', { name: /^Add Meal/ })).toHaveCount(1)
+		// The title's + is the one named for the day; the day's own Add Meal
+		// is named by what it shows.
+		await expect(
+			page.getByRole('button', { name: /^Add Meal to/ }),
+		).toHaveCount(1)
+		await expect(
+			page
+				.getByTestId('mobile-plan')
+				.getByRole('button', { name: 'Add Meal', exact: true }),
+		).toBeVisible()
 
 		// The empty day points at the +.
 		await expect(
@@ -1272,7 +1282,9 @@ test.describe('in the iOS app on a phone', () => {
 			name: `Add Meal to ${dayName(wednesday)}`,
 		})
 		await expect(plus).toBeVisible()
-		await expect(page.getByRole('button', { name: /^Add Meal/ })).toHaveCount(1)
+		await expect(
+			page.getByRole('button', { name: /^Add Meal to/ }),
+		).toHaveCount(1)
 		await plus.tap()
 		const sheet = page.getByRole('dialog', { name: 'Add Meal' })
 		await expect(sheet).toBeVisible()
@@ -1327,6 +1339,9 @@ test.describe('in the iOS app on a phone', () => {
 		const scales = mobile.getByRole('textbox', { name: 'Scale multiplier' })
 		await expect(links).toHaveCount(2)
 		await expect(scales).toHaveCount(2)
+		// Measured in the serif, which sets the rows' heights.
+		await hydrated(scales.nth(0))
+		await page.evaluate(() => document.fonts.ready)
 
 		const areas = []
 		for (const i of [0, 1]) {
@@ -1446,6 +1461,57 @@ test.describe('in the iOS app on a phone', () => {
 		await page.keyboard.press('Backspace')
 		await expect(field).toHaveValue('12.')
 	})
+
+	test('the pinned title row and strip sit under the status bar inset while the day scrolls', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipes = await Promise.all(
+			['Porridge', 'Miso Soup', 'Apple', 'Pasta alla Norma', 'Tea'].map(
+				(title) =>
+					prisma.recipe.create({
+						data: { title, userId: user.id, householdId: user.householdId },
+					}),
+			),
+		)
+		const weekStart = addDaysUTC(getWeekStart(browserToday()), -7)
+		await prisma.mealPlan.create({
+			data: {
+				householdId: user.householdId,
+				weekStart,
+				meals: {
+					create: recipes.map((recipe, order) => ({
+						date: weekStart,
+						order,
+						label: 'dinner',
+						recipeItems: {
+							create: {
+								recipeId: recipe.id,
+								recipeTitle: recipe.title,
+								order: 0,
+							},
+						},
+					})),
+				},
+			},
+		})
+		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+		const header = page.locator('[data-plan-header]')
+		await hydrated(header)
+		// The app sets the inset on <html> before the first paint.
+		await page.evaluate(() =>
+			document.documentElement.style.setProperty('--qm-shell-safe-top', '47px'),
+		)
+		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+		await expect
+			.poll(() => page.evaluate(() => window.scrollY))
+			.toBeGreaterThan(50)
+		expect((await box(header)).top).toBe(47)
+		expect((await box(page.locator('[data-status-bar-backdrop]'))).bottom).toBe(
+			47,
+		)
+	})
 })
 
 test.describe('with a keyboard', () => {
@@ -1514,13 +1580,12 @@ test.describe('on a phone', () => {
 		}
 	})
 
-	// On a phone every row lines up on the page's edges: what leads a row (a
-	// cooked circle, a checkbox, a step number, a small label, the first icon)
-	// starts on the content edge, and the dots, trash and cart glyphs that end a
-	// row end on it. 44px tap areas reach into the gutter instead of pushing the
-	// glyphs in.
+	// On a phone a Plan day's rows line up on the page's edges: the label and
+	// the dish names start on the content edge, and the cooked circles and the
+	// dots end on it. 44px tap areas reach into the gutter instead of pushing
+	// the glyphs in.
 
-	test('Plan rows share the page edges, and a Meal without a label has no empty header line', async ({
+	test('a Plan day lines its rows up on the page edges, with the cooked circles at the right', async ({
 		page,
 		login,
 	}) => {
@@ -1571,90 +1636,543 @@ test.describe('on a phone', () => {
 		const add = await box(page.getByRole('button', { name: /^Add Meal to / }))
 		const [left, right] = [heading.left, add.right]
 
-		// Leading: the label and every cooked circle on the content edge.
+		// Leading: the label and every dish name on the content edge.
 		expectNear(
 			(await box(mobile.getByText('Dinner', { exact: true }))).left,
 			left,
 		)
 		for (const title of ['Miso Soup', 'Steamed Rice', 'Pasta alla Norma']) {
+			expectNear(
+				(await box(mobile.getByRole('link', { name: title }))).left,
+				left,
+			)
+			// Trailing: each cooked circle ends on the content edge.
 			const circle = mobile
 				.getByRole('button', { name: `Mark ${title} cooked` })
 				.locator('span')
 				.first()
-			expectNear((await box(circle)).left, left)
+			expectNear((await box(circle)).right, right)
 		}
 
-		// Titles share one edge, past the circles.
-		const titles = await Promise.all(
-			['Miso Soup', 'Steamed Rice', 'Pasta alla Norma'].map((name) =>
-				box(mobile.getByRole('link', { name })),
-			),
-		)
-		expect(titles[0]!.left).toBeGreaterThan(left + 20)
-		for (const title of titles) expectNear(title.left, titles[0]!.left)
-
-		// The scale fields form one column, whether or not a Recipe has a trash
-		// button beside it.
+		// The scale fields form one column, whether or not a dish has a trash.
 		const fields = mobile.getByRole('textbox', { name: 'Scale multiplier' })
 		await expect(fields).toHaveCount(3)
 		const fieldEdges = await Promise.all(
 			[0, 1, 2].map(async (index) => (await box(fields.nth(index))).right),
 		)
 		for (const edge of fieldEdges) expectNear(edge, fieldEdges[0]!)
+		await expect(
+			mobile.getByRole('button', { name: 'Remove Miso Soup from this Meal' }),
+		).toBeVisible()
+		await expect(
+			mobile.getByRole('button', { name: /^Remove Pasta alla Norma/ }),
+		).toHaveCount(0)
 
-		// Trailing: the trash and dots glyphs end on the content edge.
-		const trash = mobile
-			.getByRole('button', { name: 'Remove Miso Soup from this Meal' })
-			.locator('svg')
-		expectNear((await box(trash)).right, right)
-		const dinnerDots = mobile
-			.getByRole('button', { name: 'Meal actions for Dinner' })
-			.locator('svg')
-		expectNear((await box(dinnerDots)).right, right)
-
-		// The unlabeled Meal starts with its Recipe: its cooked toggle is the
-		// first thing under the Meal's top padding, with no header line above it.
-		const pastaMeal = await box(
-			mobile
-				.locator('[data-meal-id]')
-				.filter({ has: page.getByRole('link', { name: 'Pasta alla Norma' }) }),
-		)
-		const pastaToggle = await box(
-			mobile.getByRole('button', { name: 'Mark Pasta alla Norma cooked' }),
-		)
-		expect(pastaToggle.top - pastaMeal.top).toBeLessThanOrEqual(14)
-		// The labeled Meal keeps its header line above its first Recipe.
-		const dinnerMeal = await box(
-			mobile
-				.locator('[data-meal-id]')
-				.filter({ has: page.getByRole('link', { name: 'Miso Soup' }) }),
-		)
-		const soupToggle = await box(
-			mobile.getByRole('button', { name: 'Mark Miso Soup cooked' }),
-		)
-		expect(soupToggle.top - dinnerMeal.top).toBeGreaterThan(30)
-		// Its actions end the row that holds Add Recipe.
-		const pastaDots = await box(
+		// Each Meal's line ends with Add Recipe and the dots, whose glyph ends
+		// on the content edge; a Meal with no label still has the line.
+		for (const name of ['Dinner', 'Pasta alla Norma']) {
+			const dots = mobile.getByRole('button', {
+				name: `Meal actions for ${name}`,
+			})
+			const plus = mobile.getByRole('button', { name: `Add Recipe to ${name}` })
+			expectNear((await box(dots.locator('svg'))).right, right)
+			const [dotsBox, plusBox] = [await box(dots), await box(plus)]
+			expect(plusBox.right).toBeLessThanOrEqual(dotsBox.left + 1)
+			expectNear(plusBox.top, dotsBox.top)
+			await expectThumbSized(dots)
+			await expectThumbSized(plus)
+		}
+		const pastaLine = await box(
 			mobile.getByRole('button', { name: 'Meal actions for Pasta alla Norma' }),
 		)
-		const pastaAdd = await box(
-			mobile.getByRole('button', { name: 'Add Recipe to Pasta alla Norma' }),
+		const pastaTitle = await box(
+			mobile.getByRole('link', { name: 'Pasta alla Norma' }),
 		)
-		expect(pastaDots.top).toBeGreaterThan(titles[2]!.bottom)
-		expectNear(
-			(pastaDots.top + pastaDots.bottom) / 2,
-			(pastaAdd.top + pastaAdd.bottom) / 2,
+		expect(pastaLine.bottom).toBeLessThanOrEqual(pastaTitle.top + 6)
+
+		// Each Meal sits under a hairline, the first one too.
+		const groups = mobile.locator('[data-slot="meal-group"]')
+		await expect(groups).toHaveCount(2)
+		for (const index of [0, 1]) {
+			expect(
+				await groups
+					.nth(index)
+					.evaluate((group) => getComputedStyle(group).borderTopWidth),
+			).toBe('1px')
+		}
+	})
+
+	test('a Dinner shows its first Recipe’s photo above its dishes, set larger', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const objectKey = 'users/fixture-user/recipes/fixture-recipe/images/0.png'
+		const recipe = (title: string, photo: boolean) =>
+			prisma.recipe.create({
+				data: {
+					title,
+					userId: user.id,
+					householdId: user.householdId,
+					...(photo ? { image: { create: { objectKey } } } : {}),
+				},
+			})
+		const roast = await recipe('Roast Chicken', true)
+		const salad = await recipe('Green Salad', false)
+		const shakshuka = await recipe('Shakshuka', true)
+		const today = browserToday()
+		const plan = await prisma.mealPlan.create({
+			data: { householdId: user.householdId, weekStart: getWeekStart(today) },
+		})
+		const meal = (
+			order: number,
+			label: string,
+			items: Array<{ id: string; title: string }>,
+		) =>
+			prisma.meal.create({
+				data: {
+					mealPlanId: plan.id,
+					date: today,
+					order,
+					label,
+					recipeItems: {
+						create: items.map((item, index) => ({
+							recipeId: item.id,
+							recipeTitle: item.title,
+							order: index,
+						})),
+					},
+				},
+			})
+		await meal(0, 'lunch', [shakshuka])
+		await meal(1, 'dinner', [roast, salad])
+
+		await page.goto(planWeek(today))
+		const mobile = page.getByTestId('mobile-plan')
+		const dinner = mobile
+			.locator('[data-meal-id]')
+			.filter({ has: page.getByRole('link', { name: 'Roast Chicken' }) })
+		const lunch = mobile
+			.locator('[data-meal-id]')
+			.filter({ has: page.getByRole('link', { name: 'Shakshuka' }) })
+
+		const photo = dinner.locator('img')
+		await expect(photo).toHaveCount(1)
+		await expect(photo).toHaveAttribute('alt', '')
+		await expect(photo).toHaveAttribute('src', /objectKey=users/)
+		const photoBox = await box(photo)
+		expect(photoBox.bottom - photoBox.top).toBe(152)
+		const heading = await box(
+			page.getByRole('heading', { name: 'Plan', level: 1 }),
 		)
-		expectNear(
-			(
-				await box(
+		const plus = await box(page.getByRole('button', { name: /^Add Meal to / }))
+		expectNear(photoBox.left, heading.left)
+		expectNear(photoBox.right, plus.right)
+		// Above its dishes, which are set larger than another Meal's.
+		const roastBox = await box(
+			dinner.getByRole('link', { name: 'Roast Chicken' }),
+		)
+		expect(roastBox.top).toBeGreaterThanOrEqual(photoBox.bottom)
+		// Compared, not named: the sizes are tokens in tailwind.css.
+		const size = (locator: Locator) =>
+			locator.evaluate((element) =>
+				parseFloat(getComputedStyle(element.closest('h4')!).fontSize),
+			)
+		const plain = await size(lunch.getByRole('link', { name: 'Shakshuka' }))
+		const withPhoto = await size(
+			dinner.getByRole('link', { name: 'Roast Chicken' }),
+		)
+		expect(withPhoto).toBeGreaterThan(plain)
+		expect(await size(dinner.getByRole('link', { name: 'Green Salad' }))).toBe(
+			withPhoto,
+		)
+		// Only a Dinner shows one.
+		await expect(lunch.locator('img')).toHaveCount(0)
+
+		// Its first Recipe without a photo shows none, though the second has
+		// one.
+		await prisma.mealRecipeItem.updateMany({
+			where: { recipeId: roast.id },
+			data: { order: 1 },
+		})
+		await prisma.mealRecipeItem.updateMany({
+			where: { recipeId: salad.id },
+			data: { order: 0 },
+		})
+		await page.reload()
+		await expect(
+			dinner.getByRole('link', { name: 'Green Salad' }),
+		).toBeVisible()
+		await expect(dinner.locator('img')).toHaveCount(0)
+		expect(await size(dinner.getByRole('link', { name: 'Green Salad' }))).toBe(
+			plain,
+		)
+		// The desktop agenda shows no photos.
+		await expect(page.getByTestId('desktop-plan').locator('img')).toHaveCount(0)
+	})
+
+	test('the Add Meal at the foot of the day adds a typed Meal to the day showing', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await page.goto('/plan?weekStart=2026-11-16&day=2026-11-18')
+		const mobile = page.getByTestId('mobile-plan')
+		await expect(
+			mobile.getByText('Tap + to plan a Recipe, Menu, or note.'),
+		).toBeVisible()
+		const addMeal = mobile.getByRole('button', {
+			name: 'Add Meal',
+			exact: true,
+		})
+		await expectThumbTall(addMeal)
+		const sheet = page.getByRole('dialog', { name: 'Add Meal' })
+		await tapUntil(addMeal, () => expect(sheet).toBeVisible({ timeout: 2000 }))
+		await expect(sheet.getByText('Wednesday · Nov 18')).toBeVisible()
+		await sheet.getByRole('button', { name: 'Lunch' }).tap()
+		await sheet.getByRole('button', { name: /^Add text instead/ }).tap()
+		await sheet.getByRole('textbox', { name: 'Meal text' }).fill('Leftovers')
+		await sheet.getByRole('button', { name: 'Add', exact: true }).tap()
+		await expect(sheet).toBeHidden()
+
+		// Typed Meals are italic.
+		const typed = mobile.getByText('Leftovers', { exact: true })
+		await expect(typed).toBeVisible()
+		expect(await typed.evaluate((el) => getComputedStyle(el).fontStyle)).toBe(
+			'italic',
+		)
+		await expect(addMeal).toBeFocused()
+		await expect
+			.poll(() =>
+				prisma.meal.findMany({
+					where: { mealPlan: { householdId: user.householdId } },
+					select: { date: true, label: true, genericText: true },
+				}),
+			)
+			.toEqual([
+				{
+					date: parseDate('2026-11-18'),
+					label: 'lunch',
+					genericText: 'Leftovers',
+				},
+			])
+	})
+
+	test('the title row and the strip stay pinned while a long day scrolls', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipes = await Promise.all(
+			['Porridge', 'Miso Soup', 'Apple', 'Pasta alla Norma', 'Tea'].map(
+				(title) =>
+					prisma.recipe.create({
+						data: { title, userId: user.id, householdId: user.householdId },
+					}),
+			),
+		)
+		// Two long days in a past week, the first two.
+		const weekStart = addDaysUTC(getWeekStart(browserToday()), -7)
+		await prisma.mealPlan.create({
+			data: {
+				householdId: user.householdId,
+				weekStart,
+				meals: {
+					create: [weekStart, addDaysUTC(weekStart, 1)].flatMap((date) =>
+						recipes.map((recipe, order) => ({
+							date,
+							order,
+							label: ['breakfast', 'lunch', 'snack', 'dinner', null][order],
+							recipeItems: {
+								create: {
+									recipeId: recipe.id,
+									recipeTitle: recipe.title,
+									order: 0,
+								},
+							},
+						})),
+					),
+				},
+			},
+		})
+		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+		const header = page.locator('[data-plan-header]')
+		const strip = page.locator('[data-slot="mobile-week-days"]')
+		const before = await box(header)
+		expect(before.top).toBe(0)
+
+		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+		await expect
+			.poll(() => page.evaluate(() => window.scrollY))
+			.toBeGreaterThan(50)
+		expect(await box(header)).toEqual(before)
+		await expect(strip).toBeInViewport()
+		await expect(
+			page.getByRole('heading', { name: 'Plan', level: 1 }),
+		).toBeInViewport()
+
+		// What the header and the tab bar leave for the day.
+		const tabBar = await box(
+			page.getByRole('navigation', { name: 'Main' }).last(),
+		)
+		expect(tabBar.top - before.bottom).toBeGreaterThanOrEqual(540)
+		// The last Meal and the day's Add Meal clear the tab bar.
+		const foot = await box(
+			page
+				.getByTestId('mobile-plan')
+				.getByRole('button', { name: 'Add Meal', exact: true }),
+		)
+		expect(foot.bottom).toBeLessThanOrEqual(tabBar.top)
+
+		// Another long day, picked while scrolled, starts at its heading. A
+		// tap at the button's place, so nothing scrolls it into view first.
+		expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(50)
+		const tuesday = await box(
+			strip.getByRole('button', {
+				name: new RegExp(`^Show ${dayName(addDaysUTC(weekStart, 1))},`),
+			}),
+		)
+		await page.touchscreen.tap(
+			(tuesday.left + tuesday.right) / 2,
+			(tuesday.top + tuesday.bottom) / 2,
+		)
+		await expect(
+			page.getByTestId('mobile-plan').getByRole('heading', { level: 2 }),
+		).toHaveText(formatMonthDay(addDaysUTC(weekStart, 1)))
+		await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+	})
+
+	test('“This week” heads the day, under the strip, only on another week', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		const weekStart = getWeekStart(browserToday())
+		await page.goto(planWeek(browserToday()))
+		const mobile = page.getByTestId('mobile-plan')
+		await expect(
+			page.getByRole('heading', { name: 'Plan', level: 1 }),
+		).toBeVisible()
+		await expect(mobile.getByRole('link', { name: 'This week' })).toHaveCount(0)
+
+		await page.getByRole('link', { name: 'Next week' }).tap()
+		const thisWeek = mobile.getByRole('link', { name: 'This week' })
+		await expect(thisWeek).toBeVisible()
+		const strip = await box(page.locator('[data-slot="mobile-week-days"]'))
+		const link = await box(thisWeek)
+		expect(link.top).toBeGreaterThanOrEqual(strip.bottom)
+		expect(link.bottom).toBeLessThanOrEqual(
+			(await box(mobile.getByRole('heading', { level: 2 }))).top,
+		)
+		await expectThumbTall(thisWeek)
+		await thisWeek.tap()
+		await expect(page).toHaveURL(/\/plan$/)
+		await expect(
+			page.getByText(formatWeekRange(weekStart, serializeDate(browserToday()))),
+		).toBeVisible()
+	})
+
+	test('in the picker a Recipe’s photo ends its row, and a Recipe without one shows none', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const objectKey = 'users/fixture-user/recipes/fixture-recipe/images/0.png'
+		await prisma.recipe.create({
+			data: {
+				title: 'Roast Chicken',
+				userId: user.id,
+				householdId: user.householdId,
+				image: { create: { objectKey } },
+			},
+		})
+		await prisma.recipe.create({
+			data: {
+				title: 'Green Salad',
+				userId: user.id,
+				householdId: user.householdId,
+			},
+		})
+		await page.goto('/plan')
+		const sheet = page.getByRole('dialog', { name: 'Add Meal' })
+		await tapUntil(page.getByRole('button', { name: /^Add Meal to/ }), () =>
+			expect(sheet).toBeVisible({ timeout: 2000 }),
+		)
+		const roast = sheet.getByRole('button', { name: /Roast Chicken/ })
+		const salad = sheet.getByRole('button', { name: /Green Salad/ })
+		const photo = roast.locator('img').filter({ visible: true })
+		await expect(photo).toHaveCount(1)
+		const title = await box(roast.getByText('Roast Chicken', { exact: true }))
+		expect((await box(photo)).left).toBeGreaterThan(title.right)
+		// Nothing leads the row, a photo or a letter.
+		await expect(salad.locator('img')).toHaveCount(0)
+		await expect(salad.getByText('G', { exact: true })).toBeHidden()
+		const saladTitle = await box(
+			salad.getByText('Green Salad', { exact: true }),
+		)
+		expect(saladTitle.left - (await box(salad)).left).toBeLessThanOrEqual(9)
+		await expectThumbTall(salad)
+	})
+})
+
+test.describe('a 320px phone', () => {
+	test.use({
+		viewport: { width: 320, height: 640 },
+		isMobile: true,
+		hasTouch: true,
+	})
+
+	test('keeps the title row, the strip and a dish row whole, with nothing clipped', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = (title: string) =>
+			prisma.recipe.create({
+				data: { title, userId: user.id, householdId: user.householdId },
+			})
+		const [tikka, raita] = [
+			await recipe('Chicken tikka masala with saffron rice'),
+			await recipe('Cucumber raita'),
+		]
+		// The longest range: across a new year.
+		const day = parseDate('2027-01-01')
+		await prisma.mealPlan.create({
+			data: {
+				householdId: user.householdId,
+				weekStart: getWeekStart(day),
+				meals: {
+					create: {
+						date: day,
+						order: 0,
+						label: 'dinner',
+						recipeItems: {
+							create: [
+								{
+									recipeId: tikka.id,
+									recipeTitle: tikka.title,
+									order: 0,
+									scaleMultiplier: 12.5,
+								},
+								{ recipeId: raita.id, recipeTitle: raita.title, order: 1 },
+							],
+						},
+					},
+				},
+			},
+		})
+		await page.goto('/plan?weekStart=2026-12-28&day=2027-01-01')
+		const header = page.locator('[data-plan-header]')
+		await expect(header.getByText('Dec 28 – Jan 3, 2027')).toBeVisible()
+		expect(
+			await page.evaluate(() => document.documentElement.scrollWidth),
+		).toBeLessThanOrEqual(320)
+
+		// One row: the title, the chevrons around the range, and the +.
+		const title = await box(
+			page.getByRole('heading', { name: 'Plan', level: 1 }),
+		)
+		const previous = header.getByRole('link', { name: 'Previous week' })
+		const next = header.getByRole('link', { name: 'Next week' })
+		const plus = header.getByRole('button', { name: /^Add Meal to/ })
+		for (const control of [previous, next, plus]) {
+			await expectThumbSized(control)
+			const control_ = await box(control)
+			expectNear(
+				(control_.top + control_.bottom) / 2,
+				(title.top + title.bottom) / 2,
+			)
+		}
+		const [prev, nxt, add] = [
+			await box(previous),
+			await box(next),
+			await box(plus),
+		]
+		// The chevron's tap area may reach under the title; its glyph doesn't.
+		expect((await box(previous.locator('svg'))).left).toBeGreaterThan(
+			title.right,
+		)
+		expect(nxt.left).toBeGreaterThan(prev.right)
+		expect(add.left).toBeGreaterThanOrEqual(nxt.right)
+		expect(add.right).toBeLessThanOrEqual(320 - 16 + 1)
+		// The range sits between the chevrons' glyphs, whole, on two lines at
+		// most.
+		const range = header.locator('p').filter({ hasText: '–' })
+		const fit = await range.evaluate((element) => ({
+			clipped: element.scrollWidth > element.clientWidth + 1,
+			lines: Math.round(
+				element.getBoundingClientRect().height /
+					parseFloat(getComputedStyle(element).lineHeight),
+			),
+		}))
+		expect(fit).toEqual({ clipped: false, lines: 2 })
+		const rangeBox = await box(range)
+		expect(rangeBox.left).toBeGreaterThanOrEqual(
+			(await box(previous.locator('svg'))).right,
+		)
+		expect(rangeBox.right).toBeLessThanOrEqual(
+			(await box(next.locator('svg'))).left,
+		)
+
+		// The strip: seven columns, each wide enough for its 38px circle.
+		const cells = page
+			.locator('[data-slot="mobile-week-days"]')
+			.getByRole('button')
+		await expect(cells).toHaveCount(7)
+		for (const cell of await cells.all()) {
+			const cellBox = await box(cell)
+			const circle = await box(cell.locator('span').nth(1))
+			expect(circle.right - circle.left).toBe(38)
+			expect(circle.left).toBeGreaterThanOrEqual(cellBox.left)
+			expect(circle.right).toBeLessThanOrEqual(cellBox.right)
+		}
+
+		// A dish row: the name, the trash, the scale field and the cooked
+		// circle side by side, none overlapping, the circle on the edge.
+		const mobile = page.getByTestId('mobile-plan')
+		for (const name of [tikka.title, raita.title]) {
+			const areas = [
+				await hitArea(
+					mobile.getByRole('button', { name: `Remove ${name} from this Meal` }),
+				),
+				await hitArea(
 					mobile
-						.getByRole('button', { name: 'Meal actions for Pasta alla Norma' })
-						.locator('svg'),
-				)
-			).right,
-			right,
+						.locator('h4', { hasText: name })
+						.locator('xpath=..')
+						.getByRole('textbox', { name: 'Scale multiplier' }),
+				),
+				await hitArea(
+					mobile.getByRole('button', { name: `Mark ${name} cooked` }),
+				),
+			]
+			for (const area of areas) {
+				expect(area.width).toBeGreaterThanOrEqual(44)
+				expect(area.height).toBeGreaterThanOrEqual(44)
+			}
+			const parts = [await box(mobile.getByRole('link', { name })), ...areas]
+			for (const [i, part] of parts.entries()) {
+				expect(part.left).toBeGreaterThanOrEqual(0)
+				expect(part.right).toBeLessThanOrEqual(320)
+				const following = parts[i + 1]
+				if (following) expect(part.right).toBeLessThanOrEqual(following.left)
+			}
+			const circle = await box(
+				mobile
+					.getByRole('button', { name: `Mark ${name} cooked` })
+					.locator('span')
+					.first(),
+			)
+			expectNear(circle.right, 320 - 16)
+		}
+		// Neither the name nor the field is cut short.
+		const clipped = await mobile.evaluate((day) =>
+			[...day.querySelectorAll('h4 span, input')].some(
+				(element) =>
+					element.scrollWidth > element.clientWidth + 1 ||
+					element.scrollHeight > element.clientHeight + 1,
+			),
 		)
+		expect(clipped).toBe(false)
 	})
 })
 

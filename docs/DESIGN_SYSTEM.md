@@ -49,16 +49,27 @@ Browsers without it wrap as usual.
 
 Useful sizes:
 
-| Use                    | Size                        |
-| ---------------------- | --------------------------- |
-| Tab title (`TabTitle`) | 40px Newsreader, 1.05 lines |
-| Other page title       | 24px Newsreader             |
-| Recipe detail title    | 32px Newsreader             |
-| Recipe row title       | 17px Newsreader             |
-| Body and ingredients   | 16px Schibsted Grotesk      |
-| UI label               | 14px Schibsted Grotesk      |
-| Caption                | 13px Schibsted Grotesk      |
-| Tiny navigation label  | 12px Schibsted Grotesk      |
+| Use                                | Size                                         |
+| ---------------------------------- | -------------------------------------------- |
+| Tab title (`TabTitle`)             | 40px Newsreader, 1.05 lines                  |
+| Plan's day heading on a phone      | 31px Newsreader                              |
+| Other page title                   | 24px Newsreader                              |
+| Recipe detail title                | 32px Newsreader                              |
+| Plan dish on a phone (`text-dish`) | 22px Newsreader, 26px under a Dinner's photo |
+| Recipe row title                   | 17px Newsreader                              |
+| Body and ingredients               | 16px Schibsted Grotesk                       |
+| UI label                           | 14px Schibsted Grotesk                       |
+| Small label (`text-label`)         | 13.5px Schibsted Grotesk, weight 600         |
+| Caption                            | 13px Schibsted Grotesk                       |
+| Tiny navigation label              | 12px Schibsted Grotesk                       |
+
+The Plan dish sizes (`text-dish`, `text-dish-photo`) and `text-label` are font
+size tokens in `app/styles/tailwind.css`, each set once.
+
+A small label (a Meal's label, the weekday in Plan's strip and over its day, the
+groups of a picker) is sentence case at weight 600 with no tracking:
+`text-label font-semibold`. Other screens set theirs uppercase and letter-spaced
+(`sectionLabelClass`).
 
 Every tab's own page (Recipes, Menus, Staples, Plan, Shopping, Settings) opens
 with its title in `TabTitle`, beside the controls of its row.
@@ -145,6 +156,13 @@ content edge, and the dots, trash and cart glyphs that end a row end on it. A
 pushing its glyph in. Inside a row, titles share one edge past the leading
 glyph, and a heading's chevron trails the heading. A page title has no rule
 under it.
+
+Plan's day on a phone puts its cooked circles at the other end: each dish row
+starts with the dish name on the content edge and ends with the circle, its
+glyph on the right content edge. A dish name is a link to its Recipe and the row
+does not check off, so the name leads, as a Recipe's title does in its list, and
+the circle sits under the thumb. Shopping's whole row checks, so its circle
+leads.
 
 Static groups use either a flat divided list or a quiet `bg-muted/40 rounded-lg`
 inset with no shadow. Inline controls use at most an 8px radius. Twelve-pixel
@@ -292,8 +310,10 @@ as wide but has no browser Back, so it keeps the bar on every pushed page.
 ## Imagery
 
 A Recipe thumbnail shows either its photo or the deterministic warm-gradient
-monogram from `recipe-placeholder.ts`. Plan Meal rows are text-only on purpose
-and show no thumbnail.
+monogram from `recipe-placeholder.ts`. On a phone, a Dinner on Plan shows its
+first Recipe's photo full width, 152px tall, above its dishes, and the Plan
+picker puts a Recipe's photo at the end of its row and shows none for a Recipe
+without one. Other Meals, and the desktop agenda, are text only.
 
 Typical square thumbnail sizes:
 
@@ -345,27 +365,58 @@ placeholder.
 
 - Show an ordered list of Meals under each day, not permanent meal-type slots.
 - Use serif day headings, a green marker for today, and flat Meal rows: no card
-  border, fill or shadow. A full-width hairline separates Meals; inside a Meal,
-  Recipes are separated by a lighter hairline that starts where their titles
-  start.
-- On a phone the week strip marks only the selected day (a green tile) and today
-  (a green outline on the tint); the other days are flat. A dot marks a day with
-  Meals.
-- A Meal's header line (label, time, guests, source Menu) shows only when it has
-  one of them; otherwise the Meal's dots end its last row. An empty day is plain
-  text.
-- A Recipe row's scale field is a quiet fill with the × inside, muted at 1×; the
-  fields of a day form one column.
+  border, fill or shadow.
 - A Meal may be one Recipe, several Recipe items, a Menu snapshot, or plain
   text. Keep the one-Recipe path fast.
 - Dense Menu snapshots may need progressive disclosure; do not solve density by
   adding more card chrome.
 - Labels and serving times are context, not automatic sort keys.
-- On a phone the title's + adds a Meal to the day showing, in the Add Meal
-  sheet; the day itself has no Add Meal button. The desktop agenda keeps an Add
-  Meal in each day.
-- On a phone a Recipe's title link and its scale field share one line, the field
-  trailing, so each is a 44px target without the row growing.
+- A Recipe row's scale field is a quiet fill with the × inside, muted at 1×; the
+  fields of a day form one column.
+
+On a phone Plan shows one day at a time:
+
+- The title, the week's chevrons around its range, and the round + share one
+  row, with the date strip under it. Both stay pinned under the status bar,
+  opaque, with a hairline under the strip. A range too long for the row breaks
+  after its dash. On another week, "This week" heads the day under the strip.
+- The strip shows each date as a 38px circle under its weekday. The day showing
+  is a green fill with white text; today, when another day shows, is green text
+  with a green weekday; past days are in faint text, which turns muted on a
+  hover fill. A dot under the date marks a day with Meals, green on the day
+  showing and the control edge elsewhere. A sideways swipe on the strip turns
+  the week.
+- The day heading is the date in Newsreader at 31px under its weekday, or under
+  "Today" in green.
+- Each Meal sits under a full-width hairline. Its label line (label, time,
+  guests, source Menu, in the small label) ends with Add Recipe (a +) and the
+  dots; a Meal with none of those still has the line, for the two buttons. One
+  row per dish follows, 8px apart: the name in Newsreader at 22px, then the
+  trash when the Meal has more than one Recipe or has notes, the scale field,
+  and the cooked circle on the right edge. A Dinner whose first Recipe has a
+  photo shows it above its dishes and sets their names at 26px. Typed Meals are
+  italic at weight 400. A cooked dish strikes through and fades its text to
+  faint, on the page, never on a fill.
+- "+ Add Meal" in green ends the day and opens the same Add Meal sheet as the
+  title's +. An empty day reads "Nothing planned" in the serif over the sans
+  line pointing at the +.
+- A sideways swipe anywhere on the day, its bare foot included, steps to the
+  next day or the one before, and past Sunday or before Monday into the next or
+  last week. The day stays still under the finger and changes at once, as a tap
+  in the strip does; either one starts the new day at its heading. The swipe
+  needs 64px of sideways travel that beats the vertical by half again, so a
+  scroll never steps the day. It does not start in the scale field, in a picker
+  or form opened in place, or in a sheet or menu the day opened. A drag of 20px
+  or more sideways never ends in a tap, so it opens no Recipe; a tap whose
+  finger drifts less still taps. A field being typed in loses focus before the
+  day steps, so the scale field saves what was typed.
+
+The desktop agenda shows the whole week, a day per row, with today on the tint
+and a green marker bar. Its cooked circles lead the rows, titles share one edge
+32px in, and a lighter hairline that starts where the titles start separates the
+Recipes of a Meal. A Meal's header line shows only when it has a label, time,
+guests or source Menu; otherwise the Meal's dots end its last row. Each day
+keeps its own Add Meal.
 
 ### Shopping
 
@@ -446,9 +497,9 @@ grids, illustrations, or congratulatory copy.
 - Haptics (iOS app only, `haptic()` in `app/utils/shell-bridge.ts`) follow the
   native control, once per tap, never on load or a refresh: `selection` for a
   tab, a switch, a new segment, ticking or unticking a Shopping item, an
-  ingredient or a step, and unmarking cooked; `success` for Mark cooked, a Save
-  the server took, and an import; `medium` for a delete with Undo; `warning`
-  when a confirm sheet asks.
+  ingredient or a step, a swipe that turns Plan's week or steps its day, and
+  unmarking cooked; `success` for Mark cooked, a Save the server took, and an
+  import; `medium` for a delete with Undo; `warning` when a confirm sheet asks.
 - Keep visible focus, semantic landmarks, labelled icon buttons, and reachable
   reorder controls.
 - Hover is polish. Every action must work by tap and keyboard. Tooltips are for

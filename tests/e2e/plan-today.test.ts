@@ -76,7 +76,9 @@ for (const zone of ZONES) {
 			)
 
 			const mobile = page.getByTestId('mobile-plan')
-			const todayButton = mobile.locator('[aria-current="date"]')
+			const todayButton = page
+				.locator('[data-slot="mobile-week-days"]')
+				.locator('[aria-current="date"]')
 			await expect(todayButton).toHaveCount(1)
 			await expect(todayButton).toHaveAccessibleName(
 				new RegExp(`^Show Today, ${monthDay(localToday)},`),

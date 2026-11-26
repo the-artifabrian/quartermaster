@@ -1,12 +1,12 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useLayoutEffect, useRef } from 'react'
+import { Fragment, useLayoutEffect, useRef } from 'react'
 import {
 	Link,
 	type ShouldRevalidateFunctionArgs,
 	useNavigate,
 } from 'react-router'
 import { MealPlanCalendar } from '#app/components/meal-plan-calendar.tsx'
-import { TabTitle, TitleRow } from '#app/components/ui/title-add-button.tsx'
+import { TabTitle } from '#app/components/ui/title-add-button.tsx'
 import { OfflineErrorBoundary } from '#app/components/offline-error-boundary.tsx'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { Button } from '#app/components/ui/button.tsx'
@@ -225,9 +225,16 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 		}
 	}
 
+	const thisWeek =
+		weekStart !== currentWeek ? (
+			<Button asChild variant="link" size="sm">
+				<Link to="/plan">This week</Link>
+			</Button>
+		) : null
+
 	return (
-		<div className="pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
-			<div className="container-grid">
+		<div className="pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] max-md:flex max-md:flex-1 max-md:flex-col md:pb-6">
+			<div className="container-grid max-md:flex max-md:w-full max-md:flex-1 max-md:flex-col">
 				<MealPlanCalendar
 					key={planScope}
 					weekDays={weekDays}
@@ -238,22 +245,27 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 							`/plan?weekStart=${direction === 'previous' ? prevWeek : nextWeek}`,
 						)
 					}
+					// On a phone "This week" heads the day, under the strip.
+					belowStrip={
+						thisWeek ? <div className="-mb-3 -ml-3">{thisWeek}</div> : null
+					}
 					renderHeader={(titleAction) => (
-						<div className="py-4">
-							<TitleRow>
-								<TabTitle>Plan</TabTitle>
-								{titleAction}
-							</TitleRow>
+						// On a phone one row: the title, the week and the +. Wider,
+						// the week goes under the title, its chevrons and range kept
+						// together at the left, over the agenda's edge.
+						<div className="flex items-center pt-4 md:flex-wrap md:py-4">
+							<TabTitle className="mr-auto shrink-0 md:basis-full">
+								Plan
+							</TabTitle>
 
-							{/* Week Navigation: the chevrons sit on the content edges on a
-							    phone; on a wide screen the three keep together at the left,
-							    over the agenda's edge. */}
-							<div className="mt-4 flex items-center justify-between md:justify-start md:gap-2">
+							{/* On a phone the chevrons' tap areas reach under the range,
+							    which lets taps through, and a long range wraps. */}
+							<div className="flex min-w-0 items-center max-md:-ml-1 md:mt-4 md:gap-2">
 								<Button
 									asChild
 									variant="ghost"
 									size="icon"
-									className="-ml-3 rounded-full"
+									className="max-md:text-muted-foreground -mr-2 shrink-0 rounded-full md:mr-0 md:-ml-3"
 								>
 									<Link
 										to={`/plan?weekStart=${prevWeek}`}
@@ -264,22 +276,36 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 									</Link>
 								</Button>
 
-								<div className="text-center">
-									<p className="font-serif text-lg">
-										{formatWeekRange(parseDate(weekStart), today)}
+								<div className="min-w-0 text-center">
+									<p className="text-[15px] font-semibold max-md:pointer-events-none max-md:leading-tight max-md:text-balance max-md:tabular-nums md:font-serif md:text-lg md:font-medium">
+										{/* A range too long for a narrow phone breaks after its
+										    dash, never inside a date. */}
+										{formatWeekRange(parseDate(weekStart), today)
+											.split(' – ')
+											.map((part, index, parts) =>
+												index < parts.length - 1 ? (
+													<Fragment key={index}>
+														<span className="whitespace-nowrap">
+															{part} –
+														</span>{' '}
+													</Fragment>
+												) : (
+													<span key={index} className="whitespace-nowrap">
+														{part}
+													</span>
+												),
+											)}
 									</p>
-									{weekStart !== currentWeek && (
-										<Button asChild variant="link" size="sm">
-											<Link to="/plan">This week</Link>
-										</Button>
-									)}
+									{thisWeek ? (
+										<div className="max-md:hidden">{thisWeek}</div>
+									) : null}
 								</div>
 
 								<Button
 									asChild
 									variant="ghost"
 									size="icon"
-									className="-mr-3 rounded-full md:mr-0"
+									className="max-md:text-muted-foreground -ml-2 shrink-0 rounded-full md:ml-0"
 								>
 									<Link
 										to={`/plan?weekStart=${nextWeek}`}
@@ -290,6 +316,7 @@ export default function PlanIndex({ loaderData }: Route.ComponentProps) {
 									</Link>
 								</Button>
 							</div>
+							<div className="ml-1 md:hidden">{titleAction}</div>
 						</div>
 					)}
 				/>

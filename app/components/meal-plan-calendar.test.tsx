@@ -172,12 +172,12 @@ test('a direct Meal link opens its day on mobile and still allows changing days'
 	const mobile = within(screen.getByTestId('mobile-plan'))
 	expect(mobile.getByText('Bolognese')).toBeVisible()
 	expect(
-		mobile.getByRole('button', {
+		screen.getByRole('button', {
 			name: 'Show Thursday, Apr 9, 1 Meal planned',
 		}),
 	).toHaveAttribute('aria-pressed', 'true')
 	await user.click(
-		mobile.getByRole('button', {
+		screen.getByRole('button', {
 			name: 'Show Wednesday, Apr 8, 1 Meal planned',
 		}),
 	)
@@ -208,7 +208,7 @@ test('opening another Meal on the same target date restores that day after manua
 	render(<Stub initialEntries={['/?mealId=meal-1']} />)
 	const mobile = within(screen.getByTestId('mobile-plan'))
 	await user.click(
-		mobile.getByRole('button', {
+		screen.getByRole('button', {
 			name: 'Show Thursday, Apr 9, 1 Meal planned',
 		}),
 	)
@@ -233,7 +233,7 @@ test('the Plan tab again (no day in the URL) goes back to the default day', asyn
 	])
 	render(<Stub initialEntries={['/?day=2026-04-09']} />)
 	const mobile = within(screen.getByTestId('mobile-plan'))
-	const thursday = mobile.getByRole('button', {
+	const thursday = screen.getByRole('button', {
 		name: 'Show Thursday, Apr 9, 1 Meal planned',
 	})
 	expect(thursday).toHaveAttribute('aria-pressed', 'true')
@@ -245,7 +245,7 @@ test('the Plan tab again (no day in the URL) goes back to the default day', asyn
 	// Today is outside this week, so the default is the first day with Meals.
 	await user.click(screen.getByRole('link', { name: 'Plan tab' }))
 	expect(
-		mobile.getByRole('button', {
+		screen.getByRole('button', {
 			name: 'Show Wednesday, Apr 8, 1 Meal planned',
 		}),
 	).toHaveAttribute('aria-pressed', 'true')
@@ -282,46 +282,46 @@ function renderWithToday(entry: string, initialToday: string) {
 	return within(screen.getByTestId('mobile-plan'))
 }
 
-function expectSelected(mobile: ReturnType<typeof within>, name: string) {
-	expect(mobile.getByRole('button', { name })).toHaveAttribute(
+/** The strip's day button `name` is the one picked. */
+function expectSelected(name: string) {
+	expect(screen.getByRole('button', { name })).toHaveAttribute(
 		'aria-pressed',
 		'true',
 	)
 }
 
 test('a later today in the same week moves the selected day to it', async () => {
-	const mobile = renderWithToday('/', '2026-04-07')
-	expectSelected(mobile, 'Show Today, Apr 7, no Meals planned')
+	renderWithToday('/', '2026-04-07')
+	expectSelected('Show Today, Apr 7, no Meals planned')
 	await act(async () => setTodayTo('2026-04-08'))
-	expectSelected(mobile, 'Show Today, Apr 8, 1 Meal planned')
+	expectSelected('Show Today, Apr 8, 1 Meal planned')
 })
 
 test.each([
 	{ name: 'a picked day', entry: '/?day=2026-04-09' },
 	{ name: 'a link to a Meal that is gone', entry: '/?mealId=meal-gone' },
 ])('a later today leaves $name where it is', async ({ entry }) => {
-	const mobile = renderWithToday(entry, '2026-04-07')
+	renderWithToday(entry, '2026-04-07')
 	const before = entry.includes('day=')
 		? 'Show Thursday, Apr 9, 1 Meal planned'
 		: 'Show Today, Apr 7, no Meals planned'
-	expectSelected(mobile, before)
+	expectSelected(before)
 	await act(async () => setTodayTo('2026-04-08'))
 	expectSelected(
-		mobile,
 		entry.includes('day=') ? before : 'Show Tuesday, Apr 7, no Meals planned',
 	)
 })
 
 test('an earlier today (an older cached entry) leaves the selected day where it is', async () => {
-	const mobile = renderWithToday('/', '2026-04-08')
-	expectSelected(mobile, 'Show Today, Apr 8, 1 Meal planned')
+	renderWithToday('/', '2026-04-08')
+	expectSelected('Show Today, Apr 8, 1 Meal planned')
 	await act(async () => setTodayTo('2026-04-07'))
-	expectSelected(mobile, 'Show Wednesday, Apr 8, 1 Meal planned')
+	expectSelected('Show Wednesday, Apr 8, 1 Meal planned')
 })
 
 test('a later today leaves the day alone while a sheet is open', async () => {
 	const user = userEvent.setup()
-	const mobile = renderWithToday('/', '2026-04-07')
+	renderWithToday('/', '2026-04-07')
 	await user.click(
 		within(screen.getByTestId('today-title')).getByRole('button', {
 			name: 'Add Meal to Tuesday, Apr 7',
@@ -331,7 +331,7 @@ test('a later today leaves the day alone while a sheet is open', async () => {
 
 	await act(async () => setTodayTo('2026-04-08'))
 
-	expectSelected(mobile, 'Show Tuesday, Apr 7, no Meals planned')
+	expectSelected('Show Tuesday, Apr 7, no Meals planned')
 	expect(sheet).toBeInTheDocument()
 	expect(screen.getByRole('dialog', { name: 'Add Meal' })).toBe(sheet)
 })
@@ -386,16 +386,16 @@ test('mobile focuses the first planned day and switches days without a long agen
 	const user = userEvent.setup()
 	renderCalendar(undefined, { useDefaultChoices: false })
 	const mobile = screen.getByTestId('mobile-plan')
-	const wednesday = within(mobile).getByRole('button', {
+	const wednesday = screen.getByRole('button', {
 		name: 'Show Wednesday, Apr 8, 1 Meal planned',
 	})
-	const thursday = within(mobile).getByRole('button', {
+	const thursday = screen.getByRole('button', {
 		name: 'Show Thursday, Apr 9, 1 Meal planned',
 	})
-	const monday = within(mobile).getByRole('button', {
+	const monday = screen.getByRole('button', {
 		name: 'Show Monday, Apr 6, no Meals planned',
 	})
-	const weekPicker = mobile.querySelector('[data-slot="mobile-week-days"]')
+	const weekPicker = document.querySelector('[data-slot="mobile-week-days"]')
 
 	expect(within(weekPicker as HTMLElement).getAllByRole('button')).toHaveLength(
 		7,
@@ -661,7 +661,7 @@ test('the Plan title + follows the day showing', async () => {
 	expect(titlePlus('Wednesday, Apr 8')).toBeVisible()
 
 	await user.click(
-		within(mobile).getByRole('button', {
+		screen.getByRole('button', {
 			name: 'Show Thursday, Apr 9, 1 Meal planned',
 		}),
 	)
@@ -672,10 +672,13 @@ test('the Plan title + follows the day showing', async () => {
 			name: 'Add Meal to Wednesday, Apr 8',
 		}),
 	).not.toBeInTheDocument()
-	// The day itself has no Add Meal of its own.
+	// The Add Meal at the foot of the day adds to it too.
+	await user.click(within(mobile).getByRole('button', { name: 'Add Meal' }))
 	expect(
-		within(mobile).queryByRole('button', { name: /^Add Meal/ }),
-	).not.toBeInTheDocument()
+		within(screen.getByRole('dialog', { name: 'Add Meal' })).getByText(
+			'Thursday · Apr 9',
+		),
+	).toBeVisible()
 })
 
 test('a Meal with snapshot notes can remove its only Recipe', () => {

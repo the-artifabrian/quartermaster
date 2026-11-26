@@ -12,7 +12,8 @@ import { readDataTiming } from '#app/utils/nav-resource-timing.ts'
 import { usePostHog } from '#app/utils/posthog-provider.tsx'
 import { getCurrentRouteId } from '#app/utils/pwa-performance.ts'
 
-export type BottomNavDestination = 'recipes' | 'staples' | 'plan' | 'shop'
+export type BottomNavDestination =
+	'recipes' | 'staples' | 'plan' | 'shop' | 'settings'
 
 export type BottomNavInput = {
 	destination: BottomNavDestination

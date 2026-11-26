@@ -16,6 +16,7 @@ import { ShoppingStaplesPicker } from '#app/components/shopping-staples-picker.t
 import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
+import { TabTitle } from '#app/components/ui/title-add-button.tsx'
 import { useFetcherSettled } from '#app/hooks/use-fetcher-settled.ts'
 import { usePendingShoppingItems } from '#app/hooks/use-pending-shopping-items.ts'
 import { useShoppingChecks } from '#app/hooks/use-shopping-checks.tsx'
@@ -226,7 +227,7 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 			<div>
 				<div className="container-narrow py-4">
 					<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-						<h1 className="font-serif text-2xl font-normal">
+						<TabTitle>
 							Shopping
 							{nextItems.length > 0 && (
 								<>
@@ -242,7 +243,7 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 									</span>
 								</>
 							)}
-						</h1>
+						</TabTitle>
 						<div className="flex items-center gap-2">
 							<ShoppingStaplesPicker
 								key={shoppingList.householdId ?? shoppingList.id}
@@ -316,7 +317,7 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 								<button
 									type="button"
 									onClick={() => setQuickAddOpen(true)}
-									className="text-muted-foreground/40 hover:text-muted-foreground shrink-0 text-xs"
+									className="text-muted-foreground hover:text-foreground shrink-0 text-xs"
 								>
 									+ Qty
 								</button>
@@ -385,7 +386,7 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 								<button
 									type="button"
 									onClick={() => setQuickAddOpen(false)}
-									className="text-muted-foreground/40 hover:text-muted-foreground shrink-0 text-xs"
+									className="text-muted-foreground hover:text-foreground shrink-0 text-xs"
 								>
 									Hide
 								</button>

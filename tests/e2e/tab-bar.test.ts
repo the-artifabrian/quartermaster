@@ -1,6 +1,6 @@
 import { type Locator, type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import { expect, hydrated, test } from '#tests/playwright-utils.ts'
 
 // BOTTOM_NAV_TRACE_ONLY=1 logs each tab's timings and skips the checks on
 // them, for measuring the bar without a failing run.
@@ -14,11 +14,13 @@ const FEEDBACK_BUDGET_MS = 34
 const ROUTE_DELAY_MS = 300
 
 type Destination = {
-	label: 'Recipes' | 'Staples' | 'Plan' | 'Shopping'
-	path: '/recipes' | '/staples' | '/plan' | '/shopping'
+	label: 'Recipes' | 'Staples' | 'Plan' | 'Shopping' | 'Settings'
+	path: '/recipes' | '/staples' | '/plan' | '/shopping' | '/settings/profile'
 }
 
+// Shopping last: the checks after the trace start on it.
 const destinations: Destination[] = [
+	{ label: 'Settings', path: '/settings/profile' },
 	{ label: 'Recipes', path: '/recipes' },
 	{ label: 'Staples', path: '/staples' },
 	{ label: 'Plan', path: '/plan' },
@@ -42,7 +44,7 @@ type TransferTracker = {
 
 function dataPath(url: string) {
 	return new URL(url).pathname.match(
-		/^\/(recipes|staples|plan|shopping)\.data$/,
+		/^\/(recipes|staples|plan|shopping|settings\/profile)\.data$/,
 	)?.[1]
 }
 
@@ -238,10 +240,12 @@ async function traceTouchNavigation(
 
 test.use({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } })
 
-test('all four bottom tabs acknowledge touch and make one fresh data request', async ({
+test('all five bottom tabs acknowledge touch and make one fresh data request', async ({
 	page,
 	login,
 }) => {
+	// Five tabs, each held back 300ms, and the checks after them.
+	test.slow()
 	const user = await login()
 	const recipe = await prisma.recipe.create({
 		data: {
@@ -276,7 +280,7 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 		}
 	})
 	await page.route(
-		/\/(recipes|staples|plan|shopping)\.data(?:\?|$)/,
+		/\/(recipes|staples|plan|shopping|settings\/profile)\.data(?:\?|$)/,
 		async (route) => {
 			const path = dataPath(route.request().url())
 			if (path) {
@@ -306,7 +310,8 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 		})
 	})
 
-	await page.goto('/settings/profile')
+	// A page that is no tab's own, so every tab is a switch.
+	await page.goto('/upgrade')
 	const nav = bottomNav(page)
 	await expect(nav).toBeVisible()
 	await expect(nav.getByTestId('shopping-activity-dot')).toBeVisible()
@@ -316,6 +321,7 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 	).toBe(0)
 
 	const trace: TraceMetric[] = []
+	let shoppingOpened = false
 	for (const destination of destinations) {
 		trace.push(
 			await traceTouchNavigation(
@@ -325,11 +331,11 @@ test('all four bottom tabs acknowledge touch and make one fresh data request', a
 				transferTracker,
 			),
 		)
-		if (destination.path !== '/shopping') {
-			await expect(nav.getByTestId('shopping-activity-dot')).toBeVisible()
-		}
+		shoppingOpened ||= destination.path === '/shopping'
+		await expect(nav.getByTestId('shopping-activity-dot')).toHaveCount(
+			shoppingOpened ? 0 : 1,
+		)
 	}
-	await expect(nav.getByTestId('shopping-activity-dot')).toHaveCount(0)
 
 	console.log(`BOTTOM_NAV_TRACE ${JSON.stringify(trace)}`)
 	if (TRACE_ONLY) return
@@ -732,5 +738,135 @@ test.describe('tapping the open tab again', () => {
 		await expect(
 			page.getByRole('heading', { name: /^Recipes \(/ }),
 		).toBeVisible()
+	})
+})
+
+test.describe('the Settings tab', () => {
+	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+	function tab(page: Page, name: string) {
+		return bottomNav(page).getByRole('link', { name, exact: true })
+	}
+
+	test('is the user’s initial, and its page is a tab root with no Back', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await prisma.user.update({
+			where: { id: user.id },
+			data: { name: 'Wren Example' },
+		})
+		await page.goto('/plan')
+		const settings = tab(page, 'Settings')
+		await expect(settings.locator('[data-user-initial]')).toHaveText('W')
+		// One Settings link on a phone: the tab. The header row is gone.
+		await expect(page.getByRole('link', { name: 'Settings' })).toHaveCount(1)
+		await hydrated(settings)
+		await settings.tap()
+		await expect(page).toHaveURL('/settings/profile')
+		await expect(settings).toHaveAttribute('aria-current', 'page')
+		await expect(
+			page.getByRole('heading', { level: 1, name: 'Settings' }),
+		).toBeVisible()
+		await expect(page.locator('[data-nav-bar]')).toHaveCount(0)
+		await expect(page.locator('[data-nav-back]')).toHaveCount(0)
+	})
+
+	test('remembers its last page, and a tap on it there goes back to Settings', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		await page.goto('/settings/profile')
+		await hydrated(tab(page, 'Settings'))
+		await page.getByRole('link', { name: /Household/ }).tap()
+		await expect(page).toHaveURL('/settings/profile/household')
+		await expect(
+			page.getByRole('link', { name: 'Back to Settings', exact: true }),
+		).toBeVisible()
+
+		await tab(page, 'Plan').tap()
+		await expect(page).toHaveURL('/plan')
+		await tab(page, 'Settings').tap()
+		await expect(page).toHaveURL('/settings/profile/household')
+		// Back goes down Settings' own stack, past the Plan.
+		await page
+			.getByRole('link', { name: 'Back to Settings', exact: true })
+			.tap()
+		await expect(page).toHaveURL('/settings/profile')
+
+		await page.getByRole('link', { name: /Household/ }).tap()
+		await expect(page).toHaveURL('/settings/profile/household')
+		await tab(page, 'Settings').tap()
+		await expect(page).toHaveURL('/settings/profile')
+
+		// The other tabs still keep theirs.
+		await tab(page, 'Plan').tap()
+		await expect(page).toHaveURL('/plan')
+	})
+
+	test('five tabs fit a 320px screen: no label wraps or is cut off', async ({
+		page,
+		login,
+	}) => {
+		await page.setViewportSize({ width: 320, height: 640 })
+		await login()
+		await page.goto('/shopping')
+		const labels = await bottomNav(page)
+			.getByRole('link')
+			.evaluateAll((links) =>
+				links.map((link) => {
+					const label = link.lastElementChild as HTMLElement
+					const box = label.getBoundingClientRect()
+					const tabBox = link.getBoundingClientRect()
+					return {
+						text: label.textContent,
+						lines: Math.round(
+							box.height / parseFloat(getComputedStyle(label).lineHeight),
+						),
+						clipped: label.scrollWidth > label.clientWidth,
+						inside: box.left >= tabBox.left && box.right <= tabBox.right,
+					}
+				}),
+			)
+		expect(labels).toHaveLength(5)
+		for (const label of labels) {
+			expect(label).toEqual({
+				text: label.text,
+				lines: 1,
+				clipped: false,
+				inside: true,
+			})
+		}
+
+		// One row: the tabs share a top, share the bar's width, and stay inside
+		// the bar and the screen.
+		const layout = await bottomNav(page).evaluate((nav) => {
+			const bar = nav.getBoundingClientRect()
+			return {
+				bar: { left: bar.left, right: bar.right },
+				tabs: [...nav.querySelectorAll('a')].map((link) => {
+					const box = link.getBoundingClientRect()
+					return {
+						top: box.top,
+						left: box.left,
+						right: box.right,
+						width: box.width,
+					}
+				}),
+				viewport: window.innerWidth,
+			}
+		})
+		const tops = new Set(layout.tabs.map((tab) => Math.round(tab.top)))
+		expect(tops.size).toBe(1)
+		const widths = layout.tabs.map((tab) => tab.width)
+		expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(1)
+		for (const tab of layout.tabs) {
+			expect(tab.left).toBeGreaterThanOrEqual(Math.max(0, layout.bar.left))
+			expect(tab.right).toBeLessThanOrEqual(
+				Math.min(layout.viewport, layout.bar.right),
+			)
+		}
 	})
 })

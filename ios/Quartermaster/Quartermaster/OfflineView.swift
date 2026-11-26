@@ -37,11 +37,12 @@ struct OfflineView: View {
                     ZStack {
                         Text("Retry").opacity(model.isRetrying ? 0 : 1)
                         if model.isRetrying {
-                            ProgressView().tint(Color("LaunchBackground"))
+                            ProgressView().tint(.white)
                         }
                     }
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(Color("LaunchBackground"))
+                    // The fill green takes white text in both appearances.
+                    .foregroundStyle(.white)
                     .frame(minWidth: 120, minHeight: 44)
                     .background(Color.accentColor, in: Capsule())
                 }

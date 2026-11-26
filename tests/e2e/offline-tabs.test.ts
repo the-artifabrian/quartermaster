@@ -75,7 +75,10 @@ function bottomNav(page: Page) {
 		.filter({ has: page.getByRole('link', { name: 'Shopping', exact: true }) })
 }
 
-function tab(page: Page, label: 'Recipes' | 'Staples' | 'Plan' | 'Shopping') {
+function tab(
+	page: Page,
+	label: 'Recipes' | 'Staples' | 'Plan' | 'Shopping' | 'Settings',
+) {
 	return bottomNav(page).getByRole('link', { name: label, exact: true })
 }
 
@@ -143,6 +146,14 @@ test('offline, a tab keeps the app and its tab bar, and retries by itself once b
 	await expect(page).toHaveURL('/shopping')
 	await expect(page.getByText(NOT_LOADED_YET)).toBeVisible()
 	await expect(bottomNav(page)).toBeVisible()
+	// Settings is a tab too.
+	await tab(page, 'Settings').click()
+	await expect(page).toHaveURL('/settings/profile')
+	await expect(page.getByText(NOT_LOADED_YET)).toBeVisible()
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Settings' }),
+	).toBeVisible()
+	await expect(bottomNav(page)).toBeVisible()
 	expect(navigations).toEqual([])
 	expect(failedAssets).toEqual([])
 
@@ -162,7 +173,8 @@ test('offline, a tab keeps the app and its tab bar, and retries by itself once b
 	await retry.click({ force: true })
 	await expect(page.getByText(NOT_LOADED_YET)).toBeVisible()
 	await expect(bottomNav(page)).toBeVisible()
-	await expect(page.getByRole('banner')).toBeVisible()
+	// The tab's title, in the page the app drew around the notice.
+	await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
 	// Back online, the notice retries by itself.
 	await context.setOffline(false)
@@ -276,7 +288,8 @@ test('the Retry button loads the tab once the network is really back', async ({
 		.toBe(1 + 3)
 	await expect(page.getByText(NOT_LOADED_YET)).toBeVisible()
 	await expect(bottomNav(page)).toBeVisible()
-	await expect(page.getByRole('banner')).toBeVisible()
+	// The tab's title, in the page the app drew around the notice.
+	await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
 	await context.setOffline(false)
 	const retry = page.getByRole('button', { name: 'Retry', exact: true })

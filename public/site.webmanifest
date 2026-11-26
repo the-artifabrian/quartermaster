@@ -40,8 +40,8 @@
 			"url": "/recipes"
 		}
 	],
-	"theme_color": "#f6f1eb",
-	"background_color": "#f6f1eb",
+	"theme_color": "#fbfbf8",
+	"background_color": "#fbfbf8",
 	"description": "Keep the Recipes you cook and plan a few Meals for the week. Shopping fills in from the Meals you pick, minus what you already have.",
 	"display": "standalone"
 }

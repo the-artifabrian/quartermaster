@@ -1,6 +1,8 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import {
 	getIosStartupImage,
+	homepageCanvas,
+	homepageForeground,
 	iosStartupScreens,
 	launchThemes,
 	type LaunchTheme,
@@ -47,11 +49,11 @@ for (const { theme, viewport } of checks) {
 		await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`))
 		await expect(page.locator('html')).toHaveCSS(
 			'background-color',
-			theme === 'light' ? 'rgb(246, 241, 235)' : 'rgb(26, 24, 22)',
+			theme === 'light' ? 'rgb(251, 251, 248)' : 'rgb(21, 21, 19)',
 		)
 		await expect(page.locator('body')).toHaveCSS(
 			'background-color',
-			theme === 'light' ? 'rgb(246, 241, 235)' : 'rgb(26, 24, 22)',
+			theme === 'light' ? 'rgb(251, 251, 248)' : 'rgb(21, 21, 19)',
 		)
 
 		const criticalStyle = page.locator('style[data-pwa-launch-theme]')
@@ -104,5 +106,64 @@ for (const { theme, viewport } of checks) {
 				`link[rel="apple-touch-startup-image"][href="${image.href}"]`,
 			),
 		).toHaveAttribute('media', image.media)
+	})
+}
+
+/** A hex colour as the browser computes it. */
+function rgb(hex: string) {
+	const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+	return `rgb(${r}, ${g}, ${b})`
+}
+
+async function expectCanvas(page: Page, theme: LaunchTheme, homepage: boolean) {
+	const canvas = homepage
+		? homepageCanvas
+		: {
+				light: launchThemes.light.canvas,
+				dark: launchThemes.dark.canvas,
+			}
+	await expect(page.locator('body')).toHaveCSS(
+		'background-color',
+		rgb(canvas[theme]),
+	)
+	// The text color outside the homepage's shell (the focused skip link).
+	await expect(page.locator('body')).toHaveCSS(
+		'color',
+		rgb(homepage ? homepageForeground[theme] : launchThemes[theme].foreground),
+	)
+	for (const scheme of ['light', 'dark'] as const) {
+		await expect(
+			page.locator(`meta[name="theme-color"][media*="${scheme}"]`),
+		).toHaveAttribute('content', canvas[scheme])
+	}
+}
+
+for (const theme of ['light', 'dark'] as const) {
+	test(`the homepage keeps its own canvas and toolbar tint, ${theme}, and hands the app's back on the way out`, async ({
+		page,
+	}) => {
+		await page
+			.context()
+			.addCookies([
+				{ name: 'en_theme', value: theme, domain: 'localhost', path: '/' },
+			])
+		await page.goto('/')
+		await expectCanvas(page, theme, true)
+
+		// Client-side, the values follow the page.
+		const logIn = page
+			.locator('[data-site-header]')
+			.getByRole('link', { name: 'Log in' })
+		await expect(page.locator('html')).toHaveAttribute('data-hydrated', '')
+		await logIn.click()
+		await expect(page).toHaveURL('/login')
+		await expectCanvas(page, theme, false)
+
+		await page
+			.locator('[data-site-header]')
+			.getByRole('link', { name: 'Quartermaster' })
+			.click()
+		await expect(page).toHaveURL('/')
+		await expectCanvas(page, theme, true)
 	})
 }

@@ -151,7 +151,7 @@ function ItemRow({
 
 	const missing = item.recipe == null
 	return (
-		<div className={cn('flex items-center gap-2', isCooked && 'opacity-50')}>
+		<div className="flex items-center gap-2">
 			{/* Each Recipe item has its own cooked state. */}
 			<cookedFetcher.Form
 				method="POST"
@@ -174,11 +174,11 @@ function ItemRow({
 					}
 				>
 					{isCooked ? (
-						<span className="border-primary bg-primary text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">
+						<span className="border-primary-fill bg-primary-fill text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">
 							<Icon name="check" className="size-3" />
 						</span>
 					) : (
-						<span className="border-muted-foreground/30 hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
+						<span className="border-control-edge hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
 					)}
 				</button>
 			</cookedFetcher.Form>
@@ -191,7 +191,9 @@ function ItemRow({
 					<h4
 						className={cn(
 							'flex min-w-0 flex-1 font-serif text-[15px] leading-snug',
-							isCooked && 'text-muted-foreground line-through',
+							// Faint is too light on today's tint in the desktop week.
+							isCooked &&
+								'text-faint [[data-tinted]_&]:text-muted-foreground line-through',
 						)}
 					>
 						{item.recipe ? (
@@ -918,9 +920,7 @@ export function MealCard({
 			{isText ? (
 				// Text-only Meal: its own completed state, no Recipe items, and
 				// nothing for Shopping.
-				<div
-					className={cn('flex items-center gap-2', isComplete && 'opacity-50')}
-				>
+				<div className="flex items-center gap-2">
 					<button
 						type="button"
 						onClick={() => submitMealCooked(!isComplete)}
@@ -932,17 +932,18 @@ export function MealCard({
 						}
 					>
 						{isComplete ? (
-							<span className="border-primary bg-primary text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">
+							<span className="border-primary-fill bg-primary-fill text-primary-foreground flex size-5 items-center justify-center rounded-full border-2 transition-colors">
 								<Icon name="check" className="size-3" />
 							</span>
 						) : (
-							<span className="border-muted-foreground/30 hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
+							<span className="border-control-edge hover:border-primary flex size-5 items-center justify-center rounded-full border-2 transition-colors" />
 						)}
 					</button>
 					<p
 						className={cn(
 							'flex min-w-0 flex-1 font-serif text-[15px] leading-snug md:block',
-							isComplete && 'text-muted-foreground line-through',
+							isComplete &&
+								'text-faint [[data-tinted]_&]:text-muted-foreground line-through',
 						)}
 					>
 						{meal.genericText}
@@ -984,7 +985,7 @@ export function MealCard({
 								)}
 							>
 								{row.kind === 'heading' ? (
-									<h5 className="text-muted-foreground/80 pl-8 text-[10px] font-semibold tracking-wider uppercase">
+									<h5 className="text-muted-foreground pl-8 text-[10px] font-semibold tracking-wider uppercase">
 										{row.name}
 									</h5>
 								) : row.kind === 'recipe' ? (

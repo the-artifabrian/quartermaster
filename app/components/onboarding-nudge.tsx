@@ -42,7 +42,7 @@ export function OnboardingNudge({
 
 	return (
 		<div className={cn('flex items-start gap-2 print:hidden', className)}>
-			<Icon name={icon} size="sm" className="text-accent mt-0.5 shrink-0" />
+			<Icon name={icon} size="sm" className="text-primary mt-0.5 shrink-0" />
 			<p className="text-muted-foreground min-w-0 flex-1 text-sm">
 				<span className="text-foreground font-medium">{title}.</span>{' '}
 				{description}

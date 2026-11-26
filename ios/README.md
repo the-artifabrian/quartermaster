@@ -410,7 +410,9 @@ question per build.
 `AppIcon-1024.png` is the recipe card from `other/generate-favicons.mjs`
 (`makeAppIcon`) rendered full-bleed at 1024 px with no corner radius and no
 alpha, since iOS applies its own mask. Launch colours follow
-`app/utils/pwa-launch.ts`: `#f6f1eb` light, `#1a1816` dark.
+`app/utils/pwa-launch.ts`: `#fbfbf8` light, `#151513` dark. The `AccentColor`
+set (the offline view's Retry, under white text) is the web app's fill green:
+`#1f5a3d` light, `#2c7551` dark.
 
 ## Checks on a phone
 

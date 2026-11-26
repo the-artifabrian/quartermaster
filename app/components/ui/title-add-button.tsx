@@ -34,6 +34,19 @@ export function TitleAddButton({
 	)
 }
 
+/**
+ * A tab root's big title (Recipes, Menus, Staples, Plan, Shopping, Settings):
+ * the serif at 40px, weight 500, set tight.
+ */
+export function TabTitle({ className, ...props }: ComponentProps<'h1'>) {
+	return (
+		<h1
+			className={cn('font-serif text-[2.5rem] leading-[1.05]', className)}
+			{...props}
+		/>
+	)
+}
+
 /** The row a tab root's title and its + share. */
 export function TitleRow({ className, ...props }: ComponentProps<'div'>) {
 	return (

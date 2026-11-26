@@ -159,7 +159,7 @@ export function RecipeScaleControl({
 				aria-label="Decrease Recipe scale"
 				disabled={scaleMultiplier <= SCALE_STEP}
 				onClick={() => adjustScale(-SCALE_STEP)}
-				className="border-input hover:bg-accent/10 focus-visible:ring-ring flex size-11 shrink-0 items-center justify-center rounded-md border text-xl leading-none focus-visible:ring-2 focus-visible:outline-hidden disabled:opacity-40"
+				className="border-input hover:bg-muted focus-visible:ring-ring flex size-11 shrink-0 items-center justify-center rounded-md border text-xl leading-none focus-visible:ring-2 focus-visible:outline-hidden disabled:opacity-40"
 			>
 				−
 			</button>
@@ -169,7 +169,7 @@ export function RecipeScaleControl({
 				aria-label="Increase Recipe scale"
 				disabled={scaleMultiplier >= 100}
 				onClick={() => adjustScale(SCALE_STEP)}
-				className="border-input hover:bg-accent/10 focus-visible:ring-ring flex size-11 shrink-0 items-center justify-center rounded-md border text-xl leading-none focus-visible:ring-2 focus-visible:outline-hidden disabled:opacity-40"
+				className="border-input hover:bg-muted focus-visible:ring-ring flex size-11 shrink-0 items-center justify-center rounded-md border text-xl leading-none focus-visible:ring-2 focus-visible:outline-hidden disabled:opacity-40"
 			>
 				+
 			</button>
@@ -235,7 +235,7 @@ export function RecipeIngredientsControls({
 				<button
 					type="button"
 					onClick={() => onScaleMultiplierChange(1)}
-					className="text-primary hover:bg-accent/10 focus-visible:ring-ring mt-2 min-h-11 w-full rounded-md px-2 text-sm font-medium focus-visible:ring-2 focus-visible:outline-hidden"
+					className="text-primary hover:bg-muted focus-visible:ring-ring mt-2 min-h-11 w-full rounded-md px-2 text-sm font-medium focus-visible:ring-2 focus-visible:outline-hidden"
 				>
 					Original 1×
 				</button>
@@ -256,7 +256,7 @@ export function RecipeIngredientsControls({
 				>
 					{/* The chevron trails, so the heading starts on the content edge
 					    like Instructions. */}
-					<h2 className="font-serif text-lg font-normal">Ingredients</h2>
+					<h2 className="font-serif text-lg">Ingredients</h2>
 					<Icon
 						name="chevron-down"
 						size="sm"
@@ -267,7 +267,7 @@ export function RecipeIngredientsControls({
 						)}
 					/>
 				</button>
-				<h2 className="hidden font-serif text-lg font-normal lg:block print:block">
+				<h2 className="hidden font-serif text-lg lg:block print:block">
 					Ingredients
 				</h2>
 
@@ -325,7 +325,7 @@ export function RecipeIngredientsControls({
 							className={cn(
 								'flex h-8 items-center rounded-full border px-2.5 text-xs font-medium transition-colors',
 								useMetric
-									? 'border-primary bg-primary text-primary-foreground'
+									? 'border-primary-fill bg-primary-fill text-primary-foreground'
 									: 'border-border/50 bg-secondary/50 text-muted-foreground group-hover/metric:bg-secondary group-hover/metric:text-foreground',
 							)}
 						>

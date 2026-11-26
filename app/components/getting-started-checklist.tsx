@@ -92,7 +92,7 @@ export function GettingStartedChecklist({
 
 			<div className="bg-muted mb-4 h-1.5 overflow-hidden rounded-full">
 				<div
-					className="bg-primary h-full rounded-full transition-[width] duration-500 ease-out"
+					className="bg-primary-fill h-full rounded-full transition-[width] duration-500 ease-out"
 					style={{ width: `${(completedCount / steps.length) * 100}%` }}
 				/>
 			</div>
@@ -110,7 +110,7 @@ export function GettingStartedChecklist({
 							className={cn(
 								'flex size-8 shrink-0 items-center justify-center rounded-full',
 								step.done
-									? 'bg-primary text-primary-foreground'
+									? 'bg-primary-fill text-primary-foreground'
 									: 'bg-background border-border border',
 							)}
 						>

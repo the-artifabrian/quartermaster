@@ -70,8 +70,9 @@ test('Back from a Recipe returns to the list where it was', async ({
 	await createRecipes(user, 30)
 
 	await page.goto('/recipes')
-	// A tab root keeps the brand header and has no nav bar.
-	await expect(brand(page)).toBeVisible()
+	// A tab root has neither the brand row nor a nav bar on a phone.
+	await expect(page.getByRole('heading', { name: /^Recipes/ })).toBeVisible()
+	await expect(brand(page)).toBeHidden()
 	await expect(page.locator('[data-nav-bar]')).toHaveCount(0)
 
 	await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
@@ -84,8 +85,7 @@ test('Back from a Recipe returns to the list where it was', async ({
 	await card.tap()
 	await expect(page).toHaveURL(/\/recipes\/[^/]+$/)
 
-	// The Recipe swaps the brand header for the nav bar.
-	await expect(brand(page)).toBeHidden()
+	// The Recipe has the nav bar.
 	const back = backButton(page, 'Recipes')
 	await expect(back).toBeVisible()
 	await expect(back).toHaveText('Recipes')
@@ -191,11 +191,38 @@ test('a page opened from a scrolled page does not start with its title in the ba
 	page,
 	login,
 }) => {
-	await login()
-	await page.goto('/settings/profile')
-	const household = page.getByRole('link', { name: /Household/ })
-	await hydrated(household)
-	// Scroll Settings' own title under the bar; its small title shows. Scroll
+	const user = await login()
+	await createRecipes(user, 14)
+	const recipes = await prisma.recipe.findMany({
+		where: { householdId: user.householdId },
+		select: { id: true, title: true },
+		orderBy: { title: 'asc' },
+	})
+	const menu = await prisma.menu.create({
+		data: {
+			title: 'Soup week',
+			titleKey: 'soup week',
+			householdId: user.householdId,
+			sections: {
+				create: {
+					items: {
+						create: recipes.map((recipe, order) => ({
+							kind: 'recipe',
+							recipeId: recipe.id,
+							recipeTitle: recipe.title,
+							order,
+						})),
+					},
+				},
+			},
+		},
+		select: { id: true },
+	})
+	const last = recipes.at(-1)!
+	await page.goto(`/recipes/menus/${menu.id}`)
+	const link = page.getByRole('link', { name: new RegExp(last.title) })
+	await hydrated(link)
+	// Scroll the Menu's own title under the bar; its small title shows. Scroll
 	// again if it doesn't, and say where the page and the bar were if it
 	// never does.
 	const title = page.locator('[data-nav-title]')
@@ -214,7 +241,7 @@ test('a page opened from a scrolled page does not start with its title in the ba
 			`small title hidden at ${JSON.stringify(where)}`,
 		).toHaveAttribute('data-shown', '', { timeout: 1000 })
 	}).toPass({ timeout: 5000 })
-	await expect(title).toHaveAttribute('data-nav-title', 'Settings')
+	await expect(title).toHaveAttribute('data-nav-title', 'Soup week')
 
 	// Record, in every frame from here on, which page is on screen (its h1;
 	// the URL changes before the router commits the page) and the bar.
@@ -231,18 +258,20 @@ test('a page opened from a scrolled page does not start with its title in the ba
 		}
 		requestAnimationFrame(sample)
 	})
-	await household.tap()
-	await expect(page).toHaveURL('/settings/profile/household')
+	await link.tap()
+	await expect(page).toHaveURL(`/recipes/${last.id}`)
 	await expect(
-		page.getByRole('heading', { level: 1, name: 'Household' }),
+		page.getByRole('heading', { level: 1, name: last.title }),
 	).toBeVisible()
 	await animationsFinished(page)
 	const frames = await page.evaluate(
 		() => (window as unknown as { __frames: string[] }).__frames,
 	)
-	expect(frames.some((f) => f.startsWith('Household:'))).toBe(true)
+	expect(frames.some((f) => f.startsWith(`${last.title}:`))).toBe(true)
 	expect(
-		frames.filter((f) => f.startsWith('Household:') && f.includes(' shown ')),
+		frames.filter(
+			(f) => f.startsWith(`${last.title}:`) && f.includes(' shown '),
+		),
 	).toEqual([])
 })
 
@@ -525,7 +554,7 @@ test('a title error after Save shows its field below the bar, not under it', asy
 	expect(kept.title).toBe('Lentil soup')
 })
 
-test('Settings goes back to the tab it came from, and its pages back to Settings', async ({
+test('Settings is a tab with no Back, and its pages go back to it', async ({
 	page,
 	login,
 }) => {
@@ -534,7 +563,8 @@ test('Settings goes back to the tab it came from, and its pages back to Settings
 	await hydrated(page.getByRole('link', { name: 'Settings' }))
 	await page.getByRole('link', { name: 'Settings' }).tap()
 	await expect(page).toHaveURL('/settings/profile')
-	await expect(backButton(page, 'Plan')).toBeVisible()
+	await expect(page.locator('[data-nav-back]')).toHaveCount(0)
+	await expect(brand(page)).toBeHidden()
 
 	await page.getByRole('link', { name: /Household/ }).tap()
 	await expect(page).toHaveURL('/settings/profile/household')
@@ -544,9 +574,48 @@ test('Settings goes back to the tab it came from, and its pages back to Settings
 	).toHaveCount(0)
 	await backButton(page, 'Settings').tap()
 	await expect(page).toHaveURL('/settings/profile')
-	await backButton(page, 'Plan').tap()
-	await expect(page).toHaveURL('/plan')
+})
+
+test('a tab’s own page has no brand row on a phone; a pushed page has its bar, and signed out keeps the brand and Log in', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createLongRecipe(user)
+	for (const path of [
+		'/recipes',
+		'/recipes/menus',
+		'/staples',
+		'/plan',
+		'/shopping',
+	]) {
+		await page.goto(path)
+		await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+		await expect(brand(page)).toBeHidden()
+		// The title is the top of the page.
+		expect(
+			(await page.getByRole('heading', { level: 1 }).boundingBox())!.y,
+		).toBeLessThan(40)
+	}
+	await page.goto(`/recipes/${recipe.id}`)
+	await expect(backButton(page, 'Recipes')).toBeVisible()
+
+	// A page not found under a tab is no tab's own page: it keeps the brand.
+	await page.goto('/recipes/no-such/page')
 	await expect(brand(page)).toBeVisible()
+
+	// A signed-in page of no tab keeps the brand row, without Settings, which
+	// is in the tab bar.
+	await page.goto('/support')
+	await expect(brand(page)).toBeVisible()
+	await expect(page.getByRole('link', { name: 'Settings' })).toHaveCount(1)
+
+	await page.context().clearCookies()
+	await page.goto('/login')
+	await expect(brand(page)).toBeVisible()
+	await expect(
+		page.getByRole('banner').getByRole('link', { name: 'Sign up' }),
+	).toBeVisible()
 })
 
 /** A JPEG over the 3 MB upload limit, so the form shrinks it first. */

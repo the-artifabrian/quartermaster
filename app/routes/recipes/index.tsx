@@ -17,6 +17,7 @@ import {
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import {
+	TabTitle,
 	TitleAddButton,
 	TitleRow,
 } from '#app/components/ui/title-add-button.tsx'
@@ -429,7 +430,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 		<div className="pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
 			<div>
 				<TitleRow className="container-grid py-3 md:py-4">
-					<h1 className="font-serif text-2xl font-normal">
+					<TabTitle>
 						Recipes{' '}
 						<span className="text-muted-foreground text-base font-normal">
 							{/* While searching or filtering, the count says what you see. */}
@@ -437,7 +438,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								? `(${displayRecipes.length} of ${totalRecipeCount})`
 								: `(${totalRecipeCount})`}
 						</span>
-					</h1>
+					</TabTitle>
 					<div className="flex gap-2">
 						<DropdownMenu modal={false}>
 							<DropdownMenuTrigger asChild>
@@ -506,13 +507,13 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								// The field's shape and height, so the two read as one row.
 								'relative flex size-11 shrink-0 items-center justify-center rounded-md border transition-colors md:hidden',
 								filtersOpen
-									? 'border-primary/30 bg-primary/10 text-primary'
+									? 'border-primary/30 bg-primary-tint text-primary'
 									: 'border-input bg-background text-muted-foreground',
 							)}
 						>
 							<Icon name="mixer-horizontal" size="sm" />
 							{activeFilterCount > 0 && (
-								<span className="bg-primary text-primary-foreground absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full text-[10px] font-bold">
+								<span className="bg-primary-fill text-primary-foreground absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full text-[10px] font-bold">
 									{activeFilterCount}
 								</span>
 							)}
@@ -651,7 +652,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								className="text-muted-foreground/40 size-8"
 							/>
 						</div>
-						<h2 className="mt-4 font-serif text-xl font-normal">
+						<h2 className="mt-4 font-serif text-xl">
 							Nothing matches those filters
 						</h2>
 						<p className="text-muted-foreground mt-2 max-w-sm">
@@ -671,9 +672,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
 							<Icon name="cookie" className="text-muted-foreground/40 size-8" />
 						</div>
-						<h2 className="mt-4 font-serif text-xl font-normal">
-							No Recipes yet
-						</h2>
+						<h2 className="mt-4 font-serif text-xl">No Recipes yet</h2>
 						<p className="text-muted-foreground mt-2 max-w-sm">
 							Add one you already cook by hand or import it from a URL.
 						</p>
@@ -715,7 +714,7 @@ function SearchEmptyState({
 					className="text-muted-foreground/40 size-8"
 				/>
 			</div>
-			<h2 className="mt-4 font-serif text-xl font-normal">
+			<h2 className="mt-4 font-serif text-xl">
 				No Recipes match &ldquo;{query}&rdquo;
 			</h2>
 			<p className="text-muted-foreground mt-2 max-w-sm">

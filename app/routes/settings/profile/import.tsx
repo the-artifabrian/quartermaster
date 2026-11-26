@@ -356,7 +356,7 @@ export default function ImportData() {
 								type="file"
 								accept=".json"
 								onChange={handleFileChange}
-								className="file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 mt-2 block w-full text-sm file:mr-4 file:rounded-lg file:border-0 file:px-4 file:py-2 file:text-sm file:font-medium"
+								className="file:bg-primary-fill file:text-primary-foreground hover:file:bg-primary-fill/90 mt-2 block w-full text-sm file:mr-4 file:rounded-lg file:border-0 file:px-4 file:py-2 file:text-sm file:font-medium"
 							/>
 						</label>
 

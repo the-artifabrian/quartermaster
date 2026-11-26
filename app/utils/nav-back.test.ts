@@ -13,7 +13,6 @@ import {
 	resolveAfterSave,
 	resolveBack,
 	settingsPageNav,
-	settingsRootNav,
 	upgradeNav,
 } from './nav-back.ts'
 
@@ -305,48 +304,7 @@ test('Cancel on the new-Menu form returns to Menus', () => {
 	})
 })
 
-test('Settings goes back to the tab it was opened from', () => {
-	expect(back(['/plan', '/settings/profile'], settingsRootNav)).toEqual({
-		type: 'pop',
-		delta: 1,
-		label: 'Plan',
-	})
-	expect(
-		back(['/recipes/menus', '/settings/profile'], settingsRootNav),
-	).toEqual({ type: 'pop', delta: 1, label: 'Menus' })
-})
-
-test('Settings opened from a Recipe (the desktop header) goes back to it', () => {
-	expect(
-		back(['/recipes', '/recipes/r1', '/settings/profile'], settingsRootNav),
-	).toEqual({
-		type: 'pop',
-		delta: 1,
-		label: 'Recipe',
-	})
-})
-
-test('Settings steps over the code check a change of email passes through', () => {
-	expect(
-		back(
-			[
-				'/plan',
-				'/settings/profile',
-				'/settings/profile/change-email',
-				'/verify',
-				'/settings/profile',
-			],
-			settingsRootNav,
-		),
-	).toEqual({ type: 'pop', delta: 4, label: 'Plan' })
-})
-
-test('Settings and Upgrade do not go back to sign-in', () => {
-	expect(back(['/login', '/settings/profile'], settingsRootNav)).toEqual({
-		type: 'replace',
-		to: '/recipes',
-		label: 'Recipes',
-	})
+test('Upgrade does not go back to sign-in', () => {
 	expect(back(['/login', '/upgrade'], upgradeNav)).toEqual({
 		type: 'replace',
 		to: '/settings/profile',
@@ -370,26 +328,30 @@ test('Upgrade goes back to the page whose Pro notice opened it', () => {
 	})
 })
 
-test('Settings steps over its own subpages after a save', () => {
+test('a Settings page the tab bar restored goes back to Settings, past the other tabs', () => {
 	expect(
 		back(
 			[
-				'/shopping',
 				'/settings/profile',
-				'/settings/profile/edit',
-				'/settings/profile',
+				'/settings/profile/household',
+				'/plan',
+				`/settings/profile/household${TAB}`,
 			],
-			settingsRootNav,
+			settingsPageNav,
 		),
-	).toEqual({ type: 'pop', delta: 3, label: 'Shopping' })
+	).toEqual({ type: 'pop', delta: 3, label: 'Settings' })
 })
 
-test('Settings opened cold goes to Recipes', () => {
-	expect(back(['/settings/profile'], settingsRootNav)).toEqual({
-		type: 'replace',
-		to: '/recipes',
-		label: 'Recipes',
-	})
+test('a Settings page the tab bar restored, with no Settings behind it, opens Settings in its place', () => {
+	expect(
+		back(['/plan', `/settings/profile/passkeys${TAB}`], settingsPageNav),
+	).toEqual({ type: 'replace', to: '/settings/profile', label: 'Settings' })
+})
+
+test('a Settings page another tab opened goes back to that tab, as a Recipe does', () => {
+	expect(
+		back(['/plan', '/settings/profile/household'], settingsPageNav),
+	).toEqual({ type: 'pop', delta: 1, label: 'Plan' })
 })
 
 test('a nested Settings page goes back to Settings, over the page that led to it', () => {

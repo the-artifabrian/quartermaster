@@ -27,10 +27,10 @@ export function WarningBanner({
 		const existingLabel =
 			actionData.existingHorizon === LATER ? 'Later' : 'Next shop'
 		return (
-			<div className="bg-accent/10 mb-3 flex items-start gap-2 rounded-md p-3">
+			<div className="bg-muted mb-3 flex items-start gap-2 rounded-md p-3">
 				<Icon
 					name="question-mark-circled"
-					className="text-accent mt-0.5 size-4 shrink-0"
+					className="text-primary mt-0.5 size-4 shrink-0"
 				/>
 				<div className="flex-1 text-sm">
 					<p className="font-medium">
@@ -72,10 +72,10 @@ export function WarningBanner({
 			? `${actionData.existingQuantity}${actionData.existingUnit ? ` ${actionData.existingUnit}` : ''}`
 			: null
 		return (
-			<div className="bg-accent/10 mb-3 flex items-start gap-2 rounded-md p-3">
+			<div className="bg-muted mb-3 flex items-start gap-2 rounded-md p-3">
 				<Icon
 					name="question-mark-circled"
-					className="text-accent mt-0.5 size-4 shrink-0"
+					className="text-primary mt-0.5 size-4 shrink-0"
 				/>
 				<div className="flex-1 text-sm">
 					<p className="font-medium">

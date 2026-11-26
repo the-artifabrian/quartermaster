@@ -15,9 +15,11 @@ import {
 import { type Route } from './+types/root.ts'
 import appleTouchIconAssetUrl from './assets/favicons/apple-touch-icon.png'
 import dmSansFontUrl from './assets/fonts/dm-sans-latin.woff2?url'
+import newsreaderFontUrl from './assets/fonts/newsreader-latin.woff2?url'
+import schibstedGroteskFontUrl from './assets/fonts/schibsted-grotesk-latin.woff2?url'
 import youngSerifFontUrl from './assets/fonts/young-serif-latin.woff2?url'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
-import { BottomNav, navItems } from './components/bottom-nav.tsx'
+import { BottomNav, isTabRootPath, navItems } from './components/bottom-nav.tsx'
 import { DemoBanner } from './components/demo.tsx'
 import { GeneralErrorBoundary } from './components/error-boundary.tsx'
 import { useRefreshAfterTraversal } from './components/gone-item.tsx'
@@ -65,7 +67,12 @@ import {
 	PostHogPageview,
 	PostHogPwaLifecycle,
 } from './utils/posthog-provider.tsx'
-import { iosStartupImages, launchThemes } from './utils/pwa-launch.ts'
+import {
+	homepageCanvas,
+	homepageForeground,
+	iosStartupImages,
+	launchThemes,
+} from './utils/pwa-launch.ts'
 import { SITE_DESCRIPTION } from './utils/site-description.ts'
 import { getUserTier, type TierInfo } from './utils/subscription.server.ts'
 import { type Theme, getTheme } from './utils/theme.server.ts'
@@ -77,22 +84,7 @@ import { useOptionalUser } from './utils/user.ts'
 
 export const links: Route.LinksFunction = () => {
 	return [
-		// Self-hosted fonts (app/styles/fonts.css). The two faces above the fold
-		// are preloaded; fonts need crossOrigin even on the same origin.
-		{
-			rel: 'preload',
-			href: dmSansFontUrl,
-			as: 'font',
-			type: 'font/woff2',
-			crossOrigin: 'anonymous',
-		} as const,
-		{
-			rel: 'preload',
-			href: youngSerifFontUrl,
-			as: 'font',
-			type: 'font/woff2',
-			crossOrigin: 'anonymous',
-		} as const,
+		// The fonts are preloaded by Document, which knows the page.
 		{
 			rel: 'icon',
 			href: '/favicon.ico',
@@ -292,6 +284,22 @@ export const middleware: Route.MiddlewareFunction[] = [
 	demoGuardMiddleware,
 ]
 
+/**
+ * The homepage re-themes the chrome around it to espresso in either theme,
+ * and keeps its own faces (tailwind.css).
+ */
+function chromeFor(pathname: string) {
+	return pathname === '/' ? ('espresso' as const) : undefined
+}
+
+// Self-hosted fonts (app/styles/fonts.css). The two faces above the fold are
+// preloaded, the homepage's on the homepage and the app's elsewhere, so no
+// page preloads a face it does not use.
+const preloadedFonts = {
+	espresso: [dmSansFontUrl, youngSerifFontUrl],
+	app: [schibstedGroteskFontUrl, newsreaderFontUrl],
+}
+
 function Document({
 	children,
 	nonce,
@@ -299,6 +307,7 @@ function Document({
 	env = {},
 	origin,
 	path,
+	chrome,
 	isNativeShell = false,
 }: {
 	children: React.ReactNode
@@ -307,10 +316,13 @@ function Document({
 	env?: Record<string, string | undefined>
 	origin?: string
 	path?: string
+	chrome?: ReturnType<typeof chromeFor>
 	isNativeShell?: boolean
 }) {
 	const allowIndexing = ENV.ALLOW_INDEXING !== 'false'
 	const launchTheme = launchThemes[theme]
+	const canvas = (scheme: Theme) =>
+		chrome === 'espresso' ? homepageCanvas[scheme] : launchThemes[scheme].canvas
 	const posthogOrigin = env.POSTHOG_API_KEY
 		? new URL(getPostHogHost(env.POSTHOG_HOST)).origin
 		: null
@@ -327,22 +339,33 @@ function Document({
 				<meta name="color-scheme" content="light dark" />
 				<meta
 					name="theme-color"
-					content={launchThemes.light.canvas}
+					content={canvas('light')}
 					media="(prefers-color-scheme: light)"
 				/>
 				<meta
 					name="theme-color"
-					content={launchThemes.dark.canvas}
+					content={canvas('dark')}
 					media="(prefers-color-scheme: dark)"
 				/>
 				<style
 					nonce={nonce}
 					data-pwa-launch-theme={theme}
 					dangerouslySetInnerHTML={{
-						__html: `:root{color-scheme:${theme}}html,body{background:${launchTheme.canvas};color:${launchTheme.foreground}}`,
+						__html: `:root{color-scheme:${theme}}html,body{background:${canvas(theme)};color:${chrome === 'espresso' ? homepageForeground[theme] : launchTheme.foreground}}`,
 					}}
 				/>
 				<ClientHintCheck nonce={nonce} />
+				{preloadedFonts[chrome ?? 'app'].map((href) => (
+					// Fonts need crossOrigin even on the same origin.
+					<link
+						key={href}
+						rel="preload"
+						href={href}
+						as="font"
+						type="font/woff2"
+						crossOrigin="anonymous"
+					/>
+				))}
 				<Meta />
 				{posthogOrigin ? (
 					<link rel="preconnect" href={posthogOrigin} crossOrigin="anonymous" />
@@ -393,6 +416,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 	const data = useLoaderData<typeof loader | null>()
 	const nonce = useNonce()
 	const theme = useOptionalTheme()
+	const { pathname } = useLocation()
 	// Marks the page as hydrated for the e2e tests. A parent's effects run
 	// after its children's, so by now every mount effect on the page has run
 	// and the router takes navigations. Error pages render inside this too.
@@ -406,6 +430,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 			env={data?.ENV}
 			origin={data?.requestInfo.origin}
 			path={data?.requestInfo.path}
+			chrome={chromeFor(pathname)}
 			isNativeShell={data?.requestInfo.isNativeShell}
 		>
 			{children}
@@ -420,16 +445,18 @@ function App() {
 	const isPro = data.tierInfo.isProActive
 	const { pathname } = useLocation()
 	const isNativeShell = data.requestInfo.isNativeShell
-	// The homepage re-themes the chrome around it to espresso in either theme.
-	const chrome = pathname === '/' ? 'espresso' : undefined
+	const chrome = chromeFor(pathname)
 	useToast(data.toast)
 	useNavDirection()
 	useRecordHistory()
 	useRefreshAfterTraversal()
 	// Pushed pages (route handle `nav`) swap the brand header for a nav bar
-	// on phones; tab roots keep it. Only signed-in pages have one.
+	// on phones. Only signed-in pages have one.
 	const navBarConfig = useNavBarConfig()
 	const navBar = user ? navBarConfig : null
+	// A tab's own page has no brand row on phones: its big title is the top
+	// of the page, and the tab bar holds Settings.
+	const tabRoot = Boolean(user) && !navBar && isTabRootPath(pathname)
 	// An edit screen (its route names the form the bar's Save submits) hides
 	// the tab bar, as an iOS edit screen does: Cancel and Save are the ways
 	// out. Its error page keeps it, an error after load included. The server
@@ -471,12 +498,16 @@ function App() {
 					data-chrome={chrome}
 				>
 					{isNativeShell ? (
-						// Content scrolls under the status bar behind the same opaque
-						// background as the bottom tab bar.
+						// Content scrolls under the status bar behind an opaque strip
+						// the color of what sits under it: the header or nav bar, or
+						// on a phone's tab page, the page itself.
 						<div
 							aria-hidden="true"
 							data-status-bar-backdrop=""
-							className="bg-card pointer-events-none fixed inset-x-0 top-0 z-50 h-(--safe-top) print:hidden"
+							className={cn(
+								'bg-card pointer-events-none fixed inset-x-0 top-0 z-50 h-(--safe-top) print:hidden',
+								tabRoot && 'max-md:bg-background',
+							)}
 						/>
 					) : null}
 					<header
@@ -488,18 +519,21 @@ function App() {
 						className={cn(
 							'border-border/50 z-40 border-b',
 							navBar ? 'bg-card sticky top-0' : 'bg-card md:sticky md:top-0',
+							// Only the demo banner (and the status bar inset in the iOS
+							// app) is left of it there.
+							tabRoot && 'max-md:border-b-0 max-md:bg-transparent',
 						)}
 					>
 						<DemoBanner />
 						<nav
 							aria-label="Main"
 							// Signed in, the iOS app's row is as tall as a native nav bar
-							// (44pt): the Settings link is 44pt itself.
+							// (44pt), as is the Settings link in it.
 							className={cn(
 								'container flex flex-wrap items-center justify-between gap-4 sm:flex-nowrap md:gap-8',
-								isNativeShell && user ? 'py-0' : 'py-3',
+								isNativeShell && user ? 'min-h-11 py-0' : 'py-3',
 								// Phones have the tab bar; the desktop header keeps its links.
-								navBar && 'max-md:hidden',
+								(navBar || tabRoot) && 'max-md:hidden',
 							)}
 						>
 							<Logo />
@@ -507,18 +541,22 @@ function App() {
 								{user ? (
 									<>
 										<div className="hidden items-center gap-2 md:flex">
-											{navItems.map((item) => (
-												<NavLink
-													key={item.to}
-													to={item.to}
-													prefetch="intent"
-													className={headerNavLinkClass}
-												>
-													{item.label}
-												</NavLink>
-											))}
+											{navItems
+												// Settings is the avatar beside them.
+												.filter((item) => !('initial' in item))
+												.map((item) => (
+													<NavLink
+														key={item.to}
+														to={item.to}
+														prefetch="intent"
+														className={headerNavLinkClass}
+													>
+														{item.label}
+													</NavLink>
+												))}
 										</div>
-										<UserDropdown />
+										{/* On a phone Settings is a tab. */}
+										<UserDropdown className="max-md:hidden" />
 									</>
 								) : (
 									<HeaderAuthButton />

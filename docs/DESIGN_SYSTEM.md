@@ -11,11 +11,11 @@ see [GLOSSARY.md](../GLOSSARY.md).
 
 - Design phone-first for one-handed use and a phone propped on a counter.
 - Use at least 44px touch targets and 16px body text for cooking surfaces.
-- Keep content flat on the cream canvas. Use hairline dividers, not a stack of
-  cards.
+- Keep content flat on the near-white page. Use hairline dividers, not a stack
+  of cards.
 - Elevation belongs to overlays: menus, popovers, sheets, dialogs, and toasts.
-- Sage means interactive. Copper marks “now” and small dots for something new.
-  Headings stay ink.
+- Green means interactive. It also marks today and now, and the small dots for
+  something new. Headings stay ink.
 - Recipe imagery carries warmth. Shopping, Staples, settings, and Menus stay
   imageless.
 - Prefer fewer controls and fewer words. Reveal secondary actions only when
@@ -23,15 +23,24 @@ see [GLOSSARY.md](../GLOSSARY.md).
 
 ## Type
 
-- **Young Serif**: page titles, Recipe titles, and editorial day headings. It
-  has one weight; vary size, not weight.
-- **DM Sans**: body text, labels, metadata, navigation, and controls.
-- **Source Sans 3**: the homepage only, as its body sans (`font-humanist`); the
-  app never uses it.
+- **Newsreader** for anything you read or cook from: page and tab titles, Recipe
+  and item names, section and day headings. Titles and names are weight 500,
+  which `font-serif` sets on its own (`app/styles/tailwind.css`), so a serif
+  title takes no weight class. Running text is 400 and amounts 600. The files
+  carry weights 400 to 600 only, so never ask the serif for less or more. The
+  roman has an optical-size axis the browser sets from the font size; the italic
+  has none. The serif sets lining figures, and `tabular-nums` adds to them.
+- **Schibsted Grotesk** for controls, labels, metadata, navigation and secondary
+  text, weights 400 to 700. It has no italic file, so the app does not set the
+  sans in italic.
+- **Young Serif, DM Sans and Source Sans 3**: the homepage only (see Homepage
+  palette). Source Sans 3 is its body sans (`font-humanist`).
 
-All fonts are self-hosted: the files sit in `app/assets/fonts/` and
-`app/styles/fonts.css` declares them, so a face downloads only when a page uses
-it. `app/root.tsx` preloads the Young Serif and DM Sans latin files.
+All fonts are self-hosted: the files sit in `app/assets/fonts/` as `latin` and
+`latin-ext` subsets (the Households write Romanian), and `app/styles/fonts.css`
+declares them, so a face downloads only when a page uses it. `app/root.tsx`
+preloads the two latin files the page sets first: Newsreader and Schibsted
+Grotesk on app pages, Young Serif and DM Sans on the homepage.
 
 Headings balance their lines (`text-wrap: balance` in
 `app/styles/tailwind.css`). Long reading text, such as a Recipe's description,
@@ -40,47 +49,61 @@ Browsers without it wrap as usual.
 
 Useful sizes:
 
-| Use                   | Size             |
-| --------------------- | ---------------- |
-| Page title            | 24px Young Serif |
-| Recipe detail title   | 32px Young Serif |
-| Recipe row title      | 17px Young Serif |
-| Body and ingredients  | 16px DM Sans     |
-| UI label              | 14px DM Sans     |
-| Caption               | 13px DM Sans     |
-| Tiny navigation label | 12px DM Sans     |
+| Use                    | Size                        |
+| ---------------------- | --------------------------- |
+| Tab title (`TabTitle`) | 40px Newsreader, 1.05 lines |
+| Other page title       | 24px Newsreader             |
+| Recipe detail title    | 32px Newsreader             |
+| Recipe row title       | 17px Newsreader             |
+| Body and ingredients   | 16px Schibsted Grotesk      |
+| UI label               | 14px Schibsted Grotesk      |
+| Caption                | 13px Schibsted Grotesk      |
+| Tiny navigation label  | 12px Schibsted Grotesk      |
+
+Every tab's own page (Recipes, Menus, Staples, Plan, Shopping, Settings) opens
+with its title in `TabTitle`, beside the controls of its row.
 
 Running text uses a 1.5–1.7 line height. Recipe detail is deliberately generous
 for arm’s-length reading.
 
 ## Color
 
-The light palette is aged paper, ink, cedar, sage, copper, and clay:
+Near-white paper, ink, and one bottle green:
 
-| Token                             | Value     | Use                                |
-| --------------------------------- | --------- | ---------------------------------- |
-| background                        | `#F6F1EB` | cream canvas                       |
-| card                              | `#FDFAF6` | overlays and limited tile surfaces |
-| foreground                        | `#2D2926` | primary text                       |
-| muted foreground                  | `#6F6358` | secondary text                     |
-| border                            | `#DED6CA` | hairlines                          |
-| primary                           | `#48724E` | actions and links                  |
-| accent                            | `#C4956A` | structural “now” markers           |
-| destructive                       | `#B85C4A` | red button fills                   |
-| foreground-destructive (red text) | `#A85040` | errors, Delete labels, bad input   |
+| Token                             | Light     | Dark      | Use                                   |
+| --------------------------------- | --------- | --------- | ------------------------------------- |
+| background                        | `#FBFBF8` | `#151513` | the page                              |
+| card (and popover)                | `#FFFFFF` | `#1E1E1B` | sheets, menus, the header and tab bar |
+| foreground                        | `#1A1915` | `#EFEDE6` | text                                  |
+| muted foreground                  | `#69665E` | `#A5A299` | secondary text                        |
+| faint                             | `#76736B` | `#8F8C84` | checked and cooked rows               |
+| border (and input)                | `#E3E1D9` | `#2F2E2A` | hairlines                             |
+| control edge                      | `#8A867D` | `#77746C` | empty check circles and boxes         |
+| muted (and secondary)             | `#F1F0EA` | `#242421` | fields, quiet buttons, pressed rows   |
+| primary                           | `#1F5A3D` | `#8CC9A4` | green text: links, icons, today       |
+| primary fill                      | `#1F5A3D` | `#2C7551` | buttons and filled circles            |
+| primary tint                      | `#E6EFE8` | `#1D2B23` | selected chips, a row just added      |
+| destructive                       | `#B3261E` | `#B3261E` | red button fills                      |
+| foreground-destructive (red text) | `#A8281F` | `#F0A198` | errors, Delete labels, bad input      |
+
+Green comes in two: `text-primary` for green text and icons, and
+`bg-primary-fill` for anything filled, always with white text
+(`text-primary-foreground`) on it. In light mode they are the same green; dark
+mode needs a lighter green for text than a fill can take under white text. A
+small dot or a marker bar is drawn like an icon, in `bg-primary`. Selected and
+just-added states take `bg-primary-tint`, with ink or green text.
+
+Faint text clears 4.5:1 on the page and on cards, not on `muted` or the tint, so
+keep it off those.
 
 Red text on the page (`text-foreground-destructive`, and `--input-invalid` for
 an invalid field's border) is a shade darker than the red button fill so small
-text clears 4.5:1 on cream and card. A boxed error sits on the faint
-`bg-destructive/5` tint, where it still clears 4.5:1; a stronger tint does not.
-`text-destructive` is the fill color, so keep it off text.
+text clears 4.5:1 on the page and on cards. A boxed error sits on the faint
+`bg-destructive/5` tint. `text-destructive` is the fill color, so keep it off
+text. Red buttons take white text in both themes.
 
-Dark mode uses warm charcoal, smoke, parchment, light sage, and light copper.
-Red buttons there take dark text, as sage buttons do. The exact semantic tokens
-live in `app/styles/tailwind.css`.
-
-Raw copper does not meet contrast for small text on cream. Use it for dots,
-edges, and fills; use `--copper-text` when copper text is necessary.
+Shadows are neutral and belong to floating layers. The tokens live in
+`app/styles/tailwind.css`.
 
 ### Homepage palette
 
@@ -93,7 +116,11 @@ next to the semantic ones in `app/styles/tailwind.css`.
 
 The route sets `data-chrome="espresso"` on the app shell (see `root.tsx`), which
 remaps the semantic tokens so the shared header and footer sit on the same
-canvas. Keep the homepage to these tokens; do not add page-specific colors.
+canvas, and keeps its warm shadows. It also keeps Young Serif and DM Sans: the
+font variables are remapped on `<html>` whenever the page holds that shell, so
+nothing on it, the skip link included, loads the app's faces. A token or face
+added for the app gets a remap in those two rules. Keep the homepage to these
+tokens; do not add page-specific colors.
 
 ## Layout and surfaces
 
@@ -121,7 +148,7 @@ under it.
 
 Static groups use either a flat divided list or a quiet `bg-muted/40 rounded-lg`
 inset with no shadow. Inline controls use at most an 8px radius. Twelve-pixel
-radii and warm shadows are for floating layers.
+radii and shadows are for floating layers.
 
 ## Controls
 
@@ -133,18 +160,18 @@ each screen:
   pointer), never by width alone: a phone on its side or an iPad is wide but
   touched. Button `sm` is compact only there.
 - **Chip** is the one chip: 44px tall, fully rounded, a hairline border, and a
-  sage fill when pressed (`aria-pressed`). Use it for picking days, labels, and
+  green fill when pressed (`aria-pressed`). Use it for picking days, labels, and
   classification values, and for one-tap suggestions with a leading `+`. A
   control that must stay its own element in a row of chips (a native `<select>`,
   a menu trigger) takes the same look from `chipClassName`.
 - **Segmented control** picks one of two or three equal-width options with a
-  sage pill that slides under the selection. Use tabs when it switches what the
+  green pill that slides under the selection. Use tabs when it switches what the
   page shows, radios when it picks a setting, and `SegmentedLinks` when the
   options are routes.
 - **Switch** is an iOS-style track and thumb for an on/off setting; never an
   “On”/“Off” pill.
 - Previous and next use chevrons, not arrows.
-- **Adding on a tab root** is one control (`TitleAddButton`): a round sage +,
+- **Adding on a tab root** is one control (`TitleAddButton`): a round green +,
   44px, at the right end of the big serif title's row on Recipes, Menus, Staples
   and Plan. Its label says what it adds (“New Recipe”, “New Menu”, “Add Staple”,
   “Add Meal to Thursday, Nov 19”). Shopping keeps its floating + instead.
@@ -153,7 +180,7 @@ each screen:
 
 - A bottom sheet is for anything you type or pick in; a dropdown menu is a short
   list of actions. Every sheet has the same anatomy (`BottomSheet`): a grabber,
-  a Young Serif title on the left, a round Close button on the right (a 44px
+  a Newsreader title on the left, a round Close button on the right (a 44px
   target), and an optional one-line description under the title. It covers the
   tab bar over a dim scrim, clears the home indicator, and closes by a pull
   down, the scrim, Escape or Close. Off a phone it is a centered dialog. A
@@ -187,33 +214,43 @@ each screen:
 
 ## Navigation
 
-The header, the status bar strip in the iOS app and the tab bar are opaque
-(`bg-card`) with no blur.
+The header, the nav bar, the status bar strip in the iOS app and the tab bar are
+opaque with no blur.
 
-Mobile has four tabs: Recipes, Staples, Plan, and Shopping. The active tab uses
-sage text and a medium-weight label. A small copper dot on the Shopping icon
-appears when Shopping changes anywhere other than the open Shopping page
-(another member, another device, or an add from Recipes, Staples or Plan), and
-clears when you open Shopping.
+Mobile has five tabs: Recipes, Staples, Plan, Shopping and Settings. Their order
+lives in `navItems` (`app/components/bottom-nav.tsx`) alone. Settings is drawn
+as the user's initial in a 24px ring, filled when it is the tab showing. The
+active tab uses green text and a medium-weight label. A small green dot on the
+Shopping icon appears when Shopping changes anywhere other than the open
+Shopping page (another member, another device, or an add from Recipes, Staples
+or Plan), and clears when you open Shopping. Each tab remembers the last page it
+showed, and a tap on the tab showing goes back to its own page.
 
-Tab roots (Recipes, Menus, Staples, Plan, Shopping) keep the brand header.
+On a phone a tab's own page (Recipes, Menus, Staples, Plan, Shopping, Settings)
+has no brand row: its title is the top of the page, and in the iOS app the
+status bar strip takes the page's color. A demo visitor's banner keeps its own
+row above the title. A signed-in page of no tab (Support, a page not found)
+keeps the brand row without the avatar, since Settings is a tab. Signed out, the
+brand row keeps the logo and Log in or Sign up.
+
 Pushed pages (Recipe detail, edit, new and Import; Menu detail, edit and new;
-Settings and its pages; Upgrade) swap it on phones for a nav bar pinned at the
-top, under the status bar in the iOS app: a sage `‹ Parent` back button on the
-left, and a small centered title that fades in (150ms opacity, instant with
-reduced motion) once the page's big serif h1 has scrolled under the bar. The
-page declares its parent in its route `handle` (`nav`, rules in
-`app/utils/nav-back.ts`). Back undoes the last move: it pops history to the page
-that opened this one, stepping over the form that led there. That page can be
-the parent, a Recipe's Menu, a linked Recipe, or another tab (the Plan behind
-tonight's Recipe, labelled “‹ Plan”). A page the tab bar restored goes back down
-its own stack, past the other tabs. With nothing to return to (a deep link, a
-cold start) Back opens the parent in the page's place. Settings and Upgrade go
-back to whatever page opened them. Pages do not add their own “Back to…”, arrow
-or Cancel links.
+Settings' pages; Upgrade) show a nav bar pinned at the top on phones, under the
+status bar in the iOS app: a green `‹ Parent` back button on the left, and a
+small centered title that fades in (150ms opacity, instant with reduced motion)
+once the page's big serif h1 has scrolled under the bar. The page declares its
+parent in its route `handle` (`nav`, rules in `app/utils/nav-back.ts`); a tab's
+own page inside a layout that declares one (Settings) declares `nav: null`. Back
+undoes the last move: it pops history to the page that opened this one, stepping
+over the form that led there. That page can be the parent, a Recipe's Menu, a
+linked Recipe, or another tab (the Plan behind tonight's Recipe, labelled “‹
+Plan”). A page the tab bar restored goes back down its own stack, past the other
+tabs. With nothing to return to (a deep link, a cold start) Back opens the
+parent in the page's place. Settings' pages go back to Settings, or to another
+tab's page that opened one directly, and Upgrade to whatever page opened it.
+Pages do not add their own “Back to…”, arrow or Cancel links.
 
 Edit screens (Recipe edit and new, Menu edit and new) put Cancel on the left of
-the bar and Save on the right (sage, semibold, dimmed while disabled, a spinner
+the bar and Save on the right (green, semibold, dimmed while disabled, a spinner
 while saving), shown only while the form is on screen. The form has no Save bar
 of its own, and Return in its fields does not save (a Recipe's or a new Menu's
 title still does); Delete stays at the end of the form. Each pushed page has
@@ -245,11 +282,11 @@ Outside the app pushes do not slide (the Recipe and Menu cards cross-fade).
 
 On desktop, keep the same information hierarchy and give content more width; do
 not add extra product destinations just because space exists. The desktop header
-keeps its brand row and links on pushed pages. Its links and the browser's Back
-do the nav bar's job there, so on a desktop (wide, with a mouse: the `desktop:`
-variant) only an edit screen keeps the nav bar, as a second row under the
-header, for Cancel and Save. A sideways phone is as wide but has no browser
-Back, so it keeps the bar on every pushed page.
+keeps its brand row, its links and the avatar that opens Settings on every page.
+Its links and the browser's Back do the nav bar's job there, so on a desktop
+(wide, with a mouse: the `desktop:` variant) only an edit screen keeps the nav
+bar, as a second row under the header, for Cancel and Save. A sideways phone is
+as wide but has no browser Back, so it keeps the bar on every pushed page.
 
 ## Imagery
 
@@ -286,7 +323,7 @@ placeholder.
 - Desktop may keep ingredients sticky beside instructions; mobile stacks them.
 - Ingredient and instruction check-off must work across the full row.
 - Personal notes render only when they exist: a quiet tinted block in the body
-  sans, collapsed to a few lines with a Show more toggle. No copper edge and no
+  sans, collapsed to a few lines with a Show more toggle. No colored edge and no
   handwriting on the detail page.
 - Every ingredient row offers a direct Shopping action; the page never claims to
   know what the household has.
@@ -296,7 +333,7 @@ placeholder.
 ### Menus
 
 - A Menu reads as ordered sections of Recipe and note rows.
-- A named section is a Young Serif heading over a hairline rule; on phones its
+- A named section is a Newsreader heading over a hairline rule; on phones its
   rows are flat and divided, and 1× stays implicit on Recipe rows.
 - Use quiet section insets only when several sections need visual grouping.
 - Reorder and move controls need labels, keyboard access, and phone-sized
@@ -306,12 +343,13 @@ placeholder.
 ### Plan
 
 - Show an ordered list of Meals under each day, not permanent meal-type slots.
-- Use serif day headings, a copper marker for today, and flat Meal rows: no card
+- Use serif day headings, a green marker for today, and flat Meal rows: no card
   border, fill or shadow. A full-width hairline separates Meals; inside a Meal,
   Recipes are separated by a lighter hairline that starts where their titles
   start.
-- On a phone the week strip marks only the selected day (a sage tile) and today
-  (a copper outline); the other days are flat. A dot marks a day with Meals.
+- On a phone the week strip marks only the selected day (a green tile) and today
+  (a green outline on the tint); the other days are flat. A dot marks a day with
+  Meals.
 - A Meal's header line (label, time, guests, source Menu) shows only when it has
   one of them; otherwise the Meal's dots end its last row. An empty day is plain
   text.
@@ -385,12 +423,12 @@ grids, illustrations, or congratulatory copy.
 
 Start with the nearest existing surface and these defaults:
 
-- one Young Serif page title
-- DM Sans 16px body
+- one Newsreader page title
+- Schibsted Grotesk 16px body
 - flat rows with `divide-border/40`
 - a quiet inset only when grouping needs containment
-- sage actions, cedar borders, 8px inline radii
-- warm-shadow elevation only for overlays
+- green actions, hairline borders, 8px inline radii
+- shadow elevation only for overlays
 - one primary action and secondary actions hidden until useful
 
 If a new pattern needs a long explanation here, first ask whether it belongs in

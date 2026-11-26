@@ -888,8 +888,8 @@ describe('document navigation policy', () => {
 			expect(response?.status).toBe(503)
 			expect(response?.headers.get('Content-Type')).toContain('text/html')
 			expect(body).toContain("You're offline")
-			expect(body).toContain('#f6f1eb')
-			expect(body).toContain('#1a1816')
+			expect(body).toContain('#fbfbf8')
+			expect(body).toContain('#151513')
 			expect(body).not.toContain('PRIVATE')
 		},
 	)

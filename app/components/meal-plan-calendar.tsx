@@ -647,16 +647,17 @@ export function MealPlanCalendar({
 								className={cn(
 									'relative flex min-h-16 min-w-0 flex-col items-center justify-center rounded-xl border px-0.5 transition-[color,background-color,border-color,box-shadow]',
 									selected
-										? 'border-primary bg-primary text-primary-foreground ring-primary/20 ring-2'
+										? 'border-primary-fill bg-primary-fill text-primary-foreground ring-primary/20 ring-2'
 										: today
-											? 'border-accent bg-accent/10 text-foreground'
+											? 'border-primary bg-primary-tint text-foreground'
 											: // Other days are flat; only the selected day and today
 												// are marked.
 												'hover:bg-secondary/50 border-transparent',
 									!selected &&
 										!today &&
 										isPast(date, todayDate) &&
-										'text-muted-foreground/65',
+										// Faint is too light on the hover fill.
+										'text-faint hover:text-muted-foreground',
 								)}
 							>
 								<span className="text-[9px] font-semibold tracking-wide uppercase">
@@ -716,23 +717,26 @@ export function MealPlanCalendar({
 					return (
 						<section
 							key={dateStr}
+							// Text on the tint takes no faint color (meal-card.tsx).
+							data-tinted={isToday(date, todayDate) ? '' : undefined}
 							className={cn(
 								'border-border/80 grid grid-cols-[7.5rem_1fr] border-b last:border-b-0',
 								isToday(date, todayDate) &&
-									"bg-accent/8 before:bg-accent relative before:absolute before:inset-y-0 before:left-0 before:w-1 before:content-['']",
+									"bg-primary-tint before:bg-primary relative before:absolute before:inset-y-0 before:left-0 before:w-1 before:content-['']",
 							)}
 						>
 							<div
 								className={cn(
 									'border-border/80 bg-background/35 border-r px-5',
 									shownCount(dayMeals) > 0 ? 'py-4' : 'py-3',
-									isToday(date, todayDate) && 'border-accent/40 bg-accent/12',
+									isToday(date, todayDate) &&
+										'border-primary/40 bg-primary-tint',
 								)}
 							>
 								<p
 									className={cn(
 										'text-muted-foreground text-[10px] font-semibold tracking-wider uppercase',
-										isToday(date, todayDate) && 'text-copper-text',
+										isToday(date, todayDate) && 'text-primary',
 									)}
 								>
 									{isToday(date, todayDate) ? 'Today' : formatWeekdayName(date)}

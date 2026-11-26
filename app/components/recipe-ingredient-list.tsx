@@ -74,7 +74,8 @@ export function IngredientList({
 							className={cn(
 								// The checkbox sits on the content edge; the hover fill reaches past it.
 								'-mx-2 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 transition-colors select-none',
-								'hover:bg-accent/5',
+								// No fill under a checked row: its faint text needs the page.
+								!isChecked && 'hover:bg-muted/50',
 								'focus-visible:ring-primary/50 focus-visible:ring-2 focus-visible:outline-none',
 								'print:mx-0 print:gap-1.5 print:rounded-none print:px-0 print:py-0.5',
 							)}
@@ -90,8 +91,8 @@ export function IngredientList({
 								className={cn(
 									'flex size-6 shrink-0 items-center justify-center rounded border transition-colors print:hidden',
 									isChecked
-										? 'border-primary bg-primary text-primary-foreground'
-										: 'border-muted-foreground/25 bg-muted/30',
+										? 'border-primary-fill bg-primary-fill text-primary-foreground'
+										: 'border-control-edge bg-muted/30',
 								)}
 							>
 								{isChecked && <Icon name="check" className="size-4" />}
@@ -99,8 +100,7 @@ export function IngredientList({
 							<span
 								className={cn(
 									'min-w-0 flex-1 transition-colors',
-									isChecked &&
-										'text-muted-foreground/40 decoration-muted-foreground/30 line-through',
+									isChecked && 'text-faint decoration-faint/60 line-through',
 								)}
 							>
 								{(() => {

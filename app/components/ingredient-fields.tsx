@@ -675,7 +675,7 @@ function RecipeLinkPicker({
 							<button
 								type="button"
 								className={cn(
-									'hover:bg-accent w-full rounded-md px-2 py-1.5 text-left text-sm',
+									'hover:bg-muted w-full rounded-md px-2 py-1.5 text-left text-sm',
 									inSheet && 'min-h-11',
 								)}
 								onClick={() => {
@@ -799,7 +799,7 @@ function SortableHeadingRow({
 			ref={setNodeRef}
 			style={style}
 			className={cn(
-				'border-accent/30 bg-accent/5 flex flex-col gap-1 rounded-lg border-l-4 px-2 py-3 first:pt-2 last:pb-2',
+				'border-primary/30 bg-primary-tint flex flex-col gap-1 rounded-lg border-l-4 px-2 py-3 first:pt-2 last:pb-2',
 				isDragging && 'shadow-warm-lg z-10 opacity-80',
 			)}
 		>

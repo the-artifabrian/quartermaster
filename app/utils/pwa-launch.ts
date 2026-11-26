@@ -1,14 +1,31 @@
 export const launchThemes = {
 	light: {
-		canvas: '#f6f1eb',
-		foreground: '#2d2926',
-		mutedForeground: '#6f6358',
+		canvas: '#fbfbf8',
+		foreground: '#1a1915',
+		mutedForeground: '#69665e',
 	},
 	dark: {
-		canvas: '#1a1816',
-		foreground: '#e2dbd1',
-		mutedForeground: '#b5a99b',
+		canvas: '#151513',
+		foreground: '#efede6',
+		mutedForeground: '#a5a299',
 	},
+} as const
+
+/**
+ * The document's canvas on the homepage, which keeps the look it had before
+ * the app's palette changed until it is redesigned itself: what shows around
+ * its espresso page (overscroll, the browser's toolbar tint, a scrollbar's
+ * gutter). tailwind.css keeps the same two values.
+ */
+export const homepageCanvas = {
+	light: '#f6f1eb',
+	dark: '#1a1816',
+} as const
+
+/** The text color on that canvas (the focused skip link). */
+export const homepageForeground = {
+	light: '#2d2926',
+	dark: '#e2dbd1',
 } as const
 
 export type LaunchTheme = keyof typeof launchThemes

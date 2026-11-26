@@ -83,7 +83,7 @@ const DropdownMenuSubTrigger = ({
 		data-slot="dropdown-menu-sub-trigger"
 		data-inset={inset}
 		className={cn(
-			'focus:bg-accent/10 data-[state=open]:bg-accent/10 flex items-center rounded-lg px-2 py-2.5 text-sm outline-hidden select-none',
+			'focus:bg-muted data-[state=open]:bg-muted flex items-center rounded-lg px-2 py-2.5 text-sm outline-hidden select-none',
 			inset && 'pl-8',
 			className,
 		)}
@@ -142,7 +142,7 @@ const DropdownMenuCheckboxItem = ({
 	<DropdownMenuPrimitive.CheckboxItem
 		data-slot="dropdown-menu-checkbox-item"
 		className={cn(
-			'focus:bg-accent/10 focus:text-accent-foreground relative flex items-center rounded-lg py-2.5 pr-2 pl-8 text-sm outline-hidden transition-colors select-none data-disabled:pointer-events-none data-disabled:opacity-50',
+			'focus:bg-muted focus:text-foreground relative flex items-center rounded-lg py-2.5 pr-2 pl-8 text-sm outline-hidden transition-colors select-none data-disabled:pointer-events-none data-disabled:opacity-50',
 			className,
 		)}
 		checked={checked}
@@ -174,7 +174,7 @@ const DropdownMenuRadioItem = ({
 	<DropdownMenuPrimitive.RadioItem
 		data-slot="dropdown-menu-radio-item"
 		className={cn(
-			'focus:bg-accent/10 focus:text-accent-foreground relative flex items-center rounded-lg py-2.5 pr-2 pl-8 text-sm outline-hidden transition-colors select-none data-disabled:pointer-events-none data-disabled:opacity-50',
+			'focus:bg-muted focus:text-foreground relative flex items-center rounded-lg py-2.5 pr-2 pl-8 text-sm outline-hidden transition-colors select-none data-disabled:pointer-events-none data-disabled:opacity-50',
 			className,
 		)}
 		{...props}

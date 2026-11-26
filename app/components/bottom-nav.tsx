@@ -23,13 +23,19 @@ import { Icon, type IconName } from './ui/icon.tsx'
 
 type NavItem = {
 	to: string
-	icon: IconName
-	iconFilled: IconName
 	label: string
 	destination: BottomNavDestination
 	matchPaths?: string[]
-}
+} & (
+	| { icon: IconName; iconFilled: IconName }
+	/** Drawn as the user's initial in a ring: Settings. */
+	| { initial: true }
+)
 
+/**
+ * The tabs, in the order the bar shows them. The order lives here alone, so
+ * moving a tab is moving its entry.
+ */
 export const navItems: NavItem[] = [
 	{
 		to: '/recipes',
@@ -63,6 +69,13 @@ export const navItems: NavItem[] = [
 		destination: 'shop',
 		matchPaths: ['/shopping'],
 	},
+	{
+		to: '/settings/profile',
+		initial: true,
+		label: 'Settings',
+		destination: 'settings',
+		matchPaths: ['/settings'],
+	},
 ]
 
 export function isNormalLinkActivation(
@@ -76,6 +89,15 @@ export function isNormalLinkActivation(
 		!event.altKey &&
 		(!event.currentTarget.target || event.currentTarget.target === '_self')
 	)
+}
+
+/**
+ * A tab's own page: the page its tab opens, or Menus, the Recipes tab's other
+ * library. Not a page pushed on a tab, nor a page not found under one.
+ */
+export function isTabRootPath(pathname: string) {
+	const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
+	return path === '/recipes/menus' || navItems.some((item) => item.to === path)
 }
 
 function pathIsInTab(path: string | undefined, tabPath: string) {
@@ -228,7 +250,10 @@ export function BottomNav({ hidden = false }: { hidden?: boolean }) {
 				// padding above the icon than below the label so the icons sit as far
 				// below the bar's edge as the labels sit above the home indicator;
 				// --bottom-nav-inset keeps the labels just clear of it.
-				className="grid h-(--bottom-nav-h) grid-cols-4 items-center"
+				className="grid h-(--bottom-nav-h) items-center"
+				style={{
+					gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))`,
+				}}
 			>
 				{navItems.map((item) => {
 					const isActive = item.matchPaths?.some((path) =>
@@ -250,7 +275,6 @@ export function BottomNav({ hidden = false }: { hidden?: boolean }) {
 					// at once and the one being left does not. aria-current stays
 					// with the page that is showing.
 					const isSelected = pendingInput ? isPending : isActive
-					const iconName = isSelected ? item.iconFilled : item.icon
 					// Single fetch would otherwise rerun the root loader on every tab
 					// switch, so even a page from the loader cache waited on a round
 					// trip. A pending toast still revalidates it (root
@@ -376,16 +400,26 @@ export function BottomNav({ hidden = false }: { hidden?: boolean }) {
 							)}
 						>
 							<span className="relative flex">
-								<Icon name={iconName} size="lg" />
+								{'initial' in item ? (
+									<UserInitial selected={isSelected === true} />
+								) : (
+									<Icon
+										name={isSelected ? item.iconFilled : item.icon}
+										size="lg"
+									/>
+								)}
 								{item.to === '/shopping' && showShoppingDot && (
 									<span
 										data-testid="shopping-activity-dot"
-										className="bg-accent absolute -top-0.5 -right-0.5 size-2 rounded-full"
+										className="bg-primary absolute -top-0.5 -right-0.5 size-2 rounded-full"
 									/>
 								)}
 							</span>
 							<span
-								className={cn('text-xs leading-4', isSelected && 'font-medium')}
+								className={cn(
+									'text-xs leading-4 whitespace-nowrap',
+									isSelected && 'font-medium',
+								)}
 							>
 								{item.label}
 							</span>
@@ -394,5 +428,27 @@ export function BottomNav({ hidden = false }: { hidden?: boolean }) {
 				})}
 			</div>
 		</nav>
+	)
+}
+
+/**
+ * The Settings tab's icon: the user's initial in a 24px ring, the size of the
+ * other tabs' icons, filled when Settings is the tab showing. It takes the
+ * tab's color, as the other icons do.
+ */
+function UserInitial({ selected }: { selected: boolean }) {
+	const user = useOptionalUser()
+	const initial = (user?.name ?? user?.username ?? '').charAt(0).toUpperCase()
+	return (
+		<span
+			aria-hidden="true"
+			data-user-initial=""
+			className={cn(
+				'flex size-6 items-center justify-center rounded-full border-[1.5px] border-current text-[0.6875rem] leading-none font-semibold',
+				selected && 'bg-current',
+			)}
+		>
+			<span className={cn(selected && 'text-card')}>{initial}</span>
+		</span>
 	)
 }

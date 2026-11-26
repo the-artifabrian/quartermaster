@@ -719,14 +719,14 @@ function offlineFallback() {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="theme-color" content="#f6f1eb" media="(prefers-color-scheme: light)" />
-<meta name="theme-color" content="#1a1816" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#fbfbf8" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#151513" media="(prefers-color-scheme: dark)" />
 <title>Offline — Quartermaster</title>
 <style>
-  :root { color-scheme: light dark; --canvas: #f6f1eb; --text: #2d2926;
-          --muted: #6f6358; }
+  :root { color-scheme: light dark; --canvas: #fbfbf8; --text: #1a1915;
+          --muted: #69665e; }
   @media (prefers-color-scheme: dark) {
-    :root { --canvas: #1a1816; --text: #e2dbd1; --muted: #b5a99b; }
+    :root { --canvas: #151513; --text: #efede6; --muted: #a5a299; }
   }
   html { background: var(--canvas); }
   body { font-family: system-ui, sans-serif; display: flex; align-items: center;

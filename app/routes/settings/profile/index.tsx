@@ -2,7 +2,6 @@ import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { useIsDemo } from '#app/components/demo.tsx'
 import { type NavBarHandle } from '#app/components/nav-bar.tsx'
-import { settingsRootNav } from '#app/utils/nav-back.ts'
 import { useEffect, useState } from 'react'
 import { Form, useFetcher } from 'react-router'
 import { ConfirmSheet } from '#app/components/ui/confirm-sheet.tsx'
@@ -34,9 +33,10 @@ import { type Route } from './+types/index.ts'
 import { twoFAVerificationType } from './two-factor/_layout.tsx'
 import { PushLink } from '#app/components/push-link.tsx'
 
+// Settings is a tab: on a phone it has no Back, and its pages go back to it.
 export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
-	nav: settingsRootNav,
+	nav: null,
 }
 
 const signOutOfSessionsActionIntent = 'sign-out-of-sessions'
@@ -116,7 +116,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 	const isDemo = useIsDemo()
 	const avatar = (
 		<div
-			className="bg-accent/20 text-accent-foreground flex size-16 shrink-0 items-center justify-center rounded-full text-xl font-bold"
+			className="bg-primary-tint text-primary flex size-16 shrink-0 items-center justify-center rounded-full text-xl font-bold"
 			aria-hidden="true"
 		>
 			{(user.name ?? user.username).charAt(0).toUpperCase()}
@@ -164,7 +164,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 							className={cn(
 								'rounded-full px-2 py-0.5 text-xs font-medium',
 								tierInfo.isProActive
-									? 'bg-primary/10 text-primary'
+									? 'bg-primary-tint text-primary'
 									: 'bg-muted text-muted-foreground',
 							)}
 						>
@@ -225,7 +225,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 				<Form action="/logout" method="POST">
 					<button
 						type="submit"
-						className="hover:bg-accent/5 flex min-h-[44px] w-full items-center gap-3 px-4 py-3 text-left transition-colors"
+						className="hover:bg-muted/60 flex min-h-[44px] w-full items-center gap-3 px-4 py-3 text-left transition-colors"
 					>
 						<Icon
 							name="exit"
@@ -340,7 +340,7 @@ function SettingsRow({
 	)
 
 	const className =
-		'flex items-center gap-3 px-4 py-3 min-h-[44px] hover:bg-accent/5 transition-colors'
+		'flex items-center gap-3 px-4 py-3 min-h-[44px] hover:bg-muted/60 transition-colors'
 
 	if (to) {
 		return (

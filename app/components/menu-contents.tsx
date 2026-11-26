@@ -38,7 +38,7 @@ export function MenuContents({
 					<section key={section.id}>
 						{/* The unnamed section stays headingless */}
 						{section.name ? (
-							<h2 className="border-border mb-1 border-b pb-1.5 font-serif text-lg font-normal md:mb-3">
+							<h2 className="border-border mb-1 border-b pb-1.5 font-serif text-lg md:mb-3">
 								{section.name}
 							</h2>
 						) : null}

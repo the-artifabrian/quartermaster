@@ -466,6 +466,7 @@ test('the search field waits behind a magnifier from 15 rows, takes focus in the
 		user,
 		Array.from({ length: 15 }, (_, index) => ({
 			name: `${index < 3 ? 'lime' : 'pear'} ${index + 1}`,
+			checked: index === 14,
 		})),
 	)
 	await openShopping(page)
@@ -507,10 +508,18 @@ test('the search field waits behind a magnifier from 15 rows, takes focus in the
 		15,
 	)
 
-	// Wider, the field shows and there is no magnifier.
+	// Wider, the field shows and there is no magnifier. A search narrows the
+	// list, not the count.
 	await page.setViewportSize({ width: 1280, height: 800 })
 	await expect(field).toBeVisible()
 	await expect(magnifier).toBeHidden()
+	const title = page.getByRole('heading', { level: 1 })
+	await expect(title).toContainText('(1/15)')
+	await field.fill('lime')
+	await expect(page.getByRole('group', { name: /shopping item$/ })).toHaveCount(
+		3,
+	)
+	await expect(title).toContainText('(1/15)')
 })
 
 test('the docked Add an item bar opens a tall sheet with focus in the tap; it lists each add with an Undo', async ({

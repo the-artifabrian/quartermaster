@@ -210,9 +210,11 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 			? items.filter((item) => item.name.toLowerCase().includes(searchLower))
 			: items
 	// What the lists render: the visible rows plus the collapsed ones.
-	const place = (horizon: typeof NEXT_SHOP | typeof LATER) =>
+	const place = (horizon: typeof NEXT_SHOP | typeof LATER, searched = true) =>
 		placeShoppingRows(
-			filterBySearch(listedItems.filter((item) => item.horizon === horizon)),
+			(searched ? filterBySearch : (items: typeof allItems) => items)(
+				listedItems.filter((item) => item.horizon === horizon),
+			),
 			moves.state,
 			checks.savedChecked,
 		)
@@ -228,10 +230,11 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 	const showLaterContents =
 		laterExpanded || (Boolean(search) && filteredLaterItems.length > 0)
 
-	const clearable = (rows: typeof next.done) =>
-		clearableRows(visible(rows), pendingIds)
-	const clearableNext = clearable(next.done)
-	const clearableLater = clearable(later.done)
+	// Counted over every row, whatever the search shows.
+	const clearable = (horizon: typeof NEXT_SHOP | typeof LATER) =>
+		clearableRows(visible(place(horizon, false).done), pendingIds)
+	const clearableNext = clearable(NEXT_SHOP)
+	const clearableLater = clearable(LATER)
 	const checkedNextItems = clearableNext.length
 	const checkedLaterItems = clearableLater.length
 	// The phone's count follows the circles: a row counts as checked the

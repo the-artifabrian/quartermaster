@@ -577,28 +577,41 @@ html {
    scrolled to lands below the pinned block. A margin on what can take focus,
    rather than padding on the page, so focusing the block's own controls
    scrolls nothing.
-   --pinned-header-bottom is the lowest the block's bottom edge sits, and top
-   toasts open below it (root.tsx). Recipes' row rests under the title and
-   pins higher up, so its toasts clear it at rest and scrolled. */
+   --pinned-header-bottom is the lowest the block's bottom edge sits: where it
+   rests at the top of the page. Recipes' row rests under the title and pins
+   higher up. Top toasts open below it (root.tsx), so they clear the block at
+   rest and scrolled. It is set on the toaster alone, so opening the filters
+   restyles only that. */
 @media (width < 48rem) {
-	:root:has([data-plan-header]) {
-		--pinned-scroll-margin: calc(var(--safe-top) + 10.5rem);
-		--pinned-header-bottom: calc(var(--safe-top) + 9.875rem);
-	}
-	:root:has([data-recipes-tools]) {
-		--pinned-scroll-margin: calc(var(--safe-top) + 5.25rem);
-		--pinned-header-bottom: calc(var(--safe-top) + 8.0625rem);
-	}
-	:root:has([data-recipes-tools][data-filters-open]) {
-		--pinned-scroll-margin: calc(var(--safe-top) + 8.5rem);
-		--pinned-header-bottom: calc(var(--safe-top) + 11.1875rem);
-	}
-	:root:has([data-plan-header], [data-recipes-tools])
+	:root:has([data-plan-header])
 		#main-content
 		:is(a[href], button, input, select, textarea, [tabindex]):not(
-			:is([data-plan-header], [data-recipes-tools]) *
+			[data-plan-header] *
 		) {
-		scroll-margin-top: var(--pinned-scroll-margin);
+		scroll-margin-top: calc(var(--safe-top) + 10.5rem);
+	}
+	:root:has([data-recipes-tools])
+		#main-content
+		:is(a[href], button, input, select, textarea, [tabindex]):not(
+			[data-recipes-tools] *
+		) {
+		scroll-margin-top: calc(var(--safe-top) + 5.25rem);
+	}
+	:root:has([data-recipes-tools][data-filters-open])
+		#main-content
+		:is(a[href], button, input, select, textarea, [tabindex]):not(
+			[data-recipes-tools] *
+		) {
+		scroll-margin-top: calc(var(--safe-top) + 8.5rem);
+	}
+	:root:has([data-plan-header]) [data-sonner-toaster] {
+		--pinned-header-bottom: calc(var(--safe-top) + 9.875rem);
+	}
+	:root:has([data-recipes-tools]) [data-sonner-toaster] {
+		--pinned-header-bottom: calc(var(--safe-top) + 8.0625rem);
+	}
+	:root:has([data-recipes-tools][data-filters-open]) [data-sonner-toaster] {
+		--pinned-header-bottom: calc(var(--safe-top) + 11.1875rem);
 	}
 }
 

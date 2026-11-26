@@ -92,7 +92,7 @@ export function RecipeInstructionsList({
 								data-step-text=""
 								className={cn(
 									// The size's own line height: `leading-*` below would win over it.
-									'phone:text-step phone:leading-(--text-step--line-height) phone:pt-0 phone:font-serif phone:font-normal',
+									'phone:text-step phone:leading-(--text-step--line-height) phone:pt-0',
 									'pt-0.5 text-[1.0625rem] leading-[1.75] text-pretty transition-colors md:text-base md:leading-[1.75] print:pt-0 print:text-sm print:leading-[1.5]',
 									isChecked && 'text-faint decoration-faint/60 line-through',
 								)}

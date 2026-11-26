@@ -48,19 +48,15 @@ export function IngredientList({
 }) {
 	return (
 		<>
-			{/* On a phone each row is the amount, right-aligned in a column as
-			    wide as the longest one, then the name, then the cart. The
-			    amount and the name stay one run of text, so print and a
-			    selection read as before. */}
-			<ul className="phone:grid phone:grid-cols-[fit-content(50%)_minmax(0,1fr)_auto] phone:space-y-0 phone:font-serif phone:text-ingredient phone:leading-(--text-ingredient--line-height) phone:font-normal space-y-1 leading-[1.7] print:columns-2 print:space-y-0 print:gap-x-6 print:text-sm print:leading-[1.5]">
+			<ul className="phone:text-ingredient phone:leading-(--text-ingredient--line-height) space-y-1 leading-[1.7] print:columns-2 print:space-y-0 print:gap-x-6 print:text-sm print:leading-[1.5]">
 				{ingredients.map((ingredient) => {
 					if (ingredient.isHeading) {
 						return (
-							<li
-								key={ingredient.id}
-								className="phone:col-span-full phone:mt-3.5 phone:first:mt-0"
-							>
-								<p className="text-muted-foreground border-border/50 text-label phone:mb-0.5 phone:border-b-0 phone:pb-0 mt-4 mb-1.5 border-b pb-1 font-sans font-semibold first:mt-0 print:mt-2 print:mb-0.5 print:break-inside-avoid-column print:px-0 print:text-[10px] print:leading-(--text-xs--line-height) print:font-medium print:tracking-widest print:uppercase">
+							<li key={ingredient.id} className="phone:mt-3.5 phone:first:mt-0">
+								<p
+									data-ingredient-heading=""
+									className="text-muted-foreground border-border/50 text-label phone:mb-0.5 phone:border-b-0 phone:pb-0 mt-4 mb-1.5 border-b pb-1 font-sans font-semibold first:mt-0 print:mt-2 print:mb-0.5 print:break-inside-avoid-column print:px-0 print:text-[10px] print:leading-(--text-xs--line-height) print:font-medium print:tracking-widest print:uppercase"
+								>
 									{ingredient.name}
 								</p>
 							</li>
@@ -79,8 +75,6 @@ export function IngredientList({
 						useMetric && kitchen?.value != null && ingredient.unit
 							? convertToMetric(kitchen.value, ingredient.unit, ingredient.name)
 							: null
-					const hasAmount =
-						metricResult != null || kitchen != null || words.unit
 
 					return (
 						<li
@@ -92,7 +86,6 @@ export function IngredientList({
 							className={cn(
 								// The checkbox sits on the content edge; the hover fill reaches past it.
 								'-mx-2 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 transition-colors select-none',
-								'phone:col-span-full phone:grid phone:grid-cols-subgrid phone:gap-0 phone:mx-0 phone:min-h-11 phone:rounded-none phone:px-0 phone:py-0',
 								// No fill under a checked row: its faint text needs the page.
 								!isChecked && 'hover:bg-muted/50',
 								'focus-visible:ring-primary/50 focus-visible:ring-2 focus-visible:outline-none',
@@ -106,8 +99,9 @@ export function IngredientList({
 								}
 							}}
 						>
-							{/* A phone has no box: the row is the control, and a checked
-							    row strikes and fades. */}
+							{/* A phone has no box: the row is the control, its text starts
+							    on the content edge, and a checked row strikes its name and
+							    fades. */}
 							<span
 								className={cn(
 									'phone:hidden flex size-6 shrink-0 items-center justify-center rounded border transition-colors print:hidden',
@@ -119,44 +113,34 @@ export function IngredientList({
 								{isChecked && <Icon name="check" className="size-4" />}
 							</span>
 							<span
+								data-ingredient-text=""
 								className={cn(
-									'phone:contents min-w-0 flex-1 transition-colors',
+									'min-w-0 flex-1 transition-colors',
 									isChecked &&
 										'text-faint decoration-faint/60 phone:no-underline line-through',
 								)}
 							>
-								<span
-									data-ingredient-amount=""
-									className={cn(
-										'phone:self-baseline phone:text-right phone:font-semibold',
-										hasAmount && 'phone:pr-3.5',
-									)}
-								>
-									{metricResult ? (
-										<span className="phone:font-semibold phone:whitespace-nowrap font-medium">
-											{metricResult.approximate ? '~ ' : ''}
-											{formatMetricAmount(metricResult)}{' '}
-										</span>
-									) : (
-										<>
-											{kitchen !== null && (
-												<span className="phone:font-semibold phone:whitespace-nowrap font-medium">
-													{kitchen.approximate ? '≈' : ''}
-													{kitchen.display}{' '}
-												</span>
-											)}
-											{words.unit && (
-												<span className="phone:whitespace-nowrap">
-													{words.unit}{' '}
-												</span>
-											)}
-										</>
-									)}
-								</span>
+								{metricResult ? (
+									<span className="phone:font-semibold font-medium">
+										{metricResult.approximate ? '~ ' : ''}
+										{formatMetricAmount(metricResult)}{' '}
+									</span>
+								) : (
+									<>
+										{kitchen !== null && (
+											<span className="phone:font-semibold font-medium">
+												{kitchen.approximate ? '≈' : ''}
+												{kitchen.display}{' '}
+											</span>
+										)}
+										{words.unit && (
+											<span className="phone:font-semibold">{words.unit} </span>
+										)}
+									</>
+								)}
 								<span
 									data-ingredient-name=""
 									className={cn(
-										'phone:self-baseline phone:py-2.5',
 										isChecked && 'phone:decoration-faint/60 phone:line-through',
 									)}
 								>
@@ -172,12 +156,7 @@ export function IngredientList({
 										<span>{words.name}</span>
 									)}
 									{ingredient.notes && (
-										<span
-											className={cn(
-												'phone:italic',
-												!isChecked && 'text-muted-foreground',
-											)}
-										>
+										<span className={isChecked ? '' : 'text-muted-foreground'}>
 											, {ingredient.notes}
 										</span>
 									)}
@@ -227,7 +206,7 @@ function AddIngredientToShopping({
 	return (
 		<span
 			// The cart glyph ends on the content edge.
-			className="phone:col-start-3 phone:ml-0 phone:justify-self-end -mr-3.5 ml-auto flex shrink-0 items-center print:hidden"
+			className="-mr-3.5 ml-auto flex shrink-0 items-center print:hidden"
 			onClick={(e) => e.stopPropagation()}
 			onKeyDown={(e) => e.stopPropagation()}
 		>

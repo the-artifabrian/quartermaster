@@ -839,7 +839,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					)}
 				</div>
 				{recipe.description && (
-					<p className="text-muted-foreground phone:mt-2 phone:font-serif phone:text-xl phone:leading-[1.35] phone:font-normal phone:italic mt-5 text-base leading-relaxed text-pretty">
+					<p className="text-muted-foreground phone:mt-2 mt-5 text-base leading-relaxed text-pretty">
 						{recipe.description}
 					</p>
 				)}

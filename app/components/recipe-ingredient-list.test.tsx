@@ -68,7 +68,7 @@ test('the anonymous share page offers no Shopping action', () => {
 	expect(screen.getByRole('checkbox', { name: 'rhubarb' })).toBeVisible()
 })
 
-test('splitting the amount from the name keeps each row’s text, its spoken name, and a place in the amount column', () => {
+test('each row reads as one run of text, with the ingredient as its spoken name', () => {
 	const Stub = createRoutesStub([
 		{
 			path: '/',
@@ -104,7 +104,7 @@ test('splitting the amount from the name keeps each row’s text, its spoken nam
 	render(<Stub />)
 
 	const rows = screen.getAllByRole('checkbox')
-	// What a print or a text selection reads: one run, as before the split.
+	// What a print or a text selection reads: one run of text.
 	expect(rows.map((row) => row.textContent)).toEqual([
 		'1000 g rhubarb',
 		'400 g sugar, optional',
@@ -117,12 +117,4 @@ test('splitting the amount from the name keeps each row’s text, its spoken nam
 		'salt',
 		'egg',
 	])
-	// A row with no amount keeps an empty cell, so its name lines up.
-	for (const row of rows) {
-		expect(row.querySelectorAll('[data-ingredient-amount]')).toHaveLength(1)
-		expect(row.querySelectorAll('[data-ingredient-name]')).toHaveLength(1)
-	}
-	expect(rows[2]!.querySelector('[data-ingredient-amount]')!.textContent).toBe(
-		'',
-	)
 })

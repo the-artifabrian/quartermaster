@@ -1095,7 +1095,7 @@ test.describe('on a phone', () => {
 	// glyphs in.
 	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
-	test('a Recipe page starts its buttons, headings, amounts and steps on the content edge, and ends its glyphs on the other', async ({
+	test('a Recipe page starts its buttons, headings, ingredients and steps on the content edge, and ends its glyphs on the other', async ({
 		page,
 		login,
 	}) => {
@@ -1140,11 +1140,11 @@ test.describe('on a phone', () => {
 			left,
 		)
 
-		// No check box: the amount column and the step numbers start on the
-		// edge.
+		// No check box: the ingredient's text and the step numbers start on
+		// the edge.
 		const ingredient = page.getByRole('checkbox', { name: 'chicken thighs' })
 		expectNear(
-			(await box(ingredient.locator('[data-ingredient-amount]'))).left,
+			(await box(ingredient.locator('[data-ingredient-text]'))).left,
 			left,
 		)
 		const step = page.getByRole('checkbox').filter({ hasText: 'Marinate' })

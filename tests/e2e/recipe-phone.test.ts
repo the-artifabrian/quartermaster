@@ -600,27 +600,40 @@ test.describe('at 320px', () => {
 		expect(more.x + more.width).toBeLessThanOrEqual(320)
 	})
 
-	test('the longest amount fits its column, and Add to Plan and Edit fit side by side', async ({
+	test('a long ingredient wraps under its own start without a sideways scroll, and Add to Plan and Edit fit side by side', async ({
 		page,
 		login,
 	}) => {
 		const user = await login()
 		const recipe = await createSoup(user)
+		await prisma.ingredient.updateMany({
+			where: { recipeId: recipe.id, name: 'tomatoes' },
+			data: { notes: 'crushed by hand, with their juice, seeds and all' },
+		})
 		await page.goto(`/recipes/${recipe.id}`)
-		const amount = page
-			.locator('[data-ingredient-amount]')
-			.filter({ hasText: '~ 14.25 fl oz' })
-		await expect(amount).toBeVisible()
-		// On one line, inside its cell, clear of the name.
-		const cell = await box(amount)
-		expect(cell.height).toBeLessThan(30)
-		expect(
-			await amount.evaluate((el) => el.scrollWidth <= el.clientWidth),
-		).toBe(true)
-		const name = await box(
-			page.locator('[data-ingredient-name]').filter({ hasText: 'tomatoes' }),
+		const text = page
+			.getByRole('checkbox', { name: 'tomatoes', exact: true })
+			.locator('[data-ingredient-text]')
+		await expect(text).toHaveText(
+			'~ 14.25 fl oz tomatoes, crushed by hand, with their juice, seeds and all',
 		)
-		expect(cell.x + cell.width).toBeLessThanOrEqual(name.x)
+		// Each line starts where the first does, on the content edge.
+		const lineStarts = await text.evaluate((span) => {
+			const range = document.createRange()
+			range.selectNodeContents(span)
+			const starts = new Map<number, number>()
+			for (const rect of range.getClientRects()) {
+				if (!rect.width) continue
+				const top = Math.round(rect.top)
+				starts.set(top, Math.min(starts.get(top) ?? Infinity, rect.left))
+			}
+			return [...starts.values()].map(Math.round)
+		})
+		expect(lineStarts.length).toBeGreaterThan(1)
+		expect(new Set(lineStarts)).toEqual(new Set([16]))
+		expect(await text.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
+			true,
+		)
 
 		const plan = page.getByRole('button', { name: 'Add to Plan' })
 		const edit = page.getByRole('link', { name: 'Edit Recipe' })
@@ -790,84 +803,52 @@ test.describe('between 640 and 767px', () => {
 	})
 })
 
-test('amounts share one right-aligned column and names one edge, a row with no amount, a heading and a sub-Recipe included', async ({
+/** Where each ingredient row's text and each heading inside the list start. */
+function rowStarts(scope: Locator) {
+	return scope
+		.locator('[data-ingredient-text], [data-ingredient-heading]')
+		.evaluateAll((cells) =>
+			cells.map((cell) => Math.round(cell.getBoundingClientRect().left)),
+		)
+}
+
+test('every ingredient row starts its text on the content edge and ends its cart on the other, a row with no amount, a heading and a sub-Recipe included', async ({
 	page,
 	login,
 }) => {
 	const user = await login()
 	const recipe = await createSoup(user)
 	await page.goto(`/recipes/${recipe.id}`)
-	const amounts = page.locator('[data-ingredient-amount]')
-	const names = page.locator('[data-ingredient-name]')
-	await expect(names).toHaveCount(6)
-	const amountRights = await amounts.evaluateAll((cells) =>
-		cells
-			.filter((cell) => cell.textContent?.trim())
-			.map((cell) => Math.round(cell.getBoundingClientRect().right)),
-	)
-	expect(new Set(amountRights).size).toBe(1)
-	const nameLefts = await names.evaluateAll((cells) =>
-		cells.map((cell) => Math.round(cell.getBoundingClientRect().left)),
-	)
-	expect(new Set(nameLefts).size).toBe(1)
-	expect(nameLefts[0]).toBeGreaterThanOrEqual(amountRights[0]!)
-	// The heading starts on the content edge, not in the name column.
-	const heading = await box(page.getByText('To serve', { exact: true }))
-	expect(heading.x).toBeLessThan(amountRights[0]! - 40)
+	await expect(page.locator('[data-ingredient-text]')).toHaveCount(6)
+	const { x: edge } = await box(page.getByRole('heading', { level: 1 }))
+	const starts = await rowStarts(page.locator('#ingredients-list'))
+	// Six rows (one with no amount, one a sub-Recipe) and two headings.
+	expect(starts).toHaveLength(8)
+	expect(new Set(starts)).toEqual(new Set([Math.round(edge)]))
 	await expect(page.getByText('To serve', { exact: true })).toHaveCSS(
 		'text-transform',
 		'none',
 	)
-
-	// Metric rewrites the amounts; the names keep one edge.
-	await page.getByRole('button', { name: 'Metric' }).tap()
-	await expect(page.getByRole('button', { name: 'Metric' })).toHaveAttribute(
-		'aria-pressed',
-		'true',
-	)
-	const metricLefts = await names.evaluateAll((cells) =>
-		cells.map((cell) => Math.round(cell.getBoundingClientRect().left)),
-	)
-	expect(new Set(metricLefts).size).toBe(1)
-})
-
-test('a scale that makes the longest amount wider widens the column for every row', async ({
-	page,
-	login,
-}) => {
-	const user = await login()
-	const recipe = await prisma.recipe.create({
-		data: {
-			title: 'Bread',
-			userId: user.id,
-			householdId: user.householdId,
-			ingredients: {
-				create: [
-					{ name: 'flour', amount: '1', unit: 'cup', order: 0 },
-					{ name: 'salt', amount: '1', unit: 'tsp', order: 1 },
-					{ name: 'water', notes: 'warm', order: 2 },
-				],
-			},
-		},
-		select: { id: true },
-	})
-	const nameLefts = () =>
-		page
-			.locator('[data-ingredient-name]')
-			.evaluateAll((cells) =>
-				cells.map((cell) => Math.round(cell.getBoundingClientRect().left)),
-			)
-	await page.goto(`/recipes/${recipe.id}`)
-	await expect(page.locator('[data-ingredient-name]')).toHaveCount(3)
-	const before = await nameLefts()
-	expect(new Set(before).size).toBe(1)
-	await page.goto(`/recipes/${recipe.id}?scale=12`)
+	// The amount leads the line at weight 600.
 	await expect(
-		page.locator('[data-ingredient-amount]').filter({ hasText: '12 cups' }),
-	).toBeVisible()
-	const after = await nameLefts()
-	expect(new Set(after).size).toBe(1)
-	expect(after[0]).toBeGreaterThan(before[0]!)
+		page
+			.getByRole('checkbox', { name: 'olive oil', exact: true })
+			.locator('[data-ingredient-text] > span')
+			.first(),
+	).toHaveCSS('font-weight', '600')
+	// The carts end on the other edge.
+	const main = await box(page.getByRole('main'))
+	const cartEnds = await page
+		.locator('#ingredients-list')
+		.getByRole('button', { name: 'Add to Shopping' })
+		.locator('svg')
+		.evaluateAll((icons) =>
+			icons.map((icon) => Math.round(icon.getBoundingClientRect().right)),
+		)
+	expect(cartEnds.length).toBeGreaterThan(1)
+	expect(new Set(cartEnds)).toEqual(
+		new Set([Math.round(main.x + main.width - edge)]),
+	)
 })
 
 test('an ingredient row is one checkbox named by the ingredient; a tap or Space checks it and strikes its name', async ({
@@ -880,10 +861,10 @@ test('an ingredient row is one checkbox named by the ingredient; a tap or Space 
 	const onion = page.getByRole('checkbox', { name: 'onion', exact: true })
 	await hydrated(onion)
 	await expect(onion).toHaveText('1 onion, chopped')
-	// No check box is drawn; the amount starts the row.
-	const amount = await box(onion.locator('[data-ingredient-amount]'))
-	expect(amount.x).toBeLessThan(40)
-	await onion.locator('[data-ingredient-amount]').tap()
+	// No check box is drawn; the text starts the row, on the content edge.
+	const text = await box(onion.locator('[data-ingredient-text]'))
+	expect(Math.round(text.x)).toBe(16)
+	await onion.locator('[data-ingredient-text]').tap()
 	await expect(onion).toBeChecked()
 	await expect(onion.locator('[data-ingredient-name]')).toHaveCSS(
 		'text-decoration-line',
@@ -899,20 +880,16 @@ test('an ingredient row is one checkbox named by the ingredient; a tap or Space 
 	await expect(onion).not.toBeChecked()
 })
 
-test('the Ingredients sheet and a share page set ingredients in the same columns', async ({
+test('the Ingredients sheet and a share page start every row and heading on one edge', async ({
 	page,
 	login,
 }) => {
 	const user = await login()
 	const recipe = await createSoup(user)
-	const columnsAligned = async (scope: Locator) => {
-		const lefts = await scope
-			.locator('[data-ingredient-name]')
-			.evaluateAll((cells) =>
-				cells.map((cell) => Math.round(cell.getBoundingClientRect().left)),
-			)
-		expect(lefts.length).toBeGreaterThan(1)
-		expect(new Set(lefts).size).toBe(1)
+	const oneEdge = async (scope: Locator) => {
+		const starts = await rowStarts(scope)
+		expect(starts).toHaveLength(8)
+		expect(new Set(starts).size).toBe(1)
 	}
 
 	await page.goto(`/recipes/${recipe.id}`)
@@ -925,10 +902,46 @@ test('the Ingredients sheet and a share page set ingredients in the same columns
 	await open.tap()
 	const sheet = page.getByRole('dialog', { name: 'Ingredients' })
 	await expect(sheet).toBeVisible()
-	await columnsAligned(sheet)
+	await oneEdge(sheet)
 
 	await page.goto(`/share/${recipe.id}`)
-	await columnsAligned(page.getByRole('main'))
+	await oneEdge(page.getByRole('main'))
+})
+
+test('ingredients, steps and the description read in the sans, upright; the title, section headings and step numerals in the serif', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createSoup(user)
+	await page.goto(`/recipes/${recipe.id}`)
+	const face = (locator: Locator) =>
+		locator.evaluate((el) => {
+			const style = getComputedStyle(el)
+			return `${style.fontFamily.split(',')[0]!.replace(/['"]/g, '')} ${style.fontStyle}`
+		})
+	const sans = 'Schibsted Grotesk normal'
+	const serif = 'Newsreader normal'
+	const onion = page.getByRole('checkbox', { name: 'onion', exact: true })
+	expect(await face(onion.locator('[data-ingredient-text]'))).toBe(sans)
+	// The note, after its comma, in muted roman.
+	expect(
+		await face(onion.locator('[data-ingredient-name] > span').last()),
+	).toBe(sans)
+	expect(await face(page.locator('[data-step-text]').first())).toBe(sans)
+	expect(await face(page.getByText('A quick pantry soup.'))).toBe(sans)
+	expect(await face(page.getByRole('heading', { level: 1 }))).toBe(serif)
+	expect(
+		await face(page.getByRole('heading', { name: 'Ingredients' }).first()),
+	).toBe(serif)
+	expect(await face(page.getByRole('heading', { name: 'Instructions' }))).toBe(
+		serif,
+	)
+	expect(await face(page.locator('[data-step-number]').first())).toBe(serif)
+	await expect(page.locator('[data-ingredient-text]').first()).toHaveCSS(
+		'font-size',
+		'17px',
+	)
 })
 
 test('step numerals are large and green, two digits clear the text, and a finished step turns its numeral into a check', async ({
@@ -953,7 +966,7 @@ test('step numerals are large and green, two digits clear the text, and a finish
 		return range.getBoundingClientRect().right
 	})
 	expect(number).toBeLessThan(text.x)
-	await expect(tenth.locator('[data-step-text]')).toHaveCSS('font-size', '20px')
+	await expect(tenth.locator('[data-step-text]')).toHaveCSS('font-size', '17px')
 
 	const first = steps.first()
 	await hydrated(first)

@@ -277,16 +277,17 @@
 	   lists. */
 	--text-list-name: 1.34375rem;
 	--text-list-name--line-height: 1.2;
-	/* A Recipe's page on a phone: its title, its Ingredients and Instructions
-	   headings, an ingredient row, a step, and the step's numeral. */
+	/* A Recipe's page on a phone: in the serif its title, its Ingredients and
+	   Instructions headings and a step's numeral; in the sans an ingredient
+	   row and a step's text. */
 	--text-recipe-title: 2.75rem;
 	--text-recipe-title--line-height: 1.02;
 	--text-recipe-section: 1.8125rem;
 	--text-recipe-section--line-height: 1.1;
-	--text-ingredient: 1.21875rem;
-	--text-ingredient--line-height: 1.25;
-	--text-step: 1.25rem;
-	--text-step--line-height: 1.45;
+	--text-ingredient: 1.0625rem;
+	--text-ingredient--line-height: 1.45;
+	--text-step: 1.0625rem;
+	--text-step--line-height: 1.6;
 	--text-step-number: 2rem;
 	--text-step-number--line-height: 1;
 

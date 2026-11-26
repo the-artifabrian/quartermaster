@@ -23,13 +23,15 @@ see [GLOSSARY.md](../GLOSSARY.md).
 
 ## Type
 
-- **Newsreader** for anything you read or cook from: page and tab titles, Recipe
-  and item names, section and day headings. Titles and names are weight 500,
-  which `font-serif` sets on its own (`app/styles/tailwind.css`), so a serif
-  title takes no weight class. Running text is 400 and amounts 600. The files
-  carry weights 400 to 600 only, so never ask the serif for less or more. The
-  roman has an optical-size axis the browser sets from the font size; the italic
-  has none. The serif sets lining figures, and `tabular-nums` adds to them.
+- **Newsreader** for titles and names: page and tab titles, Recipe and item
+  names, section and day headings, a step's numeral. Text you read through, a
+  Recipe's description, ingredients and steps included, is in the sans. Titles
+  and names are weight 500, which `font-serif` sets on its own
+  (`app/styles/tailwind.css`), so a serif title takes no weight class. Running
+  text is 400 and amounts 600. The files carry weights 400 to 600 only, so never
+  ask the serif for less or more. The roman has an optical-size axis the browser
+  sets from the font size; the italic has none. The serif sets lining figures,
+  and `tabular-nums` adds to them.
 - **Schibsted Grotesk** for controls, labels, metadata, navigation and secondary
   text, weights 400 to 700. It has no italic file, so the app does not set the
   sans in italic.
@@ -49,22 +51,22 @@ Browsers without it wrap as usual.
 
 Useful sizes:
 
-| Use                                                         | Size                                                               |
-| ----------------------------------------------------------- | ------------------------------------------------------------------ |
-| Tab title (`TabTitle`)                                      | 40px Newsreader, 1.05 lines                                        |
-| Recipe title on a phone (`text-recipe-title`)               | 44px Newsreader, 1.02 lines; 32px wider                            |
-| Plan's day heading on a phone                               | 31px Newsreader                                                    |
-| Recipe's section heading on a phone (`text-recipe-section`) | 29px Newsreader; 18px wider                                        |
-| Other page title                                            | 24px Newsreader                                                    |
-| Plan dish on a phone (`text-dish`)                          | 22px Newsreader, 26px under a Dinner's photo                       |
-| Recipe or Menu row on a phone                               | 21.5px Newsreader (`text-list-name`)                               |
-| A step on a phone (`text-step`)                             | 20px Newsreader, 1.45 lines; its numeral 32px (`text-step-number`) |
-| An ingredient on a phone (`text-ingredient`)                | 19.5px Newsreader, 1.25 lines                                      |
-| Body, and ingredients and steps wider                       | 16px Schibsted Grotesk                                             |
-| UI label                                                    | 14px Schibsted Grotesk                                             |
-| Small label (`text-label`)                                  | 13.5px Schibsted Grotesk, weight 600                               |
-| Caption                                                     | 13px Schibsted Grotesk                                             |
-| Tiny navigation label                                       | 12px Schibsted Grotesk                                             |
+| Use                                                         | Size                                                                                |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Tab title (`TabTitle`)                                      | 40px Newsreader, 1.05 lines                                                         |
+| Recipe title on a phone (`text-recipe-title`)               | 44px Newsreader, 1.02 lines; 32px wider                                             |
+| Plan's day heading on a phone                               | 31px Newsreader                                                                     |
+| Recipe's section heading on a phone (`text-recipe-section`) | 29px Newsreader; 18px wider                                                         |
+| Other page title                                            | 24px Newsreader                                                                     |
+| Plan dish on a phone (`text-dish`)                          | 22px Newsreader, 26px under a Dinner's photo                                        |
+| Recipe or Menu row on a phone                               | 21.5px Newsreader (`text-list-name`)                                                |
+| A step on a phone (`text-step`)                             | 17px Schibsted Grotesk, 1.6 lines; its numeral 32px Newsreader (`text-step-number`) |
+| An ingredient on a phone (`text-ingredient`)                | 17px Schibsted Grotesk, 1.45 lines                                                  |
+| Body, and ingredients and steps wider                       | 16px Schibsted Grotesk                                                              |
+| UI label                                                    | 14px Schibsted Grotesk                                                              |
+| Small label (`text-label`)                                  | 13.5px Schibsted Grotesk, weight 600                                                |
+| Caption                                                     | 13px Schibsted Grotesk                                                              |
+| Tiny navigation label                                       | 12px Schibsted Grotesk                                                              |
 
 The Plan dish sizes (`text-dish`, `text-dish-photo`), the list row size
 (`text-list-name`), the Recipe page's sizes (`text-recipe-title`,
@@ -159,9 +161,9 @@ Common maximum widths:
 - Marketing content: 960px (the homepage uses the full 1400px `container`)
 
 Rows line up on the page's edges. What leads a row (a checkbox, a cooked circle,
-a step number, a small label, the first icon of a row of icons, a Recipe's
-amount column on a phone) starts on the content edge, and the dots, trash and
-cart glyphs that end a row end on it. A 44px tap area reaches into the page
+a step number, a small label, the first icon of a row of icons, the text of a
+Recipe's ingredient on a phone) starts on the content edge, and the dots, trash
+and cart glyphs that end a row end on it. A 44px tap area reaches into the page
 gutter with a negative margin rather than pushing its glyph in. Inside a row,
 titles share one edge past the leading glyph, and a heading's chevron trails the
 heading. A page title has no rule under it.
@@ -416,25 +418,24 @@ On a phone the Recipes and Menus lists share a title and a row shape:
 ### Recipe detail
 
 - Put the title and optional hero first, then metadata, ingredients, and steps.
-- On a phone the page is the photo, the title, the description in italic
-  Newsreader, then the facts: Active, Total and what it makes (at the current
-  scale), each a small label over its value, only those the Recipe has, with the
-  source site under them. Add to Plan is a full-width green button with a quiet
-  Edit beside it; Favorite, Share and the dots are in the nav bar, and Copy
-  Recipe is the dots' first item after Reset cooking checks. Wider screens keep
-  the title and facts beside the photo and the row of icon actions.
-- On a phone an ingredient row is the amount, right-aligned in a column as wide
-  as the longest amount at the current scale and units, then the name and any
-  note in muted italic, then the cart on the content edge, in Newsreader with
-  amounts at weight 600. A heading, a row with no amount and a sub-Recipe line
-  up in the same columns. There is no check box: the row is the checkbox, and a
-  checked row strikes its name and fades its text. The amount and the name stay
-  one run of text, so print, Copy Recipe and a screen reader read the row as
-  before. The Ingredients sheet and the shared Recipe page draw the same rows.
-- On a phone a step is a green numeral in its own column and the text in
-  Newsreader; a finished step fades and its numeral becomes a green check. Times
-  and temperatures are weight 600 over a green underline, in ink on a phone and
-  green wider.
+- On a phone the page is the photo, the title, the description in muted sans,
+  then the facts: Active, Total and what it makes (at the current scale), each a
+  small label over its value, only those the Recipe has, with the source site
+  under them. Add to Plan is a full-width green button with a quiet Edit beside
+  it; Favorite, Share and the dots are in the nav bar, and Copy Recipe is the
+  dots' first item after Reset cooking checks. Wider screens keep the title and
+  facts beside the photo and the row of icon actions.
+- On a phone an ingredient row is one line of text from the content edge: the
+  amount and unit at weight 600, the name, then any note in muted roman after
+  its comma, with the cart on the other edge. A long row wraps under its own
+  start. A row with no amount starts with its name, and headings and sub-Recipes
+  start on the same edge. There is no check box: the row is the checkbox, and a
+  checked row strikes its name and note and fades its text. The Ingredients
+  sheet and the shared Recipe page draw the same rows.
+- On a phone a step is a green Newsreader numeral in its own column and the text
+  in the sans; a finished step fades and its numeral becomes a green check.
+  Times and temperatures are weight 600 over a green underline, in ink on a
+  phone and green wider.
 - Print keeps its own layout. A printed page is about as wide as a phone, so
   `max-md:` reaches print too; the Recipe page's phone layout goes through
   `phone:` (a screen below `md`), which print never matches.

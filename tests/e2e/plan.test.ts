@@ -1173,13 +1173,23 @@ test.describe('in the iOS app on a phone', () => {
 				width: box.width,
 				height: box.height,
 				// At the right end of the title's row, past the title.
-				rightGap: await h1.evaluate((title, plusRight) => {
-					const row = title.parentElement!
-					const padding = Number.parseFloat(getComputedStyle(row).paddingRight)
-					return Math.round(
-						row.getBoundingClientRect().right - padding - plusRight,
-					)
-				}, box.x + box.width),
+				// The row is the title's closest ancestor that holds the + too
+				// (Recipes' title sits in a nav of its two libraries).
+				rightGap: await h1.evaluate(
+					(title, plusElement) => {
+						let row = title.parentElement!
+						while (!row.contains(plusElement!)) row = row.parentElement!
+						const padding = Number.parseFloat(
+							getComputedStyle(row).paddingRight,
+						)
+						return Math.round(
+							row.getBoundingClientRect().right -
+								padding -
+								plusElement!.getBoundingClientRect().right,
+						)
+					},
+					await plus.elementHandle(),
+				),
 				afterTitle: box.x > titleBox.x + titleBox.width,
 				centerOffset: Math.round(
 					Math.abs(box.y + box.height / 2 - (titleBox.y + titleBox.height / 2)),

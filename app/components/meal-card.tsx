@@ -1145,10 +1145,11 @@ export function MealCard({
 								className={cn(
 									row.kind === 'heading'
 										? index > 0 && 'mt-3'
-										: !day &&
-												index > 0 &&
+										: index > 0 &&
 												rows[index - 1]!.kind !== 'heading' &&
-												'mt-2 pt-2',
+												// On a phone's day a little air between dishes keeps
+												// each scale field's tap area clear of the next one's.
+												(day ? 'mt-2' : 'mt-2 pt-2'),
 									// Inset from the cooked toggle, so it reads as inside the
 									// Meal next to the full-width line between Meals.
 									insetLine &&

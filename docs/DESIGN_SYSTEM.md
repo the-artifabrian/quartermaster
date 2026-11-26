@@ -68,8 +68,8 @@ size tokens in `app/styles/tailwind.css`, each set once.
 
 A small label (a Meal's label, the weekday in Plan's strip and over its day, the
 groups of a picker) is sentence case at weight 600 with no tracking:
-`text-label font-semibold`. Older screens still set theirs uppercase and
-letter-spaced (`sectionLabelClass`).
+`text-label font-semibold`. Other screens set theirs uppercase and letter-spaced
+(`sectionLabelClass`).
 
 Every tab's own page (Recipes, Menus, Staples, Plan, Shopping, Settings) opens
 with its title in `TabTitle`, beside the controls of its row.
@@ -391,12 +391,12 @@ On a phone Plan shows one day at a time:
 - Each Meal sits under a full-width hairline. Its label line (label, time,
   guests, source Menu, in the small label) ends with Add Recipe (a +) and the
   dots; a Meal with none of those still has the line, for the two buttons. One
-  row per dish follows: the name in Newsreader at 22px, then the trash when the
-  Meal has more than one Recipe or has notes, the scale field, and the cooked
-  circle on the right edge. A Dinner whose first Recipe has a photo shows it
-  above its dishes and sets their names at 26px. Typed Meals are italic at
-  weight 400. A cooked dish strikes through and fades its text to faint, on the
-  page, never on a fill.
+  row per dish follows, 8px apart: the name in Newsreader at 22px, then the
+  trash when the Meal has more than one Recipe or has notes, the scale field,
+  and the cooked circle on the right edge. A Dinner whose first Recipe has a
+  photo shows it above its dishes and sets their names at 26px. Typed Meals are
+  italic at weight 400. A cooked dish strikes through and fades its text to
+  faint, on the page, never on a fill.
 - "+ Add Meal" in green ends the day and opens the same Add Meal sheet as the
   title's +. An empty day reads "Nothing planned" in the serif over the sans
   line pointing at the +.

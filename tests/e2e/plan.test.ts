@@ -1373,21 +1373,10 @@ test.describe('in the iOS app on a phone', () => {
 			)
 		expect(rowHeight).toBeLessThanOrEqual(50)
 
-		// Just under the drawn field is still the field's. Probed rather than
-		// tapped: the next dish's area starts 8px lower, and Chromium's touch
-		// adjustment moves a tap that close to the line onto it.
+		// A tap just under the drawn field still focuses it.
 		const field = scales.nth(0)
 		const box = (await field.boundingBox())!
-		expect(
-			await field.evaluate(
-				(input, [x, y]) => {
-					const hit = document.elementFromPoint(x!, y!)
-					return hit instanceof HTMLLabelElement && hit.control === input
-				},
-				[box.x + box.width / 2, box.y + box.height + 6],
-			),
-		).toBe(true)
-		await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2)
+		await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height + 6)
 		await expect(field).toBeFocused()
 		await field.blur()
 		// A tap just above the drawn link text, inside its area, opens the Recipe.
@@ -1471,6 +1460,57 @@ test.describe('in the iOS app on a phone', () => {
 		await expect(field).toBeFocused()
 		await page.keyboard.press('Backspace')
 		await expect(field).toHaveValue('12.')
+	})
+
+	test('the pinned title row and strip sit under the status bar inset while the day scrolls', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipes = await Promise.all(
+			['Porridge', 'Miso Soup', 'Apple', 'Pasta alla Norma', 'Tea'].map(
+				(title) =>
+					prisma.recipe.create({
+						data: { title, userId: user.id, householdId: user.householdId },
+					}),
+			),
+		)
+		const weekStart = addDaysUTC(getWeekStart(browserToday()), -7)
+		await prisma.mealPlan.create({
+			data: {
+				householdId: user.householdId,
+				weekStart,
+				meals: {
+					create: recipes.map((recipe, order) => ({
+						date: weekStart,
+						order,
+						label: 'dinner',
+						recipeItems: {
+							create: {
+								recipeId: recipe.id,
+								recipeTitle: recipe.title,
+								order: 0,
+							},
+						},
+					})),
+				},
+			},
+		})
+		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+		const header = page.locator('[data-plan-header]')
+		await hydrated(header)
+		// The app sets the inset on <html> before the first paint.
+		await page.evaluate(() =>
+			document.documentElement.style.setProperty('--qm-shell-safe-top', '47px'),
+		)
+		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+		await expect
+			.poll(() => page.evaluate(() => window.scrollY))
+			.toBeGreaterThan(50)
+		expect((await box(header)).top).toBe(47)
+		expect((await box(page.locator('[data-status-bar-backdrop]'))).bottom).toBe(
+			47,
+		)
 	})
 })
 
@@ -1733,18 +1773,18 @@ test.describe('on a phone', () => {
 			dinner.getByRole('link', { name: 'Roast Chicken' }),
 		)
 		expect(roastBox.top).toBeGreaterThanOrEqual(photoBox.bottom)
+		// Compared, not named: the sizes are tokens in tailwind.css.
 		const size = (locator: Locator) =>
-			locator.evaluate(
-				(element) => getComputedStyle(element.closest('h4')!).fontSize,
+			locator.evaluate((element) =>
+				parseFloat(getComputedStyle(element.closest('h4')!).fontSize),
 			)
-		expect(
-			await size(dinner.getByRole('link', { name: 'Roast Chicken' })),
-		).toBe('26px')
-		expect(await size(dinner.getByRole('link', { name: 'Green Salad' }))).toBe(
-			'26px',
+		const plain = await size(lunch.getByRole('link', { name: 'Shakshuka' }))
+		const withPhoto = await size(
+			dinner.getByRole('link', { name: 'Roast Chicken' }),
 		)
-		expect(await size(lunch.getByRole('link', { name: 'Shakshuka' }))).toBe(
-			'22px',
+		expect(withPhoto).toBeGreaterThan(plain)
+		expect(await size(dinner.getByRole('link', { name: 'Green Salad' }))).toBe(
+			withPhoto,
 		)
 		// Only a Dinner shows one.
 		await expect(lunch.locator('img')).toHaveCount(0)
@@ -1765,7 +1805,7 @@ test.describe('on a phone', () => {
 		).toBeVisible()
 		await expect(dinner.locator('img')).toHaveCount(0)
 		expect(await size(dinner.getByRole('link', { name: 'Green Salad' }))).toBe(
-			'22px',
+			plain,
 		)
 		// The desktop agenda shows no photos.
 		await expect(page.getByTestId('desktop-plan').locator('img')).toHaveCount(0)

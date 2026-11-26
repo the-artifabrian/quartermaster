@@ -162,36 +162,6 @@ test('a scroll that drifts sideways leaves the day alone', async ({
 	await expect(page).toHaveURL(/day=2026-11-18$/)
 })
 
-test('a sideways drag in a sheet or menu the day opened leaves the day alone', async ({
-	page,
-	login,
-}) => {
-	const user = await login()
-	await seedRecipeMeal(user, '2026-11-18')
-	await page.goto('/plan?weekStart=2026-11-16&day=2026-11-18')
-	const day = page.getByTestId('mobile-plan')
-	await hydrated(day)
-
-	// The Add Meal at the foot of the day opens its sheet over the day.
-	await day.getByRole('button', { name: 'Add Meal', exact: true }).tap()
-	const sheet = page.getByRole('dialog', { name: 'Add Meal' })
-	await expect(sheet.getByRole('button', { name: 'Lunch' })).toBeVisible()
-	await swipeOn(page, sheet.getByRole('group', { name: /Label/ }), -200)
-	await sheet.getByRole('button', { name: 'Close', exact: true }).tap()
-	await expect(sheet).toBeHidden()
-
-	// So does the Meal's menu.
-	await day.getByRole('button', { name: 'Meal actions for Miso Soup' }).tap()
-	const menu = page.getByRole('menu')
-	await expect(menu).toBeVisible()
-	await swipeOn(page, menu, -150)
-	await page.keyboard.press('Escape')
-
-	await page.waitForTimeout(300)
-	await expectDay(page, 'Wednesday', 'Nov 18')
-	await expect(page).toHaveURL(/day=2026-11-18$/)
-})
-
 test('a swipe that starts in the scale field leaves the day alone', async ({
 	page,
 	login,

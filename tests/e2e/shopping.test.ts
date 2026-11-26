@@ -13,6 +13,7 @@ import {
 	openShopping,
 	tapUntil,
 	test,
+	waitForHydration,
 } from '#tests/playwright-utils.ts'
 
 async function expectLocalPendingFeedback({
@@ -465,7 +466,7 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 	]) {
 		await page.setViewportSize(viewport)
 		if (viewport.width < 768) {
-			await page.getByRole('button', { name: 'Add item' }).click()
+			await page.getByRole('button', { name: 'Add an item' }).click()
 		}
 		for (const control of [
 			page
@@ -546,11 +547,21 @@ test('Shopping list flow: pick from Plan → verify items → add manual → che
 		const label = (await checkOff.getAttribute('aria-label'))!
 		clearedNames.push(label.replace(/^Check off /, ''))
 		await checkOff.click()
-		await expect(page.getByText(/\(1\/\d+\)/)).toBeVisible()
+		// On a phone the row moves under Checked, whose heading counts it.
+		const phone = viewport.width < 768
+		await expect(
+			page.getByText(phone ? /^1 of \d+$/ : /\(1\/\d+\)/),
+		).toBeVisible()
 
 		// Clear checked clears at once; Undo is on offer at the bottom.
 		await page.getByRole('button', { name: /clear checked/i }).click()
-		await expect(page.getByText(/\(0\/\d+\)/)).toBeVisible()
+		if (phone) {
+			await expect(
+				page.getByRole('heading', { name: 'Checked', exact: true }),
+			).toBeHidden()
+		} else {
+			await expect(page.getByText(/\(0\/\d+\)/)).toBeVisible()
+		}
 		await expect(
 			page.getByRole('button', { name: /clear checked/i }),
 		).toBeHidden()
@@ -960,7 +971,7 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 	})
 
 	for (const [viewport, itemName, activeProgress, laterCount] of [
-		[{ width: 390, height: 844 }, 'Camping fuel — phone', '(0/2)', 14],
+		[{ width: 390, height: 844 }, 'Camping fuel — phone', '2 to buy', 14],
 		[{ width: 1280, height: 800 }, 'Camping fuel — desktop', '(1/3)', 13],
 	] as const) {
 		await page.setViewportSize(viewport)
@@ -1011,6 +1022,11 @@ test('Next shop and Later stay usable and search-revealable on phone and desktop
 		// A search reveals a collapsed Later match without changing the stored
 		// expansion preference; clearing it collapses Later again.
 		await page.goto('/shopping')
+		// On a phone the field waits behind the magnifier.
+		if (viewport.width < 768) {
+			await waitForHydration(page)
+			await page.getByRole('button', { name: 'Search Shopping' }).click()
+		}
 		const search = page.getByPlaceholder('Search Shopping…')
 		await search.fill('Solar eclipse glasses')
 		await expect(
@@ -1180,7 +1196,7 @@ test('the phone add sheet opens empty after each way of closing it, and still ad
 	})
 	await page.setViewportSize({ width: 390, height: 844 })
 	await openShopping(page)
-	const addItem = page.getByRole('button', { name: 'Add item' })
+	const addItem = page.getByRole('button', { name: 'Add an item' })
 	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
 	const name = sheet.getByPlaceholder('Add an item…')
 	const quantity = sheet.getByPlaceholder('Qty')
@@ -1246,7 +1262,7 @@ test('the phone add sheet opens without the last item’s warning, and checks th
 	})
 	await page.setViewportSize({ width: 390, height: 844 })
 	await openShopping(page)
-	const addItem = page.getByRole('button', { name: 'Add item' })
+	const addItem = page.getByRole('button', { name: 'Add an item' })
 	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
 	const name = sheet.getByPlaceholder('Add an item…')
 	const warning = sheet.getByText('Milk is already on Shopping')
@@ -1421,7 +1437,9 @@ test.describe('swiping a row', () => {
 
 		await swipe(page, oatMilk, { fromX: 0.8, toX: 0.2, ms: 240 })
 		await expect(oatMilk.getByRole('button', { name: 'Delete' })).toBeVisible()
-		await oatMilk.getByText('oat milk', { exact: true }).click()
+		// The row's own tap target, which spans it; the name is only as wide
+		// as its words, and slides off the screen with the row.
+		await oatMilk.getByRole('button', { name: 'Check off oat milk' }).click()
 		await expect(oatMilk.getByRole('button', { name: 'Delete' })).toBeHidden()
 		await expect(
 			oatMilk.getByRole('button', { name: 'Check off oat milk' }),
@@ -1448,7 +1466,7 @@ test.describe('swiping a row', () => {
 		await expect(page.getByRole('menu')).toBeHidden()
 
 		// A tap on the button still opens the menu.
-		await eggs.getByText('eggs', { exact: true }).click()
+		await eggs.getByRole('button', { name: 'Check off eggs' }).click()
 		await expect(eggs.getByRole('button', { name: 'Delete' })).toBeHidden()
 		await eggs.getByRole('button', { name: 'Item actions' }).tap()
 		await expect(
@@ -1503,7 +1521,7 @@ test.describe('tapping a row on a phone', () => {
 		const box = await oatMilk.boundingBox()
 		expect(box).not.toBeNull()
 		// A one-line row keeps room around its name, not just a thumb's height.
-		expect(box!.height).toBeGreaterThanOrEqual(60)
+		expect(box!.height).toBeGreaterThanOrEqual(56)
 		// Two pixels inside the row's top edge, over the name rather than the box.
 		await page.mouse.click(box!.x + box!.width / 2, box!.y + 2)
 
@@ -1520,7 +1538,7 @@ test.describe('tapping a row on a phone', () => {
 			.toEqual({ checked: true })
 	})
 
-	test('a row menu near the bottom opens clear of the add button and tab bar', async ({
+	test('a row menu near the bottom opens clear of the add bar and tab bar', async ({
 		page,
 		login,
 	}) => {
@@ -1528,14 +1546,14 @@ test.describe('tapping a row on a phone', () => {
 		await seedList(user)
 		await openShopping(page)
 
-		// The row whose menu would open across the add button: the last row that
-		// starts above the button's top edge.
-		const addButton = page.getByRole('button', { name: 'Add item' })
-		const fab = (await addButton.boundingBox())!
+		// The row whose menu would open across the add bar: the last row that
+		// ends above the bar's button.
+		const addButton = page.getByRole('button', { name: 'Add an item' })
+		const addBar = (await addButton.boundingBox())!
 		let target = ''
 		for (const name of ITEMS) {
 			const box = await row(page, name).boundingBox()
-			if (box && box.y + box.height <= fab.y) target = name
+			if (box && box.y + box.height <= addBar.y) target = name
 		}
 		expect(target).not.toBe('')
 
@@ -1553,7 +1571,7 @@ test.describe('tapping a row on a phone', () => {
 			)
 		const menu = (await page.getByRole('menu').boundingBox())!
 		const tabBar = (await page.locator('[data-bottom-nav]').boundingBox())!
-		expect(menu.y + menu.height).toBeLessThanOrEqual(fab.y)
+		expect(menu.y + menu.height).toBeLessThanOrEqual(addBar.y)
 		expect(menu.y + menu.height).toBeLessThanOrEqual(tabBar.y)
 		// And its items are thumb-sized on a touch screen.
 		expect((await deleteItem.boundingBox())!.height).toBeGreaterThanOrEqual(44)
@@ -1588,7 +1606,7 @@ test.describe('tapping a row on a phone', () => {
 			page.getByRole('button', { name: 'Clear checked items from Next shop' }),
 		)
 
-		await page.getByRole('button', { name: 'Add item' }).click()
+		await page.getByRole('button', { name: 'Add an item' }).click()
 		const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
 		const qtyToggle = sheet.getByRole('button', { name: '+ Qty & unit' })
 		await expectThumbSized(qtyToggle)

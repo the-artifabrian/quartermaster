@@ -156,20 +156,16 @@ test('a deleted Shopping item is deleted at once and collapses; Undo above the t
 		.poll(() => savedNames(user.householdId))
 		.toEqual(['eggs', 'oat milk'])
 
-	// Undo sits at the bottom, above the tab bar, beside the Add item button.
+	// Undo sits at the bottom, just above the Add an item bar over the tab bar.
 	const undo = undoButton(page)
 	await expect(toastOf(undo)).toContainText('Deleted lemons')
 	await toastOf(undo).evaluate((element) =>
 		Promise.all(element.getAnimations().map((a) => a.finished)),
 	)
 	const toast = (await toastOf(undo).boundingBox())!
-	const tabBar = (await page.locator('[data-bottom-nav]').boundingBox())!
-	const fab = (await page
-		.getByRole('button', { name: 'Add item' })
-		.boundingBox())!
-	expect(toast.y + toast.height).toBeLessThanOrEqual(tabBar.y)
-	expect(toast.y + toast.height).toBeGreaterThan(tabBar.y - 40)
-	expect(toast.x + toast.width).toBeLessThanOrEqual(fab.x)
+	const addBar = (await page.locator('[data-shopping-add-bar]').boundingBox())!
+	expect(toast.y + toast.height).toBeLessThanOrEqual(addBar.y)
+	expect(toast.y + toast.height).toBeGreaterThan(addBar.y - 40)
 
 	// Undo puts it back as it was, same row, and it opens where it was.
 	await undo.click()
@@ -381,7 +377,7 @@ test('Undo after the item was added again in the meantime does not double it', a
 	// The other member adds milk while the toast is up.
 	const other = await context.newPage()
 	await openShopping(other)
-	await other.getByRole('button', { name: 'Add item' }).click()
+	await other.getByRole('button', { name: 'Add an item' }).click()
 	const sheet = other.getByRole('dialog', { name: 'Add to Shopping' })
 	await sheet.getByPlaceholder('Add an item…').fill('2 milk')
 	await sheet.getByRole('button', { name: 'Add to Next shop' }).click()
@@ -416,7 +412,7 @@ test('opening a sheet closes the Undo toast, so it never covers the sheet', asyn
 	await openShopping(page)
 	await deleteFromMenu(page, 'lemons')
 	await expect(undoButton(page)).toBeVisible()
-	await page.getByRole('button', { name: 'Add item' }).click()
+	await page.getByRole('button', { name: 'Add an item' }).click()
 	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
 	await sheet.evaluate((element) =>
 		Promise.all(element.getAnimations().map((a) => a.finished)),

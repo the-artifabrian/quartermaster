@@ -366,6 +366,57 @@ export function deleteShoppingRows(
 }
 
 /**
+ * The add sheet's Undo: takes back a row just added, but only while it is
+ * still the row as added, unchecked, with nothing a Meal put on it since.
+ * The check and the delete are one transaction. A row someone has checked,
+ * edited, renamed or joined with a Meal's amount stays (`changed`): that
+ * delete would take more than the add, with no Undo to bring it back.
+ */
+export function takeBackAddedShoppingRow(
+	db: Db,
+	{
+		householdId,
+		id,
+		added,
+	}: Scope & {
+		id: string
+		added: {
+			checkVersion: number
+			name: string
+			quantity: string | null
+			unit: string | null
+		}
+	},
+): Promise<
+	{ status: 'deleted'; name: string } | { status: 'gone' | 'changed' }
+> {
+	return writeTransaction(db, async (tx) => {
+		const row = await tx.shoppingListItem.findFirst({
+			where: { id, list: { householdId } },
+			select: {
+				name: true,
+				quantity: true,
+				unit: true,
+				checked: true,
+				checkVersion: true,
+				_count: { select: { mealContributions: true } },
+			},
+		})
+		if (!row) return { status: 'gone' as const }
+		const asAdded =
+			!row.checked &&
+			row.checkVersion === added.checkVersion &&
+			row._count.mealContributions === 0 &&
+			row.name === added.name &&
+			row.quantity === added.quantity &&
+			row.unit === added.unit
+		if (!asAdded) return { status: 'changed' as const }
+		await tx.shoppingListItem.delete({ where: { id } })
+		return { status: 'deleted' as const, name: row.name }
+	})
+}
+
+/**
  * Put Shopping rows back inside a write transaction, and count what came
  * back:
  * - a row in another Household's list is never touched, nor its amounts;

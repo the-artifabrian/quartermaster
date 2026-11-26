@@ -8,8 +8,8 @@ import { Icon } from './icon.tsx'
  * The one way to add on a tab root (Recipes, Menus, Staples, Plan): a round
  * sage + to the right of the big serif page title, 44px. It needs an
  * `aria-label` that says what it adds ("New Recipe", "New Menu", "Add
- * Staple", "Add Meal to Thursday, Nov 19"). Shopping keeps its floating +
- * instead.
+ * Staple", "Add Meal to Thursday, Nov 19"). Shopping adds from an "Add an
+ * item" pill floating above the tab bar instead.
  *
  * `children` show beside the + where a screen widens it (Recipes' "New
  * Recipe" from `sm`, via `className`). With `asChild` the one child is the

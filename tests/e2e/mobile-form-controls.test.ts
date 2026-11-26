@@ -166,7 +166,7 @@ test('mobile Shopping add controls stay zoom-safe and keep Add reachable', async
 	await seedHousehold(user)
 	await page.setViewportSize(PHONE_VIEWPORT)
 	await page.goto('/shopping')
-	await page.getByRole('button', { name: 'Add item' }).click()
+	await page.getByRole('button', { name: 'Add an item' }).click()
 
 	const item = page.getByPlaceholder('Add an item…').filter({ visible: true })
 	const add = page.getByRole('button', { name: 'Add to Next shop' })

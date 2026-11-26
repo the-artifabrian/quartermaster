@@ -112,7 +112,14 @@ function lineNote(line: PlanPickerLine) {
  * ticked Meal writes through the same Meal-add path as adding that Meal from
  * Plan, so a second pick of the same Meal changes nothing.
  */
-export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
+export function ShoppingPlanPicker({
+	weeks,
+	triggerClassName,
+}: {
+	weeks: PlanPickerWeek[]
+	/** Classes for the From Plan button. */
+	triggerClassName?: string
+}) {
 	const fetcher = useFetcher<AddFromPlanResponse>()
 	const choiceRequest = useRef<AbortController>(null)
 	const [open, setOpen] = useState(false)
@@ -611,6 +618,7 @@ export function ShoppingPlanPicker({ weeks }: { weeks: PlanPickerWeek[] }) {
 						type="button"
 						variant="outline"
 						size="sm"
+						className={triggerClassName}
 						aria-label="From Plan, pick Meals to add to Shopping"
 						// Radix reports its own state, which is closed while the
 						// sheet stands in for the popover.

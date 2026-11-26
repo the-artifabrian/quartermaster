@@ -1457,7 +1457,7 @@ test.describe('the Shopping add sheet’s motion', () => {
 					}
 				})
 			document
-				.querySelector<HTMLButtonElement>('button[aria-label="Add item"]')!
+				.querySelector<HTMLButtonElement>('[data-shopping-add-bar] button')!
 				.click()
 			await frame()
 			const panel = document.querySelector('[data-bottom-sheet-panel]')!
@@ -1523,7 +1523,7 @@ test.describe('the Shopping add sheet’s motion', () => {
 		).toBeHidden()
 
 		// It opens again from the start.
-		await page.getByRole('button', { name: 'Add item' }).click()
+		await page.getByRole('button', { name: 'Add an item' }).click()
 		await expect(
 			page
 				.getByRole('dialog', { name: 'Add to Shopping' })
@@ -1553,12 +1553,12 @@ test.describe('the Shopping add sheet’s motion', () => {
 		).toBeHidden()
 	})
 
-	test('Escape, the backdrop and Close each close the add sheet, and focus comes back to Add item', async ({
+	test('Escape, the backdrop and Close each close the add sheet, and focus comes back to Add an item', async ({
 		page,
 		login,
 	}) => {
 		await openShoppingWithList(page, await login())
-		const addItem = page.getByRole('button', { name: 'Add item' })
+		const addItem = page.getByRole('button', { name: 'Add an item' })
 		const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
 
 		await addItem.focus()
@@ -1643,7 +1643,7 @@ test.describe('the Shopping add sheet’s motion', () => {
 			})
 			const rowMounts = await recordRowMounts(page)
 
-			await page.getByRole('button', { name: 'Add item' }).click()
+			await page.getByRole('button', { name: 'Add an item' }).click()
 			await page
 				.getByRole('dialog', { name: 'Add to Shopping' })
 				.getByPlaceholder('Add an item…')
@@ -1785,7 +1785,7 @@ test.describe('pulling a sheet down', () => {
 			data: { userId: user.id, householdId: user.householdId },
 		})
 		await openShopping(page)
-		const addItem = page.getByRole('button', { name: 'Add item' })
+		const addItem = page.getByRole('button', { name: 'Add an item' })
 		await addItem.click()
 		const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
 		await slidIn(sheet)

@@ -177,7 +177,7 @@ export const shoppingActions = {
 		// Auto-categorize if no category provided
 		const category = submission.value.category || guessCategory(name)
 
-		await prisma.shoppingListItem.create({
+		const created = await prisma.shoppingListItem.create({
 			data: {
 				name,
 				quantity,
@@ -186,6 +186,13 @@ export const shoppingActions = {
 				listId: shoppingList.id,
 				source: 'manual',
 				horizon,
+			},
+			select: {
+				id: true,
+				name: true,
+				quantity: true,
+				unit: true,
+				checkVersion: true,
 			},
 		})
 
@@ -200,6 +207,9 @@ export const shoppingActions = {
 		return {
 			status: 'success' as const,
 			submission: submission.reply({ resetForm: true }),
+			// The row as saved ("2 lemons" is saved as lemons, 2), so the add
+			// sheet can list it and take it back while it is unchanged.
+			item: created,
 		}
 	},
 

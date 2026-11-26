@@ -174,7 +174,8 @@ each screen:
 - **Adding on a tab root** is one control (`TitleAddButton`): a round green +,
   44px, at the right end of the big serif title's row on Recipes, Menus, Staples
   and Plan. Its label says what it adds (“New Recipe”, “New Menu”, “Add Staple”,
-  “Add Meal to Thursday, Nov 19”). Shopping keeps its floating + instead.
+  “Add Meal to Thursday, Nov 19”). Shopping adds from its floating “Add an item”
+  pill instead (see Shopping).
 
 ## Sheets and deleting
 
@@ -368,11 +369,44 @@ placeholder.
 
 ### Shopping
 
-- Use one centered flat list with large checkboxes and hairline dividers.
-- Checked rows fade and strike through; show a simple checked/total count.
-- Sort unchecked before checked and alphabetically within each state.
-- Do not add aisle/category sections. Categories may remain internal.
-- Quick add is inline on desktop and may use a bottom sheet from a mobile FAB.
+- One centered flat list with hairline dividers. A row is a check circle (the
+  control edge when empty, the green fill with a white tick when checked), the
+  name in Newsreader, then the amount in the sans: on a phone after the name on
+  the same line when it fits, wider on the line under it. The whole row checks
+  it. Checked rows strike through in faint text, so they stay on the page, never
+  on a fill.
+- Sort the rows to buy alphabetically. Do not add aisle or category sections.
+  Categories may remain internal.
+- On a phone the title carries the count in the sans (“7 to buy”, “All
+  checked”). From Staples and From Plan sit under it as two quiet 44px buttons.
+  From 15 rows the search field waits behind a magnifier at the right of the
+  title row; it opens focused, with Done beside it, and Done or Escape puts it
+  away and clears the search. Under 15 rows the field goes with its query.
+  Wider, the title shows checked/total, the buttons follow it and the field
+  shows from 15 rows.
+- On a phone checked rows gather under a small “Checked” heading with “3 of 12”
+  and Clear checked at its right. A row checked there keeps its place for half a
+  second, then folds where it was and opens at the top of Checked; unchecked, it
+  goes back to its place by name the same way. A second tap takes it back, and
+  it stays where it is while that tap is out. The half second outlasts the
+  check's answer, a reload and a change from the other phone, and a row whose
+  check isn't confirmed waits where it is. Next shop stays one list, so a row
+  keeps its open editor, menu or swipe whichever group it is in, and one checked
+  from the keyboard keeps focus on its check once it lands. With reduced motion
+  it moves without folding. When every row is checked, “Everything is checked”
+  takes the list's place. Later keeps its own checked rows at the end of its
+  list. Wider, the checked rows close the one list and Clear checked sits under
+  it.
+- On a phone adding is an “Add an item” pill floating at the bottom right, above
+  the tab bar: a card with a hairline edge (lighter in dark) and a shadow, over
+  the list, which shows past it and stays tappable beside it. The list's end and
+  the Undo toast stay clear of it. It opens Add to Shopping as a tall sheet with
+  the field at the top, focused inside the tap so iOS raises the keyboard, which
+  then covers only the empty lower half. The sheet stays open between adds and
+  lists each one under the field with an Undo that takes the add back, without a
+  toast, while the row is still as it was added. A row someone has checked,
+  edited or added to since stays, and its line says so. Desktop keeps its inline
+  quick add.
 - Generated and manual demand can share a displayed total, but UI actions must
   make corrections understandable.
 
@@ -402,9 +436,12 @@ grids, illustrations, or congratulatory copy.
 ## Motion and accessibility
 
 - Animate transform and opacity only, usually 150–300ms. A switch track and a
-  selected label may change color as their thumb or pill moves. The one change
-  of size is a deleted row closing its gap (`RowCollapse`): height and opacity
-  together, 200ms `--ease-exit`, and opacity only under reduced motion.
+  selected label may change color as their thumb or pill moves, and a Shopping
+  check's tick draws in from the left (a 150ms `clip-path`). The one change of
+  size is a row closing its gap (`RowCollapse`): height and opacity together,
+  200ms `--ease-exit`, and opacity only under reduced motion. A deleted row
+  closes this way, and so does a Shopping row its check moves on a phone, which
+  then opens in its new place.
 - Respect `prefers-reduced-motion`; behavior must not depend on animation.
 - Haptics (iOS app only, `haptic()` in `app/utils/shell-bridge.ts`) follow the
   native control, once per tap, never on load or a refresh: `selection` for a

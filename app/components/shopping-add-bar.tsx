@@ -1,22 +1,90 @@
-import {
-	getHouseholdClientId,
-	HouseholdClientInput,
-} from '#app/utils/household-client.tsx'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { useFetcher, useRevalidator } from 'react-router'
 import { toast } from 'sonner'
 import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
 import { BottomSheet } from '#app/components/ui/bottom-sheet.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
+import { invalidateServiceWorkerData } from '#app/components/service-worker-data-sync.tsx'
 import { useFetcherSettled } from '#app/hooks/use-fetcher-settled.ts'
 import {
 	useSpeechToText,
 	type TranscribedItem,
 } from '#app/hooks/use-speech-to-text.ts'
+import {
+	getHouseholdClientId,
+	HouseholdClientInput,
+} from '#app/utils/household-client.tsx'
 import { cn } from '#app/utils/misc.tsx'
 import { NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 
-export function MobileFabAdd({
+/** A row this sheet added since it opened, as the server saved it. */
+type AddedRow = {
+	id: string
+	name: string
+	quantity: string | null
+	unit: string | null
+	checkVersion: number
+}
+
+type AddedLine = AddedRow & {
+	/** Its Undo: not tapped, waiting on the server, or refused and why. */
+	undo: 'ready' | 'sending' | 'failed' | 'changed'
+}
+
+function addedRow(data: unknown): AddedRow | null {
+	if (!data || typeof data !== 'object' || !('item' in data)) return null
+	const item = (data as { item?: Partial<AddedRow> }).item
+	return item &&
+		typeof item.id === 'string' &&
+		typeof item.name === 'string' &&
+		typeof item.checkVersion === 'number'
+		? {
+				id: item.id,
+				name: item.name,
+				quantity: item.quantity ?? null,
+				unit: item.unit ?? null,
+				checkVersion: item.checkVersion,
+			}
+		: null
+}
+
+/**
+ * Takes back a row the sheet added, if it is still the row as added
+ * (resources/undo-delete): `changed` when someone checked, edited or added to
+ * it since, and it stays.
+ */
+async function takeBack(row: AddedRow) {
+	const response = await fetch('/resources/undo-delete', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'same-origin',
+		body: JSON.stringify({
+			intent: 'take-back-add',
+			itemId: row.id,
+			added: {
+				checkVersion: row.checkVersion,
+				name: row.name,
+				quantity: row.quantity,
+				unit: row.unit,
+			},
+			originClientId: getHouseholdClientId(),
+		}),
+	})
+	if (!response.ok) throw new Error(`Undo route answered ${response.status}`)
+	const { status } = (await response.json()) as { status: string }
+	if (status === 'deleted' || status === 'gone' || status === 'changed')
+		return status
+	throw new Error(`Unexpected answer: ${status}`)
+}
+
+/**
+ * Adding on a phone: an "Add an item" pill floating at the bottom right,
+ * above the tab bar, opens the Add to Shopping sheet. The sheet is tall, with
+ * its field at the top, so the keyboard has the bottom half; it stays open
+ * between adds and lists what it added under the field, each with an Undo.
+ */
+export function ShoppingAddBar({
 	open,
 	onOpenChange,
 	isProActive,
@@ -33,11 +101,13 @@ export function MobileFabAdd({
 	const [unit, setUnit] = useState('')
 	const [showQty, setShowQty] = useState(false)
 	const [warningDismissed, setWarningDismissed] = useState(false)
+	const [added, setAdded] = useState<AddedLine[]>([])
 	const inputRef = useRef<HTMLInputElement>(null)
 	const qtyInputRef = useRef<HTMLInputElement>(null)
 
-	// What was typed clears when the sheet opens again, and so does the last
-	// add's warning. Not on close: the sheet leaves showing what it showed.
+	// What was typed clears when the sheet opens again, and so do the last
+	// add's warning and the list of what it added. Not on close: the sheet
+	// leaves showing what it showed.
 	const [wasOpen, setWasOpen] = useState(open)
 	const [dataBeforeOpen, setDataBeforeOpen] = useState(fetcher.data)
 	if (open !== wasOpen) {
@@ -46,17 +116,21 @@ export function MobileFabAdd({
 			setName('')
 			setQuantity('')
 			setUnit('')
+			setAdded([])
 			setDataBeforeOpen(fetcher.data)
 			setWarningDismissed(false)
 		}
 	}
 
-	useEffect(() => {
-		if (open) {
-			// The sheet is still sliding up: focusing must not scroll the page.
-			setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 50)
-		}
-	}, [open])
+	/**
+	 * Opens the sheet and focuses its field inside the tap: iOS raises the
+	 * keyboard only for a focus the tap itself makes, not one a moment later.
+	 */
+	function openSheet() {
+		flushSync(() => onOpenChange(true))
+		// The sheet is still sliding up: focusing must not scroll the page.
+		inputRef.current?.focus({ preventScroll: true })
+	}
 
 	useEffect(() => {
 		if (showQty) {
@@ -70,9 +144,45 @@ export function MobileFabAdd({
 			setQuantity('')
 			setUnit('')
 			setWarningDismissed(false)
+			const row = addedRow(data)
+			if (row)
+				setAdded((lines) => [
+					{ ...row, undo: 'ready' },
+					...lines.filter((other) => other.id !== row.id),
+				])
 			inputRef.current?.focus()
 		}
 	})
+
+	const setUndo = (id: string, undo: AddedLine['undo']) =>
+		setAdded((lines) =>
+			lines.map((line) => (line.id === id ? { ...line, undo } : line)),
+		)
+
+	/**
+	 * The line stays until the server answers: it goes once the row is
+	 * deleted, says so if the row changed and stays, and offers Undo again if
+	 * the request failed.
+	 */
+	async function undoAdd(line: AddedLine) {
+		inputRef.current?.focus({ preventScroll: true })
+		setUndo(line.id, 'sending')
+		let answer: Awaited<ReturnType<typeof takeBack>>
+		try {
+			answer = await takeBack(line)
+		} catch {
+			setUndo(line.id, 'failed')
+			return
+		}
+		if (answer === 'changed') {
+			setUndo(line.id, 'changed')
+			return
+		}
+		// A write outside the Router: drop the caches and reload the list.
+		invalidateServiceWorkerData()
+		void revalidator.revalidate()
+		setAdded((lines) => lines.filter((other) => other.id !== line.id))
+	}
 
 	const bulkAddFetcher = useFetcher()
 	const moveItemsFetcher = useFetcher()
@@ -165,41 +275,38 @@ export function MobileFabAdd({
 	const canForce = showWarning && warningData.warningType !== 'move_to_section'
 
 	// print:hidden guards browser-initiated Cmd+P. Print pages are narrower
-	// than the md breakpoint, so the fixed FAB would repeat on every page
+	// than the md breakpoint, so the pill would repeat on every page.
 	return (
 		<div className="md:hidden print:hidden">
 			{/* Stays mounted under the sheet so focus can come back to it, and
-			    comes before it so the leaving sheet slides over it. */}
-			<button
-				type="button"
-				// Undo toasts stop short of it (tailwind.css, "Undo toasts").
-				data-shopping-fab=""
-				className={cn(
-					'bg-primary-fill text-primary-foreground shadow-warm-md fixed right-4 bottom-[calc(var(--bottom-nav-h)+1.5rem+var(--bottom-nav-inset))] z-50 flex size-12 items-center justify-center rounded-full transition-[scale] duration-150 ease-(--ease-micro) active:scale-95',
-					open && 'hidden',
-				)}
-				aria-label="Add item"
-				onClick={() => onOpenChange(true)}
+			    comes before it so the leaving sheet slides over it. The strip
+			    lets taps through to the list; only the pill takes them. Undo
+			    toasts sit above it (tailwind.css, "Undo toasts"). */}
+			<div
+				data-shopping-add-bar=""
+				className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--bottom-nav-h)+var(--bottom-nav-inset)+1px)] z-40 flex justify-end px-4 py-3"
 			>
-				<Icon name="plus" className="size-6" />
-			</button>
+				<button
+					type="button"
+					aria-haspopup="dialog"
+					onClick={openSheet}
+					// In dark the card is close to the page, so the edge is lighter.
+					className="bg-card text-foreground border-border shadow-warm-md pointer-events-auto flex h-12 items-center gap-2 rounded-full border pr-5 pl-4 text-base font-medium transition-[scale] duration-150 ease-(--ease-micro) select-none active:scale-[0.97] dark:border-white/20"
+				>
+					<Icon name="plus" size="sm" className="text-primary" />
+					Add an item
+				</button>
+			</div>
 			<BottomSheet
 				open={open}
 				onClose={() => onOpenChange(false)}
 				labelledBy="shopping-add-sheet-title"
 				title="Add to Shopping"
+				initialFocusRef={inputRef}
+				// Tall, from just under the status bar, so the field sits high
+				// and the keyboard covers only the sheet's empty lower half.
+				className="h-[calc(100dvh-var(--safe-top)-2.5rem)]"
 			>
-				{showWarning && (
-					<WarningBanner
-						actionData={warningData}
-						onDismiss={() => setWarningDismissed(true)}
-						onMoved={() => {
-							setName('')
-							setQuantity('')
-							setUnit('')
-						}}
-					/>
-				)}
 				<fetcher.Form
 					method="POST"
 					onSubmit={(e) => {
@@ -222,7 +329,8 @@ export function MobileFabAdd({
 							placeholder="Add an item…"
 							enterKeyHint="go"
 							autoCapitalize="none"
-							className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-11 min-w-0 flex-1 rounded-lg border bg-transparent px-3 text-sm outline-none focus:ring-1"
+							// 16px, so iOS doesn't zoom the page into the field.
+							className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20 h-11 min-w-0 flex-1 rounded-lg border bg-transparent px-3 text-base outline-none focus:ring-1"
 						/>
 						{isProActive && (
 							<button
@@ -268,7 +376,7 @@ export function MobileFabAdd({
 								onChange={(e) => setQuantity(e.target.value)}
 								placeholder="Qty"
 								enterKeyHint="go"
-								className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-10 w-16 rounded-lg border bg-transparent px-2 text-sm outline-none"
+								className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-11 w-20 rounded-lg border bg-transparent px-2 text-base outline-none"
 							/>
 							<input
 								name="unit"
@@ -278,7 +386,7 @@ export function MobileFabAdd({
 								enterKeyHint="go"
 								autoCapitalize="none"
 								autoCorrect="off"
-								className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-10 min-w-0 flex-1 rounded-lg border bg-transparent px-2 text-sm outline-none"
+								className="border-border/50 placeholder:text-muted-foreground focus:border-primary/30 h-11 min-w-0 flex-1 rounded-lg border bg-transparent px-2 text-base outline-none"
 							/>
 							<button
 								type="button"
@@ -287,7 +395,7 @@ export function MobileFabAdd({
 									setShowQty(false)
 									inputRef.current?.focus()
 								}}
-								className="text-muted-foreground hover:text-foreground -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-center px-2 text-xs"
+								className="text-muted-foreground hover:text-foreground -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-center px-2 text-sm"
 							>
 								Hide
 							</button>
@@ -299,14 +407,64 @@ export function MobileFabAdd({
 								e.preventDefault()
 								setShowQty(true)
 							}}
-							// 44px tall for the thumb; the negative margin keeps the
-							// sheet the height it was.
-							className="text-muted-foreground hover:text-foreground -mx-1 -mb-2.5 flex min-h-11 items-center px-1 text-xs"
+							className="text-muted-foreground hover:text-foreground -mx-1 flex min-h-11 items-center px-1 text-sm"
 						>
 							+ Qty &amp; unit
 						</button>
 					)}
 				</fetcher.Form>
+				{showWarning && (
+					<div className="mt-2">
+						<WarningBanner
+							actionData={warningData}
+							onDismiss={() => setWarningDismissed(true)}
+							onMoved={() => {
+								setName('')
+								setQuantity('')
+								setUnit('')
+							}}
+						/>
+					</div>
+				)}
+				{added.length > 0 && (
+					<ul
+						aria-label="Just added"
+						className="divide-border/40 mt-2 divide-y"
+					>
+						{added.map((line) => (
+							<li key={line.id} className="flex min-h-12 items-center gap-3">
+								<div className="min-w-0 flex-1 py-2">
+									<p className="break-words">
+										<span className="font-serif text-lg">{line.name}</span>
+										{(line.quantity || line.unit) && (
+											<span className="text-muted-foreground ml-2 text-sm">
+												{[line.quantity, line.unit].filter(Boolean).join(' ')}
+											</span>
+										)}
+									</p>
+									{(line.undo === 'changed' || line.undo === 'failed') && (
+										<p role="status" className="text-muted-foreground text-sm">
+											{line.undo === 'changed'
+												? 'It changed since you added it, so it stays.'
+												: 'Couldn’t take it back. Try again.'}
+										</p>
+									)}
+								</div>
+								{line.undo !== 'changed' && (
+									<button
+										type="button"
+										onClick={() => void undoAdd(line)}
+										disabled={line.undo === 'sending'}
+										aria-label={`Undo adding ${line.name}`}
+										className="text-primary -mr-3 flex min-h-11 shrink-0 items-center px-3 text-sm font-semibold disabled:opacity-50"
+									>
+										Undo
+									</button>
+								)}
+							</li>
+						))}
+					</ul>
+				)}
 			</BottomSheet>
 		</div>
 	)

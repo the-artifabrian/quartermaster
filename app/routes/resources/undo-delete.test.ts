@@ -1247,3 +1247,101 @@ test('a Staple is unmarked at once and marked again by Undo', async () => {
 	await send(session, { intent: 'restore', token: removed.body.token })
 	expect(await isStaple()).toBe(true)
 })
+
+describe('taking back an add from the add sheet', () => {
+	async function added(session: Session, name = 'milk') {
+		const row = await prisma.shoppingListItem.create({
+			data: { listId: session.listId, name, source: 'manual' },
+		})
+		return {
+			row,
+			request: {
+				intent: 'take-back-add',
+				itemId: row.id,
+				added: {
+					checkVersion: row.checkVersion,
+					name: row.name,
+					quantity: row.quantity,
+					unit: row.unit,
+				},
+			},
+		}
+	}
+	const exists = async (id: string) =>
+		(await prisma.shoppingListItem.count({ where: { id } })) === 1
+
+	test('deletes the row while it is as it was added', async () => {
+		const session = await setupUser()
+		const { row, request } = await added(session)
+		const answer = await send(session, request)
+		expect(answer.body.status).toBe('deleted')
+		expect(await exists(row.id)).toBe(false)
+		expect(emitHouseholdEvent).toHaveBeenCalledOnce()
+	})
+
+	test('leaves a row a Meal has added to since, with the Meal’s amount', async () => {
+		const session = await setupUser()
+		const meal = await seedMeal(session)
+		const { row, request } = await added(session)
+		await prisma.mealShoppingContribution.create({
+			data: {
+				itemId: row.id,
+				mealId: meal.id,
+				canonicalName: 'milk',
+				name: 'milk',
+				quantity: '1',
+				unit: 'l',
+			},
+		})
+		const answer = await send(session, request)
+		expect(answer.body.status).toBe('changed')
+		expect((await rowsOf(session)).map((r) => r.mealContributions)).toEqual([
+			[{ id: expect.any(String), mealId: meal.id }],
+		])
+		expect(emitHouseholdEvent).not.toHaveBeenCalled()
+	})
+
+	test('leaves a row checked since', async () => {
+		const session = await setupUser()
+		const { row, request } = await added(session)
+		await prisma.shoppingListItem.update({
+			where: { id: row.id },
+			data: { checked: true },
+		})
+		expect((await send(session, request)).body.status).toBe('changed')
+		expect(await exists(row.id)).toBe(true)
+	})
+
+	test('leaves a row whose amount was edited since', async () => {
+		const session = await setupUser()
+		const { row, request } = await added(session)
+		await prisma.shoppingListItem.update({
+			where: { id: row.id },
+			data: { quantity: '2' },
+		})
+		expect((await send(session, request)).body.status).toBe('changed')
+		expect(await exists(row.id)).toBe(true)
+	})
+
+	test('leaves a row renamed since', async () => {
+		const session = await setupUser()
+		const { row, request } = await added(session)
+		await prisma.shoppingListItem.update({
+			where: { id: row.id },
+			data: { name: 'oat milk' },
+		})
+		expect((await send(session, request)).body.status).toBe('changed')
+		expect(await exists(row.id)).toBe(true)
+	})
+
+	test('answers gone for a row deleted already, or another Household’s', async () => {
+		const session = await setupUser()
+		const other = await setupUser()
+		const { row, request } = await added(session)
+		await prisma.shoppingListItem.delete({ where: { id: row.id } })
+		expect((await send(session, request)).body.status).toBe('gone')
+		const theirs = await added(other)
+		expect((await send(session, theirs.request)).body.status).toBe('gone')
+		expect(await exists(theirs.row.id)).toBe(true)
+	})
+})

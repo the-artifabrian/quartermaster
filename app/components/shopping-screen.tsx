@@ -304,6 +304,9 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 		'max-md:bg-muted max-md:hover:bg-muted whitespace-nowrap max-md:border-transparent max-md:px-3'
 
 	return (
+		// On a phone the list ends clear of the add pill: the pill's 48px with
+		// 12px under it reach 60px above the tab bar, and 20px more spare the
+		// last row's dots and Later's heading.
 		<div className="pb-[calc(var(--bottom-nav-h)+var(--bottom-nav-inset)+5rem)] md:pb-6">
 			{isProActive && <ShoppingListLiveRefresh />}
 			{checks.notices.length > 0 && (
@@ -393,7 +396,7 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 						/>
 					)}
 
-				{/* Desktop only. The docked add bar replaces this on a phone. */}
+				{/* Desktop only. The floating add pill replaces this on a phone. */}
 				<div className="border-border/30 mb-2 hidden border-b md:block">
 					{showWarning && (
 						<WarningBanner

@@ -921,7 +921,7 @@ test('the search field waits behind a magnifier from 15 rows, takes focus in the
 	)
 })
 
-test('the docked Add an item bar opens a tall sheet with focus in the tap; it lists each add with an Undo', async ({
+test('the floating Add an item pill opens a tall sheet with focus in the tap; it lists each add with an Undo', async ({
 	page,
 	login,
 }) => {
@@ -1179,4 +1179,76 @@ test.describe('swiping a row that holds', () => {
 		).toBeVisible()
 		expect(await namesIn(page, 'to-buy')).toEqual(['Apples', 'Rice'])
 	})
+})
+
+test('the add pill takes its own taps, lets taps beside it reach the row, and leaves the end of the list and the Undo toast clear', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	await seed(
+		user,
+		Array.from({ length: 20 }, (_, index) => ({
+			name: `item ${String(index + 1).padStart(2, '0')}`,
+		})),
+	)
+	await openShopping(page)
+	const pill = page.getByRole('button', { name: 'Add an item' })
+	const pillBox = (await pill.boundingBox())!
+	const y = pillBox.y + pillBox.height / 2
+	// The row under the pill's middle.
+	const under = await page.evaluate((y) => {
+		const rows = [
+			...document.querySelectorAll('[aria-label$=" shopping item"]'),
+		]
+		const row = rows.find((element) => {
+			const box = element.getBoundingClientRect()
+			return box.top <= y && box.bottom >= y
+		})
+		return row?.getAttribute('aria-label')?.replace(/ shopping item$/, '')
+	}, y)
+	expect(under).toBeTruthy()
+	const checked = async () =>
+		(await savedChecks(user.householdId))[under!] ?? null
+
+	// A tap on the pill opens the sheet, and the row under it stays as it was.
+	await page.mouse.click(pillBox.x + pillBox.width / 2, y)
+	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
+	await expect(sheet).toBeVisible()
+	await page.keyboard.press('Escape')
+	await expect(sheet).toBeHidden()
+	expect(await checked()).toBe(false)
+
+	// Just beside the pill, the tap is the row's.
+	await page.mouse.click(pillBox.x - 12, y)
+	await expect.poll(checked).toBe(true)
+
+	// At the end of the list, Later's heading clears the pill.
+	await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+	await expect
+		.poll(async () => {
+			const later = (await page
+				.getByRole('button', { name: /^Later/ })
+				.boundingBox())!
+			return later.y + later.height <= (await pill.boundingBox())!.y
+		})
+		.toBe(true)
+
+	// An Undo toast sits above the pill, not on it.
+	await page.evaluate(() => window.scrollTo(0, 0))
+	await row(page, 'item 01')
+		.getByRole('button', { name: 'Item actions' })
+		.click()
+	await page.getByRole('menuitem', { name: 'Delete', exact: true }).click()
+	const toast = page
+		.locator('.undo-toaster [data-sonner-toast]')
+		.filter({ hasText: 'Deleted item 01' })
+	await expect(toast).toBeVisible()
+	await toast.evaluate((element) =>
+		Promise.all(element.getAnimations().map((a) => a.finished)),
+	)
+	const toastBox = (await toast.boundingBox())!
+	const nowPill = (await pill.boundingBox())!
+	expect(toastBox.y + toastBox.height).toBeLessThanOrEqual(nowPill.y)
+	expect(toastBox.y + toastBox.height).toBeGreaterThan(nowPill.y - 24)
 })

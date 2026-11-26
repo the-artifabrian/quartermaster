@@ -79,10 +79,10 @@ async function takeBack(row: AddedRow) {
 }
 
 /**
- * Adding on a phone: a field-shaped "Add an item" bar docked above the tab
- * bar opens the Add to Shopping sheet. The sheet is tall, with its field at
- * the top, so the keyboard has the bottom half; it stays open between adds
- * and lists what it added under the field, each with an Undo.
+ * Adding on a phone: an "Add an item" pill floating at the bottom right,
+ * above the tab bar, opens the Add to Shopping sheet. The sheet is tall, with
+ * its field at the top, so the keyboard has the bottom half; it stays open
+ * between adds and lists what it added under the field, each with an Undo.
  */
 export function ShoppingAddBar({
 	open,
@@ -275,21 +275,23 @@ export function ShoppingAddBar({
 	const canForce = showWarning && warningData.warningType !== 'move_to_section'
 
 	// print:hidden guards browser-initiated Cmd+P. Print pages are narrower
-	// than the md breakpoint, so the docked bar would repeat on every page.
+	// than the md breakpoint, so the pill would repeat on every page.
 	return (
 		<div className="md:hidden print:hidden">
 			{/* Stays mounted under the sheet so focus can come back to it, and
-			    comes before it so the leaving sheet slides over it. Undo toasts
-			    sit above it (tailwind.css, "Undo toasts"). */}
+			    comes before it so the leaving sheet slides over it. The strip
+			    lets taps through to the list; only the pill takes them. Undo
+			    toasts sit above it (tailwind.css, "Undo toasts"). */}
 			<div
 				data-shopping-add-bar=""
-				className="bg-card border-border fixed inset-x-0 bottom-[calc(var(--bottom-nav-h)+var(--bottom-nav-inset)+1px)] z-40 border-t px-4 py-2"
+				className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--bottom-nav-h)+var(--bottom-nav-inset)+1px)] z-40 flex justify-end px-4 py-3"
 			>
 				<button
 					type="button"
 					aria-haspopup="dialog"
 					onClick={openSheet}
-					className="bg-muted text-muted-foreground mx-auto flex h-11 w-full max-w-[480px] items-center gap-2 rounded-lg px-3 text-left text-base transition-[scale] duration-150 ease-(--ease-micro) select-none active:scale-[0.99]"
+					// In dark the card is close to the page, so the edge is lighter.
+					className="bg-card text-foreground border-border shadow-warm-md pointer-events-auto flex h-12 items-center gap-2 rounded-full border pr-5 pl-4 text-base font-medium transition-[scale] duration-150 ease-(--ease-micro) select-none active:scale-[0.97] dark:border-white/20"
 				>
 					<Icon name="plus" size="sm" className="text-primary" />
 					Add an item

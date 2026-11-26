@@ -427,7 +427,7 @@ Run these on a notched iPhone after a shell change, from a TestFlight build:
 - **Layout.** The web view fills the screen. In the shell the site's viewport
   meta adds `viewport-fit=cover` (`app/root.tsx`) and the page pads itself with
   `env(safe-area-inset-*)`. Check the status bar, the tab bar above the home
-  indicator, and the keyboard on Shopping (the Add an item bar and its sheet,
+  indicator, and the keyboard on Shopping (the Add an item pill and its sheet,
   the voice button, the search field) and the Recipe form.
 - **Function.** Logins, session after force-quit and after a day, voice input,
   camera and library upload, URL import, airplane mode after first load, Share

@@ -772,9 +772,9 @@ html {
 }
 
 /* Undo toasts (UndoToaster) sit at the bottom, above the tab bar and its
-   border, near the thumb that deleted. On Shopping they sit above the docked
-   "Add an item" bar (its 44px button, 8px above and below it and its
-   border) rather than cover it. From `md` up there is no tab bar. */
+   border, near the thumb that deleted. On Shopping they sit above the "Add
+   an item" pill (12px under it, its 48px and 12px over it) rather than cover
+   it. From `md` up there is no tab bar. */
 :root {
 	--undo-toast-bottom: calc(
 		var(--bottom-nav-h) + var(--bottom-nav-inset) + 1px + 0.75rem
@@ -785,12 +785,11 @@ html {
 @media (width < 48rem) {
 	:root:has([data-shopping-add-bar]) {
 		--undo-toast-bottom: calc(
-			var(--bottom-nav-h) + var(--bottom-nav-inset) + 1px + 3.75rem + 1px +
-				0.75rem
+			var(--bottom-nav-h) + var(--bottom-nav-inset) + 1px + 4.5rem
 		);
-		/* A row that takes focus scrolls clear of the bar and the tab bar. */
+		/* A row that takes focus scrolls clear of the pill and the tab bar. */
 		scroll-padding-bottom: calc(
-			var(--bottom-nav-h) + var(--bottom-nav-inset) + 1px + 3.75rem + 1px
+			var(--bottom-nav-h) + var(--bottom-nav-inset) + 1px + 4.5rem
 		);
 	}
 }

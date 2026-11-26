@@ -174,8 +174,8 @@ each screen:
 - **Adding on a tab root** is one control (`TitleAddButton`): a round green +,
   44px, at the right end of the big serif title's row on Recipes, Menus, Staples
   and Plan. Its label says what it adds (“New Recipe”, “New Menu”, “Add Staple”,
-  “Add Meal to Thursday, Nov 19”). Shopping adds from its docked “Add an item”
-  bar instead (see Shopping).
+  “Add Meal to Thursday, Nov 19”). Shopping adds from its floating “Add an item”
+  pill instead (see Shopping).
 
 ## Sheets and deleting
 
@@ -397,13 +397,16 @@ placeholder.
   takes the list's place. Later keeps its own checked rows at the end of its
   list. Wider, the checked rows close the one list and Clear checked sits under
   it.
-- On a phone adding is a field-shaped “Add an item” bar docked above the tab
-  bar. It opens Add to Shopping as a tall sheet with the field at the top,
-  focused inside the tap so iOS raises the keyboard, which then covers only the
-  empty lower half. The sheet stays open between adds and lists each one under
-  the field with an Undo that takes the add back, without a toast, while the row
-  is still as it was added. A row someone has checked, edited or added to since
-  stays, and its line says so. Desktop keeps its inline quick add.
+- On a phone adding is an “Add an item” pill floating at the bottom right, above
+  the tab bar: a card with a hairline edge (lighter in dark) and a shadow, over
+  the list, which shows past it and stays tappable beside it. The list's end and
+  the Undo toast stay clear of it. It opens Add to Shopping as a tall sheet with
+  the field at the top, focused inside the tap so iOS raises the keyboard, which
+  then covers only the empty lower half. The sheet stays open between adds and
+  lists each one under the field with an Undo that takes the add back, without a
+  toast, while the row is still as it was added. A row someone has checked,
+  edited or added to since stays, and its line says so. Desktop keeps its inline
+  quick add.
 - Generated and manual demand can share a displayed total, but UI actions must
   make corrections understandable.
 

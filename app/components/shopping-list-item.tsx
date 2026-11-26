@@ -37,7 +37,7 @@ import {
 const SWIPE_ACTION_WIDTH = 76
 /**
  * How far up from the bottom of the screen a row's menu keeps clear (px): the
- * tab bar and the docked add bar sit there, so a menu for a row near them
+ * tab bar and the floating add pill sit there, so a menu for a row near them
  * opens upward instead of under them.
  */
 function bottomClearance() {

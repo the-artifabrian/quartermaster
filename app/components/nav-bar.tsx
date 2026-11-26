@@ -1,4 +1,5 @@
 import {
+	type ComponentType,
 	type KeyboardEvent as ReactKeyboardEvent,
 	type MouseEvent as ReactMouseEvent,
 	useEffect,
@@ -45,7 +46,15 @@ export type NavBarHandle = {
 	nav: NavRule | ((match: { params: Params }) => NavRule) | null
 	/** Edit screens: Cancel replaces Back, and Save submits this form. */
 	navForm?: string
+	/**
+	 * The page's own buttons at the right of the bar on a phone, drawn from
+	 * its loader data. The bar draws them, so they come with the server's
+	 * HTML and with the page's first frame, before the page has run.
+	 */
+	navActions?: NavActions
 }
+
+export type NavActions = ComponentType<{ data: unknown }>
 
 export type NavBarConfig = {
 	rule: NavRule
@@ -53,6 +62,9 @@ export type NavBarConfig = {
 	/** The route's loader returned its data, so it renders its page (and
 	 * form), not its error. */
 	loaded?: boolean
+	actions?: NavActions
+	/** The route's loader data, for `actions`. */
+	data?: unknown
 }
 
 function readNavHandle(handle: unknown): NavBarHandle | null {
@@ -76,6 +88,8 @@ export function useNavBarConfig(): NavBarConfig | null {
 			rule,
 			form: handle.navForm,
 			loaded: match.loaderData !== undefined,
+			actions: handle.navActions,
+			data: match.loaderData,
 		}
 	}
 	return null
@@ -265,10 +279,32 @@ export function useEditFormOnScreen(form: string | undefined, loaded: boolean) {
 	return formMount?.form === form ? formMount.mounted : loaded
 }
 
+/** A page's own buttons at the right of the bar. Phones only: wider, the page
+ * shows them in its own row. The last glyph ends on the content edge. */
+function PageActions({
+	Actions,
+	data,
+}: {
+	Actions: NavActions
+	data: unknown
+}) {
+	return (
+		<div data-nav-actions="" className="-mr-[11px] flex items-center md:hidden">
+			<Actions data={data} />
+		</div>
+	)
+}
+
 const barTextButton =
 	'text-primary flex min-h-11 items-center rounded-md px-2 text-[17px] leading-none transition-opacity active:opacity-60 md:text-base'
 
-export function NavBar({ rule, form, loaded = true }: NavBarConfig) {
+export function NavBar({
+	rule,
+	form,
+	loaded = true,
+	actions: Actions,
+	data,
+}: NavBarConfig) {
 	const location = useLocation()
 	const navigate = useNavigate()
 	const navigation = useNavigation()
@@ -340,22 +376,36 @@ export function NavBar({ rule, form, loaded = true }: NavBarConfig) {
 		navigation.state !== 'idle' &&
 		navigation.formMethod != null &&
 		navigation.formAction?.split('?')[0] === location.pathname
+	// A page's own buttons, on a page (not an edit screen, not an error).
+	const pageActions = !editing && loaded && Actions ? Actions : null
 
 	return (
 		<div
 			ref={barRef}
 			data-nav-bar=""
 			// The sides keep room for "‹ Shopping" and Save, so the title stays
-			// centred on the bar and truncates before it reaches them. On a desktop
+			// centred on the bar and truncates before it reaches them. A page's
+			// own buttons (phones only) are wider than that side, so there the
+			// title takes what is left between Back and them. On a desktop
 			// (wide, with a mouse) the header's own tab links and the browser's
 			// Back do the bar's job, so only an edit screen keeps it, for Cancel
 			// and Save. A sideways iPhone is as wide but has no browser Back.
 			className={cn(
 				'container grid h-11 grid-cols-[minmax(6.5rem,1fr)_minmax(0,auto)_minmax(6.5rem,1fr)] items-center gap-2 print:hidden',
+				pageActions &&
+					'max-md:grid-cols-[minmax(0,max-content)_minmax(0,1fr)_max-content] max-md:gap-1',
 				!editing && 'desktop:hidden',
 			)}
 		>
-			<div className="flex min-w-0 justify-start">
+			<div
+				className={cn(
+					'flex min-w-0 justify-start',
+					// Beside a page's buttons this column sizes to Back, which
+					// hangs into the gutter by its negative margin: the margin
+					// takes that much off the width the column gives it.
+					pageActions && 'max-md:pr-3',
+				)}
+			>
 				<Link
 					to={rule.parent}
 					replace
@@ -370,6 +420,7 @@ export function NavBar({ rule, form, loaded = true }: NavBarConfig) {
 					className={cn(
 						barTextButton,
 						'max-w-full min-w-0 aria-disabled:opacity-40',
+						pageActions && 'max-md:max-w-none',
 						editing ? '-ml-2' : '-ml-3 gap-0.5 pl-1',
 					)}
 				>
@@ -393,9 +444,13 @@ export function NavBar({ rule, form, loaded = true }: NavBarConfig) {
 				data-shown={under ? '' : undefined}
 				// The text is generated content, so it does not repeat the h1 for
 				// assistive tech or text search.
-				className="text-foreground min-w-0 truncate text-[17px] font-semibold opacity-0 transition-opacity duration-150 ease-out before:content-[attr(data-nav-title)] data-shown:opacity-100 motion-reduce:transition-none md:max-w-md md:text-base"
+				className={cn(
+					'text-foreground min-w-0 truncate text-[17px] font-semibold opacity-0 transition-opacity duration-150 ease-out before:content-[attr(data-nav-title)] data-shown:opacity-100 motion-reduce:transition-none md:max-w-md md:text-base',
+					pageActions && 'max-md:text-center',
+				)}
 			/>
 			<div className="flex min-w-0 justify-end">
+				{pageActions ? <PageActions Actions={pageActions} data={data} /> : null}
 				{editing ? (
 					<button
 						type="submit"

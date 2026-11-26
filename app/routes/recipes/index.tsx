@@ -646,7 +646,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 							data-recipes-filtered=""
 							className="text-label text-muted-foreground flex flex-wrap items-center justify-between gap-x-3"
 						>
-							<p className="flex flex-wrap gap-x-1.5">
+							<p className="flex flex-wrap gap-x-1.5 py-2">
 								<span className="font-semibold">
 									{displayRecipes.length} of {totalRecipeCount}{' '}
 									{totalRecipeCount === 1 ? 'Recipe' : 'Recipes'}

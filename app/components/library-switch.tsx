@@ -70,7 +70,8 @@ const LABELS = { recipes: 'Recipes', menus: 'Menus' } as const
  * A phone's title on both lists: "Recipes" and "Menus" side by side at the
  * tab title's size, two links. The list showing is the page's heading, in
  * ink; the other is in the faint colour, which large text may take. Its
- * hover and press change only the text, so it never sits on a fill.
+ * hover and press darken the text, so it never fades below 3:1 or sits on a
+ * fill.
  *
  * Below 360px the two titles and the + no longer fit one row at 40px, so
  * the titles step down to 34px there.
@@ -96,10 +97,10 @@ export function LibraryTitle({
 						viewTransition
 						aria-current={current ? 'page' : undefined}
 						className={cn(
-							'flex min-h-11 items-center transition-opacity active:opacity-60',
+							'flex min-h-11 items-center',
 							current
-								? 'text-foreground'
-								: 'text-faint hover:text-muted-foreground',
+								? 'text-foreground transition-opacity active:opacity-60'
+								: 'text-faint hover:text-muted-foreground active:text-muted-foreground',
 						)}
 					>
 						{LABELS[library]}

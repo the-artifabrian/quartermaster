@@ -240,7 +240,7 @@ test('days picked in quick succession, by tap or by swipe, end on the last one',
 	await expect(page).toHaveURL(/day=2026-11-22$/)
 })
 
-test('a swipe while the next week loads waits, so the turn lands on Monday', async ({
+test('a swipe while the next week loads waits, so the turn still lands on Monday', async ({
 	page,
 	login,
 }) => {
@@ -254,8 +254,9 @@ test('a swipe while the next week loads waits, so the turn lands on Monday', asy
 		await route.continue()
 	})
 	await swipeAt(page, 300, 640, -150)
-	// The first swipe's week is still on its way.
-	await swipeAt(page, 300, 640, -150)
+	// The first swipe's week is still on its way; a swipe back from the
+	// Sunday still showing would go to Saturday.
+	await swipeAt(page, 90, 640, 150)
 	release()
 	await expect(page).toHaveURL(/weekStart=2026-11-23&day=2026-11-23$/)
 	await expectDay(page, 'Monday', 'Nov 23')

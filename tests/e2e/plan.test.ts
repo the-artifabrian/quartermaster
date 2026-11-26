@@ -1831,28 +1831,31 @@ test.describe('on a phone', () => {
 					}),
 			),
 		)
-		const today = browserToday()
+		// Two long days in a past week, the first two.
+		const weekStart = addDaysUTC(getWeekStart(browserToday()), -7)
 		await prisma.mealPlan.create({
 			data: {
 				householdId: user.householdId,
-				weekStart: getWeekStart(today),
+				weekStart,
 				meals: {
-					create: recipes.map((recipe, order) => ({
-						date: today,
-						order,
-						label: ['breakfast', 'lunch', 'snack', 'dinner', null][order],
-						recipeItems: {
-							create: {
-								recipeId: recipe.id,
-								recipeTitle: recipe.title,
-								order: 0,
+					create: [weekStart, addDaysUTC(weekStart, 1)].flatMap((date) =>
+						recipes.map((recipe, order) => ({
+							date,
+							order,
+							label: ['breakfast', 'lunch', 'snack', 'dinner', null][order],
+							recipeItems: {
+								create: {
+									recipeId: recipe.id,
+									recipeTitle: recipe.title,
+									order: 0,
+								},
 							},
-						},
-					})),
+						})),
+					),
 				},
 			},
 		})
-		await page.goto(planWeek(today))
+		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
 		const header = page.locator('[data-plan-header]')
 		const strip = page.locator('[data-slot="mobile-week-days"]')
 		const before = await box(header)
@@ -1881,11 +1884,21 @@ test.describe('on a phone', () => {
 		)
 		expect(foot.bottom).toBeLessThanOrEqual(tabBar.top)
 
-		// A day picked while scrolled starts at its heading.
-		await strip
-			.getByRole('button', { name: /^Show .*, no Meals planned$/ })
-			.first()
-			.tap()
+		// Another long day, picked while scrolled, starts at its heading. A
+		// tap at the button's place, so nothing scrolls it into view first.
+		expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(50)
+		const tuesday = await box(
+			strip.getByRole('button', {
+				name: new RegExp(`^Show ${dayName(addDaysUTC(weekStart, 1))},`),
+			}),
+		)
+		await page.touchscreen.tap(
+			(tuesday.left + tuesday.right) / 2,
+			(tuesday.top + tuesday.bottom) / 2,
+		)
+		await expect(
+			page.getByTestId('mobile-plan').getByRole('heading', { level: 2 }),
+		).toHaveText(formatMonthDay(addDaysUTC(weekStart, 1)))
 		await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
 	})
 

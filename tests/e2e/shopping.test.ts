@@ -1549,11 +1549,11 @@ test.describe('tapping a row on a phone', () => {
 		// The row whose menu would open across the add bar: the last row that
 		// ends above the bar's button.
 		const addButton = page.getByRole('button', { name: 'Add an item' })
-		const fab = (await addButton.boundingBox())!
+		const addBar = (await addButton.boundingBox())!
 		let target = ''
 		for (const name of ITEMS) {
 			const box = await row(page, name).boundingBox()
-			if (box && box.y + box.height <= fab.y) target = name
+			if (box && box.y + box.height <= addBar.y) target = name
 		}
 		expect(target).not.toBe('')
 
@@ -1571,7 +1571,7 @@ test.describe('tapping a row on a phone', () => {
 			)
 		const menu = (await page.getByRole('menu').boundingBox())!
 		const tabBar = (await page.locator('[data-bottom-nav]').boundingBox())!
-		expect(menu.y + menu.height).toBeLessThanOrEqual(fab.y)
+		expect(menu.y + menu.height).toBeLessThanOrEqual(addBar.y)
 		expect(menu.y + menu.height).toBeLessThanOrEqual(tabBar.y)
 		// And its items are thumb-sized on a touch screen.
 		expect((await deleteItem.boundingBox())!.height).toBeGreaterThanOrEqual(44)

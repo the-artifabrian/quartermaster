@@ -32,7 +32,7 @@ export function MenuCard({
 			    with the guests at the right. */}
 			<div className="flex min-w-0 flex-1 flex-col justify-center md:justify-start md:p-6">
 				<div className="flex items-baseline gap-3">
-					<h3 className="text-list-name min-w-0 flex-1 font-serif md:text-base md:leading-[1.3] md:tracking-[-0.005em]">
+					<h3 className="text-list-name min-w-0 flex-1 font-medium md:text-base md:leading-[1.3]">
 						<span className="line-clamp-3 md:line-clamp-2">{title}</span>
 					</h3>
 					{defaultGuestCount ? (

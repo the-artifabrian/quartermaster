@@ -178,7 +178,7 @@ function MenuRecipeCard({
 			)}
 			<div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-3">
 				<div className="min-w-0 flex-1">
-					<p className="line-clamp-2 min-w-0 font-serif text-[17px] leading-[1.4] break-words md:text-base">
+					<p className="line-clamp-2 min-w-0 text-[17px] leading-[1.4] font-medium break-words md:text-base">
 						{title}
 					</p>
 					{item.recipe ? null : (

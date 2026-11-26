@@ -435,7 +435,9 @@ export function ShoppingAddBar({
 							<li key={line.id} className="flex min-h-12 items-center gap-3">
 								<div className="min-w-0 flex-1 py-2">
 									<p className="break-words">
-										<span className="font-serif text-lg">{line.name}</span>
+										<span className="text-item-name font-medium">
+											{line.name}
+										</span>
 										{(line.quantity || line.unit) && (
 											<span className="text-muted-foreground ml-2 text-sm">
 												{[line.quantity, line.unit].filter(Boolean).join(' ')}

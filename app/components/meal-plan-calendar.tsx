@@ -771,9 +771,7 @@ export function MealPlanCalendar({
 				) : (
 					// Flat, like the Meals it stands in for.
 					<div className="border-border border-t pt-[22px] pb-5">
-						<p className="font-serif text-[23px] leading-tight">
-							Nothing planned
-						</p>
+						<p className="text-xl leading-tight font-medium">Nothing planned</p>
 						<p className="text-muted-foreground mt-1 text-[15.5px]">
 							Tap + to plan a Recipe, Menu, or note.
 						</p>

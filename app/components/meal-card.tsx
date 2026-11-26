@@ -232,7 +232,7 @@ function ItemRow({
 	const title = (
 		<h4
 			className={cn(
-				'flex min-w-0 flex-1 font-serif',
+				'flex min-w-0 flex-1 font-medium',
 				day
 					? withPhoto
 						? 'text-dish-photo'
@@ -1100,7 +1100,8 @@ export function MealCard({
 					<div className="flex items-center gap-1">
 						<p
 							className={cn(
-								'text-dish min-w-0 flex-1 py-1.5 font-serif font-normal wrap-anywhere italic',
+								// Typed, not a Recipe: muted, at the running weight.
+								'text-dish text-muted-foreground min-w-0 flex-1 py-1.5 wrap-anywhere',
 								isComplete && 'text-faint line-through',
 							)}
 						>
@@ -1113,7 +1114,7 @@ export function MealCard({
 						{cookedCircle}
 						<p
 							className={cn(
-								'flex min-w-0 flex-1 font-serif text-[15px] leading-snug md:block',
+								'text-muted-foreground flex min-w-0 flex-1 text-[15px] leading-snug md:block',
 								isComplete &&
 									'text-faint [[data-tinted]_&]:text-muted-foreground line-through',
 							)}

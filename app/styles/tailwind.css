@@ -267,16 +267,20 @@
 	   font-semibold`). */
 	--text-label: 0.84375rem;
 	--text-label--line-height: 1.3;
+	/* Names you read in a row are in the sans at weight 500 (`font-medium`).
+	   A Shopping item's name on a phone. */
+	--text-item-name: 1.0625rem;
+	--text-item-name--line-height: 1.35;
 	/* A dish on a phone's Plan day, and the dishes of a Dinner that shows its
 	   photo. */
-	--text-dish: 1.375rem;
-	--text-dish--line-height: 1.2;
-	--text-dish-photo: 1.625rem;
-	--text-dish-photo--line-height: 1.15;
+	--text-dish: 1.0625rem;
+	--text-dish--line-height: 1.35;
+	--text-dish-photo: 1.1875rem;
+	--text-dish-photo--line-height: 1.3;
 	/* A Recipe's or a Menu's name in its row on a phone's Recipes and Menus
 	   lists. */
-	--text-list-name: 1.34375rem;
-	--text-list-name--line-height: 1.2;
+	--text-list-name: 1.0625rem;
+	--text-list-name--line-height: 1.35;
 	/* A Recipe's page on a phone: in the serif its title, its Ingredients and
 	   Instructions headings and a step's numeral; in the sans an ingredient
 	   row and a step's text. */

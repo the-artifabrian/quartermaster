@@ -37,7 +37,9 @@ export function RecipeInstructionsList({
 
 	return (
 		<div>
-			<h2 className="mb-4 font-serif text-lg">Instructions</h2>
+			<h2 className="phone:text-recipe-section mb-4 font-serif text-lg">
+				Instructions
+			</h2>
 			<ol className="space-y-1">
 				{instructions.map((instruction, index) => {
 					const isChecked = checkedSteps.has(instruction.id)
@@ -50,6 +52,8 @@ export function RecipeInstructionsList({
 							tabIndex={0}
 							className={cn(
 								'border-border/30 flex cursor-pointer gap-3 border-b py-3 transition-colors select-none last:border-b-0 print:gap-2 print:border-b-0 print:px-0 print:py-0',
+								// A phone sets the numeral large in its own column.
+								'phone:grid phone:grid-cols-[2.375rem_minmax(0,1fr)] phone:gap-0 phone:border-b-0 phone:py-[11px]',
 								'focus-visible:ring-primary/50 focus-visible:rounded-lg focus-visible:ring-2 focus-visible:outline-none',
 							)}
 							onClick={() => handleToggle(instruction.id)}
@@ -61,18 +65,22 @@ export function RecipeInstructionsList({
 							}}
 						>
 							<span
+								data-step-number=""
 								className={cn(
 									// The width of an ingredient's checkbox, so steps and ingredients
 									// share their columns.
 									'flex h-8 w-6 shrink-0 items-center justify-center font-serif text-xl leading-none transition-colors print:size-5 print:text-sm',
-									isChecked ? 'text-faint' : 'text-muted-foreground',
+									'phone:text-step-number phone:h-auto phone:w-auto phone:items-start phone:justify-start phone:pt-px phone:font-normal',
+									isChecked
+										? 'text-faint'
+										: 'text-muted-foreground phone:text-primary',
 								)}
 							>
 								{isChecked ? (
 									<>
 										<Icon
 											name="check"
-											className="text-primary size-5 print:hidden"
+											className="text-primary phone:mt-1 phone:size-6 size-5 print:hidden"
 										/>
 										<span className="hidden print:inline">{index + 1}</span>
 									</>
@@ -81,7 +89,10 @@ export function RecipeInstructionsList({
 								)}
 							</span>
 							<p
+								data-step-text=""
 								className={cn(
+									// The size's own line height: `leading-*` below would win over it.
+									'phone:text-step phone:leading-(--text-step--line-height) phone:pt-0',
 									'pt-0.5 text-[1.0625rem] leading-[1.75] text-pretty transition-colors md:text-base md:leading-[1.75] print:pt-0 print:text-sm print:leading-[1.5]',
 									isChecked && 'text-faint decoration-faint/60 line-through',
 								)}

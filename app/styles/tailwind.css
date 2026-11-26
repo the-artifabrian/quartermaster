@@ -10,6 +10,10 @@
 /* Off a phone, where a bottom sheet is a centered dialog: the opposite of
    SHEET_QUERY in bottom-sheet.tsx (below sm, or a finger on a short screen). */
 @custom-variant dialog (@media (width >= 40rem) and (not ((pointer: coarse) and (height <= 500px))));
+/* A screen below md, never a printed page. A printed page is about as wide as
+   a phone, so `max-md:` reaches print too; a phone layout on a page that
+   prints its own way (a Recipe) takes this one, and print keeps its own. */
+@custom-variant phone (@media screen and (width < 48rem));
 
 :root {
 	--radius: 0.5rem;
@@ -273,6 +277,19 @@
 	   lists. */
 	--text-list-name: 1.34375rem;
 	--text-list-name--line-height: 1.2;
+	/* A Recipe's page on a phone: in the serif its title, its Ingredients and
+	   Instructions headings and a step's numeral; in the sans an ingredient
+	   row and a step's text. */
+	--text-recipe-title: 2.75rem;
+	--text-recipe-title--line-height: 1.02;
+	--text-recipe-section: 1.8125rem;
+	--text-recipe-section--line-height: 1.1;
+	--text-ingredient: 1.0625rem;
+	--text-ingredient--line-height: 1.45;
+	--text-step: 1.0625rem;
+	--text-step--line-height: 1.6;
+	--text-step-number: 2rem;
+	--text-step-number--line-height: 1;
 
 	--animate-roll-reveal: roll-reveal 0.4s cubic-bezier(0.22, 1.28, 0.54, 0.99);
 	--animate-slide-left: slide-left 0.3s ease-out;
@@ -622,8 +639,18 @@ html {
 }
 
 /* A pushed page's nav bar stays pinned at the top (NavBar), so the field a
-   form focuses or the anchor a link scrolls to lands below it. */
-:root:has([data-site-header][data-pushed]) {
+   form focuses or a control scrolled to lands below it. A margin on what can
+   take focus in the page, rather than padding on the page, so focusing the
+   bar's own Back or buttons scrolls nothing. Chromium scrolls a focused
+   textarea by its caret and leaves out the margin, so while one in the page
+   has focus the page takes the padding as well; the rule matches as focus
+   lands, before the scroll. */
+:root:has([data-site-header][data-pushed])
+	#main-content
+	:is(a[href], button, input, select, textarea, summary, [tabindex]) {
+	scroll-margin-top: calc(var(--nav-bar-bottom, 0px) + 0.75rem);
+}
+:root:has([data-site-header][data-pushed]):has(#main-content textarea:focus) {
 	scroll-padding-top: calc(var(--nav-bar-bottom, 0px) + 0.75rem);
 }
 

@@ -1,15 +1,17 @@
 import { invariantResponse } from '@epic-web/invariant'
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { useIsDemo } from '#app/components/demo.tsx'
 import { goneItemMiddleware } from '#app/components/gone-item.tsx'
 import {
 	NotInHouseholdBoundary,
 	notFoundTitle,
 } from '#app/components/not-in-household.tsx'
-import { type NavBarHandle } from '#app/components/nav-bar.tsx'
+import {
+	type NavBarHandle,
+	useNavBarActions,
+} from '#app/components/nav-bar.tsx'
 import { recipeDetailNav } from '#app/utils/nav-back.ts'
 import { Img } from 'openimg/react'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import {
 	data,
 	useFetcher,
@@ -22,15 +24,26 @@ import {
 import { toast } from 'sonner'
 import { EnhanceRecipeModal } from '#app/components/enhance-recipe-modal.tsx'
 import { ImportedRecipeNotice } from '#app/components/imported-recipe-notice.tsx'
-import { RecipeActionBar } from '#app/components/recipe-action-bar.tsx'
+import {
+	favoriteFetcherKey,
+	RecipeActionBar,
+	RecipeNavActions,
+	shareRecipePage,
+	useEnhanceFetcher,
+} from '#app/components/recipe-action-bar.tsx'
 import { IngredientList } from '#app/components/recipe-ingredient-list.tsx'
 import { RecipeIngredientsSheet } from '#app/components/recipe-ingredients-sheet.tsx'
 import { RecipeInstructionsList } from '#app/components/recipe-instructions-list.tsx'
-import { RecipeMetadataCard } from '#app/components/recipe-metadata-card.tsx'
+import {
+	RecipeFacts,
+	RecipeMetadataCard,
+} from '#app/components/recipe-metadata-card.tsx'
 import { RecipeNotes } from '#app/components/recipe-notes.tsx'
 import { RecipeIngredientsControls } from '#app/components/recipe-scale-control.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { Chip } from '#app/components/ui/chip.tsx'
+import { Icon } from '#app/components/ui/icon.tsx'
+import { PushLink } from '#app/components/push-link.tsx'
 import {
 	Popover,
 	PopoverAnchor,
@@ -72,12 +85,8 @@ import {
 } from '#app/utils/metric-conversion.ts'
 import { getShareImageUrl, IMG_SIZES } from '#app/utils/image-route.ts'
 import { cn } from '#app/utils/misc.tsx'
-import { formatRecipeForCopy } from '#app/utils/recipe-copy.ts'
 import { getRecipeJsonLd } from '#app/utils/recipe-detail.ts'
-import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
 import { MAX_RECIPE_DESCRIPTION_LENGTH } from '#app/utils/recipe-validation.ts'
-import { DEMO_BLOCKED_MESSAGE } from '#app/utils/demo.ts'
-import { browserShareFunctions, shareOrCopy } from '#app/utils/share-link.ts'
 import { haptic } from '#app/utils/shell-bridge.ts'
 import { addRecipeLineToShopping } from '#app/utils/shopping-adds.server.ts'
 import { ensureShoppingList } from '#app/utils/shopping-list-persistence.server.ts'
@@ -97,6 +106,15 @@ export const clientMiddleware: Route.ClientMiddlewareFunction[] = [
 export const handle: SEOHandle & NavBarHandle = {
 	getSitemapEntries: () => null,
 	nav: recipeDetailNav,
+	navActions: RecipeBarActions,
+}
+
+/** Favorite, Share and ⋯ in the nav bar on a phone. */
+function RecipeBarActions({ data }: { data: unknown }) {
+	// The bar draws these only with the loader's data; nothing without it.
+	if (!data) return null
+	const { recipe, isProActive } = data as Route.ComponentProps['loaderData']
+	return <RecipeNavActions recipe={recipe} isProActive={isProActive} />
 }
 
 export const meta: Route.MetaFunction = ({ loaderData, matches, error }) => {
@@ -427,8 +445,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 	const { recipe, isProActive } = loaderData
 	// The image moves from its Recipes card while the page slides in or out.
 	const imageTransitionsFromList = useViewTransitionState('/recipes')
-	// A demo's Recipes aren't shared (share.$recipeId.tsx).
-	const isDemo = useIsDemo()
 	const rootData = useRouteLoaderData('root') as
 		{ requestInfo?: { origin?: string } } | undefined
 	const origin = rootData?.requestInfo?.origin
@@ -481,12 +497,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			{ replace: true, preventScrollReset: true, state: location.state },
 		)
 	}, [searchParams, setSearchParams, location.state])
-	const favoriteFetcher = useFetcher()
-	// While a tap is on its way, show the state it asked for.
-	const isFavorite =
-		favoriteFetcher.formData?.get('intent') === 'toggleFavorite'
-			? favoriteFetcher.formData.get('isFavorite') === 'true'
-			: recipe.isFavorite
 	const {
 		checkedIngredients,
 		checkedSteps,
@@ -500,10 +510,34 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		ingredients: recipe.ingredients,
 		instructions: recipe.instructions,
 	})
-	const enhanceFetcher = useFetcher<{
-		error: string | null
-		suggestions: EnhanceableFields | null
-	}>({ key: 'enhance-recipe' })
+	const enhanceFetcher = useEnhanceFetcher()
+	// The nav bar's buttons send through the page, so an error answers here,
+	// and they go when the page does (an error after load).
+	useNavBarActions(RecipeBarActions)
+	const favoriteFetcher = useFetcher({ key: favoriteFetcherKey(recipe.id) })
+	// Reset cooking checks shows in the bar's ⋯ while there are some. A layout
+	// effect, so it is there in the frame the first check is.
+	const hasCookingChecks = checkedIngredients.size + checkedSteps.size > 0
+	const latest = useRef({ reset, favoriteFetcher, enhanceFetcher })
+	useLayoutEffect(() => {
+		latest.current = { reset, favoriteFetcher, enhanceFetcher }
+	})
+	useLayoutEffect(() => {
+		shareRecipePage(recipe.id, {
+			toggleFavorite: (favorite) =>
+				void latest.current.favoriteFetcher.submit(
+					{ intent: 'toggleFavorite', isFavorite: String(favorite) },
+					{ method: 'POST', action: `/recipes/${recipe.id}` },
+				),
+			enhance: () =>
+				void latest.current.enhanceFetcher.submit(
+					{ recipeId: recipe.id },
+					{ method: 'POST', action: '/resources/enhance-recipe' },
+				),
+			reset: hasCookingChecks ? () => latest.current.reset() : undefined,
+		})
+		return () => shareRecipePage(recipe.id, null)
+	}, [recipe.id, hasCookingChecks])
 	const [showEnhanceModal, setShowEnhanceModal] = useState(false)
 	const [ingredientsExpanded, setIngredientsExpanded] = useState(true)
 	const [useMetric, setUseMetric] = useState(false)
@@ -546,37 +580,50 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		recipe.instructions.every((i) => checkedSteps.has(i.id))
 
 	// Mid-cook ingredient glances: show the floating Ingredients action only
-	// after the heading has passed above the viewport. Observing the whole tall
-	// column kept it intersecting until the end of long Recipes.
+	// after the heading has passed above the viewport, under the pinned header
+	// (the nav bar is its last row where it shows). Read on each scrolled
+	// frame rather than from an IntersectionObserver, which reports only a
+	// crossing: a jump from below the heading to the top of the page, or a
+	// sub-Recipe link that keeps this page and opens another Recipe at its
+	// top, takes the heading from one side of the screen to the other without
+	// crossing it, and the button stayed over the top of the page. A reading
+	// belongs to its Recipe, so one from the Recipe before never shows.
 	const ingredientsHeaderRef = useRef<HTMLDivElement>(null)
-	const [ingredientsPassed, setIngredientsPassed] = useState(false)
+	const [ingredientsPassedFor, setIngredientsPassedFor] = useState<{
+		recipeId: string
+		passed: boolean
+	} | null>(null)
+	const ingredientsPassed =
+		ingredientsPassedFor?.recipeId === recipe.id && ingredientsPassedFor.passed
 	useEffect(() => {
 		const el = ingredientsHeaderRef.current
-		if (!el || typeof IntersectionObserver === 'undefined') return
-		// The heading has passed once it is under the pinned header (the nav
-		// bar is its last row where it shows), not only once it leaves the
-		// screen.
-		const barBottom = Math.max(
-			0,
-			Math.round(
+		if (!el) return
+		const recipeId = recipe.id
+		let frame = 0
+		const read = () => {
+			frame = 0
+			const barBottom =
 				document.querySelector('[data-site-header]')?.getBoundingClientRect()
-					.bottom ?? 0,
-			),
-		)
-		const observer = new IntersectionObserver(
-			([entry]) => {
-				if (!entry) return
-				const viewportTop = entry.rootBounds?.top ?? 0
-				setIngredientsPassed(
-					!entry.isIntersecting &&
-						entry.boundingClientRect.bottom < viewportTop,
-				)
-			},
-			{ rootMargin: `-${barBottom}px 0px 0px 0px` },
-		)
-		observer.observe(el)
-		return () => observer.disconnect()
-	}, [])
+					.bottom ?? 0
+			const passed = el.getBoundingClientRect().bottom < Math.max(0, barBottom)
+			setIngredientsPassedFor((prev) =>
+				prev?.recipeId === recipeId && prev.passed === passed
+					? prev
+					: { recipeId, passed },
+			)
+		}
+		const schedule = () => {
+			if (!frame) frame = requestAnimationFrame(read)
+		}
+		read()
+		window.addEventListener('scroll', schedule, { passive: true })
+		window.addEventListener('resize', schedule)
+		return () => {
+			cancelAnimationFrame(frame)
+			window.removeEventListener('scroll', schedule)
+			window.removeEventListener('resize', schedule)
+		}
+	}, [recipe.id])
 	const nonHeadingIngredients = recipe.ingredients.filter((i) => !i.isHeading)
 	const checkedIngredientCount = nonHeadingIngredients.filter((i) =>
 		checkedIngredients.has(i.id),
@@ -639,13 +686,13 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 		})
 	}
 
-	function handleEnhance() {
-		const formData = new FormData()
-		formData.set('recipeId', recipe.id)
-		void enhanceFetcher.submit(formData, {
-			method: 'POST',
-			action: '/resources/enhance-recipe',
-		})
+	function openPlanPicker() {
+		// A sheet on a phone, upright or on its side; a popover elsewhere.
+		setPlanPickerAsSheet(opensAsSheet())
+		// Each opening starts on today, so a day picked before midnight can't
+		// send yesterday.
+		setPlanDate(null)
+		setPlanPickerOpen(true)
 	}
 
 	function updateScaleMultiplier(scaleMultiplier: number) {
@@ -670,45 +717,6 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			localStorage.setItem('qm-use-metric', String(!prev))
 			return !prev
 		})
-	}
-
-	// A second tap while the sheet is open makes Safari reject share() with
-	// InvalidStateError, which would copy the link behind the sheet. Taps are
-	// ignored until the first share settles.
-	const shareInFlight = useRef(false)
-	async function handleShare() {
-		if (isDemo) {
-			toast.error(DEMO_BLOCKED_MESSAGE)
-			return
-		}
-		if (shareInFlight.current) return
-		shareInFlight.current = true
-		try {
-			const url = `${origin ?? window.location.origin}/share/${recipe.id}`
-			// share() is the first await, so it runs inside the tap's activation.
-			const outcome = await shareOrCopy({
-				data: { title: recipe.title, url },
-				...browserShareFunctions(),
-			})
-			if (outcome === 'copied') {
-				toast.success('Public link copied', {
-					description: 'Anyone with this link can see the Recipe.',
-				})
-			} else if (outcome === 'copy-failed') {
-				toast.error('Couldn’t copy the link. Try again.')
-			}
-		} finally {
-			shareInFlight.current = false
-		}
-	}
-
-	async function handleCopyRecipe() {
-		try {
-			await navigator.clipboard.writeText(formatRecipeForCopy(recipe, ratio))
-			toast.success('Copied')
-		} catch {
-			toast.error('Couldn’t copy the Recipe')
-		}
 	}
 
 	const planPickerBody = (
@@ -783,7 +791,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				}}
 			/>
 
-			<div className="container-content pt-4 pb-[calc(var(--bottom-nav-h)+5.25rem+var(--bottom-nav-inset))] md:pt-6 md:pb-20 lg:pb-6 print:pt-0 print:pb-0">
+			{/* Full width on a phone: the Recipes layout is a flex column, where
+			    a short Recipe's auto margins would shrink it to its content and
+			    leave the photo and Add to Plan short of the edges. */}
+			<div className="container-content phone:w-full pt-4 pb-[calc(var(--bottom-nav-h)+5.25rem+var(--bottom-nav-inset))] md:pt-6 md:pb-20 lg:pb-6 print:pt-0 print:pb-0">
 				{importNeedsLook && imported ? (
 					<ImportedRecipeNotice
 						recipeId={recipe.id}
@@ -798,9 +809,10 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				) : null}
 				<div className="flex flex-col md:flex-row md:items-start md:gap-8">
 					<div className="min-w-0 flex-1">
-						<h1 className="font-serif text-[2rem] leading-[1.15] tracking-[-0.02em]">
+						<h1 className="phone:text-recipe-title phone:leading-(--text-recipe-title--line-height) font-serif text-[2rem] leading-[1.15] tracking-[-0.02em]">
 							{recipe.title}
 						</h1>
+						{/* A phone has its facts under the description. */}
 						<RecipeMetadataCard
 							activeTime={recipe.activeTime}
 							totalTime={recipe.totalTime}
@@ -808,55 +820,73 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 							yieldLabel={recipe.yieldLabel}
 							sourceUrl={recipe.sourceUrl}
 							showYield={false}
+							className="phone:hidden"
 						/>
 					</div>
 
 					{recipe.image && (
-						<div className="order-first -mx-4 -mt-4 mb-5 shrink-0 sm:-mx-8 md:order-none md:mx-0 md:my-0 md:w-[45%] lg:w-100 print:hidden">
+						<div className="phone:mb-[22px] order-first -mx-4 -mt-4 mb-5 shrink-0 sm:-mx-8 md:order-none md:mx-0 md:my-0 md:w-[45%] lg:w-100 print:hidden">
 							<Img
 								src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
 								alt={recipe.image.altText ?? recipe.title}
 								data-recipe-image-transition={
 									imageTransitionsFromList ? '' : undefined
 								}
-								className="md:border-border aspect-[16/10] w-full object-cover md:aspect-4/3 md:rounded-md md:border"
+								className="md:border-border phone:aspect-auto phone:h-[292px] aspect-[16/10] w-full object-cover md:aspect-4/3 md:rounded-md md:border"
 								{...IMG_SIZES.hero}
 							/>
 						</div>
 					)}
 				</div>
 				{recipe.description && (
-					<p className="text-muted-foreground mt-5 text-base leading-relaxed text-pretty">
+					<p className="text-muted-foreground phone:mt-2 mt-5 text-base leading-relaxed text-pretty">
 						{recipe.description}
 					</p>
 				)}
+				<RecipeFacts
+					activeTime={recipe.activeTime}
+					totalTime={recipe.totalTime}
+					yieldAmount={recipe.yieldAmount}
+					yieldLabel={recipe.yieldLabel}
+					scaleMultiplier={ratio}
+					sourceUrl={recipe.sourceUrl}
+					className="phone:flex mt-[18px] hidden"
+				/>
 
 				<Popover
 					open={planPickerOpen && !planPickerAsSheet}
 					onOpenChange={setPlanPickerOpen}
 				>
+					{/* Around whichever row shows, so the popover (640 to 767px)
+					    opens under the phone's Add to Plan too. */}
 					<PopoverAnchor>
+						<div className="phone:flex mt-5 hidden gap-2">
+							<Button
+								onClick={openPlanPicker}
+								className="h-12 min-w-0 flex-1 text-base font-semibold"
+							>
+								<Icon name="calendar" size="md" />
+								Add to Plan
+							</Button>
+							<Button
+								asChild
+								variant="secondary"
+								className="h-12 px-5 text-base font-semibold"
+							>
+								<PushLink
+									to={`/recipes/${recipe.id}/edit`}
+									aria-label="Edit Recipe"
+								>
+									<Icon name="pencil-1" size="md" />
+									Edit
+								</PushLink>
+							</Button>
+						</div>
 						<RecipeActionBar
-							recipeId={recipe.id}
-							isFavorite={isFavorite}
+							recipe={recipe}
 							isProActive={isProActive}
-							favoriteFetcher={favoriteFetcher}
-							enhanceFetcher={enhanceFetcher}
-							onAddToPlan={() => {
-								// A sheet on a phone, upright or on its side; a popover
-								// elsewhere.
-								setPlanPickerAsSheet(opensAsSheet())
-								// Each opening starts on today, so a day picked before
-								// midnight can't send yesterday.
-								setPlanDate(null)
-								setPlanPickerOpen(true)
-							}}
-							onCopy={handleCopyRecipe}
-							onShare={handleShare}
-							onEnhance={handleEnhance}
-							onResetCookingChecks={
-								checkedIngredients.size || checkedSteps.size ? reset : undefined
-							}
+							onAddToPlan={openPlanPicker}
+							onResetCookingChecks={hasCookingChecks ? reset : undefined}
 						/>
 					</PopoverAnchor>
 					<PopoverContent

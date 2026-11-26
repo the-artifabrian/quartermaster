@@ -38,7 +38,7 @@ export function RecipeNotes({
 				className,
 			)}
 		>
-			<p className="text-muted-foreground mb-1 text-xs font-semibold tracking-wide uppercase">
+			<p className="text-muted-foreground text-label mb-1 font-semibold print:text-xs print:tracking-wide print:uppercase">
 				Notes
 			</p>
 			<p

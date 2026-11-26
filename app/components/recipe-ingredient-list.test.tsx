@@ -67,3 +67,54 @@ test('the anonymous share page offers no Shopping action', () => {
 	).not.toBeInTheDocument()
 	expect(screen.getByRole('checkbox', { name: 'rhubarb' })).toBeVisible()
 })
+
+test('each row reads as one run of text, with the ingredient as its spoken name', () => {
+	const Stub = createRoutesStub([
+		{
+			path: '/',
+			Component: () => (
+				<IngredientList
+					ingredients={[
+						...ingredients,
+						{
+							id: 'salt',
+							name: 'salt',
+							amount: null,
+							unit: null,
+							notes: 'to taste',
+							isHeading: false,
+						},
+						{
+							id: 'eggs',
+							name: 'egg',
+							amount: '1',
+							unit: null,
+							notes: null,
+							isHeading: false,
+						},
+					]}
+					checkedIngredients={new Set()}
+					onToggle={vi.fn()}
+					ratio={2}
+					recipeId="tart"
+				/>
+			),
+		},
+	])
+	render(<Stub />)
+
+	const rows = screen.getAllByRole('checkbox')
+	// What a print or a text selection reads: one run of text.
+	expect(rows.map((row) => row.textContent)).toEqual([
+		'1000 g rhubarb',
+		'400 g sugar, optional',
+		'salt, to taste',
+		'2 eggs',
+	])
+	expect(rows.map((row) => row.getAttribute('aria-label'))).toEqual([
+		'rhubarb',
+		'sugar',
+		'salt',
+		'egg',
+	])
+})

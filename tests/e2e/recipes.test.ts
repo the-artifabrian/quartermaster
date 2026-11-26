@@ -1095,7 +1095,7 @@ test.describe('on a phone', () => {
 	// glyphs in.
 	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
-	test('a Recipe page starts its actions, headings, checkboxes and steps on the content edge', async ({
+	test('a Recipe page starts its buttons, headings, ingredients and steps on the content edge, and ends its glyphs on the other', async ({
 		page,
 		login,
 	}) => {
@@ -1126,10 +1126,10 @@ test.describe('on a phone', () => {
 		)
 		const left = title.left
 
-		const favorite = page
-			.getByRole('button', { name: 'Add to favorites' })
-			.locator('svg')
-		expectNear((await box(favorite)).left, left)
+		expectNear(
+			(await box(page.getByRole('button', { name: 'Add to Plan' }))).left,
+			left,
+		)
 		expectNear(
 			(await box(page.getByRole('heading', { name: 'Ingredients' }).first()))
 				.left,
@@ -1140,18 +1140,28 @@ test.describe('on a phone', () => {
 			left,
 		)
 
-		// Checkboxes and step numbers share a column; ingredient and step text
-		// share the next.
+		// No check box: the ingredient's text and the step numbers start on
+		// the edge.
 		const ingredient = page.getByRole('checkbox', { name: 'chicken thighs' })
-		const checkbox = await box(ingredient.locator('span').first())
-		expectNear(checkbox.left, left)
-		const step = page.getByRole('checkbox').filter({ hasText: 'Marinate' })
-		const number = await box(step.locator('span').first())
-		expectNear(number.left, left)
-		expectNear(number.right, checkbox.right)
 		expectNear(
-			(await box(step.locator('p'))).left,
-			(await box(ingredient.locator('span').nth(1))).left,
+			(await box(ingredient.locator('[data-ingredient-text]'))).left,
+			left,
+		)
+		const step = page.getByRole('checkbox').filter({ hasText: 'Marinate' })
+		expectNear((await box(step.locator('[data-step-number]'))).left, left)
+
+		// The bar's last glyph ends on the content edge, as the cart's does.
+		const right = (await box(page.getByRole('main'))).right - left
+		expectNear(
+			(
+				await box(
+					page
+						.locator('[data-nav-bar]')
+						.getByRole('button', { name: 'More actions' })
+						.locator('svg'),
+				)
+			).right,
+			right,
 		)
 
 		// The cart glyph ends on the content edge, under the Metric toggle's end.

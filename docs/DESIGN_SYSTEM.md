@@ -23,13 +23,15 @@ see [GLOSSARY.md](../GLOSSARY.md).
 
 ## Type
 
-- **Newsreader** for anything you read or cook from: page and tab titles, Recipe
-  and item names, section and day headings. Titles and names are weight 500,
-  which `font-serif` sets on its own (`app/styles/tailwind.css`), so a serif
-  title takes no weight class. Running text is 400 and amounts 600. The files
-  carry weights 400 to 600 only, so never ask the serif for less or more. The
-  roman has an optical-size axis the browser sets from the font size; the italic
-  has none. The serif sets lining figures, and `tabular-nums` adds to them.
+- **Newsreader** for titles and names: page and tab titles, Recipe and item
+  names, section and day headings, a step's numeral. Text you read through, a
+  Recipe's description, ingredients and steps included, is in the sans. Titles
+  and names are weight 500, which `font-serif` sets on its own
+  (`app/styles/tailwind.css`), so a serif title takes no weight class. Running
+  text is 400 and amounts 600. The files carry weights 400 to 600 only, so never
+  ask the serif for less or more. The roman has an optical-size axis the browser
+  sets from the font size; the italic has none. The serif sets lining figures,
+  and `tabular-nums` adds to them.
 - **Schibsted Grotesk** for controls, labels, metadata, navigation and secondary
   text, weights 400 to 700. It has no italic file, so the app does not set the
   sans in italic.
@@ -49,29 +51,36 @@ Browsers without it wrap as usual.
 
 Useful sizes:
 
-| Use                                | Size                                         |
-| ---------------------------------- | -------------------------------------------- |
-| Tab title (`TabTitle`)             | 40px Newsreader, 1.05 lines                  |
-| Plan's day heading on a phone      | 31px Newsreader                              |
-| Other page title                   | 24px Newsreader                              |
-| Recipe detail title                | 32px Newsreader                              |
-| Plan dish on a phone (`text-dish`) | 22px Newsreader, 26px under a Dinner's photo |
-| Recipe or Menu row on a phone      | 21.5px Newsreader (`text-list-name`)         |
-| Body and ingredients               | 16px Schibsted Grotesk                       |
-| UI label                           | 14px Schibsted Grotesk                       |
-| Small label (`text-label`)         | 13.5px Schibsted Grotesk, weight 600         |
-| Caption                            | 13px Schibsted Grotesk                       |
-| Tiny navigation label              | 12px Schibsted Grotesk                       |
+| Use                                                         | Size                                                                                |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Tab title (`TabTitle`)                                      | 40px Newsreader, 1.05 lines                                                         |
+| Recipe title on a phone (`text-recipe-title`)               | 44px Newsreader, 1.02 lines; 32px wider                                             |
+| Plan's day heading on a phone                               | 31px Newsreader                                                                     |
+| Recipe's section heading on a phone (`text-recipe-section`) | 29px Newsreader; 18px wider                                                         |
+| Other page title                                            | 24px Newsreader                                                                     |
+| Plan dish on a phone (`text-dish`)                          | 22px Newsreader, 26px under a Dinner's photo                                        |
+| Recipe or Menu row on a phone                               | 21.5px Newsreader (`text-list-name`)                                                |
+| A step on a phone (`text-step`)                             | 17px Schibsted Grotesk, 1.6 lines; its numeral 32px Newsreader (`text-step-number`) |
+| An ingredient on a phone (`text-ingredient`)                | 17px Schibsted Grotesk, 1.45 lines                                                  |
+| Body, and ingredients and steps wider                       | 16px Schibsted Grotesk                                                              |
+| UI label                                                    | 14px Schibsted Grotesk                                                              |
+| Small label (`text-label`)                                  | 13.5px Schibsted Grotesk, weight 600                                                |
+| Caption                                                     | 13px Schibsted Grotesk                                                              |
+| Tiny navigation label                                       | 12px Schibsted Grotesk                                                              |
 
 The Plan dish sizes (`text-dish`, `text-dish-photo`), the list row size
-(`text-list-name`) and `text-label` are font size tokens in
-`app/styles/tailwind.css`, each set once, and `cn` in `app/utils/misc.tsx` knows
-them.
+(`text-list-name`), the Recipe page's sizes (`text-recipe-title`,
+`text-recipe-section`, `text-ingredient`, `text-step`, `text-step-number`) and
+`text-label` are font size tokens in `app/styles/tailwind.css`, each set once,
+and `cn` in `app/utils/misc.tsx` knows them. A `leading-*` class beside one of
+them wins over the size's own line height, so a class list that has both names
+the line height again (`leading-(--text-step--line-height)`).
 
 A small label (a Meal's label, the weekday in Plan's strip and over its day, the
-groups of a picker) is sentence case at weight 600 with no tracking:
+groups of a picker, a heading inside a Recipe's ingredients, a Recipe's facts
+and its Notes) is sentence case at weight 600 with no tracking:
 `text-label font-semibold`. Other screens set theirs uppercase and letter-spaced
-(`sectionLabelClass`).
+(`sectionLabelClass`). A printed Recipe keeps its uppercase headings.
 
 Every tab's own page (Recipes, Menus, Staples, Plan, Shopping, Settings) opens
 with its title in `TabTitle`, beside the controls of its row.
@@ -152,12 +161,12 @@ Common maximum widths:
 - Marketing content: 960px (the homepage uses the full 1400px `container`)
 
 Rows line up on the page's edges. What leads a row (a checkbox, a cooked circle,
-a step number, a small label, the first icon of a row of icons) starts on the
-content edge, and the dots, trash and cart glyphs that end a row end on it. A
-44px tap area reaches into the page gutter with a negative margin rather than
-pushing its glyph in. Inside a row, titles share one edge past the leading
-glyph, and a heading's chevron trails the heading. A page title has no rule
-under it.
+a step number, a small label, the first icon of a row of icons, the text of a
+Recipe's ingredient on a phone) starts on the content edge, and the dots, trash
+and cart glyphs that end a row end on it. A 44px tap area reaches into the page
+gutter with a negative margin rather than pushing its glyph in. Inside a row,
+titles share one edge past the leading glyph, and a heading's chevron trails the
+heading. A page title has no rule under it.
 
 Plan's day on a phone puts its cooked circles at the other end: each dish row
 starts with the dish name on the content edge and ends with the circle, its
@@ -184,8 +193,9 @@ each screen:
   classification values, and for one-tap suggestions with a leading `+`. A
   control that must stay its own element in a row of chips (a native `<select>`,
   a menu trigger) takes the same look from `chipClassName`. The Recipes list's
-  filters show a chosen chip on the tint with a green ring and green text
-  (`tone="tint"`, `chipClassName(on, 'tint')`) instead of the fill.
+  filters and a Recipe's Metric show a chosen chip on the tint with a green ring
+  and green text (`tone="tint"`, `chipClassName(on, 'tint')`) instead of the
+  fill.
 - **Segmented control** picks one of two or three equal-width options with a
   green pill that slides under the selection. Use tabs when it switches what the
   page shows, radios when it picks a setting, and `SegmentedLinks` when the
@@ -274,6 +284,25 @@ parent in the page's place. Settings' pages go back to Settings, or to another
 tab's page that opened one directly, and Upgrade to whatever page opened it.
 Pages do not add their own “Back to…”, arrow or Cancel links.
 
+A pushed page may put its own buttons at the right of the bar on a phone: a
+Recipe's Favorite, Share and dots, ink icons with a green filled heart for a
+favorite. The route's handle names them (`navActions`) and the bar draws them
+from the route's loader data, so they come with the server's HTML and the page's
+first frame. What they send goes through the page's own fetchers (a fetcher
+answers an error at the route it was made in, and the bar is the root's), and
+the page says whether there are cooking checks to reset. An edit screen's route
+names none. The bar needs the loader's data and the page on screen (it registers
+with `useNavBarActions`), so a page that failed to load, a loader that fails on
+a later navigation, and an error after load (a favorite tapped on a Recipe
+deleted meanwhile) show none. Wider screens show the page's own row instead.
+Beside them the small title takes the room between Back and the buttons rather
+than the bar's centre. Focusing Back or a button in the bar never scrolls the
+page: what can take focus in the page has a scroll margin that clears the bar,
+rather than the page having a scroll padding. A textarea is the exception, since
+Chromium scrolls it by its caret and leaves out the margin: while one in the
+page has focus, the page takes the padding too, so a step field partly under the
+bar comes out below it.
+
 Edit screens (Recipe edit and new, Menu edit and new) put Cancel on the left of
 the bar and Save on the right (green, semibold, dimmed while disabled, a spinner
 while saving), shown only while the form is on screen. The form has no Save bar
@@ -328,7 +357,8 @@ Typical square thumbnail sizes:
   top
 - 36–40px in pickers
 
-Recipe detail may use a full-bleed mobile hero and a side image on desktop.
+On a phone a Recipe's photo runs edge to edge, 292px tall, under the nav bar; a
+Recipe without one starts with its title. Desktop shows it beside the title.
 Thumbnails beside visible titles are decorative (`alt=""`). Shopping, Staples,
 Menus, settings, and forms stay text-first; an upload preview is the exception.
 
@@ -388,6 +418,27 @@ On a phone the Recipes and Menus lists share a title and a row shape:
 ### Recipe detail
 
 - Put the title and optional hero first, then metadata, ingredients, and steps.
+- On a phone the page is the photo, the title, the description in muted sans,
+  then the facts: Active, Total and what it makes (at the current scale), each a
+  small label over its value, only those the Recipe has, with the source site
+  under them. Add to Plan is a full-width green button with a quiet Edit beside
+  it; Favorite, Share and the dots are in the nav bar, and Copy Recipe is the
+  dots' first item after Reset cooking checks. Wider screens keep the title and
+  facts beside the photo and the row of icon actions.
+- On a phone an ingredient row is one line of text from the content edge: the
+  amount and unit at weight 600, the name, then any note in muted roman after
+  its comma, with the cart on the other edge. A long row wraps under its own
+  start. A row with no amount starts with its name, and headings and sub-Recipes
+  start on the same edge. There is no check box: the row is the checkbox, and a
+  checked row strikes its name and note and fades its text. The Ingredients
+  sheet and the shared Recipe page draw the same rows.
+- On a phone a step is a green Newsreader numeral in its own column and the text
+  in the sans; a finished step fades and its numeral becomes a green check.
+  Times and temperatures are weight 600 over a green underline, in ink on a
+  phone and green wider.
+- Print keeps its own layout. A printed page is about as wide as a phone, so
+  `max-md:` reaches print too; the Recipe page's phone layout goes through
+  `phone:` (a screen below `md`), which print never matches.
 - Desktop may keep ingredients sticky beside instructions; mobile stacks them.
 - Ingredient and instruction check-off must work across the full row.
 - Personal notes render only when they exist: a quiet tinted block in the body

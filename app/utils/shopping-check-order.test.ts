@@ -220,12 +220,104 @@ describe('taps while a row holds', () => {
 			shownChecked: false,
 			checkedAfterTap: false,
 		})
-		expect(state.moves.has('bread')).toBe(false)
 		// The cancelled hold's timer still fires, and changes nothing.
 		const after = holdElapsed(state, 'bread', seq)
 		const rows = list(['bread'], ['rice'])
 		expect(place(rows, after).open).toEqual(['bread', 'rice'])
-		expect(after.moves.has('bread')).toBe(false)
+		// Once nothing is out for it, the row simply rests where it is.
+		const settled = settleMoves(after, savedState(rows), {
+			reducedMotion: false,
+		})
+		expect(settled.moves.has('bread')).toBe(false)
+		expect(place(rows, settled).open).toEqual(['bread', 'rice'])
+	})
+
+	test('a tap that takes back a saved check keeps the row among the rows to buy while the uncheck is out', () => {
+		let state = tapRow(NO_MOVES, {
+			id: 'bread',
+			shownChecked: false,
+			checkedAfterTap: true,
+		})
+		state = tapRow(state, {
+			id: 'bread',
+			shownChecked: false,
+			checkedAfterTap: false,
+		})
+		// The check saved before the second tap; the uncheck is still out.
+		const rows = list(['bread'], ['rice'])
+		const out = { bread: { resting: true, pending: true } }
+		state = settleMoves(state, savedState(rows, out), { reducedMotion: false })
+		expect(place(rows, state, out)).toEqual({
+			open: ['bread', 'rice'],
+			done: [],
+			folding: [],
+			arriving: [],
+		})
+		// The uncheck saves: the row stays, and nothing holds it any more.
+		state = settleMoves(state, savedState(rows), { reducedMotion: false })
+		expect(state.moves.has('bread')).toBe(false)
+		expect(place(rows, state).open).toEqual(['bread', 'rice'])
+	})
+
+	test('an uncheck that fails after a cancelling tap keeps the row among the rows to buy', () => {
+		let state = tapRow(NO_MOVES, {
+			id: 'bread',
+			shownChecked: false,
+			checkedAfterTap: true,
+		})
+		state = holdElapsed(state, 'bread', seqOf(state, 'bread'))
+		state = tapRow(state, {
+			id: 'bread',
+			shownChecked: false,
+			checkedAfterTap: false,
+		})
+		// A failed check stays out, saved as checked, until Retry.
+		const rows = list(['bread'], ['rice'])
+		const failed = { bread: { resting: true, pending: true } }
+		for (let i = 0; i < 3; i++)
+			state = settleMoves(state, savedState(rows, failed), {
+				reducedMotion: false,
+			})
+		expect(place(rows, state, failed).open).toEqual(['bread', 'rice'])
+		expect(place(rows, state, failed).done).toEqual([])
+	})
+
+	test('a cancelling tap on a row under Checked keeps it there while its check is out', () => {
+		const start = list(['apples'], ['bread'], ['rice'])
+		const moved = checkAndMove(NO_MOVES, start, 'bread')
+		let state = tapRow(moved.state, {
+			id: 'bread',
+			shownChecked: true,
+			checkedAfterTap: false,
+		})
+		state = tapRow(state, {
+			id: 'bread',
+			shownChecked: true,
+			checkedAfterTap: true,
+		})
+		// The uncheck saved; the check that takes it back is out.
+		const rows = list(['apples'], ['bread', true], ['rice'])
+		const out = { bread: { resting: false, pending: true } }
+		state = settleMoves(state, savedState(rows, out), { reducedMotion: false })
+		expect(place(rows, state, out).done).toEqual(['bread'])
+		expect(place(rows, state, out).open).toEqual(['apples', 'rice'])
+	})
+
+	test('a cancelled move the server leaves in the other group folds there', () => {
+		let state = tapRow(NO_MOVES, {
+			id: 'bread',
+			shownChecked: false,
+			checkedAfterTap: true,
+		})
+		state = tapRow(state, {
+			id: 'bread',
+			shownChecked: false,
+			checkedAfterTap: false,
+		})
+		// The uncheck was refused: the row is checked, as saved.
+		const rows = list(['bread', true], ['rice'])
+		state = settleMoves(state, savedState(rows), { reducedMotion: false })
+		expect(place(rows, state).folding).toEqual(['bread'])
 	})
 
 	test('a tap after the hold ended, before the check was confirmed, also cancels it', () => {
@@ -240,6 +332,11 @@ describe('taps while a row holds', () => {
 			shownChecked: false,
 			checkedAfterTap: false,
 		})
+		const rows = list(['bread'], ['rice'])
+		const out = { bread: { resting: false, pending: true } }
+		state = settleMoves(state, savedState(rows, out), { reducedMotion: false })
+		expect(place(rows, state, out).open).toEqual(['bread', 'rice'])
+		state = settleMoves(state, savedState(rows), { reducedMotion: false })
 		expect(state.moves.has('bread')).toBe(false)
 	})
 

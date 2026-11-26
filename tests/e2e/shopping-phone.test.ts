@@ -25,29 +25,31 @@ async function seed(user: { id: string; householdId: string }, items: Seed[]) {
 const row = (page: Page, name: string) =>
 	page.getByRole('group', { name: `${name} shopping item` })
 
-const group = (page: Page, which: 'to-buy' | 'checked') =>
-	page.locator(`[data-shopping-group="${which}"]`)
+/** Next shop's rows in a group, each wrapped in its fold. */
+const groupRows = (page: Page, which: 'to-buy' | 'checked') =>
+	page.locator(
+		`[data-testid="next-shopping-items"] [data-row-collapse][data-shopping-group="${which}"]`,
+	)
 
 /** The rows showing in a group, top to bottom; folded rows don't count. */
 async function namesIn(page: Page, which: 'to-buy' | 'checked') {
-	const container = group(page, which)
-	if ((await container.count()) === 0) return []
-	return container
-		.locator(
-			'[data-row-collapse]:not([data-hidden]) [aria-label$=" shopping item"]',
-		)
-		.evaluateAll((rows) =>
-			rows.map((element) =>
-				element.getAttribute('aria-label')!.replace(/ shopping item$/, ''),
+	return groupRows(page, which).evaluateAll((wrappers) =>
+		wrappers
+			.filter((wrapper) => !wrapper.hasAttribute('data-hidden'))
+			.map((wrapper) =>
+				wrapper
+					.querySelector('[aria-label$=" shopping item"]')!
+					.getAttribute('aria-label')!
+					.replace(/ shopping item$/, ''),
 			),
-		)
+	)
 }
 
 /** The fold wrapper of a row in a group, found even while it is shut. */
 const wrapperIn = (page: Page, which: 'to-buy' | 'checked', name: string) =>
-	group(page, which)
-		.locator('[data-row-collapse]')
-		.filter({ has: page.locator(`[aria-label="${name} shopping item"]`) })
+	groupRows(page, which).filter({
+		has: page.locator(`[aria-label="${name} shopping item"]`),
+	})
 
 const isCheckWrite = (response: Response) =>
 	response.url().includes('/resources/shopping-check') &&
@@ -164,9 +166,7 @@ test.describe('a row checked off on a phone', () => {
 		)
 		await sheet.getByRole('button', { name: 'Add to Next shop' }).click()
 		await reloaded
-		await expect(
-			group(page, 'to-buy').locator('[aria-label="Cheese shopping item"]'),
-		).toBeAttached()
+		await expect(wrapperIn(page, 'to-buy', 'Cheese')).toBeAttached()
 		await expect(
 			sheet.getByRole('button', { name: 'Undo adding Cheese' }),
 		).toBeVisible()
@@ -266,6 +266,108 @@ test.describe('a row checked off on a phone', () => {
 		await advanceUntil(page, 'checked', ['Rice'])
 		await expect(
 			page.getByRole('heading', { name: 'Checked', exact: true }),
+		).toBeVisible()
+	})
+
+	for (const direction of ['to buy', 'Checked'] as const) {
+		test(`a tap taking back a saved change keeps the row under ${direction} while that tap is out`, async ({
+			page,
+			login,
+		}) => {
+			const user = await login()
+			await seed(user, [
+				{ name: 'Apples' },
+				{ name: 'Bread', checked: direction === 'Checked' },
+				{ name: 'Rice' },
+			])
+			const row = direction === 'Checked' ? 'Bread' : 'Rice'
+			const first = direction === 'Checked' ? 'Uncheck' : 'Check off'
+			const second = direction === 'Checked' ? 'Check off' : 'Uncheck'
+			let held: (() => void) | null = null
+			let writes = 0
+			await page.route('**/resources/shopping-check?*', async (route) => {
+				if (route.request().method() !== 'POST') return route.continue()
+				if (++writes === 1) return route.continue()
+				await new Promise<void>((resolve) => (held = resolve))
+				await route.continue()
+			})
+			await page.clock.install()
+			await openShopping(page)
+			await pauseClock(page)
+
+			const saved = page.waitForResponse(isCheckWrite)
+			await page
+				.getByRole('group', { name: `${row} shopping item` })
+				.getByRole('button', { name: `${first} ${row}` })
+				.click()
+			await saved
+			await page
+				.getByRole('group', { name: `${row} shopping item` })
+				.getByRole('button', { name: `${second} ${row}` })
+				.click()
+			await expect.poll(() => held !== null).toBe(true)
+			const expected =
+				direction === 'Checked'
+					? { toBuy: ['Apples', 'Rice'], checked: ['Bread'] }
+					: { toBuy: ['Apples', 'Bread', 'Rice'], checked: [] }
+			expect(await namesIn(page, 'to-buy')).toEqual(expected.toBuy)
+			expect(await namesIn(page, 'checked')).toEqual(expected.checked)
+			// Long after the half second, it still waits where it was.
+			await page.clock.runFor(1000)
+			expect(await namesIn(page, 'to-buy')).toEqual(expected.toBuy)
+			expect(await namesIn(page, 'checked')).toEqual(expected.checked)
+
+			held!()
+			await expect(page.locator('[id^="check-status-"]')).toHaveCount(0)
+			await page.clock.runFor(1000)
+			expect(await namesIn(page, 'to-buy')).toEqual(expected.toBuy)
+			expect(await namesIn(page, 'checked')).toEqual(expected.checked)
+			expect(await savedChecks(user.householdId)).toEqual({
+				Apples: false,
+				Bread: direction === 'Checked',
+				Rice: false,
+			})
+		})
+	}
+
+	test('an uncheck that fails after taking back a saved check leaves the row among the rows to buy, with Retry', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seed(user, [
+			{ name: 'Apples' },
+			{ name: 'Bread', checked: true },
+			{ name: 'Rice' },
+		])
+		let writes = 0
+		await page.route('**/resources/shopping-check?*', (route) => {
+			if (route.request().method() !== 'POST') return route.continue()
+			return ++writes === 1 ? route.continue() : route.abort()
+		})
+		await page.clock.install()
+		await openShopping(page)
+		await pauseClock(page)
+
+		const saved = page.waitForResponse(isCheckWrite)
+		await row(page, 'Rice')
+			.getByRole('button', { name: 'Check off Rice' })
+			.click()
+		await saved
+		await row(page, 'Rice')
+			.getByRole('button', { name: 'Uncheck Rice' })
+			.click()
+		await expect(row(page, 'Rice').getByRole('alert')).toContainText(
+			'Couldn’t confirm this check',
+		)
+		await page.clock.runFor(1000)
+		expect(await namesIn(page, 'to-buy')).toEqual(['Apples', 'Rice'])
+		expect(await namesIn(page, 'checked')).toEqual(['Bread'])
+		await expect(
+			row(page, 'Rice').getByRole('button', { name: 'Check off Rice' }),
+		).toBeVisible()
+		await expect(
+			row(page, 'Rice').getByRole('button', { name: 'Retry' }),
 		).toBeVisible()
 	})
 

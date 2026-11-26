@@ -118,6 +118,7 @@ export function ShoppingItems({
 				// its check moves folds the same way, and opens in its new place.
 				<RowCollapse
 					key={item.id}
+					data-shopping-group={group}
 					hidden={hidden.has(item.id) || folding}
 					entering={entering.has(item.id) || arriving}
 					instant={(hidden.get(item.id) ?? entering.get(item.id)) === 'instant'}

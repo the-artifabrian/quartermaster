@@ -16,6 +16,11 @@ export type CheckMovePhase =
 	| 'holding'
 	/** The half second is over; the check is not confirmed yet. */
 	| 'waiting'
+	/**
+	 * Tapped back before it moved: it stays where it was while the check
+	 * that takes it back is out, though the first one may have saved.
+	 */
+	| 'pinned'
 	/** Closing its gap where it was. */
 	| 'folding'
 	/** Just placed in its new group, opening there. */
@@ -87,7 +92,9 @@ export function tapRow(state: CheckMoves, tap: Tap): CheckMoves {
 	const existing = move?.phase === 'arriving' ? undefined : move
 	const from = existing ? existing.from : tap.shownChecked
 	if (tap.checkedAfterTap === from) {
-		return existing ? withMove(state, tap.id, null) : state
+		return existing
+			? withMove(state, tap.id, { from, phase: 'pinned', seq: state.seq + 1 })
+			: state
 	}
 	return withMove(state, tap.id, {
 		from,
@@ -127,7 +134,9 @@ export function arriveElapsed(state: CheckMoves, id: string, seq: number) {
  * Brings the moves up to date with the list: a row gone from it drops its
  * move, a waiting row whose check is now saved starts folding (or, with
  * reduced motion, goes straight to its new group), and one the server turned
- * back stays where it is. Returns `state` itself when nothing changed.
+ * back stays where it is. A row tapped back stays pinned while its check is
+ * out, then rests where it is, or folds if the server left it in the other
+ * group. Returns `state` itself when nothing changed.
  */
 export function settleMoves(
 	state: CheckMoves,
@@ -143,7 +152,13 @@ export function settleMoves(
 			next = withMove(next, id, null)
 			continue
 		}
-		if (move.phase !== 'waiting') continue
+		if (move.phase === 'pinned') {
+			if (row.pending) continue
+			if (row.resting === move.from) {
+				next = withMove(next, id, null)
+				continue
+			}
+		} else if (move.phase !== 'waiting') continue
 		if (row.resting !== move.from) {
 			next = reducedMotion
 				? withMove(next, id, null, arrive(next.arrived, id, row.resting))

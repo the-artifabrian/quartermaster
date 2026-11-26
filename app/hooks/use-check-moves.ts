@@ -55,7 +55,9 @@ export function useCheckMoves(rows: readonly SettleRow[]) {
 			}
 		}
 		for (const [id, move] of state.moves) {
-			if (move.phase === 'waiting' || live.get(id)?.seq === move.seq) continue
+			// Waiting and pinned moves wait on the list, not the clock.
+			if (move.phase === 'waiting' || move.phase === 'pinned') continue
+			if (live.get(id)?.seq === move.seq) continue
 			const [ms, elapse] =
 				move.phase === 'holding'
 					? [CHECK_HOLD_MS, holdElapsed]

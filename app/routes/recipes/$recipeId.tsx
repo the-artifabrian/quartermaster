@@ -109,8 +109,10 @@ export const handle: SEOHandle & NavBarHandle = {
 	navActions: RecipeBarActions,
 }
 
-/** Favourite, Share and ⋯ in the nav bar on a phone. */
+/** Favorite, Share and ⋯ in the nav bar on a phone. */
 function RecipeBarActions({ data }: { data: unknown }) {
+	// The bar draws these only with the loader's data; nothing without it.
+	if (!data) return null
 	const { recipe, isProActive } = data as Route.ComponentProps['loaderData']
 	return <RecipeNavActions recipe={recipe} isProActive={isProActive} />
 }

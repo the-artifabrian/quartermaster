@@ -413,8 +413,12 @@ export function NavBar({
 		navigation.formMethod != null &&
 		navigation.formAction?.split('?')[0] === location.pathname
 	// A page's own buttons, on a page (not an edit screen, not an error).
+	// The loader's data as well: a loader that fails on a client navigation
+	// drops it in the same render that still has the page registered, which
+	// only leaves in that render's commit.
 	const actionsOnScreen = useActionsOnScreen(Actions, loaded)
-	const pageActions = !editing && actionsOnScreen && Actions ? Actions : null
+	const pageActions =
+		!editing && loaded && actionsOnScreen && Actions ? Actions : null
 
 	return (
 		<div

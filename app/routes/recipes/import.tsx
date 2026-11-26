@@ -300,7 +300,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 						name="update"
 						className="text-muted-foreground mb-2 size-6 animate-spin"
 					/>
-					<p className="font-serif text-lg">{progress.title}</p>
+					<p className="text-lg font-medium">{progress.title}</p>
 					{progress.hint ? (
 						<p className="text-muted-foreground text-sm">{progress.hint}</p>
 					) : null}

@@ -107,7 +107,7 @@ export function RecipeCard({
 				<div className="flex items-center gap-1.5">
 					<h3
 						className={cn(
-							'text-list-name min-w-0 font-serif md:text-base md:leading-[1.3] md:tracking-[-0.005em]',
+							'text-list-name min-w-0 font-medium md:text-base md:leading-[1.3]',
 							heartClipped && 'max-md:flex',
 						)}
 					>

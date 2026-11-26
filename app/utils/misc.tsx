@@ -69,6 +69,7 @@ const twMerge = extendTailwindMerge({
 		theme: {
 			text: [
 				'label',
+				'item-name',
 				'dish',
 				'dish-photo',
 				'list-name',

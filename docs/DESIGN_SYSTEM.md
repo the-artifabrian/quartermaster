@@ -23,18 +23,19 @@ see [GLOSSARY.md](../GLOSSARY.md).
 
 ## Type
 
-- **Newsreader** for titles and names: page and tab titles, Recipe and item
-  names, section and day headings, a step's numeral. Text you read through, a
-  Recipe's description, ingredients and steps included, is in the sans. Titles
-  and names are weight 500, which `font-serif` sets on its own
-  (`app/styles/tailwind.css`), so a serif title takes no weight class. Running
-  text is 400 and amounts 600. The files carry weights 400 to 600 only, so never
-  ask the serif for less or more. The roman has an optical-size axis the browser
-  sets from the font size; the italic has none. The serif sets lining figures,
-  and `tabular-nums` adds to them.
-- **Schibsted Grotesk** for controls, labels, metadata, navigation and secondary
-  text, weights 400 to 700. It has no italic file, so the app does not set the
-  sans in italic.
+- **Newsreader** for titles only: tab, page and sheet titles, a Recipe's title,
+  day and section headings, an empty state's heading, a step's numeral.
+  Everything you read is in the sans, names in rows included (a Shopping item, a
+  dish on Plan, a Recipe or Menu in a list or a picker), at weight 500
+  (`font-medium`). Titles are weight 500 too, which `font-serif` sets on its own
+  (`app/styles/tailwind.css`), so a serif title takes no weight class. The files
+  carry weights 400 to 600 only, so never ask the serif for less or more. The
+  roman has an optical-size axis the browser sets from the font size; the italic
+  has none. The serif sets lining figures, and `tabular-nums` adds to them.
+- **Schibsted Grotesk** for everything that is not a title: names, running text,
+  controls, labels, metadata and navigation, weights 400 to 700. Running text is
+  400, names 500 and amounts 600. It has no italic file, so the app does not set
+  the sans in italic.
 - **Young Serif, DM Sans and Source Sans 3**: the homepage only (see Homepage
   palette). Source Sans 3 is its body sans (`font-humanist`).
 
@@ -58,8 +59,9 @@ Useful sizes:
 | Plan's day heading on a phone                               | 31px Newsreader                                                                     |
 | Recipe's section heading on a phone (`text-recipe-section`) | 29px Newsreader; 18px wider                                                         |
 | Other page title                                            | 24px Newsreader                                                                     |
-| Plan dish on a phone (`text-dish`)                          | 22px Newsreader, 26px under a Dinner's photo                                        |
-| Recipe or Menu row on a phone                               | 21.5px Newsreader (`text-list-name`)                                                |
+| Plan dish on a phone (`text-dish`)                          | 17px Schibsted Grotesk, 19px under a Dinner's photo (`text-dish-photo`)             |
+| Recipe or Menu row on a phone (`text-list-name`)            | 17px Schibsted Grotesk                                                              |
+| Shopping item on a phone (`text-item-name`)                 | 17px Schibsted Grotesk                                                              |
 | A step on a phone (`text-step`)                             | 17px Schibsted Grotesk, 1.6 lines; its numeral 32px Newsreader (`text-step-number`) |
 | An ingredient on a phone (`text-ingredient`)                | 17px Schibsted Grotesk, 1.45 lines                                                  |
 | Body, and ingredients and steps wider                       | 16px Schibsted Grotesk                                                              |
@@ -69,12 +71,13 @@ Useful sizes:
 | Tiny navigation label                                       | 12px Schibsted Grotesk                                                              |
 
 The Plan dish sizes (`text-dish`, `text-dish-photo`), the list row size
-(`text-list-name`), the Recipe page's sizes (`text-recipe-title`,
-`text-recipe-section`, `text-ingredient`, `text-step`, `text-step-number`) and
-`text-label` are font size tokens in `app/styles/tailwind.css`, each set once,
-and `cn` in `app/utils/misc.tsx` knows them. A `leading-*` class beside one of
-them wins over the size's own line height, so a class list that has both names
-the line height again (`leading-(--text-step--line-height)`).
+(`text-list-name`), the Shopping item size (`text-item-name`), the Recipe page's
+sizes (`text-recipe-title`, `text-recipe-section`, `text-ingredient`,
+`text-step`, `text-step-number`) and `text-label` are font size tokens in
+`app/styles/tailwind.css`, each set once, and `cn` in `app/utils/misc.tsx` knows
+them. A `leading-*` class beside one of them wins over the size's own line
+height, so a class list that has both names the line height again
+(`leading-(--text-step--line-height)`).
 
 A small label (a Meal's label, the weekday in Plan's strip and over its day, the
 groups of a picker, a heading inside a Recipe's ingredients, a Recipe's facts
@@ -405,9 +408,9 @@ On a phone the Recipes and Menus lists share a title and a row shape:
   search alone. Filters that leave nothing read "No Recipes match these
   filters", with "Try a longer time, or turn Favorites off." only while cook
   time or Favorites is set.
-- A row is the name in Newsreader at 21.5px, a green heart after it for a
-  favorite, and under it the total time at weight 600 then the first line of the
-  description, in the sans. A 52px photo ends the row on the content edge;
+- A row is the name in the sans at 17px, weight 500, a green heart after it for
+  a favorite, and under it the total time at weight 600 then the first line of
+  the description, in the sans. A 52px photo ends the row on the content edge;
   without one the row is text only. Names wrap to three lines; a longer one is
   cut there and its heart ends the third line. The heart reads "Favorite" to a
   screen reader.
@@ -452,8 +455,9 @@ On a phone the Recipes and Menus lists share a title and a row shape:
 ### Menus
 
 - A Menu reads as ordered sections of Recipe and note rows.
-- A named section is a Newsreader heading over a hairline rule; on phones its
-  rows are flat and divided, and 1× stays implicit on Recipe rows.
+- A named section is a Newsreader heading over a hairline rule; its Recipes'
+  names are in the sans. On phones its rows are flat and divided, and 1× stays
+  implicit on Recipe rows.
 - Use quiet section insets only when several sections need visual grouping.
 - Reorder and move controls need labels, keyboard access, and phone-sized
   targets; drag is optional.
@@ -493,14 +497,14 @@ On a phone Plan shows one day at a time:
 - Each Meal sits under a full-width hairline. Its label line (label, time,
   guests, source Menu, in the small label) ends with Add Recipe (a +) and the
   dots; a Meal with none of those still has the line, for the two buttons. One
-  row per dish follows, 8px apart: the name in Newsreader at 22px, then the
-  trash when the Meal has more than one Recipe or has notes, the scale field,
-  and the cooked circle on the right edge. A Dinner whose first Recipe has a
-  photo shows it above its dishes and sets their names at 26px. Typed Meals are
-  italic at weight 400. A cooked dish strikes through and fades its text to
-  faint, on the page, never on a fill.
+  row per dish follows, 8px apart: the name in the sans at 17px, then the trash
+  when the Meal has more than one Recipe or has notes, the scale field, and the
+  cooked circle on the right edge. A Dinner whose first Recipe has a photo shows
+  it above its dishes and sets their names at 19px. A typed Meal is muted at
+  weight 400, apart from a Recipe's name at 500. A cooked dish strikes through
+  and fades its text to faint, on the page, never on a fill.
 - "+ Add Meal" in green ends the day and opens the same Add Meal sheet as the
-  title's +. An empty day reads "Nothing planned" in the serif over the sans
+  title's +. An empty day reads "Nothing planned" at 20px, weight 500, over the
   line pointing at the +.
 - A sideways swipe anywhere on the day, its bare foot included, steps to the
   next day or the one before, and past Sunday or before Monday into the next or
@@ -524,10 +528,10 @@ keeps its own Add Meal.
 
 - One centered flat list with hairline dividers. A row is a check circle (the
   control edge when empty, the green fill with a white tick when checked), the
-  name in Newsreader, then the amount in the sans: on a phone after the name on
-  the same line when it fits, wider on the line under it. The whole row checks
-  it. Checked rows strike through in faint text, so they stay on the page, never
-  on a fill.
+  name at weight 500, then the amount: on a phone after the name on the same
+  line when it fits, wider on the line under it. The whole row checks it.
+  Checked rows strike through in faint text, so they stay on the page, never on
+  a fill.
 - Sort the rows to buy alphabetically. Do not add aisle or category sections.
   Categories may remain internal.
 - On a phone the title carries the count in the sans (“7 to buy”, “All

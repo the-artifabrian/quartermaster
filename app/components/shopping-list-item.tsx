@@ -430,7 +430,7 @@ export function ShoppingListItemCard({
 						<div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 md:block">
 							<span
 								className={cn(
-									'font-serif text-lg leading-snug break-words md:block md:text-base',
+									'text-item-name font-medium break-words md:block md:text-base md:leading-snug',
 									optimisticChecked
 										? 'text-faint decoration-faint line-through decoration-2'
 										: isVoiceAdded && 'text-primary',

@@ -1917,12 +1917,13 @@ test.describe('on a phone', () => {
 		await sheet.getByRole('button', { name: 'Add', exact: true }).tap()
 		await expect(sheet).toBeHidden()
 
-		// Typed Meals are italic.
+		// Typed Meals are upright, in muted text.
 		const typed = mobile.getByText('Leftovers', { exact: true })
 		await expect(typed).toBeVisible()
 		expect(await typed.evaluate((el) => getComputedStyle(el).fontStyle)).toBe(
-			'italic',
+			'normal',
 		)
+		await expect(typed).toHaveCSS('color', 'rgb(105, 102, 94)')
 		await expect(addMeal).toBeFocused()
 		await expect
 			.poll(() =>

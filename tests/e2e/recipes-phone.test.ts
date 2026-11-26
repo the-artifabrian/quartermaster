@@ -801,7 +801,7 @@ test.describe('a row', () => {
 		const nameSize = await name.evaluate((element) =>
 			parseFloat(getComputedStyle(element).fontSize),
 		)
-		expect(nameSize).toBe(21.5)
+		expect(nameSize).toBe(17)
 		await expect(shakshuka.locator('[data-favorite]')).toBeVisible()
 		// The heart says so to a screen reader.
 		await expect(name).toHaveAccessibleName('Shakshuka Favorite')
@@ -1018,6 +1018,6 @@ test.describe('a Menu row', () => {
 		const nameSize = await mezze
 			.getByRole('heading')
 			.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))
-		expect(nameSize).toBe(21.5)
+		expect(nameSize).toBe(17)
 	})
 })

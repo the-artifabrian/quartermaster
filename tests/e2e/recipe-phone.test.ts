@@ -247,9 +247,12 @@ test('focusing Back, Favourite, Share and More actions while scrolled leaves the
 		await expect(control).toBeFocused()
 		expect(await page.evaluate(() => window.scrollY)).toBe(600)
 	}
-	// A control in the page still lands below the bar.
-	await page.evaluate(() => window.scrollTo(0, 900))
+	// A control in the page that sits under the bar still comes out below it.
 	const oil = page.getByRole('checkbox', { name: 'olive oil', exact: true })
+	await oil.evaluate((row) => {
+		;(document.activeElement as HTMLElement | null)?.blur()
+		window.scrollBy(0, row.getBoundingClientRect().top - 10)
+	})
 	await oil.focus()
 	const barBottom = (await box(bar(page))).y + 44
 	expect((await box(oil)).y).toBeGreaterThanOrEqual(barBottom)

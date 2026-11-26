@@ -12,8 +12,9 @@ import {
 } from '#app/utils/date.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { menuTitleKey } from '#app/utils/menu-validation.ts'
-import { SHELL_UA } from '#tests/native-shell.ts'
+import { SHELL_UA, setShellSafeArea } from '#tests/native-shell.ts'
 import {
+	animationsFinished,
 	browserToday,
 	expect,
 	expectThumbSized,
@@ -1165,6 +1166,16 @@ async function seedLongDay(user: { id: string; householdId: string }) {
 	return weekStart
 }
 
+/** Waits for the offline notice to settle, and returns its box. */
+async function offlineNotice(page: Page) {
+	const notice = page
+		.locator('[data-sonner-toast]')
+		.filter({ hasText: "You're offline" })
+	await expect(notice).toBeVisible()
+	await animationsFinished(page)
+	return box(notice)
+}
+
 /** Within a pixel: glyph boxes land on half pixels. */
 function expectNear(actual: number, expected: number) {
 	expect(Math.abs(actual - expected)).toBeLessThanOrEqual(1)
@@ -1561,6 +1572,27 @@ test.describe('in the iOS app on a phone', () => {
 		expect((await box(page.locator('[data-status-bar-backdrop]'))).bottom).toBe(
 			47,
 		)
+	})
+
+	test('the offline notice opens below the pinned title row and strip, under the status bar inset', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const weekStart = await seedLongDay(user)
+		await setShellSafeArea(page, { top: 47, bottom: 34 })
+		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+		const header = page.locator('[data-plan-header]')
+		await hydrated(header)
+		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+		await expect
+			.poll(() => page.evaluate(() => window.scrollY))
+			.toBeGreaterThan(500)
+		await page.context().setOffline(true)
+		const notice = await offlineNotice(page)
+		const pinned = await box(header)
+		expect(pinned.top).toBe(47)
+		expect(notice.top).toBeGreaterThanOrEqual(pinned.bottom)
 	})
 })
 
@@ -2072,6 +2104,26 @@ test.describe('on a phone', () => {
 		await dish.focus()
 		await expect(dish).toBeFocused()
 		expect((await box(dish)).top).toBeGreaterThanOrEqual(pinned.bottom)
+	})
+
+	test('the offline notice opens below the title row and the strip while a long day scrolls', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const weekStart = await seedLongDay(user)
+		await page.goto(`/plan?weekStart=${serializeDate(weekStart)}`)
+		const header = page.locator('[data-plan-header]')
+		await hydrated(header)
+		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+		await expect
+			.poll(() => page.evaluate(() => window.scrollY))
+			.toBeGreaterThan(500)
+		await page.context().setOffline(true)
+		const notice = await offlineNotice(page)
+		const pinned = await box(header)
+		expect(pinned.top).toBe(0)
+		expect(notice.top).toBeGreaterThanOrEqual(pinned.bottom)
 	})
 
 	test('in the picker a Recipe’s photo ends its row, and a Recipe without one shows none', async ({

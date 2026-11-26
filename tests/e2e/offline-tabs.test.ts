@@ -1,7 +1,12 @@
 import { type Page, type Request } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
 import { SHELL_UA } from '#tests/native-shell.ts'
-import { expect, test } from '#tests/playwright-utils.ts'
+import {
+	animationsFinished,
+	expect,
+	test,
+	waitForHydration,
+} from '#tests/playwright-utils.ts'
 
 test.use({ userAgent: SHELL_UA, viewport: { width: 390, height: 844 } })
 
@@ -309,4 +314,28 @@ test('the Retry button loads the tab once the network is really back', async ({
 	).toBeVisible()
 	await expect(page.getByText('Lemons')).toBeVisible()
 	expect(failedShopping).toHaveLength(4)
+})
+
+test('opening the app offline shows the offline notice and keeps it', async ({
+	page,
+	login,
+}) => {
+	await login()
+	await page.addInitScript(() => {
+		Object.defineProperty(Navigator.prototype, 'onLine', {
+			configurable: true,
+			get: () => false,
+		})
+	})
+	await page.goto('/plan')
+	await waitForHydration(page)
+	const notice = page
+		.locator('[data-sonner-toast]')
+		.filter({ hasText: "You're offline" })
+	await expect(notice).toBeVisible()
+	// Past the frames after hydration and the notice's entrance.
+	await animationsFinished(page)
+	await animationsFinished(page)
+	await expect(notice).toHaveCount(1)
+	expect(await notice.getAttribute('data-removed')).toBe('false')
 })

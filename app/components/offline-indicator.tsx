@@ -19,7 +19,10 @@ function getServerSnapshot() {
 }
 
 const TOAST_ID = 'offline-indicator'
-/** Whether the notice is up, kept outside the component so a remount knows. */
+/**
+ * Whether this component showed the notice and has not dismissed it since,
+ * even if the × closed it. Outside the component, so a remount knows.
+ */
 let shown = false
 
 /** Whether the browser reports a network; true during server rendering. */

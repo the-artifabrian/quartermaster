@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { type Locator, type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
+import { SHELL_UA } from '#tests/native-shell.ts'
 import {
 	animationsFinished,
 	expect,
@@ -210,6 +211,36 @@ test('More actions holds Copy Recipe above Print, and Reset cooking checks once 
 	])
 	await page.getByRole('menuitem', { name: 'Reset cooking checks' }).tap()
 	await expect(oil).not.toBeChecked()
+})
+
+test.describe('in the iOS app', () => {
+	// A lapsed Pro answers in place there; a browser opens Upgrade instead.
+	test.use({ userAgent: SHELL_UA })
+
+	test('Suggest description & times in the bar’s menu answers on the page', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await prisma.subscription.create({ data: { userId: user.id, tier: 'pro' } })
+		const recipe = await createSoup(user)
+		await page.goto(`/recipes/${recipe.id}`)
+		const more = bar(page).getByRole('button', { name: 'More actions' })
+		await hydrated(more)
+		await more.tap()
+		const suggest = page.getByRole('menuitem', {
+			name: 'Suggest description & times',
+		})
+		await expect(suggest).toBeVisible()
+		// Pro lapses with the menu open: the page, not the bar, reads the answer.
+		await prisma.subscription.delete({ where: { userId: user.id } })
+		await suggest.tap()
+		await expect(
+			page.getByText(
+				'Suggestions aren’t available on your account. Edit the Recipe to add these yourself.',
+			),
+		).toBeVisible()
+	})
 })
 
 test('a pushed page with no buttons of its own, and a Recipe that is not found, leave the bar’s right side empty', async ({

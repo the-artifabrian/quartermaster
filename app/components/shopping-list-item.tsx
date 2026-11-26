@@ -401,7 +401,7 @@ export function ShoppingListItemCard({
 						}
 						// The padding sits on the button, not the row, so a tap anywhere
 						// in the row's height checks it off.
-						className="group/check flex min-h-15 min-w-0 flex-1 cursor-pointer items-center gap-3 py-2.5 text-left select-none"
+						className="group/check flex min-h-14 min-w-0 flex-1 cursor-pointer items-center gap-3 py-2.5 text-left select-none"
 						aria-label={`${optimisticChecked ? 'Uncheck' : 'Check off'} ${item.name}`}
 					>
 						{/* The check circle: it fills and its tick draws at once. */}
@@ -430,7 +430,7 @@ export function ShoppingListItemCard({
 						<div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 md:block">
 							<span
 								className={cn(
-									'font-serif text-[1.25rem] leading-snug break-words md:block md:text-base',
+									'font-serif text-lg leading-snug break-words md:block md:text-base',
 									optimisticChecked
 										? 'text-faint decoration-faint line-through decoration-2'
 										: isVoiceAdded && 'text-primary',

@@ -86,6 +86,9 @@ export function IngredientList({
 							className={cn(
 								// The checkbox sits on the content edge; the hover fill reaches past it.
 								'-mx-2 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 transition-colors select-none',
+								// A phone's row is as tall as its text, and at least a tap: the
+								// 44px cart beside the text sets no extra height.
+								'phone:min-h-11 phone:py-0',
 								// No fill under a checked row: its faint text needs the page.
 								!isChecked && 'hover:bg-muted/50',
 								'focus-visible:ring-primary/50 focus-visible:ring-2 focus-visible:outline-none',
@@ -115,7 +118,7 @@ export function IngredientList({
 							<span
 								data-ingredient-text=""
 								className={cn(
-									'min-w-0 flex-1 transition-colors',
+									'phone:py-2.5 min-w-0 flex-1 transition-colors',
 									isChecked &&
 										'text-faint decoration-faint/60 phone:no-underline line-through',
 								)}

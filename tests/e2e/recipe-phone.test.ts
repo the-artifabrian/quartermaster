@@ -829,6 +829,11 @@ test('every ingredient row starts its text on the content edge and ends its cart
 		'text-transform',
 		'none',
 	)
+	// A one-line row is a tap tall, the cart beside it adding nothing.
+	const oil = page.getByRole('checkbox', { name: 'olive oil', exact: true })
+	const oilHeight = (await box(oil)).height
+	expect(oilHeight).toBeGreaterThanOrEqual(44)
+	expect(oilHeight).toBeLessThan(48)
 	// The amount leads the line at weight 600.
 	await expect(
 		page

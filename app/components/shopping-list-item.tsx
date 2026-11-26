@@ -37,11 +37,11 @@ import {
 const SWIPE_ACTION_WIDTH = 76
 /**
  * How far up from the bottom of the screen a row's menu keeps clear (px): the
- * tab bar and the add button sit there, so a menu for a row near them opens
- * upward instead of under them.
+ * tab bar and the docked add bar sit there, so a menu for a row near them
+ * opens upward instead of under them.
  */
 function bottomClearance() {
-	const tops = ['[data-bottom-nav]', 'button[aria-label="Add item"]']
+	const tops = ['[data-bottom-nav]', '[data-shopping-add-bar]']
 		.map((selector) =>
 			document.querySelector(selector)?.getBoundingClientRect(),
 		)
@@ -69,12 +69,18 @@ type ShoppingListItemCardProps = {
 	checks: ReturnType<typeof useShoppingChecks>
 	item: ShoppingListItem & { display?: ShoppingItemDisplay }
 	isVoiceAdded?: boolean
+	/**
+	 * Its check moved it and it hasn't reached its new place yet: its menu
+	 * and swipe wait, so nothing opens on a row about to fold away.
+	 */
+	moving?: boolean
 }
 
 export function ShoppingListItemCard({
 	checks,
 	item,
 	isVoiceAdded,
+	moving = false,
 }: ShoppingListItemCardProps) {
 	const [isEditing, setIsEditing] = useState(false)
 	// On a phone the editor is a bottom sheet over the row; wider, it takes
@@ -153,7 +159,11 @@ export function ShoppingListItemCard({
 	// Delete: the menu's two most common actions, one gesture away.
 	const swipeWidth = SWIPE_ACTION_WIDTH * (optimisticChecked ? 1 : 2)
 	const swipe = useSwipeRow<HTMLDivElement>({
-		enabled: !isEditing && !item.id.startsWith('optimistic:') && !checkState,
+		enabled:
+			!isEditing &&
+			!item.id.startsWith('optimistic:') &&
+			!checkState &&
+			!moving,
 		width: swipeWidth,
 		onSwiped: (open) => {
 			if (open) setMenuOpen(false)
@@ -376,26 +386,33 @@ export function ShoppingListItemCard({
 						className="group/check flex min-h-15 min-w-0 flex-1 cursor-pointer items-center gap-3 py-2.5 text-left select-none"
 						aria-label={`${optimisticChecked ? 'Uncheck' : 'Check off'} ${item.name}`}
 					>
+						{/* The check circle: it fills and its tick draws at once. */}
 						<div
-							className={`flex size-6 shrink-0 items-center justify-center rounded border-2 transition-[scale,background-color,border-color] duration-150 ease-(--ease-micro) group-enabled/check:group-active/check:scale-[0.97] ${
+							className={cn(
+								'flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition-[scale,background-color,border-color] duration-150 ease-(--ease-micro) group-enabled/check:group-active/check:scale-[0.97]',
 								optimisticChecked
 									? 'border-primary-fill bg-primary-fill'
-									: 'border-control-edge bg-muted/30'
-							}`}
-						>
-							{optimisticChecked && (
-								<Icon
-									name="check"
-									size="xs"
-									className="text-primary-foreground"
-								/>
+									: 'border-control-edge',
 							)}
+						>
+							<Icon
+								name="check"
+								size="xs"
+								className={cn(
+									'text-primary-foreground transition-[clip-path] duration-150 ease-(--ease-micro)',
+									optimisticChecked
+										? '[clip-path:inset(0)]'
+										: '[clip-path:inset(0_100%_0_0)]',
+								)}
+							/>
 						</div>
 
-						<div className="min-w-0 flex-1">
-							<p
+						{/* On a phone the amount follows the name on its line when
+						    it fits; wider, it is the line under it. */}
+						<div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 md:block">
+							<span
 								className={cn(
-									'text-base',
+									'font-serif text-[1.25rem] leading-snug break-words md:block md:text-base',
 									optimisticChecked
 										? 'text-faint decoration-faint line-through decoration-2'
 										: isVoiceAdded && 'text-primary',
@@ -408,26 +425,27 @@ export function ShoppingListItemCard({
 										className="text-primary ml-1.5 inline size-4 align-middle"
 									/>
 								)}
-							</p>
+							</span>
 							{(display.quantity || display.unit) && (
-								<p
-									className={`text-sm ${
-										optimisticChecked ? 'text-faint' : 'text-muted-foreground'
-									}`}
+								<span
+									className={cn(
+										'text-sm md:block',
+										optimisticChecked ? 'text-faint' : 'text-muted-foreground',
+									)}
 								>
 									<ProduceCountLine
 										name={item.name}
 										quantity={display.quantity}
 										unit={display.unit}
 									/>
-								</p>
+								</span>
 							)}
 						</div>
 					</button>
 				</div>
 
 				<DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
-					<DropdownMenuTrigger asChild disabled={Boolean(checkState)}>
+					<DropdownMenuTrigger asChild disabled={Boolean(checkState) || moving}>
 						<button
 							ref={menuTriggerRef}
 							type="button"

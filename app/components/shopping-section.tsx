@@ -16,6 +16,8 @@ import { useFetcherSettled } from '#app/hooks/use-fetcher-settled.ts'
 import { type useShoppingChecks } from '#app/hooks/use-shopping-checks.tsx'
 import { HouseholdClientInput } from '#app/utils/household-client.tsx'
 import { LATER, type ShoppingHorizon } from '#app/utils/shopping-horizon.ts'
+import { cn } from '#app/utils/misc.tsx'
+import { type PlacedRow } from '#app/utils/shopping-check-order.ts'
 import { type DisplayShoppingItem } from '#app/utils/shopping-optimistic.ts'
 
 export function LaterQuickAdd() {
@@ -89,29 +91,42 @@ export function LaterQuickAdd() {
 
 export function ShoppingItems({
 	checks,
-	items,
+	rows,
 	voiceAddedNames,
+	moving,
+	group,
+	className,
 }: {
-	items: DisplayShoppingItem[]
+	rows: Array<PlacedRow<DisplayShoppingItem>>
 	checks: ReturnType<typeof useShoppingChecks>
 	voiceAddedNames: Set<string>
+	/** Whether a row's check is moving it (useCheckMoves). */
+	moving: (id: string) => boolean
+	/** Next shop's rows to buy, or its checked rows under them. */
+	group?: 'to-buy' | 'checked'
+	className?: string
 }) {
 	const hidden = useHiddenRows()
 	const entering = useEnteringRows()
 	return (
-		<div className="divide-border/40 divide-y">
-			{items.map((item) => (
-				// A deleted row closes its gap, and Undo opens it again.
+		<div
+			data-shopping-group={group}
+			className={cn('divide-border/40 divide-y', className)}
+		>
+			{rows.map(({ item, folding, arriving }) => (
+				// A deleted row closes its gap, and Undo opens it again. A row
+				// its check moves folds the same way, and opens in its new place.
 				<RowCollapse
 					key={item.id}
-					hidden={hidden.has(item.id)}
-					entering={entering.has(item.id)}
+					hidden={hidden.has(item.id) || folding}
+					entering={entering.has(item.id) || arriving}
 					instant={(hidden.get(item.id) ?? entering.get(item.id)) === 'instant'}
 				>
 					<ShoppingListItemCard
 						checks={checks}
 						item={item}
 						isVoiceAdded={voiceAddedNames.has(item.name.toLowerCase().trim())}
+						moving={moving(item.id)}
 					/>
 				</RowCollapse>
 			))}
@@ -123,6 +138,8 @@ type ClearCheckedProps = {
 	/** The checked items on screen whose check is saved. */
 	checked: Array<{ id: string }>
 	horizon: ShoppingHorizon
+	/** Set at the right of the Checked heading, rather than under the list. */
+	inHeading?: boolean
 }
 
 /**
@@ -130,36 +147,53 @@ type ClearCheckedProps = {
  * on screen now are sent, so an item checked on the other phone a moment ago
  * stays.
  */
-export function ClearCheckedControl({ checked, horizon }: ClearCheckedProps) {
+export function ClearCheckedControl({
+	checked,
+	horizon,
+	inHeading = false,
+}: ClearCheckedProps) {
 	const deleteWithUndo = useDeleteWithUndo()
 	if (checked.length === 0) return null
 	// At most 500 at a time (resources/undo-delete); a tap again clears more.
 	const checkedIds = checked.slice(0, 500).map((item) => item.id)
 	const sectionLabel = horizon === LATER ? 'Later' : 'Next shop'
 	const count = checkedIds.length
+	const clear = () =>
+		deleteWithUndo({
+			key: `clear-checked:${horizon}:${checkedIds.join(',')}`,
+			hides: checkedIds,
+			style: 'instant',
+			message: `Cleared ${count} checked item${count === 1 ? '' : 's'}`,
+			what: `the checked item${count === 1 ? '' : 's'}`,
+			verb: 'clear',
+			// Only rows still checked go: one unchecked on the other phone a
+			// moment ago stays.
+			request: {
+				intent: 'delete-shopping',
+				itemIds: checkedIds,
+				checkedOnly: true,
+			},
+		})
+	if (inHeading) {
+		return (
+			<button
+				type="button"
+				aria-label={`Clear checked items from ${sectionLabel}`}
+				onClick={clear}
+				// 44px tall; the negative margin ends the words on the content edge.
+				className="text-primary -mr-3 ml-auto flex min-h-11 items-center px-3 text-[0.84375rem] font-semibold"
+			>
+				Clear checked
+			</button>
+		)
+	}
 	return (
 		<div className="animate-slide-up-reveal flex items-center justify-center pt-1">
 			<Button
 				type="button"
 				variant="link"
 				aria-label={`Clear checked items from ${sectionLabel}`}
-				onClick={() =>
-					deleteWithUndo({
-						key: `clear-checked:${horizon}:${checkedIds.join(',')}`,
-						hides: checkedIds,
-						style: 'instant',
-						message: `Cleared ${count} checked item${count === 1 ? '' : 's'}`,
-						what: `the checked item${count === 1 ? '' : 's'}`,
-						verb: 'clear',
-						// Only rows still checked go: one unchecked on the other
-						// phone a moment ago stays.
-						request: {
-							intent: 'delete-shopping',
-							itemIds: checkedIds,
-							checkedOnly: true,
-						},
-					})
-				}
+				onClick={clear}
 				// 44px tall for the thumb; pt-1 above keeps the link where it was.
 				className="text-muted-foreground hover:text-foreground min-h-11 px-3 py-0 text-sm underline underline-offset-2"
 			>

@@ -315,6 +315,10 @@ export function useShoppingChecks(serverItems: Item[], listId: string) {
 		notices: sameList ? [...notices.current.values()] : [],
 		state: (id: string) =>
 			sameList ? pending.current.get(id)?.status : undefined,
+		/** Whether the row's check is saved checked: a check still out doesn't count. */
+		savedChecked: (item: Item) =>
+			(sameList ? pending.current.get(item.id)?.item.checked : undefined) ??
+			item.checked,
 		toggle(item: Item) {
 			if (item.id.startsWith('optimistic:')) return
 			haptic('selection')

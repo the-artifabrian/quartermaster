@@ -52,7 +52,7 @@ async function createShoppingList(user: { id: string; householdId: string }) {
  * what is in it stays clear of the home indicator (`inset`, px).
  */
 async function expectSheetCoversTabBar(page: Page, inset: number) {
-	await page.getByRole('button', { name: 'Add item' }).click()
+	await page.getByRole('button', { name: 'Add an item' }).click()
 
 	const sheet = page.getByRole('dialog', { name: 'Add to Shopping' })
 	const viewport = page.viewportSize()!

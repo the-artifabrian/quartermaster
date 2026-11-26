@@ -65,9 +65,12 @@ type BulkAddResponse =
 export function ShoppingStaplesPicker({
 	shoppingIdentities,
 	showQuietCue,
+	triggerClassName,
 }: {
 	shoppingIdentities: string[]
 	showQuietCue: boolean
+	/** Classes for the From Staples button. */
+	triggerClassName?: string
 }) {
 	const fetcher = useFetcher<BulkAddResponse>()
 	const moveFetcher = useFetcher()
@@ -328,7 +331,7 @@ export function ShoppingStaplesPicker({
 						type="button"
 						variant="outline"
 						size="sm"
-						className="relative"
+						className={cn('relative', triggerClassName)}
 						aria-label={
 							showCue ? 'From Staples, reminder available' : 'From Staples'
 						}

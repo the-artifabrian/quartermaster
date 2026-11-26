@@ -1,11 +1,12 @@
 // The Shopping screen, which routes/shopping.tsx renders.
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Link, useFetcher, useRevalidator } from 'react-router'
 import { toast } from 'sonner'
 import { OnboardingNudge } from '#app/components/onboarding-nudge.tsx'
 import { useHiddenRows } from '#app/components/undo-delete.tsx'
 import { ShoppingListLiveRefresh } from '#app/components/shopping-live-refresh.tsx'
-import { MobileFabAdd } from '#app/components/shopping-mobile-fab.tsx'
+import { ShoppingAddBar } from '#app/components/shopping-add-bar.tsx'
 import { ShoppingPlanPicker } from '#app/components/shopping-plan-picker.tsx'
 import {
 	ClearCheckedControl,
@@ -17,6 +18,7 @@ import { WarningBanner } from '#app/components/shopping-warning-banner.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { Input } from '#app/components/ui/input.tsx'
 import { TabTitle } from '#app/components/ui/title-add-button.tsx'
+import { useCheckMoves } from '#app/hooks/use-check-moves.ts'
 import { useFetcherSettled } from '#app/hooks/use-fetcher-settled.ts'
 import { usePendingShoppingItems } from '#app/hooks/use-pending-shopping-items.ts'
 import { useShoppingChecks } from '#app/hooks/use-shopping-checks.tsx'
@@ -29,6 +31,10 @@ import {
 	HouseholdClientInput,
 } from '#app/utils/household-client.tsx'
 import { cn } from '#app/utils/misc.tsx'
+import {
+	clearableRows,
+	placeShoppingRows,
+} from '#app/utils/shopping-check-order.ts'
 import { LATER, NEXT_SHOP } from '#app/utils/shopping-horizon.ts'
 import { mergeOptimisticShoppingItems } from '#app/utils/shopping-optimistic.ts'
 import { useStaleRevalidate } from '#app/utils/use-stale-revalidate.ts'
@@ -52,6 +58,10 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 	const qaInputRef = useRef<HTMLInputElement>(null)
 
 	const [search, setSearch] = useState('')
+	// On a phone the search field waits behind the magnifier.
+	const [searchOpen, setSearchOpen] = useState(false)
+	const searchRef = useRef<HTMLInputElement>(null)
+	const magnifierRef = useRef<HTMLButtonElement>(null)
 	const [laterExpanded, setLaterExpanded] = useState(false)
 	const [quickAddOpen, setQuickAddOpen] = useState(false)
 	const [fabOpen, setFabOpen] = useState(false)
@@ -177,31 +187,78 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 	const totalItems = allItems.length
 	const nextItems = allItems.filter((item) => item.horizon === NEXT_SHOP)
 	const laterItems = allItems.filter((item) => item.horizon === LATER)
-	const clearable = (items: typeof allItems) =>
-		items.filter((item) => item.checked && !checks.pendingIds.includes(item.id))
-	const clearableNext = clearable(nextItems)
-	const clearableLater = clearable(laterItems)
-	const checkedNextItems = clearableNext.length
-	const checkedLaterItems = clearableLater.length
+	const pendingIds = new Set(checks.pendingIds)
+
+	// A row checked on a phone holds its place for half a second, then folds
+	// into Checked (useCheckMoves).
+	const moves = useCheckMoves(
+		listedItems.map((item) => ({
+			id: item.id,
+			checked: item.checked,
+			resting: checks.savedChecked(item),
+			pending: pendingIds.has(item.id),
+		})),
+	)
+	const isMoving = (id: string) => {
+		const phase = moves.state.moves.get(id)?.phase
+		return phase !== undefined && phase !== 'arriving'
+	}
 
 	const searchLower = search.toLowerCase()
 	const filterBySearch = (items: typeof allItems) =>
 		search
 			? items.filter((item) => item.name.toLowerCase().includes(searchLower))
 			: items
-	const filteredNextItems = filterBySearch(nextItems)
-	const filteredLaterItems = filterBySearch(laterItems)
 	// What the lists render: the visible rows plus the collapsed ones.
-	const listedNextItems = filterBySearch(
-		listedItems.filter((item) => item.horizon === NEXT_SHOP),
-	)
-	const listedLaterItems = filterBySearch(
-		listedItems.filter((item) => item.horizon === LATER),
-	)
+	const place = (horizon: typeof NEXT_SHOP | typeof LATER) =>
+		placeShoppingRows(
+			filterBySearch(listedItems.filter((item) => item.horizon === horizon)),
+			moves.state,
+			checks.savedChecked,
+		)
+	const next = place(NEXT_SHOP)
+	const later = place(LATER)
+	const visible = (rows: typeof next.open) =>
+		rows.filter((row) => !hidden.has(row.item.id))
+	const openNextShowing = visible(next.open).length > 0
+	const doneNextShowing = visible(next.done).length > 0
+	const filteredLaterItems = filterBySearch(laterItems)
 	const hasSearchResults =
-		filteredNextItems.length > 0 || filteredLaterItems.length > 0
+		openNextShowing || doneNextShowing || filteredLaterItems.length > 0
 	const showLaterContents =
 		laterExpanded || (Boolean(search) && filteredLaterItems.length > 0)
+
+	const clearable = (rows: typeof next.done) =>
+		clearableRows(visible(rows), pendingIds)
+	const clearableNext = clearable(next.done)
+	const clearableLater = clearable(later.done)
+	const checkedNextItems = clearableNext.length
+	const checkedLaterItems = clearableLater.length
+	// The phone's count follows the circles: a row counts as checked the
+	// moment it is tapped.
+	const toBuy = nextItems.filter((item) => !item.checked).length
+
+	const doneIds = new Set(
+		[...next.done, ...later.done].map((row) => row.item.id),
+	)
+	const rowChecks: typeof checks = {
+		...checks,
+		toggle(item) {
+			moves.tap(item.id, doneIds.has(item.id), !item.checked)
+			checks.toggle(item)
+		},
+	}
+
+	function openSearch() {
+		// Focused inside the tap, so iOS raises the keyboard.
+		flushSync(() => setSearchOpen(true))
+		searchRef.current?.focus()
+	}
+	function closeSearch() {
+		setSearch('')
+		setSearchOpen(false)
+		magnifierRef.current?.focus()
+	}
 
 	// Determine if we should show a warning (from quick-add fetcher, not route actionData)
 	const warningData =
@@ -214,8 +271,11 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 	const canForceQuickAdd =
 		showWarning && warningData.warningType !== 'move_to_section'
 
+	const pickerTrigger =
+		'max-md:bg-muted max-md:hover:bg-muted whitespace-nowrap max-md:border-transparent max-md:px-3'
+
 	return (
-		<div className="pb-[calc(var(--bottom-nav-h)+3rem+var(--bottom-nav-inset))] md:pb-6">
+		<div className="pb-[calc(var(--bottom-nav-h)+var(--bottom-nav-inset)+5rem)] md:pb-6">
 			{isProActive && <ShoppingListLiveRefresh />}
 			{checks.notices.length > 0 && (
 				<div role="alert" className="container-narrow py-3 text-sm">
@@ -225,38 +285,69 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 				</div>
 			)}
 			<div>
-				<div className="container-narrow py-4">
+				<div className="container-narrow pt-4 pb-2 md:py-4">
 					<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-						<TabTitle>
-							Shopping
-							{nextItems.length > 0 && (
-								<>
-									<span
-										aria-hidden="true"
-										className="text-muted-foreground ml-2 font-sans text-lg font-normal tabular-nums"
-									>
-										({checkedNextItems}/{nextItems.length})
-									</span>
-									<span className="sr-only">
-										, {checkedNextItems} of {nextItems.length} items for this
-										shop checked
-									</span>
-								</>
+						{/* On a phone the title row is the full width, so From Staples
+						    and From Plan sit under it; wider they follow the title. */}
+						<div className="flex min-w-0 items-center gap-3 max-md:w-full">
+							<TabTitle className="min-w-0 flex-1">
+								Shopping
+								{nextItems.length > 0 && (
+									<>
+										<span
+											aria-hidden="true"
+											className="text-muted-foreground ml-3 inline-block font-sans text-base font-normal whitespace-nowrap tabular-nums md:hidden"
+										>
+											{toBuy > 0 ? `${toBuy} to buy` : 'All checked'}
+										</span>
+										<span
+											aria-hidden="true"
+											className="text-muted-foreground ml-2 hidden font-sans text-lg font-normal tabular-nums md:inline"
+										>
+											({checkedNextItems}/{nextItems.length})
+										</span>
+										<span className="sr-only">
+											, {checkedNextItems} of {nextItems.length} items for this
+											shop checked
+										</span>
+									</>
+								)}
+							</TabTitle>
+							{totalItems >= 15 && (
+								<button
+									ref={magnifierRef}
+									type="button"
+									onClick={searchOpen ? closeSearch : openSearch}
+									aria-label="Search Shopping"
+									aria-expanded={searchOpen}
+									aria-controls="shopping-search"
+									// The glyph ends on the content edge; the 44px target
+									// reaches into the gutter.
+									className="text-primary active:bg-muted -mr-3 ml-auto flex size-11 shrink-0 items-center justify-center rounded-full md:hidden"
+								>
+									<Icon name="magnifying-glass" className="size-5" />
+								</button>
 							)}
-						</TabTitle>
-						<div className="flex items-center gap-2">
+						</div>
+						<div className="flex flex-wrap items-center gap-2">
 							<ShoppingStaplesPicker
 								key={shoppingList.householdId ?? shoppingList.id}
 								shoppingIdentities={shoppingIdentities}
 								showQuietCue={nextItems.length === 0}
+								triggerClassName={pickerTrigger}
 							/>
-							{hasMealPlan && <ShoppingPlanPicker weeks={weeksWithPlans} />}
+							{hasMealPlan && (
+								<ShoppingPlanPicker
+									weeks={weeksWithPlans}
+									triggerClassName={pickerTrigger}
+								/>
+							)}
 						</div>
 					</div>
 				</div>
 			</div>
 
-			<div className="container-narrow py-4">
+			<div className="container-narrow py-4 max-md:pt-2">
 				{shoppingList.items.some((item) => item.horizon === NEXT_SHOP) &&
 					shoppingList.items
 						.filter((item) => item.horizon === NEXT_SHOP)
@@ -271,7 +362,7 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 						/>
 					)}
 
-				{/* Desktop only. The FAB replaces this on a phone. */}
+				{/* Desktop only. The docked add bar replaces this on a phone. */}
 				<div className="border-border/30 mb-2 hidden border-b md:block">
 					{showWarning && (
 						<WarningBanner
@@ -396,21 +487,37 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 				</div>
 
 				{totalItems >= 15 && (
-					<div className="relative mt-2">
-						<Icon
-							name="magnifying-glass"
-							size="sm"
-							className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
-						/>
-						<Input
-							type="search"
-							inputMode="search"
-							enterKeyHint="search"
-							placeholder="Search Shopping…"
-							value={search}
-							onChange={(e) => setSearch(e.target.value)}
-							className="pl-9"
-						/>
+					<div
+						id="shopping-search"
+						className={cn(
+							'mt-2 flex items-center gap-1',
+							!searchOpen && 'max-md:hidden',
+						)}
+					>
+						<div className="relative min-w-0 flex-1">
+							<Icon
+								name="magnifying-glass"
+								size="sm"
+								className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
+							/>
+							<Input
+								ref={searchRef}
+								type="search"
+								inputMode="search"
+								enterKeyHint="search"
+								placeholder="Search Shopping…"
+								value={search}
+								onChange={(e) => setSearch(e.target.value)}
+								className="pl-9"
+							/>
+						</div>
+						<button
+							type="button"
+							onClick={closeSearch}
+							className="text-primary -mr-3 flex min-h-11 shrink-0 items-center px-3 text-base font-medium md:hidden"
+						>
+							Done
+						</button>
 					</div>
 				)}
 
@@ -428,57 +535,112 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 						</button>
 					</div>
 				) : (
-					<>
-						<div
-							className="mt-2"
-							data-shopping-horizon={NEXT_SHOP}
-							data-testid="next-shopping-items"
-						>
-							{filteredNextItems.length > 0 ? (
-								<ShoppingItems
-									checks={checks}
-									items={listedNextItems}
-									voiceAddedNames={voiceAddedNames}
-								/>
-							) : !search ? (
-								<div className="py-10 text-center">
-									<div className="border-border mx-auto flex size-14 items-center justify-center rounded-full border-2 border-dashed">
-										<Icon
-											name="cart"
-											className="text-muted-foreground/40 size-6"
-										/>
-									</div>
-									<h3 className="mt-3 font-serif text-lg">
-										Nothing in Next shop
-									</h3>
-									<p className="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
-										{hasMealPlan ? (
-											<>
-												Open <strong>From Plan</strong> to pick Meals, or add an
-												item by hand.
-											</>
-										) : (
-											<>
-												<Link
-													to="/plan"
-													className="text-primary font-medium underline underline-offset-2"
-												>
-													Plan a Meal
-												</Link>{' '}
-												or add an item by hand.
-											</>
-										)}
+					<div
+						className="mt-2"
+						data-shopping-horizon={NEXT_SHOP}
+						data-testid="next-shopping-items"
+					>
+						{openNextShowing ? (
+							<ShoppingItems
+								checks={rowChecks}
+								rows={next.open}
+								voiceAddedNames={voiceAddedNames}
+								moving={isMoving}
+								group="to-buy"
+							/>
+						) : doneNextShowing ? (
+							!search && (
+								<div className="py-8 text-center md:hidden">
+									<h2 className="font-serif text-[1.375rem]">
+										Everything is checked
+									</h2>
+									<p className="text-muted-foreground mx-auto mt-1 max-w-sm text-base">
+										Clear the checked rows when you are home, or add what you
+										forgot.
 									</p>
 								</div>
-							) : null}
-							{!search && (
+							)
+						) : !search ? (
+							<div className="py-10 text-center">
+								<div className="border-border mx-auto flex size-14 items-center justify-center rounded-full border-2 border-dashed">
+									<Icon
+										name="cart"
+										className="text-muted-foreground/40 size-6"
+									/>
+								</div>
+								<h3 className="mt-3 font-serif text-lg">
+									Nothing in Next shop
+								</h3>
+								<p className="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
+									{hasMealPlan ? (
+										<>
+											Open <strong>From Plan</strong> to pick Meals, or add an
+											item by hand.
+										</>
+									) : (
+										<>
+											<Link
+												to="/plan"
+												className="text-primary font-medium underline underline-offset-2"
+											>
+												Plan a Meal
+											</Link>{' '}
+											or add an item by hand.
+										</>
+									)}
+								</p>
+							</div>
+						) : null}
+						{next.done.length > 0 && (
+							// On a phone the checked rows are their own group under a
+							// heading; wider they carry on the list, as one.
+							<section
+								aria-labelledby={
+									doneNextShowing ? 'shopping-checked-heading' : undefined
+								}
+								className="max-md:mt-6"
+							>
+								{doneNextShowing && (
+									<div className="border-border flex min-h-11 items-center gap-2 border-b md:hidden">
+										<h2
+											id="shopping-checked-heading"
+											className="text-[0.84375rem] font-semibold"
+										>
+											Checked
+										</h2>
+										<span className="text-muted-foreground text-[0.84375rem] tabular-nums">
+											{nextItems.length - toBuy} of {nextItems.length}
+										</span>
+										{!search && (
+											<ClearCheckedControl
+												checked={clearableNext}
+												horizon={NEXT_SHOP}
+												inHeading
+											/>
+										)}
+									</div>
+								)}
+								<ShoppingItems
+									checks={rowChecks}
+									rows={next.done}
+									voiceAddedNames={voiceAddedNames}
+									moving={isMoving}
+									group="checked"
+									className={cn(
+										openNextShowing && 'md:border-border/40 md:border-t',
+									)}
+								/>
+							</section>
+						)}
+						{!search && (
+							<div className="hidden md:block">
 								<ClearCheckedControl
 									checked={clearableNext}
 									horizon={NEXT_SHOP}
 								/>
-							)}
-						</div>
-					</>
+							</div>
+						)}
+					</div>
 				)}
 
 				<section className="border-border/50 mt-8 border-t pt-3">
@@ -513,10 +675,12 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 						<div id="later-shopping-items" data-shopping-horizon={LATER}>
 							{!search && <LaterQuickAdd />}
 							{filteredLaterItems.length > 0 ? (
+								// Later keeps its checked rows in its own list.
 								<ShoppingItems
-									checks={checks}
-									items={listedLaterItems}
+									checks={rowChecks}
+									rows={[...later.open, ...later.done]}
 									voiceAddedNames={voiceAddedNames}
+									moving={isMoving}
 								/>
 							) : (
 								<p className="text-muted-foreground py-6 text-center text-sm">
@@ -531,7 +695,7 @@ export function ShoppingListRoute({ loaderData }: Route.ComponentProps) {
 				</section>
 			</div>
 
-			<MobileFabAdd
+			<ShoppingAddBar
 				open={fabOpen}
 				onOpenChange={setFabOpen}
 				isProActive={isProActive}

@@ -36,16 +36,19 @@ export function stepDay(
 
 /**
  * Whether a finger landing on `target` may step the day. Not from a field
- * (the scale field and the label that is its tap area), and not from a
- * sheet or menu: React hands their events to the component that opened
- * them, which can sit inside the day, though they are elsewhere on the page.
+ * (the scale field and the label that is its tap area), not from a picker
+ * or form opened in place (`data-no-day-swipe`), and not from a sheet or
+ * menu: React hands their events to the component that opened them, which
+ * can sit inside the day, though they are elsewhere on the page.
  */
 export function canStartDaySwipe(
 	surface: Element,
 	target: EventTarget | null,
 ): boolean {
 	if (!(target instanceof Element) || !surface.contains(target)) return false
-	return !target.closest('input, textarea, select, label, [contenteditable]')
+	return !target.closest(
+		'input, textarea, select, label, [contenteditable], [data-no-day-swipe]',
+	)
 }
 
 type PhotoMeal = {

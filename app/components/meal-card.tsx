@@ -824,7 +824,11 @@ export function MealCard({
 	// the dots, whether or not it has a label to show.
 	const hasLabelLine = day || hasHeader
 	const detailsPanel = editingDetails && !detailsInSheet && (
-		<div className="border-border/50 bg-background mt-1 rounded-md border p-3">
+		// Opened in place, it keeps a sideways drag from stepping the day.
+		<div
+			data-no-day-swipe=""
+			className="border-border/50 bg-background mt-1 rounded-md border p-3"
+		>
 			<MealDetailsForm meal={meal} onDone={() => setEditingDetails(false)} />
 		</div>
 	)
@@ -1186,7 +1190,10 @@ export function MealCard({
 					    the button while open and has its own Cancel; on a phone it is
 					    a sheet over the button. */}
 					{addingRecipe && !recipeInSheet ? (
-						<div className="bg-card animate-fade-up-reveal shadow-warm-lg mt-2 rounded-lg border p-3">
+						<div
+							data-no-day-swipe=""
+							className="bg-card animate-fade-up-reveal shadow-warm-lg mt-2 rounded-lg border p-3"
+						>
 							{recipePicker}
 						</div>
 					) : null}

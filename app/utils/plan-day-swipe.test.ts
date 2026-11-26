@@ -95,6 +95,15 @@ describe('canStartDaySwipe', () => {
 		document.body.append(sheet)
 		expect(canStartDaySwipe(surface, sheet.querySelector('button'))).toBe(false)
 	})
+	// Between sm and md the day's pickers and Edit details open in place.
+	test('a drag in a picker or form opened in place leaves the day alone', () => {
+		const surface = surfaceWith(
+			'<div data-no-day-swipe><button>Miso Soup</button></div>',
+		)
+		expect(canStartDaySwipe(surface, surface.querySelector('button'))).toBe(
+			false,
+		)
+	})
 	test('no target leaves the day alone', () => {
 		expect(canStartDaySwipe(surfaceWith(''), null)).toBe(false)
 	})

@@ -578,10 +578,10 @@ html {
    rather than padding on the page, so focusing the block's own controls
    scrolls nothing.
    --pinned-header-bottom is the lowest the block's bottom edge sits: where it
-   rests at the top of the page. Recipes' row rests under the title and pins
-   higher up. Top toasts open below it (root.tsx), so they clear the block at
-   rest and scrolled. It is set on the toaster alone, so opening the filters
-   restyles only that. */
+   rests at the top of the page, under the demo banner when there is one.
+   Recipes' row rests under the title and pins higher up. Top toasts open
+   below it (root.tsx), so they clear the block at rest and scrolled. It is
+   set on the toaster alone, so opening the filters restyles only that. */
 @media (width < 48rem) {
 	:root:has([data-plan-header])
 		#main-content
@@ -605,13 +605,19 @@ html {
 		scroll-margin-top: calc(var(--safe-top) + 8.5rem);
 	}
 	:root:has([data-plan-header]) [data-sonner-toaster] {
-		--pinned-header-bottom: calc(var(--safe-top) + 9.875rem);
+		--pinned-header-bottom: calc(
+			var(--safe-top) + var(--demo-banner-h, 0px) + 9.875rem
+		);
 	}
 	:root:has([data-recipes-tools]) [data-sonner-toaster] {
-		--pinned-header-bottom: calc(var(--safe-top) + 8.0625rem);
+		--pinned-header-bottom: calc(
+			var(--safe-top) + var(--demo-banner-h, 0px) + 8.0625rem
+		);
 	}
 	:root:has([data-recipes-tools][data-filters-open]) [data-sonner-toaster] {
-		--pinned-header-bottom: calc(var(--safe-top) + 11.1875rem);
+		--pinned-header-bottom: calc(
+			var(--safe-top) + var(--demo-banner-h, 0px) + 11.1875rem
+		);
 	}
 }
 

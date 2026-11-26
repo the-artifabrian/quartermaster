@@ -2129,6 +2129,26 @@ test.describe('on a phone', () => {
 		expect(notice.top).toBeGreaterThanOrEqual(pinned.bottom)
 	})
 
+	test('with the demo banner, the offline notice opens below the title row and the strip at the top of the page', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await prisma.user.update({
+			where: { id: user.id },
+			data: { demoExpiresAt: new Date(Date.now() + 60 * 60 * 1000) },
+		})
+		await page.goto('/plan')
+		const header = page.locator('[data-plan-header]')
+		await hydrated(header)
+		await expect(page.getByRole('region', { name: 'Demo' })).toBeVisible()
+		await page.context().setOffline(true)
+		const notice = await offlineNotice(page)
+		const block = await box(header)
+		expect(block.top).toBeGreaterThan(40)
+		expect(notice.top).toBeGreaterThanOrEqual(block.bottom)
+	})
+
 	test('in the picker a Recipe’s photo ends its row, and a Recipe without one shows none', async ({
 		page,
 		login,

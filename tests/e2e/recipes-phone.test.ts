@@ -331,6 +331,38 @@ test.describe('the search row', () => {
 		}
 	})
 
+	test('with the demo banner, the offline notice opens below it at the top of the list, filters open or not', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await prisma.user.update({
+			where: { id: user.id },
+			data: { demoExpiresAt: new Date(Date.now() + 60 * 60 * 1000) },
+		})
+		await seedRecipes(user, many(30))
+		await page.goto('/recipes')
+		const toggle = page.getByRole('button', { name: 'Toggle filters' })
+		await hydrated(toggle)
+		await expect(page.getByRole('region', { name: 'Demo' })).toBeVisible()
+		await page.context().setOffline(true)
+		await offlineNotice(page)
+
+		for (const open of [false, true]) {
+			if (open) {
+				await toggle.tap()
+				await expect(
+					page.getByRole('combobox', { name: 'Sort Recipes' }),
+				).toBeVisible()
+			}
+			const row = await box(pinnedRow(page))
+			expect(row.y).toBeGreaterThan(56 + 40)
+			expect((await offlineNotice(page)).y).toBeGreaterThanOrEqual(
+				row.y + row.height,
+			)
+		}
+	})
+
 	test.describe('in the iOS app', () => {
 		test.use({ userAgent: SHELL_UA })
 

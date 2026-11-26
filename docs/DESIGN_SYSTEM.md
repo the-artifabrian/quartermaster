@@ -358,11 +358,11 @@ On a phone the Recipes and Menus lists share a title and a row shape:
   opaque, with a hairline under them. A focused row or control lands below them
   (a scroll margin on what can take focus outside the pinned row), and focusing
   the pinned field or a chip scrolls nothing. Toasts open below the row where it
-  rests under the title, chips included, so they never cover it, at the top of
-  the list or scrolled. The field has a clear button, named "Clear the search
-  field", once it has text, and the browser's own is hidden. A search or a
-  filter takes the page back to the top, so the new list starts under the search
-  row.
+  rests under the title (and under the demo banner in a demo), chips included,
+  so they never cover it, at the top of the list or scrolled. The field has a
+  clear button, named "Clear the search field", once it has text, and the
+  browser's own is hidden. A search or a filter takes the page back to the top,
+  so the new list starts under the search row.
 - The filter button opens the chips as one row that scrolls sideways, edge to
   edge, inside the pinned row: sort, cook time, Favorites, then Cuisine, Season
   and Course. Sort and cook time are the phone's own pickers. A chosen chip is
@@ -428,8 +428,9 @@ On a phone Plan shows one day at a time:
   opaque, with a hairline under the strip. A focused control or a Meal a link
   opens lands below them (a scroll margin on what can take focus outside the
   pinned rows, as on Recipes), and focusing a chevron or a day scrolls nothing.
-  Toasts open below the strip. A range too long for the row breaks after its
-  dash. On another week, "This week" heads the day under the strip.
+  Toasts open below the strip where it rests, under the demo banner in a demo
+  too. A range too long for the row breaks after its dash. On another week,
+  "This week" heads the day under the strip.
 - The strip shows each date as a 38px circle under its weekday. The day showing
   is a green fill with white text; today, when another day shows, is green text
   with a green weekday; past days are in faint text, which turns muted on a

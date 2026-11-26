@@ -758,17 +758,17 @@ test('going back to phone Recipes lands on the old position without scrolling th
 			)
 			.toBe('1200')
 	}).toPass()
-	// The first Recipe card fully on screen and not under a bar (the pinned
-	// search row), so clicking it scrolls nothing.
+	// The first Recipe card fully on screen and clear of the pinned search
+	// row by more than a row's scroll margin, so clicking it scrolls nothing.
 	const href = await page.evaluate(
 		() =>
 			[...document.querySelectorAll<HTMLAnchorElement>('a[href^="/recipes/"]')]
 				.find((link) => {
 					const box = link.getBoundingClientRect()
 					const bar =
-						document
+						(document
 							.querySelector('[data-recipes-tools]')
-							?.getBoundingClientRect().bottom ?? 0
+							?.getBoundingClientRect().bottom ?? 0) + 16
 					return (
 						link.textContent?.includes('Weeknight Recipe') &&
 						box.height > 0 &&

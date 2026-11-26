@@ -397,15 +397,7 @@ export function NavBar({
 				!editing && 'desktop:hidden',
 			)}
 		>
-			<div
-				className={cn(
-					'flex min-w-0 justify-start',
-					// Beside a page's buttons this column sizes to Back, which
-					// hangs into the gutter by its negative margin: the margin
-					// takes that much off the width the column gives it.
-					pageActions && 'max-md:pr-3',
-				)}
-			>
+			<div className="flex min-w-0 justify-start">
 				<Link
 					to={rule.parent}
 					replace
@@ -420,6 +412,9 @@ export function NavBar({
 					className={cn(
 						barTextButton,
 						'max-w-full min-w-0 aria-disabled:opacity-40',
+						// Beside a page's buttons the column sizes to Back, less the
+						// margin it hangs into the gutter by; a cap at the column's
+						// width would cut its label by that much.
 						pageActions && 'max-md:max-w-none',
 						editing ? '-ml-2' : '-ml-3 gap-0.5 pl-1',
 					)}

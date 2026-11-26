@@ -340,10 +340,7 @@ test.describe('the search row', () => {
 		await page.goto('/recipes')
 		const field = searchField(page)
 		await hydrated(field)
-		const clear = page.getByRole('button', {
-			name: 'Clear search',
-			exact: true,
-		})
+		const clear = page.getByRole('button', { name: 'Clear the search field' })
 		await expect(clear).toHaveCount(0)
 		await field.fill('lemon')
 		await expect(page).toHaveURL(/search=lemon/)
@@ -372,9 +369,23 @@ test.describe('the search row', () => {
 					})
 			}),
 		).toBe(true)
+		// Focus never leaves the field, not even between finger down and up,
+		// so the keyboard stays up.
+		await field.evaluate((element) => {
+			const blurs = { count: 0 }
+			;(window as unknown as { fieldBlurs: typeof blurs }).fieldBlurs = blurs
+			element.addEventListener('blur', () => blurs.count++)
+		})
 		await clear.tap()
 		await expect(field).toHaveValue('')
 		await expect(field).toBeFocused()
+		expect(
+			await page.evaluate(
+				() =>
+					(window as unknown as { fieldBlurs: { count: number } }).fieldBlurs
+						.count,
+			),
+		).toBe(0)
 		await expect(page).toHaveURL(/\/recipes$/)
 		await expect(recipeLink(page, 'Fish tacos')).toBeVisible()
 

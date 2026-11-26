@@ -516,7 +516,7 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 								{searchInput ? (
 									<button
 										type="button"
-										aria-label="Clear search"
+										aria-label="Clear the search field"
 										// Focus stays in the field, so the keyboard stays up.
 										onMouseDown={(e) => e.preventDefault()}
 										onClick={() => {

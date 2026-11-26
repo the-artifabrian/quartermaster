@@ -417,12 +417,14 @@ test('a step field partly under the bar on the edit screen comes out below it wh
 		window.scrollBy(0, field.getBoundingClientRect().top - 10)
 	})
 	expect(Math.round((await box(step)).y)).toBe(10)
-	await step.focus()
-	await expect(step).toBeFocused()
 	const barBottom = (await box(bar(page))).y + 44
-	await expect
-		.poll(async () => (await box(step)).y)
-		.toBeGreaterThanOrEqual(barBottom)
+	// Read in the same task as the focus: the scroll that focus makes.
+	const topAfterFocus = await step.evaluate((field) => {
+		;(field as HTMLElement).focus()
+		return field.getBoundingClientRect().top
+	})
+	await expect(step).toBeFocused()
+	expect(topAfterFocus).toBeGreaterThanOrEqual(barBottom)
 
 	// The same by Tab, from the step's own Reorder button.
 	const reorder = page.getByRole('button', { name: 'Reorder step 4' })

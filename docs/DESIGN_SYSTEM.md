@@ -405,8 +405,11 @@ On a phone Plan shows one day at a time:
   last week. The day stays still under the finger and changes at once, as a tap
   in the strip does; either one starts the new day at its heading. The swipe
   needs 64px of sideways travel that beats the vertical by half again, so a
-  scroll never steps the day. It does not start in the scale field, or in a
-  sheet or menu the day opened, and the click that ends it never opens a Recipe.
+  scroll never steps the day. It does not start in the scale field, in a picker
+  or form opened in place, or in a sheet or menu the day opened. A drag of 20px
+  or more sideways never ends in a tap, so it opens no Recipe; a tap whose
+  finger drifts less still taps. A field being typed in loses focus before the
+  day steps, so the scale field saves what was typed.
 
 The desktop agenda shows the whole week, a day per row, with today on the tint
 and a green marker bar. Its cooked circles lead the rows, titles share one edge

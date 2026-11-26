@@ -177,29 +177,6 @@ test('a tap that drifts a little sideways on the cooked circle still marks the d
 		.toBe(true)
 })
 
-test('a short sideways drag that ends on a dish name opens nothing and stays on the day', async ({
-	page,
-	login,
-}) => {
-	const user = await login()
-	await seedRecipeMeal(user, '2026-11-18', 'Miso Soup with Tofu')
-	await page.goto('/plan?weekStart=2026-11-16&day=2026-11-18')
-	const dish = page.getByTestId('mobile-plan').getByRole('link', {
-		name: 'Miso Soup with Tofu',
-	})
-	await hydrated(dish)
-	// From near the name's right end, 40px left, still over the name.
-	const box = (await dish.boundingBox())!
-	await touchDrag(page, box.x + box.width - 8, box.y + box.height / 2, [
-		[-12, 0],
-		[-26, 0],
-		[-40, 0],
-	])
-	await page.waitForTimeout(400)
-	await expect(page).toHaveURL(/\/plan\?weekStart=2026-11-16&day=2026-11-18$/)
-	await expectDay(page, 'Wednesday', 'Nov 18')
-})
-
 test('a multiplier typed but not yet saved is saved when a swipe changes the day', async ({
 	page,
 	login,

@@ -437,12 +437,50 @@ test.describe('the filters', () => {
 			const result = {
 				tint: got.backgroundColor === want.backgroundColor,
 				text: got.color === want.color,
-				ring: got.borderTopColor === want.color,
+				edge: got.borderTopColor === want.color,
+				// The ring is drawn inside the edge, so the two make it thicker.
+				ring: got.boxShadow.includes(`${want.color} 0px 0px 0px 0.5px inset`),
 			}
 			probe.remove()
 			return result
 		})
-		expect(look).toEqual({ tint: true, text: true, ring: true })
+		expect(look).toEqual({ tint: true, text: true, edge: true, ring: true })
+	})
+
+	test('a chip reached from the keyboard comes fully into the row, both ways, without moving the page', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		await seedRecipes(user, [
+			...many(30),
+			{ title: 'Hummus', cuisine: 'Levantine' },
+		])
+		const row = await openWithChoices(page, '/recipes')
+		const scrollY = () => page.evaluate(() => window.scrollY)
+		await page.evaluate(() => window.scrollTo(0, 900))
+		await expect.poll(scrollY).toBe(900)
+		const chips = await row.locator(':scope > *').all()
+		expect(chips).toHaveLength(6)
+		const fullyInRow = (chip: Locator) =>
+			chip.evaluate((element) => {
+				const chip = element.getBoundingClientRect()
+				const row = element.parentElement!.getBoundingClientRect()
+				return chip.left >= row.left && chip.right <= row.right
+			})
+		await page.getByRole('button', { name: 'Toggle filters' }).focus()
+		for (const chip of chips) {
+			await page.keyboard.press('Tab')
+			await expect(chip).toBeFocused()
+			expect(await fullyInRow(chip)).toBe(true)
+			expect(await scrollY()).toBe(900)
+		}
+		for (const chip of [...chips].reverse().slice(1)) {
+			await page.keyboard.press('Shift+Tab')
+			await expect(chip).toBeFocused()
+			expect(await fullyInRow(chip)).toBe(true)
+			expect(await scrollY()).toBe(900)
+		}
 	})
 
 	test('a menu opened from a chip half off the screen opens on the screen', async ({

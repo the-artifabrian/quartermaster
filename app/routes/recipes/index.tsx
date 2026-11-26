@@ -555,8 +555,19 @@ export default function RecipesIndex({ loaderData }: Route.ComponentProps) {
 						    room inside for the focus ring; wider, the row wraps. */}
 						<div
 							data-recipes-chips=""
+							// A chip reached from the keyboard comes fully into the row.
+							// A tap leaves the row where it is, so the chip stays under
+							// the finger.
+							onFocus={(e) => {
+								if (e.target.matches(':focus-visible')) {
+									e.target.scrollIntoView({
+										block: 'nearest',
+										inline: 'nearest',
+									})
+								}
+							}}
 							className={cn(
-								'items-center gap-2 max-md:-mx-4 max-md:mt-0.5 max-md:-mb-1 max-md:[scrollbar-width:none] max-md:flex-nowrap max-md:overflow-x-auto max-md:overscroll-x-contain max-md:px-4 max-md:py-1 sm:max-md:-mx-8 sm:max-md:px-8 md:flex md:flex-wrap md:gap-1.5 max-md:[&::-webkit-scrollbar]:hidden',
+								'items-center gap-2 max-md:-mx-4 max-md:mt-0.5 max-md:-mb-1 max-md:scroll-px-4 max-md:[scrollbar-width:none] max-md:flex-nowrap max-md:overflow-x-auto max-md:overscroll-x-contain max-md:px-4 max-md:py-1 sm:max-md:-mx-8 sm:max-md:scroll-px-8 sm:max-md:px-8 md:flex md:flex-wrap md:gap-1.5 max-md:[&::-webkit-scrollbar]:hidden',
 								filtersOpen ? 'flex' : 'hidden',
 							)}
 						>

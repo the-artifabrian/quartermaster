@@ -162,7 +162,8 @@
 	   A Shopping item's name. On a phone also a closed ingredient row in the
 	   Recipe form (at weight 400), a Recipe to pick in Link a Recipe, the
 	   line that says an import is running, and in the Menu form a card's name
-	   and the rows of its Add Recipe sheet and Move to… menu. */
+	   and a Recipe in its Add Recipe sheet. A row of the form's Move to… menu
+	   takes the size at weight 400. */
 	--text-item-name: 1.0625rem;
 	--text-item-name--line-height: 1.35;
 	/* A dish on a phone's Plan day, and the dishes of a Dinner that shows its

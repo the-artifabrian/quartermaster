@@ -573,11 +573,12 @@ segmented control are 14px.
 - The shared Menu page draws the same rows, and its header follows on a phone:
   the same title, 13.5px small lines and one full-width 48px button.
 - On a phone Menu edit and New Menu take the Recipe form's sizes: the title at
-  28px (`text-edit-title`), "Recipes" in sentence case at 24px in the serif with
-  a 13.5px muted line under it, small muted labels over 44px fields with 16px
-  text, 13.5px hints ("Makes 8 servings", an empty section's line, a missing
-  Recipe's line in the error red) and errors, and 16px button labels. Wider
-  screens keep the sizes they had.
+  28px (`text-edit-title`), "Recipes" in sentence case at 24px in the serif,
+  small muted labels over 44px fields with 16px text, 13.5px hints ("Makes 8
+  servings", an empty section's line, a missing Recipe's line in the error red)
+  and errors, and 16px button labels. The Recipes heading has more room above
+  (32px) than under it; with two or more sections a 13.5px muted line under it
+  says how to move them. Wider screens keep the sizes they had.
 - In the form on a phone a Recipe card's name is 17px at weight 500 on up to two
   lines, with the row beside its thumb to itself; the scale field and Remove sit
   under it at the right, then the note field, then the arrows and Move to…. A

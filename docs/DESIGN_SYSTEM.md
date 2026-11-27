@@ -625,6 +625,9 @@ keeps its own Add Meal.
   scrolling would put the Staple on Next shop and the screen has no Undo for
   that. The row's look comes from `app/components/staple-row-styles.ts`, which
   the homepage's picture of the screen uses too.
+- The row looks the same at every width: the same height, pill and “On list”,
+  with names at 16px above `md` as on Shopping, and the trash after Need with a
+  mouse. Only the pinned search row and its + are phone only.
 - Each row carries its own Add control, its own state and its own errors. A
   shopper is usually scrolled somewhere down a long list, so a banner at the top
   of the page is a message they will never see.
@@ -645,8 +648,9 @@ keeps its own Add Meal.
   the row's place on each scrolled frame, and focus on one moves to the other as
   they swap. The add form opens in place under the title, replacing Search:
   opened from the pinned +, the page goes back to the top with the field focused
-  inside the tap, so iOS raises the keyboard. Escape or Cancel (the quiet
-  button) closes it and focus goes back to the +.
+  inside the tap, so iOS raises the keyboard. Escape, Cancel (the quiet button)
+  or an add closes it, and focus goes back to whichever + shows, the pinned one
+  when the page was scrolled far down meanwhile.
 - “No Staples found” and “No Staples yet” sit on the page as the Recipes list's
   empty states do, with a serif heading; the suggestions for a new Household sit
   on the page as a row of chips.

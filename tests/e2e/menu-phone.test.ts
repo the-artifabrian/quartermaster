@@ -395,12 +395,17 @@ test.describe('at 320px', () => {
 					main: document.querySelector('main')!.getBoundingClientRect().right,
 					page: document.documentElement.scrollWidth,
 					furthest: Math.max(...rights),
+					// The title spans the content column.
+					content: document
+						.querySelector('#main-content h1')!
+						.getBoundingClientRect().right,
 				}
 			})
 			expect(edges.main, url).toBe(320)
 			expect(edges.page, url).toBeLessThanOrEqual(320)
-			// Everything stops at the content edge, 16px in.
-			expect(edges.furthest, url).toBeLessThanOrEqual(304)
+			// Everything stops at the content edge, inside the gutter.
+			expect(edges.content, url).toBeLessThan(320)
+			expect(edges.furthest, url).toBeLessThanOrEqual(edges.content)
 		}
 	})
 })
@@ -496,9 +501,11 @@ test('a Menu’s page, its Add to Plan sheet and its shared page set their text 
 		const save = await box(
 			visitor.getByRole('link', { name: 'Save to your Menus' }),
 		)
-		const width = (await box(main(visitor))).width
+		// As wide as the title's column.
+		const column = await box(visitor.getByRole('heading', { level: 1 }))
 		expect(save.height).toBe(48)
-		expect(save.width).toBe(width - 32)
+		expect(save.x).toBe(column.x)
+		expect(save.width).toBe(column.width)
 		const shared = await textSizes(visitor)
 		for (const found of [onPage, inSheet, shared]) {
 			expect(found).not.toHaveProperty(['12px'])
@@ -521,9 +528,11 @@ test('a Recipe row is at least 56px with its photo on the content edge and reads
 	const row = content.getByRole('link', { name: /Roast chicken/ })
 	const rowBox = await box(row)
 	expect(rowBox.height).toBeGreaterThanOrEqual(56)
-	expect(rowBox.x).toBe(16)
+	// The row and its photo start on the content edge, where the title does.
+	const column = await box(content.getByRole('heading', { level: 1 }))
+	expect(rowBox.x).toBe(column.x)
 	const thumb = await box(row.locator('[data-recipe-thumb]'))
-	expect(thumb).toMatchObject({ x: 16, width: 44, height: 44 })
+	expect(thumb).toMatchObject({ x: column.x, width: 44, height: 44 })
 	const name = await box(row.getByText('Roast chicken', { exact: true }))
 	const quantity = await box(row.getByText('2× · makes 8 servings'))
 	const note = await box(row.getByText('Boil in the morning.'))
@@ -563,10 +572,11 @@ test('Add to Plan is one full-width 48px button clear of an empty Menu’s line,
 	await page.goto(`/recipes/menus/${menu.id}`)
 	const add = page.getByRole('button', { name: 'Add to Plan', exact: true })
 	const addBox = await box(add)
-	const width = (await box(main(page))).width
+	// As wide as the title's column.
+	const column = await box(page.getByRole('heading', { level: 1 }))
 	expect(addBox.height).toBe(48)
-	expect(addBox.x).toBe(16)
-	expect(addBox.width).toBe(width - 32)
+	expect(addBox.x).toBe(column.x)
+	expect(addBox.width).toBe(column.width)
 	// The bar still has the Menu's buttons.
 	await expect(share(bar(page))).toBeVisible()
 	await expect(edit(bar(page))).toBeVisible()
@@ -582,10 +592,11 @@ test('Add to Plan is one full-width 48px button clear of an empty Menu’s line,
 	await add.tap()
 	const sheet = page.getByRole('dialog', { name: 'Add to Plan' })
 	const submit = sheet.getByRole('button', { name: 'Add to Plan', exact: true })
-	const sheetBox = await box(sheet)
+	const field = await box(sheet.getByLabel('Date', { exact: true }))
 	const submitBox = await box(submit)
 	expect(submitBox.height).toBe(48)
-	expect(submitBox.width).toBeGreaterThanOrEqual(sheetBox.width - 48)
+	// As wide as the sheet's full-width field.
+	expect(submitBox.width).toBe(field.width)
 	await submit.tap()
 	const error = sheet.getByText(EMPTY_MENU_MESSAGE)
 	await expect(error).toBeVisible()

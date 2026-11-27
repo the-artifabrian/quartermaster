@@ -51,23 +51,23 @@ Browsers without it wrap as usual.
 
 Useful sizes:
 
-| Use                                                               | Size                                                                                |
-| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Tab title (`TabTitle`)                                            | 40px Newsreader, 1.05 lines                                                         |
-| Recipe or Menu title on a phone (`text-recipe-title`)             | 36px Newsreader, 1.1 lines; wider, a Recipe's is 32px and a Menu's 24px             |
-| Plan's day heading on a phone                                     | 31px Newsreader                                                                     |
-| Recipe or Menu section heading on a phone (`text-recipe-section`) | 24px Newsreader; 18px wider                                                         |
-| Other page title                                                  | 24px Newsreader                                                                     |
-| Plan dish on a phone (`text-dish`)                                | 17px Schibsted Grotesk, 19px under a Dinner's photo (`text-dish-photo`)             |
-| Recipe or Menu row on a phone (`text-list-name`)                  | 17px Schibsted Grotesk                                                              |
-| Shopping item or Staple on a phone (`text-item-name`)             | 17px Schibsted Grotesk                                                              |
-| A step on a phone (`text-step`)                                   | 17px Schibsted Grotesk, 1.6 lines; its numeral 24px Newsreader (`text-step-number`) |
-| An ingredient on a phone (`text-ingredient`)                      | 17px Schibsted Grotesk, 1.45 lines                                                  |
-| Body, and ingredients and steps wider                             | 16px Schibsted Grotesk                                                              |
-| UI label                                                          | 14px Schibsted Grotesk                                                              |
-| Small label (`text-label`)                                        | 13.5px Schibsted Grotesk, weight 600                                                |
-| Caption                                                           | 13px Schibsted Grotesk                                                              |
-| Tiny navigation label                                             | 12px Schibsted Grotesk                                                              |
+| Use                                                               | Size                                                                                  |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Tab title (`TabTitle`)                                            | 40px Newsreader, 1.05 lines                                                           |
+| Recipe or Menu title on a phone (`text-recipe-title`)             | 36px Newsreader, 1.1 lines; wider, a Recipe's is 32px and a Menu's 24px (30px shared) |
+| Plan's day heading on a phone                                     | 31px Newsreader                                                                       |
+| Recipe or Menu section heading on a phone (`text-recipe-section`) | 24px Newsreader; 18px wider                                                           |
+| Other page title                                                  | 24px Newsreader                                                                       |
+| Plan dish on a phone (`text-dish`)                                | 17px Schibsted Grotesk, 19px under a Dinner's photo (`text-dish-photo`)               |
+| Recipe or Menu row on a phone (`text-list-name`)                  | 17px Schibsted Grotesk                                                                |
+| Shopping item or Staple on a phone (`text-item-name`)             | 17px Schibsted Grotesk                                                                |
+| A step on a phone (`text-step`)                                   | 17px Schibsted Grotesk, 1.6 lines; its numeral 24px Newsreader (`text-step-number`)   |
+| An ingredient on a phone (`text-ingredient`)                      | 17px Schibsted Grotesk, 1.45 lines                                                    |
+| Body, and ingredients and steps wider                             | 16px Schibsted Grotesk                                                                |
+| UI label                                                          | 14px Schibsted Grotesk                                                                |
+| Small label (`text-label`)                                        | 13.5px Schibsted Grotesk, weight 600                                                  |
+| Caption                                                           | 13px Schibsted Grotesk                                                                |
+| Tiny navigation label                                             | 12px Schibsted Grotesk                                                                |
 
 The Plan dish sizes (`text-dish`, `text-dish-photo`), the list row size
 (`text-list-name`), the Shopping item and Staple size (`text-item-name`), the
@@ -527,8 +527,8 @@ On a phone the Recipes and Menus lists share a title and a row shape:
   is 13.5px; an empty Menu's sits on the page without a box. Nothing is 12, 14
   or 15px apart from shared controls (a sheet's line under its title, the letter
   of a Recipe without a photo).
-- Add to Plan's sheet has 13.5px semibold labels over 44px fields and a 48px
-  full-width button.
+- On a phone Add to Plan's sheet has 13.5px semibold labels over 44px fields and
+  a 48px full-width button.
 - The shared Menu page draws the same rows, and its header follows on a phone:
   the same title, 13.5px small lines and one full-width 48px button.
 - Use quiet section insets only when several sections need visual grouping.

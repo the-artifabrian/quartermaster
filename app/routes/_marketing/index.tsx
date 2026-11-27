@@ -194,10 +194,6 @@ function HowItWorks({ today }: { today: string }) {
 			>
 				{features.map((feature, index) => (
 					<div key={feature.heading} className="flex min-w-0 flex-col">
-						{/* Under its text on a phone, above it once there are columns. */}
-						<div className="order-last mt-8 sm:order-first sm:mt-0 sm:mb-8">
-							{phones[feature.phone]}
-						</div>
 						<p className="font-serif text-xl tabular-nums">
 							{String(index + 1).padStart(2, '0')}
 						</p>
@@ -207,6 +203,13 @@ function HowItWorks({ today }: { today: string }) {
 						<p className="text-muted-foreground mt-3 text-[1.0625rem] leading-[1.55]">
 							{feature.body}
 						</p>
+						{/* After its text, so a screen reader hears each picture with
+						    its own step; once there are columns it is lifted above the
+						    text. Nothing in it takes focus, so the tab order is not
+						    affected. */}
+						<div className="mt-8 sm:order-first sm:mt-0 sm:mb-8">
+							{phones[feature.phone]}
+						</div>
 					</div>
 				))}
 			</div>

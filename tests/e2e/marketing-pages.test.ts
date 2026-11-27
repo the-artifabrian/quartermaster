@@ -168,6 +168,9 @@ async function phoneBoxes(page: Page) {
 			const container = phone.closest('.container')!
 			const style = getComputedStyle(container)
 			const outer = container.getBoundingClientRect()
+			// A step's phone also keeps to its own grid item.
+			const item = phone.closest('#how-it-works > div')
+			const itemBox = item?.getBoundingClientRect()
 			return {
 				label: phone.getAttribute('aria-label'),
 				role: phone.getAttribute('role'),
@@ -185,12 +188,13 @@ async function phoneBoxes(page: Page) {
 					left: outer.left + parseFloat(style.paddingLeft),
 					right: outer.right - parseFloat(style.paddingRight),
 				},
+				item: itemBox ? { left: itemBox.left, right: itemBox.right } : null,
 			}
 		}),
 	)
 }
 
-for (const layout of [320, 768, 1440]) {
+for (const layout of [320, 640, 768, 1280, 1440]) {
 	test(`the homepage's phones fit a ${layout}px page, inert and filled to their frames`, async ({
 		page,
 	}) => {
@@ -216,6 +220,14 @@ for (const layout of [320, 768, 1440]) {
 			expect(phone.phone.x + phone.phone.width, name).toBeLessThanOrEqual(
 				phone.content.right + 0.5,
 			)
+			if (phone.item) {
+				expect(phone.phone.x, name).toBeGreaterThanOrEqual(
+					phone.item.left - 0.5,
+				)
+				expect(phone.phone.x + phone.phone.width, name).toBeLessThanOrEqual(
+					phone.item.right + 0.5,
+				)
+			}
 			// The scaled screen covers its slot in the frame, with no strip
 			// left beside or under it.
 			for (const side of ['x', 'y', 'width', 'height'] as const) {
@@ -255,6 +267,10 @@ async function heroPhones(page: Page) {
 				frames,
 				dayHeading: bottom(plan.querySelector('[data-day-heading]')!),
 				secondMeal: bottom(meals[1]!),
+				thirdMeal: {
+					top: meals[2]!.getBoundingClientRect().top,
+					bottom: bottom(meals[2]!),
+				},
 			}
 		})
 }
@@ -267,6 +283,9 @@ for (const layout of [320, 390, 640, 1024, 1280]) {
 		const hero = await heroPhones(page)
 		expect(hero.dayHeading).toBeLessThan(hero.cut)
 		expect(hero.secondMeal).toBeLessThan(hero.cut)
+		// It cuts through the third, so no bare screen shows above the cut.
+		expect(hero.thirdMeal.top).toBeLessThan(hero.cut)
+		expect(hero.thirdMeal.bottom).toBeGreaterThan(hero.cut)
 	})
 }
 
@@ -312,28 +331,47 @@ for (const layout of [390, 768, 1280]) {
 				items
 					.map((item) => {
 						const r = item.querySelector('h2')!.getBoundingClientRect()
+						const phone = item.querySelector('[role="img"]')!
 						return {
 							heading: item.querySelector('h2')!.textContent,
-							phone: item
-								.querySelector('[role="img"]')!
-								.getAttribute('aria-label')!
-								.split(' on a phone')[0],
+							phone: phone.getAttribute('aria-label')!.split(' on a phone')[0],
+							phoneAbove: phone.getBoundingClientRect().top < r.top,
 							top: Math.round(r.top),
 							left: Math.round(r.left),
 						}
 					})
 					// Reading order: by row, then left to right.
-					.sort((a, b) => a.top - b.top || a.left - b.left)
-					.map(({ heading, phone }) => `${heading} | ${phone}`),
+					.sort((a, b) => a.top - b.top || a.left - b.left),
 			)
-		expect(steps).toEqual([
+		expect(steps.map(({ heading, phone }) => `${heading} | ${phone}`)).toEqual([
 			'Your Recipes, in one place | A Recipe',
 			'A week pencilled in | The Plan',
 			'Minus what you already have | Staples',
 			'Pick what you’ll buy | Shopping',
 		])
+		// One column on a phone puts each phone under its text; columns put it
+		// on top.
+		expect(steps.map((step) => step.phoneAbove)).toEqual(
+			Array(4).fill(layout >= 640),
+		)
 	})
 }
+
+test('each step reads as its number, heading and text, then its picture', async ({
+	page,
+}) => {
+	await openAt(page, 1280)
+	const snapshot = await page.locator('#how-it-works').ariaSnapshot()
+	const lines = snapshot
+		.split('\n')
+		.map(
+			(line) => line.trim().replace(/^- '?/, '').split(':')[0]!.split(' ')[0],
+		)
+	// Four times over: the number and heading, the text, then the image.
+	expect(lines.join(' ')).toBe(
+		Array(4).fill('paragraph heading paragraph img').join(' '),
+	)
+})
 
 for (const width of [390, 1280]) {
 	test(`See how it works lands the first section under the header at ${width}px`, async ({

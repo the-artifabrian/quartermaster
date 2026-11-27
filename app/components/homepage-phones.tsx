@@ -539,7 +539,7 @@ const staples = [
 /** The Staples tab on a phone (ActiveStaples). */
 export function StaplesPhone() {
 	return (
-		<PhoneFrame label="Staples on a phone: ten usual items in A to Z order, each with Need, and two already on the list">
+		<PhoneFrame label="Staples on a phone: ten usual items in A to Z order, two of them already on Next shop">
 			<div className={cn('pt-4', page)}>
 				<div className="flex items-center justify-between gap-3">
 					<p className={tabTitleClassName}>Staples</p>

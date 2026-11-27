@@ -52,7 +52,12 @@ test('the list is one alphabetical set of usual items, searchable', async () => 
 	).toHaveTextContent('On list')
 
 	const search = screen.getByRole('searchbox', { name: 'Search Staples' })
-	const addButton = screen.getByRole('button', { name: 'Add Staple' })
+	// The title's +. The search row's own + shows only while the row is
+	// pinned, through CSS, which jsdom does not apply; the e2e tests check
+	// that one + at a time is reachable.
+	const titleAdd = () =>
+		screen.getAllByRole('button', { name: 'Add Staple' })[0]!
+	const addButton = titleAdd()
 	expect(search).toBeVisible()
 	expect(screen.queryByRole('textbox', { name: 'Add a Staple' })).toBeNull()
 	await user.click(addButton)
@@ -61,9 +66,7 @@ test('the list is one alphabetical set of usual items, searchable', async () => 
 	expect(addInput).toHaveAttribute('placeholder', 'Staple name')
 	expect(screen.queryByRole('searchbox', { name: 'Search Staples' })).toBeNull()
 	await user.keyboard('{Escape}')
-	await waitFor(() =>
-		expect(screen.getByRole('button', { name: 'Add Staple' })).toHaveFocus(),
-	)
+	await waitFor(() => expect(titleAdd()).toHaveFocus())
 
 	const restoredSearch = screen.getByRole('searchbox', {
 		name: 'Search Staples',

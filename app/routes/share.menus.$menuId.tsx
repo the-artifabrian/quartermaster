@@ -141,7 +141,7 @@ export default function SharedMenu({ loaderData }: Route.ComponentProps) {
 					Quartermaster
 				</Link>
 			</p>
-			<h1 className="phone:text-recipe-title phone:leading-(--text-recipe-title--line-height) font-serif text-3xl break-words">
+			<h1 className="phone:text-menu-title phone:leading-(--text-menu-title--line-height) font-serif text-3xl break-words">
 				{menu.title}
 			</h1>
 			{menu.defaultGuestCount && (

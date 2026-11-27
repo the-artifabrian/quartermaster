@@ -465,7 +465,7 @@ export default function MenuDetail({
 	const handleShare = useShareMenu(menu)
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
-			<h1 className="phone:text-recipe-title phone:break-words font-serif text-2xl">
+			<h1 className="phone:text-menu-title phone:break-words font-serif text-2xl">
 				{menu.title}
 			</h1>
 

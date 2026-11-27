@@ -74,6 +74,7 @@ const twMerge = extendTailwindMerge({
 				'dish-photo',
 				'list-name',
 				'recipe-title',
+				'menu-title',
 				'recipe-section',
 				'ingredient',
 				'step',

@@ -421,7 +421,7 @@ test('a Menu’s page, its Add to Plan sheet and its shared page set their text 
 	const content = main(page)
 	await expect(content.getByRole('heading', { level: 1 })).toHaveCSS(
 		'font-size',
-		'36px',
+		'32px',
 	)
 	await expect(content.getByRole('heading', { name: 'Mains' })).toHaveCSS(
 		'font-size',
@@ -485,7 +485,7 @@ test('a Menu’s page, its Add to Plan sheet and its shared page set their text 
 		await visitor.goto(`/share/menus/${menu.id}`)
 		await expect(visitor.getByRole('heading', { level: 1 })).toHaveCSS(
 			'font-size',
-			'36px',
+			'32px',
 		)
 		for (const small of [
 			/^Shared on/,

@@ -51,32 +51,34 @@ Browsers without it wrap as usual.
 
 Useful sizes:
 
-| Use                                                               | Size                                                                                  |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Tab title (`TabTitle`)                                            | 40px Newsreader, 1.05 lines                                                           |
-| Recipe or Menu title on a phone (`text-recipe-title`)             | 36px Newsreader, 1.1 lines; wider, a Recipe's is 32px and a Menu's 24px (30px shared) |
-| Plan's day heading on a phone                                     | 31px Newsreader                                                                       |
-| Recipe or Menu section heading on a phone (`text-recipe-section`) | 24px Newsreader; 18px wider                                                           |
-| Other page title                                                  | 24px Newsreader                                                                       |
-| Plan dish on a phone (`text-dish`)                                | 17px Schibsted Grotesk, 19px under a Dinner's photo (`text-dish-photo`)               |
-| Recipe or Menu row on a phone (`text-list-name`)                  | 17px Schibsted Grotesk                                                                |
-| Shopping item or Staple on a phone (`text-item-name`)             | 17px Schibsted Grotesk                                                                |
-| A step on a phone (`text-step`)                                   | 17px Schibsted Grotesk, 1.6 lines; its numeral 24px Newsreader (`text-step-number`)   |
-| An ingredient on a phone (`text-ingredient`)                      | 17px Schibsted Grotesk, 1.45 lines                                                    |
-| Body, and ingredients and steps wider                             | 16px Schibsted Grotesk                                                                |
-| UI label                                                          | 14px Schibsted Grotesk                                                                |
-| Small label (`text-label`)                                        | 13.5px Schibsted Grotesk, weight 600                                                  |
-| Caption                                                           | 13px Schibsted Grotesk                                                                |
-| Tiny navigation label                                             | 12px Schibsted Grotesk                                                                |
+| Use                                                               | Size                                                                                |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Tab title (`TabTitle`)                                            | 40px Newsreader, 1.05 lines                                                         |
+| Recipe title on a phone (`text-recipe-title`)                     | 36px Newsreader, 1.1 lines; 32px wider                                              |
+| Menu title on a phone (`text-menu-title`)                         | 32px Newsreader, 1.125 lines; wider, 24px on its page and 30px shared               |
+| Plan's day heading on a phone                                     | 31px Newsreader                                                                     |
+| Recipe or Menu section heading on a phone (`text-recipe-section`) | 24px Newsreader; 18px wider                                                         |
+| Other page title                                                  | 24px Newsreader                                                                     |
+| Plan dish on a phone (`text-dish`)                                | 17px Schibsted Grotesk, 19px under a Dinner's photo (`text-dish-photo`)             |
+| Recipe or Menu row on a phone (`text-list-name`)                  | 17px Schibsted Grotesk                                                              |
+| Shopping item or Staple on a phone (`text-item-name`)             | 17px Schibsted Grotesk                                                              |
+| A step on a phone (`text-step`)                                   | 17px Schibsted Grotesk, 1.6 lines; its numeral 24px Newsreader (`text-step-number`) |
+| An ingredient on a phone (`text-ingredient`)                      | 17px Schibsted Grotesk, 1.45 lines                                                  |
+| Body, and ingredients and steps wider                             | 16px Schibsted Grotesk                                                              |
+| UI label                                                          | 14px Schibsted Grotesk                                                              |
+| Small label (`text-label`)                                        | 13.5px Schibsted Grotesk, weight 600                                                |
+| Caption                                                           | 13px Schibsted Grotesk                                                              |
+| Tiny navigation label                                             | 12px Schibsted Grotesk                                                              |
 
 The Plan dish sizes (`text-dish`, `text-dish-photo`), the list row size
 (`text-list-name`), the Shopping item and Staple size (`text-item-name`), the
 Recipe page's sizes (`text-recipe-title`, `text-recipe-section`,
-`text-ingredient`, `text-step`, `text-step-number`) and `text-label` are font
-size tokens in `app/styles/tailwind.css`, each set once, and `cn` in
-`app/utils/misc.tsx` knows them. A `leading-*` class beside one of them wins
-over the size's own line height, so a class list that has both names the line
-height again (`leading-(--text-step--line-height)`).
+`text-ingredient`, `text-step`, `text-step-number`), a Menu's title size
+(`text-menu-title`) and `text-label` are font size tokens in
+`app/styles/tailwind.css`, each set once, and `cn` in `app/utils/misc.tsx` knows
+them. A `leading-*` class beside one of them wins over the size's own line
+height, so a class list that has both names the line height again
+(`leading-(--text-step--line-height)`).
 
 A small label (a Meal's label, the weekday in Plan's strip and over its day, the
 groups of a picker, a heading inside a Recipe's ingredients, a Recipe's facts
@@ -513,12 +515,13 @@ On a phone the Recipes and Menus lists share a title and a row shape:
 - A named section is a Newsreader heading over a hairline rule; its Recipes'
   names are in the sans. On phones its rows are flat and divided, and 1× stays
   implicit on Recipe rows.
-- On a phone a Menu's page takes the Recipe page's sizes: the title at 36px, the
-  guest line at 13.5px, the description at 16px and muted, section headings at
-  24px with more room above (32px or more) than between the heading and its
-  first row. Add to Plan is the one full-width 48px button; Share and Edit are
-  in the nav bar, where Edit is a link that works before the page has run
-  script. Wider screens keep Share and Edit beside the button.
+- On a phone a Menu's page takes the Recipe page's sizes, with its title a step
+  smaller at 32px (`text-menu-title`): the guest line at 13.5px, the description
+  at 16px and muted, section headings at 24px with more room above (32px or
+  more) than between the heading and its first row. Add to Plan is the one
+  full-width 48px button; Share and Edit are in the nav bar, where Edit is a
+  link that works before the page has run script. Wider screens keep Share and
+  Edit beside the button.
 - A Recipe row on a phone is at least 56px, its 44px photo on the content edge,
   the name at 17px and weight 500 on up to two lines, then at 13.5px and muted
   the quantity ("2× · makes 8 servings") and the note under it. A missing

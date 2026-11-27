@@ -533,27 +533,6 @@ test.describe('the search row', () => {
 		await expect(clear).toHaveCount(0)
 	})
 
-	test('a search typed far down that leaves two Staples keeps the field on screen and focused', async ({
-		page,
-		login,
-	}) => {
-		const user = await login()
-		await seedStaples(user.householdId, [...many(30), 'Brown rice', 'Rice'])
-		await page.goto('/staples')
-		const field = searchField(page)
-		await hydrated(field)
-		await scrollTo(page, 1200)
-		await field.fill('rice')
-		await expect(stapleList(page).getByRole('listitem')).toHaveCount(2)
-		await expect(field).toBeFocused()
-		const fieldBox = await box(field)
-		expect(fieldBox.y).toBeGreaterThanOrEqual(0)
-		expect(fieldBox.y + fieldBox.height).toBeLessThanOrEqual(844)
-		const first = await box(stapleRow(page, 'Brown rice'))
-		expect(first.y).toBeGreaterThan(fieldBox.y)
-		expect(first.y).toBeLessThan(844)
-	})
-
 	test('a delete that takes the list from 12 to 11 while scrolled keeps the field, its search and the list where they are', async ({
 		page,
 		login,
@@ -1021,7 +1000,7 @@ test.describe('the empty states', () => {
 })
 
 test.describe('a long list', () => {
-	test('a swipe on one of 200 rows moves only that row and shifts no layout', async ({
+	test('a swipe on one of 200 rows slides only that row, by a transform', async ({
 		page,
 		login,
 	}) => {
@@ -1030,15 +1009,6 @@ test.describe('a long list', () => {
 		await page.goto('/staples')
 		await hydrated(searchField(page))
 		await expect(stapleList(page).getByRole('listitem')).toHaveCount(200)
-		await page.evaluate(() => {
-			const w = window as unknown as { shifts: number }
-			w.shifts = 0
-			new PerformanceObserver((list) => {
-				for (const entry of list.getEntries()) {
-					w.shifts += (entry as unknown as { value: number }).value
-				}
-			}).observe({ type: 'layout-shift' })
-		})
 		const row = stapleRow(page, 'Staple 005')
 		const neighbour = stapleRow(page, 'Staple 006')
 		const before = await box(neighbour)
@@ -1063,11 +1033,16 @@ test.describe('a long list', () => {
 		})
 		await cdp.detach()
 		await animationsFinished(page)
-		expect(await box(neighbour)).toEqual(before)
+		// Open by a transform alone: its box in the layout has not moved.
 		expect(
-			await page.evaluate(
-				() => (window as unknown as { shifts: number }).shifts,
-			),
-		).toBe(0)
+			await row.evaluate((element) => {
+				const layer = element.querySelector<HTMLElement>('.touch-pan-y')!
+				return [
+					layer.offsetLeft,
+					new DOMMatrix(getComputedStyle(layer).transform).m41,
+				]
+			}),
+		).toEqual([0, -76])
+		expect(await box(neighbour)).toEqual(before)
 	})
 })

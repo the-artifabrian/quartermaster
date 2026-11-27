@@ -178,8 +178,9 @@ function MenuRecipeCard({
 				</span>
 			)}
 			{/* A phone stacks the lines under the name: the quantity, then the
-			    note. Wider, the quantity sits at the right of the row. */}
-			<div className="phone:flex-col flex min-w-0 flex-1 md:items-center md:gap-3">
+			    note. Wider and in print, the quantity sits at the right of the
+			    row. */}
+			<div className="phone:flex-col not-phone:items-center not-phone:gap-3 flex min-w-0 flex-1">
 				<div className="phone:contents min-w-0 flex-1">
 					<p className="phone:text-item-name phone:leading-(--text-item-name--line-height) phone:order-1 line-clamp-2 min-w-0 text-[17px] leading-[1.4] font-medium break-words md:text-base">
 						{title}
@@ -198,7 +199,7 @@ function MenuRecipeCard({
 					) : null}
 				</div>
 				{quantity ? (
-					<span className="text-muted-foreground phone:text-label phone:order-3 phone:mt-0.5 phone:leading-snug phone:font-normal mt-1 block text-sm font-medium tabular-nums md:mt-0 md:shrink-0">
+					<span className="text-muted-foreground phone:text-label phone:order-3 phone:mt-0.5 phone:leading-snug phone:font-normal not-phone:mt-0 not-phone:shrink-0 mt-1 block text-sm font-medium tabular-nums">
 						{quantity}
 					</span>
 				) : null}

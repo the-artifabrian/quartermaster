@@ -12,6 +12,7 @@ import {
 	tabPanelProps,
 } from '#app/components/ui/segmented-control.tsx'
 import { Textarea } from '#app/components/ui/textarea.tsx'
+import { phoneFieldLabelClass } from '#app/utils/misc.tsx'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { useFitFileInput } from '#app/utils/downscale-image.ts'
 import { findRecipeFromUrl } from '#app/utils/import-recipe-save.server.ts'
@@ -188,6 +189,18 @@ function useShareImport({
 	useEffect(() => discardShareImport, [])
 }
 
+// On a phone an import's buttons are a full-width stack, 48px tall with 16px
+// labels, up to where the phone layout ends. Wider, they sit in a row at the
+// right.
+const actionsClass =
+	'flex flex-col-reverse gap-2 not-phone:sm:flex-row not-phone:sm:justify-end not-phone:sm:gap-4'
+const actionClass = 'phone:h-12 phone:text-base'
+const primaryActionClass = `${actionClass} phone:font-semibold`
+const errorClass =
+	'border-destructive bg-destructive/5 text-foreground-destructive phone:text-label rounded-lg border p-4 text-sm'
+const proBadgeClass =
+	'bg-primary-foreground text-primary-fill phone:text-label ml-2 rounded px-1.5 py-0.5 text-xs font-medium'
+
 export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 	const { isProActive, sharedUrl, sharedExisting } = loaderData
 	const actionData = useActionData<typeof action>()
@@ -283,7 +296,9 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
-			<h1 className="mb-2 font-serif text-2xl">Import Recipe</h1>
+			<h1 className="phone:text-menu-title mb-2 font-serif text-2xl">
+				Import Recipe
+			</h1>
 			<p className="text-muted-foreground mb-6">
 				{hideAi
 					? 'Paste a Recipe’s link or its text.'
@@ -300,11 +315,15 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 						name="update"
 						className="text-muted-foreground mb-2 size-6 animate-spin"
 					/>
-					<p className="text-lg font-medium">{progress.title}</p>
+					<p className="phone:text-item-name text-lg font-medium">
+						{progress.title}
+					</p>
 					{progress.hint ? (
-						<p className="text-muted-foreground text-sm">{progress.hint}</p>
+						<p className="text-muted-foreground phone:text-label text-sm">
+							{progress.hint}
+						</p>
 					) : null}
-					<p className="text-muted-foreground text-sm">
+					<p className="text-muted-foreground phone:text-label text-sm">
 						It opens as soon as it’s saved.
 					</p>
 				</div>
@@ -319,7 +338,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 			{offerShared ? (
 				<div className="bg-muted/40 mb-6 rounded-lg p-4">
 					<h2 className="font-medium">Import this Recipe?</h2>
-					<p className="text-muted-foreground mt-1 text-sm wrap-anywhere">
+					<p className="text-muted-foreground phone:text-label mt-1 text-sm wrap-anywhere">
 						{sharedUrl}
 					</p>
 					<div className="mt-3 flex flex-wrap gap-2">
@@ -331,11 +350,16 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 						>
 							<input type="hidden" name="intent" value="fetch" />
 							<input type="hidden" name="url" value={sharedUrl} />
-							<Button type="submit" size="sm" className="px-4">
+							<Button type="submit" size="sm" className="phone:text-base px-4">
 								Import
 							</Button>
 						</Form>
-						<Button asChild size="sm" variant="ghost">
+						<Button
+							asChild
+							size="sm"
+							variant="ghost"
+							className="phone:text-base"
+						>
 							<Link to="/recipes/import" replace>
 								Use another link
 							</Link>
@@ -349,7 +373,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					<p className="font-medium">
 						Screenshot import isn’t available on your account
 					</p>
-					<p className="text-muted-foreground mt-1 text-sm">
+					<p className="text-muted-foreground phone:text-label mt-1 text-sm">
 						Paste the Recipe’s link or text instead.
 					</p>
 				</div>
@@ -358,10 +382,10 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 			{existing && !progress ? (
 				<div role="status" className="bg-muted/40 mb-6 rounded-lg p-4">
 					<p className="font-medium">Already in your Recipes</p>
-					<p className="text-muted-foreground mt-1 text-sm wrap-anywhere">
+					<p className="text-muted-foreground phone:text-label mt-1 text-sm wrap-anywhere">
 						It’s saved as “{existing.title}”.
 					</p>
-					<Button asChild size="sm" className="mt-3 px-4">
+					<Button asChild size="sm" className="phone:text-base mt-3 px-4">
 						<PushLink to={`/recipes/${existing.id}`}>Open it</PushLink>
 					</Button>
 				</div>
@@ -399,7 +423,9 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					>
 						<input type="hidden" name="intent" value="fetch" />
 						<div className="space-y-2">
-							<Label htmlFor="url">Recipe link</Label>
+							<Label htmlFor="url" className={phoneFieldLabelClass}>
+								Recipe link
+							</Label>
 							<Input
 								id="url"
 								name="url"
@@ -410,13 +436,11 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 								required
 							/>
 						</div>
-						{urlError && (
-							<div className="border-destructive bg-destructive/5 text-foreground-destructive rounded-lg border p-4 text-sm">
-								{urlError}
-							</div>
-						)}
-						<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
-							<Button type="submit">Import</Button>
+						{urlError && <div className={errorClass}>{urlError}</div>}
+						<div className={actionsClass}>
+							<Button type="submit" className={primaryActionClass}>
+								Import
+							</Button>
 						</div>
 					</Form>
 				)}
@@ -428,7 +452,9 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 						className="space-y-4"
 					>
 						<div className="space-y-2">
-							<Label htmlFor="rawText">Recipe text</Label>
+							<Label htmlFor="rawText" className={phoneFieldLabelClass}>
+								Recipe text
+							</Label>
 							<Textarea
 								id="rawText"
 								name="rawText"
@@ -436,33 +462,33 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 								rows={8}
 							/>
 						</div>
-						{textError && (
-							<div className="border-destructive bg-destructive/5 text-foreground-destructive rounded-lg border p-4 text-sm">
-								{textError}
-							</div>
-						)}
-						<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
+						{textError && <div className={errorClass}>{textError}</div>}
+						<div className={actionsClass}>
 							<Button
 								type="submit"
 								name="intent"
 								value="parse-text"
 								variant="outline"
+								className={actionClass}
 							>
 								Read as written
 							</Button>
 							{isProActive ? (
-								<Button type="submit" name="intent" value="extract-text">
+								<Button
+									type="submit"
+									name="intent"
+									value="extract-text"
+									className={primaryActionClass}
+								>
 									<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
 									Read with AI
 								</Button>
 							) : hideAi ? null : (
-								<Button asChild>
+								<Button asChild className={primaryActionClass}>
 									<PushLink to="/upgrade">
 										<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
 										Read with AI
-										<span className="bg-primary-foreground text-primary-fill ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
-											Pro
-										</span>
+										<span className={proBadgeClass}>Pro</span>
 									</PushLink>
 								</Button>
 							)}
@@ -480,7 +506,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					>
 						<input type="hidden" name="intent" value="extract-image" />
 						<div className="space-y-2">
-							<Label htmlFor="image">
+							<Label htmlFor="image" className={phoneFieldLabelClass}>
 								Upload screenshots (up to {MAX_IMPORT_IMAGE_COUNT})
 							</Label>
 							<Input
@@ -492,30 +518,28 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 								multiple
 								onChange={(event) => void fitImages(event.currentTarget)}
 							/>
-							<p className="text-muted-foreground text-xs">
+							<p className="text-muted-foreground phone:text-label text-xs">
 								JPG, PNG or WebP. Large images are resized. Several screenshots
 								make one Recipe.
 							</p>
 						</div>
-						{imageError && (
-							<div className="border-destructive bg-destructive/5 text-foreground-destructive rounded-lg border p-4 text-sm">
-								{imageError}
-							</div>
-						)}
-						<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-4">
+						{imageError && <div className={errorClass}>{imageError}</div>}
+						<div className={actionsClass}>
 							{isProActive ? (
-								<Button type="submit" disabled={preparingImages}>
+								<Button
+									type="submit"
+									disabled={preparingImages}
+									className={primaryActionClass}
+								>
 									<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
 									Read with AI
 								</Button>
 							) : (
-								<Button asChild>
+								<Button asChild className={primaryActionClass}>
 									<PushLink to="/upgrade">
 										<Icon name="sparkles" className="mr-1.5 inline h-4 w-4" />
 										Read with AI
-										<span className="bg-primary-foreground text-primary-fill ml-2 rounded px-1.5 py-0.5 text-xs font-medium">
-											Pro
-										</span>
+										<span className={proBadgeClass}>Pro</span>
 									</PushLink>
 								</Button>
 							)}

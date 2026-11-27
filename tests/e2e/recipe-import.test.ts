@@ -344,6 +344,38 @@ async function pillUnder(pill: Locator, tab: Locator) {
 test.describe('on a phone', () => {
 	test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
+	test('Import is a full-width 48px button up to 767px wide, and a 44px button at the right from 768px', async ({
+		page,
+		login,
+	}) => {
+		await login()
+		await page.setViewportSize({ width: 767, height: 844 })
+		await page.goto('/recipes/import')
+		const button = page.getByRole('button', { name: 'Import', exact: true })
+		const field = page.getByLabel('Recipe link', { exact: true })
+		const title = page.getByRole('heading', { level: 1 })
+		const edges = async () => {
+			const b = (await button.boundingBox())!
+			const f = (await field.boundingBox())!
+			return {
+				height: b.height,
+				left: b.x - f.x,
+				right: f.x + f.width - (b.x + b.width),
+			}
+		}
+		expect(await edges()).toEqual({ height: 48, left: 0, right: 0 })
+		await expect(button).toHaveCSS('font-size', '16px')
+		await expect(title).toHaveCSS('font-size', '32px')
+
+		await page.setViewportSize({ width: 768, height: 844 })
+		const wide = await edges()
+		expect(wide.height).toBe(44)
+		expect(wide.right).toBe(0)
+		expect(wide.left).toBeGreaterThan(100)
+		await expect(button).toHaveCSS('font-size', '14px')
+		await expect(title).toHaveCSS('font-size', '24px')
+	})
+
 	test('Import switches between URL and pasted text with a segmented control', async ({
 		page,
 		login,

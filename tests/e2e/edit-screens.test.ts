@@ -348,34 +348,40 @@ test.describe('no tab bar on edit screens', () => {
 		await expect(tabBar(page)).toBeVisible()
 	})
 
-	test("the edit screen's last control scrolls to just above the home indicator, not above a tab bar", async ({
+	test("an edit screen's last control scrolls to just above the home indicator, not above a tab bar", async ({
 		page,
 		login,
 	}) => {
 		await setShellSafeArea(page, { top: 47, bottom: 34 })
 		const user = await login()
 		const recipe = await createRecipe(user)
-		await page.goto(`/recipes/${recipe.id}/edit`)
-		await hydrated(saveButton(page))
-		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
-		const deleteButton = page.getByRole('button', { name: 'Delete Recipe' })
-		await expect(deleteButton).toBeInViewport()
-		// Measured to the end of the page's own box, which the scroll has
-		// brought to the bottom of the screen. The page's height can be a
-		// fraction of a pixel and a scroll stops on a whole one, so the
-		// screen's own edge would read a fraction off.
-		const { gap, pageEnd } = await deleteButton.evaluate((button) => {
-			const end = button.closest('.container')!.getBoundingClientRect().bottom
-			return {
-				gap: end - button.getBoundingClientRect().bottom,
-				pageEnd: end,
-			}
-		})
-		expect(Math.abs(pageEnd - 844)).toBeLessThan(1)
-		// Clear of the 34pt home indicator, with the page's 1rem under it,
-		// and no room left for a 54pt tab bar.
-		expect(gap).toBeGreaterThanOrEqual(34 + 16)
-		expect(gap).toBeLessThan(34 + 16 + 10)
+		const menu = await createMenu(user)
+		for (const [path, lastControl] of [
+			[`/recipes/${recipe.id}/edit`, 'Delete Recipe'],
+			[`/recipes/menus/${menu.id}/edit`, 'Delete Menu'],
+		] as const) {
+			await page.goto(path)
+			await hydrated(saveButton(page))
+			await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+			const deleteButton = page.getByRole('button', { name: lastControl })
+			await expect(deleteButton).toBeInViewport()
+			// Measured to the end of the page's own box, which the scroll has
+			// brought to the bottom of the screen. The page's height can be a
+			// fraction of a pixel and a scroll stops on a whole one, so the
+			// screen's own edge would read a fraction off.
+			const { gap, pageEnd } = await deleteButton.evaluate((button) => {
+				const end = button.closest('.container')!.getBoundingClientRect().bottom
+				return {
+					gap: end - button.getBoundingClientRect().bottom,
+					pageEnd: end,
+				}
+			})
+			expect(Math.abs(pageEnd - 844), path).toBeLessThan(1)
+			// Clear of the 34pt home indicator, with the page's 1rem under it,
+			// and no room left for a 54pt tab bar.
+			expect(gap, path).toBeGreaterThanOrEqual(34 + 16)
+			expect(gap, path).toBeLessThan(34 + 16 + 10)
+		}
 	})
 
 	test('the Ingredients and Steps lists keep their height once the page hydrates', async ({

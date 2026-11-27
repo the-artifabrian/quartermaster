@@ -33,6 +33,8 @@ type RecipePickerProps = {
 	onPick: (recipe: RecipePickerRecipe) => void
 	label?: string
 	triggerVariant?: React.ComponentProps<typeof Button>['variant']
+	/** Added to the button that opens the picker, to match its neighbours. */
+	triggerClassName?: string
 }
 
 /**
@@ -46,6 +48,7 @@ export function RecipePicker({
 	onPick,
 	label = 'Add Recipe',
 	triggerVariant = 'outline',
+	triggerClassName,
 }: RecipePickerProps) {
 	const [popoverOpen, setPopoverOpen] = useState(false)
 	const [sheetOpen, setSheetOpen] = useState(false)
@@ -64,7 +67,11 @@ export function RecipePicker({
 					<PopoverTrigger asChild>
 						{/* type=button: the picker renders inside the builder form and
 						    must never submit it */}
-						<Button type="button" variant={triggerVariant}>
+						<Button
+							type="button"
+							variant={triggerVariant}
+							className={triggerClassName}
+						>
 							<Icon name="plus" size="sm" />
 							{label}
 						</Button>
@@ -84,6 +91,7 @@ export function RecipePicker({
 				<Button
 					type="button"
 					variant={triggerVariant}
+					className={triggerClassName}
 					onClick={() => setSheetOpen(true)}
 				>
 					<Icon name="plus" size="sm" />
@@ -160,7 +168,7 @@ function PickerList({
 			/>
 			<div className="max-h-[300px] scrollbar-thin space-y-0.5 overflow-y-auto overscroll-contain md:max-h-[340px]">
 				{emptyMessage ? (
-					<p className="text-muted-foreground py-4 text-center text-sm">
+					<p className="text-muted-foreground phone:text-label py-4 text-center text-sm">
 						{emptyMessage}
 					</p>
 				) : (
@@ -200,9 +208,11 @@ function PickerList({
 	)
 }
 
+// On a phone, in the sheet, a group's label is the small label in sentence
+// case, a Recipe's name reads as a card's does and its time is small text.
 function PickerGroupLabel({ children }: { children: React.ReactNode }) {
 	return (
-		<p className="text-muted-foreground px-2 pt-1 pb-0.5 text-xs font-medium tracking-wide uppercase">
+		<p className="text-muted-foreground phone:text-label phone:font-semibold phone:tracking-normal phone:normal-case px-2 pt-1 pb-0.5 text-xs font-medium tracking-wide uppercase">
 			{children}
 		</p>
 	)
@@ -225,7 +235,7 @@ function PickerOption({
 		>
 			<RecipeThumb title={recipe.title} image={recipe.image} />
 			<div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-				<p className="min-w-0 truncate text-sm font-medium">
+				<p className="phone:text-item-name min-w-0 truncate text-sm font-medium">
 					{recipe.isFavorite && (
 						<Icon
 							name="heart-filled"
@@ -235,7 +245,7 @@ function PickerOption({
 					{recipe.title}
 				</p>
 				{totalTime != null && (
-					<span className="text-muted-foreground inline-flex shrink-0 items-center gap-0.5 text-xs">
+					<span className="text-muted-foreground phone:text-label inline-flex shrink-0 items-center gap-0.5 text-xs">
 						<Icon name="clock" className="size-3" />
 						{formatDuration(totalTime)}
 					</span>

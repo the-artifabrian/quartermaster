@@ -97,8 +97,9 @@ export const sectionLabelClass =
 	'text-xs font-semibold tracking-wider uppercase text-muted-foreground'
 
 /**
- * A field's label on a phone's Recipe form and Import: the small label
- * (`text-label` at weight 600, muted), on a line of its own above the field.
+ * A field's label on a phone's Recipe form, Menu form and Import: the small
+ * label (`text-label` at weight 600, muted), on a line of its own above the
+ * field.
  * Wider screens keep the label as its component sets it.
  */
 export const phoneFieldLabelClass =

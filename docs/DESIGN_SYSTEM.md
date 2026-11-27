@@ -133,30 +133,52 @@ Shadows are neutral and belong to floating layers. The tokens live in
 
 The signed-out homepage is an ordinary page in the app's paint: the same tokens
 and faces, the theme the visitor's device or setting picks, and the shared
-header and footer as on About. Its h1, its section headings and their numerals
-are Newsreader; everything else is the sans. Its two buttons are the app's: the
-green fill for "Start cooking" and the quiet `secondary` fill for the demo, both
-48px tall like a Recipe's Add to Plan. Every other section sits on `muted`,
-where the muted body text still clears 4.5:1.
+header and footer as on About. It is all on the page background, with no filled
+sections. Its h1, its section headings and their numerals are Newsreader;
+everything else is the sans. Its two buttons are the app's: the green fill for
+"Start cooking" and the quiet `secondary` fill for the demo, both 48px tall like
+a Recipe's Add to Plan.
+
+The hero puts the headline, the text and the buttons on the left and, from `lg`,
+two phones on the right: Plan on today in front and Shopping behind it, up and
+to the right with its left third covered. The pair is cut by a full-width
+hairline at the hero's foot, always below the Plan's day heading and its first
+two Meals. Below `lg` the pair sits under the buttons, and below 640px the Plan
+stands alone, since two phones would be too small to read. The Shopping behind
+is decoration, kept out of the accessibility tree; it is read as the fourth
+step.
+
+How it works is one section of four steps in the order Recipes, Plan, Staples,
+Shopping: a phone, then the number, a 28px heading and the text, all on the
+phone's left edge. They are four across from 1280px, two by two from 640px, and
+one column on a phone, where each phone follows its text. "See how it works"
+lands the section just under the header.
 
 Its pictures are phones drawn in CSS (`PhoneFrame` in
 `app/components/phone-frame.tsx`): a rounded card-colored outline with the
 page's background inside, no notch and no brand marks. Each screen is laid out
 at 390 by 844 at the app's own sizes and scaled as a whole by `--phone-scale`,
-which steps with the breakpoints so a phone fits its column from a 320px page up
-and never reflows. The slot around a screen takes its scaled size, so the
-outline fits the screen with no gap. A picture is one image to a screen reader,
-named for what it shows, and nothing in it takes focus (`inert`).
+so at the default text size it never reflows (the frame is in pixels, the text
+in rem). The slot around a screen takes its scaled size, so the outline fits the
+screen with no gap. A picture is one image to a screen reader, named for what it
+shows, and nothing in it takes focus (`inert`).
+
+The scale steps live in `phoneScales`, one set for the hero's pair and one for
+the steps, each chosen so a phone fills its column and no text inside renders
+under 8px from 640px up. Every step is a `min-[…]` width: Tailwind orders those
+before its named breakpoints, so a set that mixed `lg:` with `min-[1280px]:`
+would let `lg:` win at 1280px.
 
 The screens themselves (`app/components/homepage-phones.tsx`) copy today's phone
-screens: Plan on today in the hero, then a Recipe without a photo, Plan on the
-coming Saturday with a Meal's menu open, Staples, and Shopping. The real screens
-switch layout on the viewport, so the copies take the phone's classes directly
-(`text-dish`, `text-ingredient`, the check circle, `chipClassName`,
-`buttonVariants`) and must follow a screen when it changes. They leave out the
-tab bar, since the section beside each phone names its tab. Their days come from
-the visitor's own today (`app/utils/homepage-plan-days.ts`), sent by the loader,
-so the server and the browser draw the same week.
+screens: Plan on today, a Recipe without a photo, Plan on the coming Saturday
+with a Meal's menu open, Staples, and Shopping. The real screens switch layout
+on the viewport, so the copies take the phone's classes directly (`text-dish`,
+`text-ingredient`, the check circle, `chipClassName`, `buttonVariants`), or use
+the real component where it has no `phone:` layout of its own (`RecipeFacts`),
+and must follow a screen when it changes. They leave out the tab bar, since the
+text beside each phone names its tab. Their days come from the visitor's own
+today (`app/utils/homepage-plan-days.ts`), sent by the loader, so the server and
+the browser draw the same week.
 
 ## Layout and surfaces
 

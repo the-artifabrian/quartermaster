@@ -14,6 +14,11 @@ import {
 import { cn } from '#app/utils/misc.tsx'
 import { PhoneFrame } from './phone-frame.tsx'
 import { RecipeFacts } from './recipe-metadata-card.tsx'
+import {
+	stapleNameClassName,
+	stapleNeedClassName,
+	stapleRowClassName,
+} from './staple-row-styles.ts'
 import { buttonVariants } from './ui/button.tsx'
 import { chipClassName } from './ui/chip.tsx'
 import { Icon, type IconName } from './ui/icon.tsx'
@@ -625,29 +630,25 @@ export function StaplesPhone({ scale, className }: PhoneProps) {
 					<p className={tabTitleClassName}>Staples</p>
 					<AddButton />
 				</div>
-				<p className="text-muted-foreground mt-1 text-sm">
+				<p className="text-muted-foreground mt-1 text-[0.9375rem] leading-normal">
 					Things you usually have. Add one to put it on Next shop.
 				</p>
-				<div className="border-input bg-background text-muted-foreground mt-4 flex h-11 items-center gap-2 rounded-md border px-3 text-base">
-					<Icon name="magnifying-glass" size="sm" />
-					Search
+				{/* The search row as it rests under the title, before it pins. */}
+				<div className="border-border -mx-4 mt-4 border-b px-4 py-3.5">
+					<div className="border-input bg-background text-muted-foreground flex h-11 items-center gap-2 rounded-md border px-3 text-base">
+						<Icon name="magnifying-glass" size="sm" />
+						Search
+					</div>
 				</div>
-				<ul className="divide-border/40 mt-5 divide-y border-t">
+				<ul className="divide-border/40 divide-y">
 					{staples.map((staple) => (
-						<li key={staple.name} className="flex items-center gap-2 py-1">
-							<span className="min-w-0 flex-1 truncate">{staple.name}</span>
-							<span
-								className={cn(
-									buttonVariants({
-										variant: staple.onList ? 'ghost' : 'outline',
-										className: 'min-w-24 shrink-0 justify-center px-3',
-									}),
-								)}
-							>
+						<li key={staple.name} className={stapleRowClassName}>
+							<span className={stapleNameClassName}>{staple.name}</span>
+							<span className={stapleNeedClassName(Boolean(staple.onList))}>
 								{staple.onList ? (
 									<>
 										<Icon name="check" size="sm" />
-										<span className="text-muted-foreground">On list</span>
+										On list
 									</>
 								) : (
 									'Need'

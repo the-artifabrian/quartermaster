@@ -399,7 +399,7 @@ export default function EditRecipe({ loaderData }: Route.ComponentProps) {
 
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
-			<h1 className="phone:text-menu-title mb-6 font-serif text-2xl">
+			<h1 className="phone:text-edit-title mb-6 font-serif text-2xl">
 				Edit Recipe
 			</h1>
 			<RecipeForm recipe={recipe} metadataOptions={metadataOptions} />

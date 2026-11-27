@@ -75,6 +75,7 @@ const twMerge = extendTailwindMerge({
 				'list-name',
 				'recipe-title',
 				'menu-title',
+				'edit-title',
 				'recipe-section',
 				'ingredient',
 				'step',

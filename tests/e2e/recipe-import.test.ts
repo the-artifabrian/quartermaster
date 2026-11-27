@@ -365,7 +365,7 @@ test.describe('on a phone', () => {
 		}
 		expect(await edges()).toEqual({ height: 48, left: 0, right: 0 })
 		await expect(button).toHaveCSS('font-size', '16px')
-		await expect(title).toHaveCSS('font-size', '32px')
+		await expect(title).toHaveCSS('font-size', '28px')
 
 		await page.setViewportSize({ width: 768, height: 844 })
 		const wide = await edges()

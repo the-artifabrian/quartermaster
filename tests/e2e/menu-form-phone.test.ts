@@ -76,6 +76,16 @@ async function createMenu(user: Owner, recipeTitle = 'Roast chicken') {
 const save = (page: Page) =>
 	page.getByRole('button', { name: 'Save', exact: true })
 
+/**
+ * Opens a Menu form and waits for script and for the fonts, which swap in
+ * and change what every box measures.
+ */
+async function openForm(page: Page, path: string) {
+	await page.goto(path)
+	await hydrated(save(page))
+	await page.evaluate(() => document.fonts.ready.then(() => undefined))
+}
+
 async function box(locator: Locator) {
 	const found = await locator.boundingBox()
 	expect(found).not.toBeNull()
@@ -83,13 +93,25 @@ async function box(locator: Locator) {
 }
 
 /**
- * Every font size of text on screen in the page, the bar, an open sheet and
- * an open menu, apart from the letter of a Recipe without a photo, which
- * keeps its own size on every screen.
+ * Every font size of text and of a field on screen in the page, the bar, an
+ * open sheet and an open menu, apart from the letter of a Recipe without a
+ * photo, which keeps its own size on every screen.
  */
 function textSizes(page: Page) {
 	return page.evaluate(() => {
 		const found = new Map<string, string>()
+		const shown = (el: Element) => {
+			if (
+				!el.closest(
+					'#main-content, [data-nav-bar], [role="dialog"], [role="menu"]',
+				)
+			) {
+				return false
+			}
+			if (el.closest('[data-recipe-thumb]')) return false
+			const rect = el.getBoundingClientRect()
+			return rect.width > 1 && rect.height > 1 && el.checkVisibility()
+		}
 		const walker = document.createTreeWalker(
 			document.body,
 			NodeFilter.SHOW_TEXT,
@@ -97,26 +119,30 @@ function textSizes(page: Page) {
 		for (let node = walker.nextNode(); node; node = walker.nextNode()) {
 			const el = node.parentElement!
 			if (!node.textContent?.trim()) continue
-			if (
-				!el.closest(
-					'#main-content, [data-nav-bar], [role="dialog"], [role="menu"]',
-				)
-			) {
-				continue
-			}
-			if (el.closest('[data-recipe-thumb]')) continue
-			const rect = el.getBoundingClientRect()
-			if (rect.width <= 1 || rect.height <= 1) continue
-			if (!el.checkVisibility()) continue
+			if (!shown(el)) continue
 			found.set(getComputedStyle(el).fontSize, node.textContent.trim())
+		}
+		for (const field of document.querySelectorAll(
+			'input:not([type="hidden"]), textarea, select',
+		)) {
+			if (!shown(field)) continue
+			found.set(
+				getComputedStyle(field).fontSize,
+				`field: ${field.getAttribute('aria-label') ?? field.id}`,
+			)
 		}
 		return Object.fromEntries(found)
 	})
 }
 
-function expectNoSmallText(sizes: Record<string, string>) {
-	for (const size of ['12px', '14px', '15px']) {
-		expect(sizes[size], `text at ${size}`).toBeUndefined()
+// The sizes these screens use on a phone: small text, fields and button
+// labels, names and the bar's actions, a sheet's title, the Recipes heading
+// and the screen's title.
+const FORM_SIZES = ['13.5px', '16px', '17px', '20px', '24px', '28px']
+
+function expectOnlyFormSizes(sizes: Record<string, string>) {
+	for (const [size, text] of Object.entries(sizes)) {
+		expect(FORM_SIZES, `“${text}” at ${size}`).toContain(size)
 	}
 }
 
@@ -126,8 +152,7 @@ test('the Menu form reads in its phone sizes up to 767px and in the wider sizes 
 }) => {
 	const user = await login()
 	const menu = await createMenu(user)
-	await page.goto(`/recipes/menus/${menu.id}/edit`)
-	await hydrated(save(page))
+	await openForm(page, `/recipes/menus/${menu.id}/edit`)
 	await page.getByLabel('Title', { exact: true }).fill('')
 	await save(page).click()
 
@@ -149,24 +174,37 @@ test('the Menu form reads in its phone sizes up to 767px and in the wider sizes 
 		page.getByRole('button', { name: 'Add section' }),
 		page.getByRole('button', { name: 'Delete Menu' }),
 	]
+	const scale = page.getByLabel('Scale multiplier for Roast chicken')
 	const error = page.getByText('Name this Menu', { exact: true })
 	await expect(error).toBeVisible()
 
 	await expect(title).toHaveCSS('font-size', '28px')
 	await expect(heading).toHaveCSS('font-size', '24px')
 	await expect(heading).toHaveCSS('text-transform', 'none')
+	await expect(heading).toHaveCSS('font-family', /Newsreader/)
 	await expect(hint).toHaveCSS('font-size', '13.5px')
 	await expect(label).toHaveCSS('font-size', '13.5px')
 	await expect(name).toHaveCSS('font-size', '17px')
 	await expect(makes).toHaveCSS('font-size', '13.5px')
 	await expect(missing).toHaveCSS('font-size', '13.5px')
 	await expect(times).toHaveCSS('font-size', '16px')
+	// A field under 16px would make iOS zoom the page on focus.
+	await expect(scale).toHaveCSS('font-size', '16px')
 	await expect(emptySection).toHaveCSS('font-size', '13.5px')
 	for (const button of textButtons) {
 		await expect(button).toHaveCSS('font-size', '16px')
 	}
 	await expect(error).toHaveCSS('font-size', '13.5px')
-	expectNoSmallText(await textSizes(page))
+	expectOnlyFormSizes(await textSizes(page))
+
+	// The heading starts a new part of the form: more room above it than
+	// between it and its line.
+	const guests = await box(page.getByLabel('Default guests'))
+	const headingBox = await box(heading)
+	const hintBox = await box(hint)
+	const above = headingBox.y - (guests.y + guests.height)
+	expect(above).toBe(32)
+	expect(hintBox.y - (headingBox.y + headingBox.height)).toBeLessThan(above - 8)
 
 	await page.setViewportSize({ width: 767, height: 844 })
 	await expect(title).toHaveCSS('font-size', '28px')
@@ -200,8 +238,7 @@ test('New Menu has the edit screens’ title and small labels on a phone', async
 	login,
 }) => {
 	await login()
-	await page.goto('/recipes/menus/new')
-	await hydrated(save(page))
+	await openForm(page, '/recipes/menus/new')
 	await expect(page.getByRole('heading', { level: 1 })).toHaveCSS(
 		'font-size',
 		'28px',
@@ -212,7 +249,7 @@ test('New Menu has the edit screens’ title and small labels on a phone', async
 			'13.5px',
 		)
 	}
-	expectNoSmallText(await textSizes(page))
+	expectOnlyFormSizes(await textSizes(page))
 })
 
 test('the Add Recipe sheet and the Move to… menu read at 17px with their small text at 13.5px', async ({
@@ -221,15 +258,14 @@ test('the Add Recipe sheet and the Move to… menu read at 17px with their small
 }) => {
 	const user = await login()
 	const menu = await createMenu(user)
-	await page.goto(`/recipes/menus/${menu.id}/edit`)
-	await hydrated(save(page))
+	await openForm(page, `/recipes/menus/${menu.id}/edit`)
 
 	await page
 		.getByRole('button', { name: 'Move Roast chicken to another section' })
 		.click()
 	const target = page.getByRole('menuitem', { name: 'Dessert' })
 	await expect(target).toHaveCSS('font-size', '17px')
-	expectNoSmallText(await textSizes(page))
+	expectOnlyFormSizes(await textSizes(page))
 	await page.keyboard.press('Escape')
 	await expect(target).toBeHidden()
 
@@ -238,8 +274,7 @@ test('the Add Recipe sheet and the Move to… menu read at 17px with their small
 		where: { householdId: user.householdId, title: 'Lemon tart' },
 		data: { isFavorite: true },
 	})
-	await page.reload()
-	await hydrated(save(page))
+	await openForm(page, `/recipes/menus/${menu.id}/edit`)
 	await page
 		.getByRole('button', { name: 'Add Recipe', exact: true })
 		.first()
@@ -252,7 +287,7 @@ test('the Add Recipe sheet and the Move to… menu read at 17px with their small
 	const group = sheet.getByText('Favorites', { exact: true })
 	await expect(group).toHaveCSS('font-size', '13.5px')
 	await expect(group).toHaveCSS('text-transform', 'none')
-	expectNoSmallText(await textSizes(page))
+	expectOnlyFormSizes(await textSizes(page))
 
 	await sheet.getByLabel('Search Recipes').fill('zzz')
 	await expect(sheet.getByText('No Recipes found')).toHaveCSS(
@@ -272,8 +307,7 @@ test.describe('at a 320px layout', () => {
 		const user = await login()
 		const oneWord = 'Rindfleischetikettierungsueberwachungsauf'
 		const menu = await createMenu(user, oneWord)
-		await page.goto(`/recipes/menus/${menu.id}/edit`)
-		await hydrated(save(page))
+		await openForm(page, `/recipes/menus/${menu.id}/edit`)
 		const main = await box(page.locator('#main-content'))
 		expect(main.width).toBe(320)
 
@@ -317,8 +351,7 @@ test.describe('at a 320px layout', () => {
 	}) => {
 		const user = await login()
 		const menu = await createMenu(user)
-		await page.goto(`/recipes/menus/${menu.id}/edit`)
-		await hydrated(save(page))
+		await openForm(page, `/recipes/menus/${menu.id}/edit`)
 
 		const addRecipe = await box(
 			page.getByRole('button', { name: 'Add Recipe', exact: true }).first(),
@@ -355,8 +388,7 @@ test.describe('with a mouse in a narrow window', () => {
 	}) => {
 		const user = await login()
 		const menu = await createMenu(user)
-		await page.goto(`/recipes/menus/${menu.id}/edit`)
-		await hydrated(save(page))
+		await openForm(page, `/recipes/menus/${menu.id}/edit`)
 		await page
 			.getByRole('button', { name: 'Move Roast chicken to another section' })
 			.click()

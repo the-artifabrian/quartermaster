@@ -360,13 +360,21 @@ test.describe('no tab bar on edit screens', () => {
 		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
 		const deleteButton = page.getByRole('button', { name: 'Delete Recipe' })
 		await expect(deleteButton).toBeInViewport()
-		const box = (await deleteButton.boundingBox())!
-		const gap = 844 - (box.y + box.height)
+		// Measured to the end of the page's own box, which the scroll has
+		// brought to the bottom of the screen. The page's height can be a
+		// fraction of a pixel and a scroll stops on a whole one, so the
+		// screen's own edge would read a fraction off.
+		const { gap, pageEnd } = await deleteButton.evaluate((button) => {
+			const end = button.closest('.container')!.getBoundingClientRect().bottom
+			return {
+				gap: end - button.getBoundingClientRect().bottom,
+				pageEnd: end,
+			}
+		})
+		expect(Math.abs(pageEnd - 844)).toBeLessThan(1)
 		// Clear of the 34pt home indicator, with the page's 1rem under it,
-		// and no room left for a 54pt tab bar. The page's height is a fraction
-		// of a pixel and the scroll stops on a whole one, so the gap can come
-		// up a fraction short.
-		expect(gap).toBeGreaterThan(34 + 16 - 1)
+		// and no room left for a 54pt tab bar.
+		expect(gap).toBeGreaterThanOrEqual(34 + 16)
 		expect(gap).toBeLessThan(34 + 16 + 10)
 	})
 

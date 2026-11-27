@@ -151,8 +151,10 @@ step.
 How it works is one section of four steps in the order Recipes, Plan, Staples,
 Shopping: a phone, then the number, a 28px heading and the text, all on the
 phone's left edge. They are four across from 1280px, two by two from 640px, and
-one column on a phone, where each phone follows its text. "See how it works"
-lands the section just under the header.
+one column on a phone, where each phone follows its text. The text comes first
+in the page's order, so a screen reader hears each picture with its own step;
+from 640px CSS `order` lifts the phone above it. "See how it works" lands the
+section just under the header.
 
 Its pictures are phones drawn in CSS (`PhoneFrame` in
 `app/components/phone-frame.tsx`): a rounded card-colored outline with the
@@ -164,21 +166,24 @@ screen with no gap. A picture is one image to a screen reader, named for what it
 shows, and nothing in it takes focus (`inert`).
 
 The scale steps live in `phoneScales`, one set for the hero's pair and one for
-the steps, each chosen so a phone fills its column and no text inside renders
-under 8px from 640px up. Every step is a `min-[…]` width: Tailwind orders those
-before its named breakpoints, so a set that mixed `lg:` with `min-[1280px]:`
-would let `lg:` win at 1280px.
+the steps. A phone is as wide as its column allows, up to a cap of 0.86 (347px
+wide, about 740px tall), past which it would only make its row taller than a
+screen: from 1024px to 1279px a step's phone sits at that cap in a wider column.
+No text inside renders under 8px from 640px up. Every step is a `min-[…]` width:
+Tailwind orders those before its named breakpoints, so a set that mixed `lg:`
+with `min-[1280px]:` would let `lg:` win at 1280px.
 
 The screens themselves (`app/components/homepage-phones.tsx`) copy today's phone
-screens: Plan on today, a Recipe without a photo, Plan on the coming Saturday
-with a Meal's menu open, Staples, and Shopping. The real screens switch layout
-on the viewport, so the copies take the phone's classes directly (`text-dish`,
-`text-ingredient`, the check circle, `chipClassName`, `buttonVariants`), or use
-the real component where it has no `phone:` layout of its own (`RecipeFacts`),
-and must follow a screen when it changes. They leave out the tab bar, since the
-text beside each phone names its tab. Their days come from the visitor's own
-today (`app/utils/homepage-plan-days.ts`), sent by the loader, so the server and
-the browser draw the same week.
+screens: Plan on today (breakfast, lunch and a snack, cut through the snack), a
+Recipe without a photo, Plan on the coming Saturday with a Meal's menu open,
+Staples, and Shopping. The real screens switch layout on the viewport, so the
+copies take the phone's classes directly (`text-dish`, `text-ingredient`, the
+check circle, `chipClassName`, `buttonVariants`), or use the real component
+where it has no `phone:` layout of its own (`RecipeFacts`), and must follow a
+screen when it changes. They leave out the tab bar, since the text with each
+phone names its tab. Their days come from the visitor's own today
+(`app/utils/homepage-plan-days.ts`), sent by the loader, so the server and the
+browser draw the same week.
 
 ## Layout and surfaces
 

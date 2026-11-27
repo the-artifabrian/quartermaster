@@ -51,7 +51,7 @@ export function PhoneFrame({
 					>
 						{/* The status bar's band and the home indicator's, left empty,
 						    keep the screen clear of the rounded corners. The tab bar
-						    is left out: the section beside each phone names its tab,
+						    is left out: the text with each phone names its tab,
 						    and the room goes to the screen itself. */}
 						<div className="h-10 shrink-0" />
 						<div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -66,8 +66,9 @@ export function PhoneFrame({
 }
 
 /**
- * The scale steps for each place a phone sits, one per width, so the phone
- * fills its column without overflowing it. Every step is a `min-[…]` width:
+ * The scale steps for each place a phone sits, one per width: as wide as its
+ * column allows, up to a cap that keeps a phone a phone's height on a wide
+ * column. Every step is a `min-[…]` width:
  * Tailwind puts those before its named breakpoints, so a set that mixed the
  * two would let `lg:` beat a wider `min-[1280px]:` step.
  */

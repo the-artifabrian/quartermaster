@@ -29,21 +29,19 @@ see [GLOSSARY.md](../GLOSSARY.md).
   dish on Plan, a Recipe or Menu in a list or a picker), at weight 500
   (`font-medium`). Titles are weight 500 too, which `font-serif` sets on its own
   (`app/styles/tailwind.css`), so a serif title takes no weight class. The files
-  carry weights 400 to 600 only, so never ask the serif for less or more. The
-  roman has an optical-size axis the browser sets from the font size; the italic
-  has none. The serif sets lining figures, and `tabular-nums` adds to them.
+  carry weights 400 to 600 only, so never ask the serif for less or more. It has
+  an optical-size axis the browser sets from the font size, and no italic file.
+  The serif sets lining figures, and `tabular-nums` adds to them.
 - **Schibsted Grotesk** for everything that is not a title: names, running text,
   controls, labels, metadata and navigation, weights 400 to 700. Running text is
-  400, names 500 and amounts 600. It has no italic file, so the app does not set
-  the sans in italic.
-- **Young Serif, DM Sans and Source Sans 3**: the homepage only (see Homepage
-  palette). Source Sans 3 is its body sans (`font-humanist`).
+  400, names 500 and amounts 600. It has no italic file either: nothing in the
+  app is set in italic.
 
 All fonts are self-hosted: the files sit in `app/assets/fonts/` as `latin` and
 `latin-ext` subsets (the Households write Romanian), and `app/styles/fonts.css`
 declares them, so a face downloads only when a page uses it. `app/root.tsx`
-preloads the two latin files the page sets first: Newsreader and Schibsted
-Grotesk on app pages, Young Serif and DM Sans on the homepage.
+preloads the two latin files every page sets first, Newsreader and Schibsted
+Grotesk, the homepage included.
 
 Headings balance their lines (`text-wrap: balance` in
 `app/styles/tailwind.css`). Long reading text, such as a Recipe's description,
@@ -130,22 +128,34 @@ text. Red buttons take white text in both themes.
 Shadows are neutral and belong to floating layers. The tokens live in
 `app/styles/tailwind.css`.
 
-### Homepage palette
+### Homepage
 
-The marketing homepage sits on its own espresso palette in both themes:
-`espresso` (canvas), `espresso-deep` (sunk bands), `espresso-surface` and
-`espresso-raised` (mock app screens and their controls), `espresso-line`
-(hairlines), `cream` and `cream-muted` (text), `sage` for the primary CTA and
-`copper` for at most two highlights such as the “Today” marker. The tokens live
-next to the semantic ones in `app/styles/tailwind.css`.
+The signed-out homepage is an ordinary page in the app's paint: the same tokens
+and faces, the theme the visitor's device or setting picks, and the shared
+header and footer as on About. Its h1, its section headings and their numerals
+are Newsreader; everything else is the sans. Its two buttons are the app's: the
+green fill for "Start cooking" and the quiet `secondary` fill for the demo, both
+48px tall like a Recipe's Add to Plan. Every other section sits on `muted`,
+where the muted body text still clears 4.5:1.
 
-The route sets `data-chrome="espresso"` on the app shell (see `root.tsx`), which
-remaps the semantic tokens so the shared header and footer sit on the same
-canvas, and keeps its warm shadows. It also keeps Young Serif and DM Sans: the
-font variables are remapped on `<html>` whenever the page holds that shell, so
-nothing on it, the skip link included, loads the app's faces. A token or face
-added for the app gets a remap in those two rules. Keep the homepage to these
-tokens; do not add page-specific colors.
+Its pictures are phones drawn in CSS (`PhoneFrame` in
+`app/components/phone-frame.tsx`): a rounded card-colored outline with the
+page's background inside, no notch and no brand marks. Each screen is laid out
+at 390 by 844 at the app's own sizes and scaled as a whole by `--phone-scale`,
+which steps with the breakpoints so a phone fits its column from a 320px page up
+and never reflows. The slot around a screen takes its scaled size, so the
+outline fits the screen with no gap. A picture is one image to a screen reader,
+named for what it shows, and nothing in it takes focus (`inert`).
+
+The screens themselves (`app/components/homepage-phones.tsx`) copy today's phone
+screens: Plan on today in the hero, then a Recipe without a photo, Plan on the
+coming Saturday with a Meal's menu open, Staples, and Shopping. The real screens
+switch layout on the viewport, so the copies take the phone's classes directly
+(`text-dish`, `text-ingredient`, the check circle, `chipClassName`,
+`buttonVariants`) and must follow a screen when it changes. They leave out the
+tab bar, since the section beside each phone names its tab. Their days come from
+the visitor's own today (`app/utils/homepage-plan-days.ts`), sent by the loader,
+so the server and the browser draw the same week.
 
 ## Layout and surfaces
 

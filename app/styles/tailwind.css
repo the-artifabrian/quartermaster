@@ -181,7 +181,8 @@
 	--text-recipe-section--line-height: 1.1;
 	/* A Menu's title on a phone, on its own page and its shared page. A Menu
 	   has no photo above its title and its title often runs to three or four
-	   lines, so it is a step under a Recipe's. */
+	   lines, so it is a step under a Recipe's. Recipe edit, New Recipe and
+	   Import set their titles at this size on a phone too. */
 	--text-menu-title: 2rem;
 	--text-menu-title--line-height: 1.125;
 	--text-ingredient: 1.0625rem;

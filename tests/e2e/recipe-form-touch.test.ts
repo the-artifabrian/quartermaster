@@ -284,6 +284,8 @@ test('recipe form buttons, remove and classification chips are thumb-sized', asy
 		page.getByRole('button', { name: 'Remove ingredient' }).first(),
 	)
 
+	// A section's whole heading row opens and closes it.
+	await expectThumbTall(page.locator('summary', { hasText: 'Classification' }))
 	await page.getByText('Classification', { exact: true }).click()
 	await expectThumbTall(
 		page
@@ -296,6 +298,66 @@ test('recipe form buttons, remove and classification chips are thumb-sized', asy
 			.getByRole('button', { name: 'Breakfast' }),
 	)
 	await expectThumbTall(page.getByRole('button', { name: 'Add cuisine' }))
+})
+
+test.describe('at a 320px layout', () => {
+	// The test browser keeps 15px for its scrollbar.
+	test.use({ viewport: { width: 335, height: 700 } })
+
+	test('long ingredient text stays on one line inside the form, with Remove on screen', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const oneWord =
+			'Rindfleischetikettierungsueberwachungsaufgabenuebertragungsge'
+		const manyWords =
+			'very ripe plum tomatoes from the market stall by the old bridge'
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Long Names',
+				userId: user.id,
+				householdId: user.householdId,
+				ingredients: {
+					create: [
+						{ name: oneWord, amount: '2', unit: 'tbsp', order: 0 },
+						{ name: manyWords, amount: '800', unit: 'g', order: 1 },
+						{ name: 'salt', order: 2 },
+					],
+				},
+			},
+		})
+		await page.goto(`/recipes/${recipe.id}/edit`)
+		const main = page.locator('#main-content')
+		const mainBox = (await main.boundingBox())!
+		expect(mainBox.width).toBe(320)
+
+		for (const name of [oneWord, manyWords]) {
+			const summary = page.getByRole('button', { name: new RegExp(name) })
+			await expect(summary).toBeVisible()
+			const short = (await page
+				.getByRole('button', { name: /^salt/ })
+				.boundingBox())!
+			// One line: as tall as a short row's.
+			expect((await summary.boundingBox())!.height).toBe(short.height)
+		}
+		for (const remove of await page
+			.getByRole('button', { name: 'Remove ingredient' })
+			.all()) {
+			const box = (await remove.boundingBox())!
+			expect(box.x + box.width).toBeLessThanOrEqual(mainBox.x + 320)
+		}
+		expect(
+			await page.evaluate(() => {
+				const root = document.documentElement
+				const main = document.querySelector('#main-content')!
+				return (
+					root.scrollWidth <= root.clientWidth &&
+					main.scrollWidth <= main.clientWidth
+				)
+			}),
+		).toBe(true)
+	})
 })
 
 test.describe('in the iOS app', () => {

@@ -96,6 +96,14 @@ export const sectionLabelClass =
 	'text-xs font-semibold tracking-wider uppercase text-muted-foreground'
 
 /**
+ * A field's label on a phone's Recipe form and Import: the small label
+ * (`text-label` at weight 600, muted), on a line of its own above the field.
+ * Wider screens keep the label as its component sets it.
+ */
+export const phoneFieldLabelClass =
+	'phone:text-label phone:text-muted-foreground phone:mb-1.5 phone:block phone:leading-(--text-label--line-height) phone:font-semibold'
+
+/**
  * Combine multiple header objects into one (uses append so headers are not overridden)
  */
 export function combineHeaders(

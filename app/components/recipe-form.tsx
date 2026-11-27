@@ -10,7 +10,11 @@ import { isEditScreenDone } from '#app/utils/edit-screen.ts'
 import { IMG_SIZES } from '#app/utils/image-route.ts'
 import { listErrors } from '#app/utils/list-errors.ts'
 import { CREATED_IDS_FIELD, loadedIdsValue } from '#app/utils/loaded-rows.ts'
-import { sectionLabelClass } from '#app/utils/misc.tsx'
+import {
+	cn,
+	phoneFieldLabelClass,
+	sectionLabelClass,
+} from '#app/utils/misc.tsx'
 import { getHistoryLog, resolveAfterSave } from '#app/utils/nav-back.ts'
 import { historyIndex } from '#app/utils/nav-direction.ts'
 import { haptic } from '#app/utils/shell-bridge.ts'
@@ -78,6 +82,15 @@ type RecipeFormProps = {
 	metadataOptions?: RecipeMetadataOption[]
 }
 
+/**
+ * A section's heading. On a phone it is the Recipe page's section heading,
+ * sentence case in the serif; wider screens keep the small uppercase label.
+ */
+const sectionHeadingClass = cn(
+	sectionLabelClass,
+	'phone:text-recipe-section phone:text-foreground phone:font-serif phone:font-medium phone:tracking-normal phone:normal-case',
+)
+
 function FormSection({
 	title,
 	summary,
@@ -100,15 +113,17 @@ function FormSection({
 			onToggle={(e) => setIsOpen(e.currentTarget.open)}
 			className="group/section border-border/50 border-t [&>summary]:list-none [&>summary::-webkit-details-marker]:hidden"
 		>
-			<summary className="flex cursor-pointer items-center gap-2 py-3.5 select-none">
+			<summary className="phone:pt-5 phone:pb-3 flex cursor-pointer items-center gap-2 py-3.5 select-none">
 				<Icon
 					name="chevron-down"
 					size="sm"
 					className="text-muted-foreground transition-transform group-not-open/section:-rotate-90"
 				/>
-				<h3 className={sectionLabelClass}>{title}</h3>
+				<h3 className={sectionHeadingClass}>{title}</h3>
 				{summary && (
-					<span className="text-muted-foreground text-xs">{summary}</span>
+					<span className="text-muted-foreground phone:text-label text-xs">
+						{summary}
+					</span>
 				)}
 			</summary>
 			<div className="pb-6">
@@ -321,7 +336,9 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 			encType="multipart/form-data"
 			{...getFormProps(form)}
 			onKeyDown={(event) => keepReturnFromSaving(event, { titleSaves: true })}
-			className="space-y-4"
+			// An error's line is the shared list's; on a phone it reads at the
+			// small text size wherever it shows in the form.
+			className="phone:[&_li]:text-label space-y-4"
 		>
 			<ClientLeavesField />
 			{loadedIds && (
@@ -358,7 +375,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 			)}
 
 			<Field
-				labelProps={{ children: 'Title' }}
+				labelProps={{ children: 'Title', className: phoneFieldLabelClass }}
 				inputProps={{
 					...getInputProps(fields.title, { type: 'text' }),
 					placeholder: 'Recipe title',
@@ -383,7 +400,9 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 					rowErrors={ingredientErrors.rows}
 				/>
 				<div className="mt-6 space-y-2">
-					<p className="text-sm font-medium">This recipe makes</p>
+					<p className="phone:text-label phone:text-muted-foreground phone:font-semibold text-sm font-medium">
+						This recipe makes
+					</p>
 					<div className="flex min-w-0 items-center gap-2">
 						<Input
 							key={yieldAmountKey}
@@ -410,7 +429,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 							className="min-w-0 flex-1"
 						/>
 					</div>
-					<p className="text-muted-foreground text-xs">
+					<p className="text-muted-foreground phone:text-label text-xs">
 						Optional, like 4 servings or 2 dough balls. Leave both blank if
 						you&apos;re not sure.
 					</p>
@@ -546,7 +565,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 							className="max-w-full text-sm"
 							aria-invalid={form.allErrors.image ? true : undefined}
 						/>
-						<p className="text-muted-foreground text-xs">
+						<p className="text-muted-foreground phone:text-label text-xs">
 							JPG, PNG or WebP. Large photos are resized.
 						</p>
 						<ErrorList errors={form.allErrors.image} />
@@ -557,7 +576,10 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 			<FormSection title="Details" summary="Optional">
 				<div className="space-y-4">
 					<TextareaField
-						labelProps={{ children: 'Description' }}
+						labelProps={{
+							children: 'Description',
+							className: phoneFieldLabelClass,
+						}}
 						textareaProps={{
 							...getInputProps(fields.description, { type: 'text' }),
 							placeholder: 'A line or two about the dish',
@@ -567,7 +589,10 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 					/>
 
 					<Field
-						labelProps={{ children: 'Source URL' }}
+						labelProps={{
+							children: 'Source URL',
+							className: phoneFieldLabelClass,
+						}}
 						inputProps={{
 							...getInputProps(fields.sourceUrl, { type: 'url' }),
 							placeholder: 'https://example.com/recipe',
@@ -576,7 +601,10 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 					/>
 
 					<TextareaField
-						labelProps={{ children: 'My notes' }}
+						labelProps={{
+							children: 'My notes',
+							className: phoneFieldLabelClass,
+						}}
 						textareaProps={{
 							...getInputProps(fields.notes, { type: 'text' }),
 							placeholder: 'What you’d change next time',
@@ -588,7 +616,10 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 						<div>
 							<Field
-								labelProps={{ children: 'Active time (min)' }}
+								labelProps={{
+									children: 'Active time (min)',
+									className: phoneFieldLabelClass,
+								}}
 								inputProps={{
 									...getInputProps(fields.activeTime, {
 										type: 'number',
@@ -604,12 +635,15 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 							<DurationHint
 								id={fields.activeTime.descriptionId}
 								minutes={fields.activeTime.value}
-								className="mt-1"
+								className="phone:text-label mt-1"
 							/>
 						</div>
 						<div>
 							<Field
-								labelProps={{ children: 'Total time (min)' }}
+								labelProps={{
+									children: 'Total time (min)',
+									className: phoneFieldLabelClass,
+								}}
 								inputProps={{
 									...getInputProps(fields.totalTime, {
 										type: 'number',
@@ -625,7 +659,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 							<DurationHint
 								id={fields.totalTime.descriptionId}
 								minutes={fields.totalTime.value}
-								className="mt-1"
+								className="phone:text-label mt-1"
 							/>
 						</div>
 					</div>

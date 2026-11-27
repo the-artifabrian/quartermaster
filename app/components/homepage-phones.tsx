@@ -18,6 +18,9 @@ import { chipClassName } from './ui/chip.tsx'
 import { Icon, type IconName } from './ui/icon.tsx'
 import { tabTitleClassName } from './ui/title-add-button.tsx'
 
+/** Where a phone sits: its scale steps (`phoneScales`) and its place. */
+type PhoneProps = { scale?: string | null; className?: string }
+
 /** A phone's page edge: 16px each side, as `container` draws it. */
 const page = 'px-4'
 
@@ -88,10 +91,16 @@ const saturdayMeals: MockMeal[] = [
 const plannedWeekdays = new Set(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'])
 
 /** The hero's phone: Plan with today picked. */
-export function TodayPlanPhone({ today }: { today: string }) {
+export function TodayPlanPhone({
+	today,
+	scale,
+	className,
+}: PhoneProps & { today: string }) {
 	const day = planDayOnPhone(today, today)
 	return (
 		<PhoneFrame
+			scale={scale}
+			className={className}
 			label={`The Plan on a phone: today, ${day.weekdayName}, ${day.heading}, with breakfast cooked, then lunch, a snack and dinner for 4 guests`}
 		>
 			<PlanScreen day={day} meals={todaysMeals} />
@@ -100,10 +109,16 @@ export function TodayPlanPhone({ today }: { today: string }) {
 }
 
 /** Plan on the coming Saturday, a dinner for guests with its menu open. */
-export function GuestsPlanPhone({ today }: { today: string }) {
+export function GuestsPlanPhone({
+	today,
+	scale,
+	className,
+}: PhoneProps & { today: string }) {
 	const day = planDayOnPhone(today, nextSaturday(today))
 	return (
 		<PhoneFrame
+			scale={scale}
+			className={className}
 			label={`The Plan on a phone: ${day.weekdayName}, ${day.heading}, lunch with its menu open, then a dinner for 6 guests of roast chicken at 2×, focaccia and green salad`}
 		>
 			<PlanScreen day={day} meals={saturdayMeals} />
@@ -414,9 +429,13 @@ function Cue({ children }: { children: ReactNode }) {
 }
 
 /** The Recipe page on a phone, for a Recipe without a photo. */
-export function RecipePhone() {
+export function RecipePhone({ scale, className }: PhoneProps) {
 	return (
-		<PhoneFrame label="A Recipe on a phone: Miso-glazed salmon, scaled to 2×, two ingredients checked off, and its first steps">
+		<PhoneFrame
+			scale={scale}
+			className={className}
+			label="A Recipe on a phone: Miso-glazed salmon, scaled to 2×, two ingredients checked off, and its first steps"
+		>
 			{/* The nav bar (NavBar): Back, then the page's own buttons. */}
 			<div
 				className={cn(
@@ -580,9 +599,13 @@ const staples = [
 ]
 
 /** The Staples tab on a phone (ActiveStaples). */
-export function StaplesPhone() {
+export function StaplesPhone({ scale, className }: PhoneProps) {
 	return (
-		<PhoneFrame label="Staples on a phone: ten usual items in A to Z order, two of them already on Next shop">
+		<PhoneFrame
+			scale={scale}
+			className={className}
+			label="Staples on a phone: ten usual items in A to Z order, two of them already on Next shop"
+		>
 			<div className={cn('pt-4', page)}>
 				<div className="flex items-center justify-between gap-3">
 					<p className={tabTitleClassName}>Staples</p>
@@ -642,9 +665,13 @@ const checkedRows = [
 ]
 
 /** Shopping on a phone (ShoppingScreen), its Next shop part checked. */
-export function ShoppingPhone() {
+export function ShoppingPhone({ scale, className }: PhoneProps) {
 	return (
-		<PhoneFrame label="Shopping on a phone: 7 to buy, and 2 of 9 checked, with Clear checked">
+		<PhoneFrame
+			scale={scale}
+			className={className}
+			label="Shopping on a phone: 7 to buy, and 2 of 9 checked, with Clear checked"
+		>
 			<div className={cn('pt-4 pb-2', page)}>
 				<p className={tabTitleClassName}>
 					Shopping{' '}

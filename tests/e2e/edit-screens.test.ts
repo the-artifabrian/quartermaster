@@ -363,8 +363,10 @@ test.describe('no tab bar on edit screens', () => {
 		const box = (await deleteButton.boundingBox())!
 		const gap = 844 - (box.y + box.height)
 		// Clear of the 34pt home indicator, with the page's 1rem under it,
-		// and no room left for a 54pt tab bar.
-		expect(gap).toBeGreaterThanOrEqual(34 + 16)
+		// and no room left for a 54pt tab bar. The page's height is a fraction
+		// of a pixel and the scroll stops on a whole one, so the gap can come
+		// up a fraction short.
+		expect(gap).toBeGreaterThan(34 + 16 - 1)
 		expect(gap).toBeLessThan(34 + 16 + 10)
 	})
 

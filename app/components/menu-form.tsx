@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react'
 import { Form, useActionData } from 'react-router'
 import {
 	RecipePicker,
+	type RecipePickerClassNames,
 	type RecipePickerRecipe,
 } from '#app/components/recipe-picker.tsx'
 import { RecipeThumb } from '#app/components/recipe-selector.tsx'
@@ -27,7 +28,11 @@ import {
 import { isEditScreenDone } from '#app/utils/edit-screen.ts'
 import { scaledYieldLabel } from '#app/utils/ingredient-plural.ts'
 import { CREATED_IDS_FIELD, loadedIdsValue } from '#app/utils/loaded-rows.ts'
-import { sectionLabelClass } from '#app/utils/misc.tsx'
+import {
+	cn,
+	phoneFieldLabelClass,
+	sectionLabelClass,
+} from '#app/utils/misc.tsx'
 import { getHistoryLog, resolveAfterSave } from '#app/utils/nav-back.ts'
 import { historyIndex } from '#app/utils/nav-direction.ts'
 import { haptic } from '#app/utils/shell-bridge.ts'
@@ -108,6 +113,35 @@ type MenuFormProps = {
 		sections: MenuBuilderSection[]
 		recipes: RecipePickerRecipe[]
 	}
+}
+
+/**
+ * The "Recipes" heading over the sections. On a phone it is a section heading
+ * as on the Recipe form, sentence case in the serif; wider screens keep the
+ * small uppercase label.
+ */
+const recipesHeadingClass = cn(
+	sectionLabelClass,
+	'phone:text-recipe-section phone:text-foreground phone:font-serif phone:font-medium phone:tracking-normal phone:normal-case',
+)
+
+/** A text button's label on a phone. */
+const phoneButtonLabelClass = 'phone:text-base'
+
+/**
+ * Add Recipe and Add note under a section. Set a little tighter, the two sit
+ * side by side in a tinted section on a 320px screen with room to spare.
+ */
+const phoneAddButtonClass = `${phoneButtonLabelClass} phone:gap-1.5 phone:px-2.5`
+
+/** The Add Recipe picker on a phone: names as a card's, small text small. */
+const pickerClassNames: RecipePickerClassNames = {
+	trigger: phoneAddButtonClass,
+	groupLabel:
+		'phone:text-label phone:font-semibold phone:tracking-normal phone:normal-case',
+	name: 'phone:text-item-name',
+	time: 'phone:text-label',
+	empty: 'phone:text-label',
 }
 
 /** The id the nav bar's Save submits (the route handle's `navForm`). */
@@ -220,7 +254,11 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 			onKeyDown={(event) =>
 				keepReturnFromSaving(event, { titleSaves: !builder })
 			}
-			className="space-y-4"
+			// An error's line is the shared list's; on a phone it reads at the
+			// small text size wherever it shows in the form. Sections, cards and
+			// Shopping lines are list items too, so the rule names the error's
+			// own colour class.
+			className="phone:[&_li.text-foreground-destructive]:text-label space-y-4"
 		>
 			<ClientLeavesField />
 			{loadedIds && (
@@ -253,7 +291,7 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 			)}
 
 			<Field
-				labelProps={{ children: 'Title' }}
+				labelProps={{ children: 'Title', className: phoneFieldLabelClass }}
 				inputProps={{
 					...getInputProps(fields.title, { type: 'text' }),
 					placeholder: 'e.g. Terrace dinner',
@@ -263,7 +301,10 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 			/>
 
 			<TextareaField
-				labelProps={{ children: 'Description' }}
+				labelProps={{
+					children: 'Description',
+					className: phoneFieldLabelClass,
+				}}
 				textareaProps={{
 					...getInputProps(fields.description, { type: 'text' }),
 					placeholder: 'What it’s for, like a birthday or Sunday lunch',
@@ -274,7 +315,10 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 
 			<Field
 				className="max-w-48"
-				labelProps={{ children: 'Default guests' }}
+				labelProps={{
+					children: 'Default guests',
+					className: phoneFieldLabelClass,
+				}}
 				inputProps={{
 					...getInputProps(fields.defaultGuestCount, { type: 'number' }),
 					min: 1,
@@ -460,15 +504,16 @@ function MenuSectionsBuilder({
 	}
 
 	return (
-		<fieldset className="pt-2">
-			<legend className={sectionLabelClass}>Recipes</legend>
+		// A fieldset is never narrower than its longest word unless told so.
+		<fieldset className="min-w-0 pt-2">
+			<legend className={recipesHeadingClass}>Recipes</legend>
 			<ErrorList
 				errors={fields.sections.errors}
 				id={fields.sections.errorId}
 				focusable
 			/>
 			{sectionList.length > 1 ? (
-				<p className="text-muted-foreground mt-2 text-sm">
+				<p className="text-muted-foreground phone:text-label mt-2 text-sm">
 					The arrows by a section move the whole section. To move one Recipe or
 					note to another section, use its Move to… button.
 				</p>
@@ -496,6 +541,7 @@ function MenuSectionsBuilder({
 				<Button
 					type="button"
 					variant="outline"
+					className={phoneButtonLabelClass}
 					onClick={() =>
 						form.insert({
 							name: fields.sections.name,
@@ -598,7 +644,7 @@ function MenuSectionCard({
 				)}
 			</div>
 			{itemList.length === 0 ? (
-				<p className="text-muted-foreground border-border/60 rounded-lg border-2 border-dashed px-4 py-8 text-center text-sm">
+				<p className="text-muted-foreground border-border/60 phone:text-label rounded-lg border-2 border-dashed px-4 py-8 text-center text-sm">
 					{solo
 						? 'No Recipes on this Menu yet.'
 						: 'No Recipes in this section yet.'}
@@ -644,6 +690,7 @@ function MenuSectionCard({
 			<div className="mt-3 flex flex-wrap items-center gap-2">
 				<RecipePicker
 					recipes={recipes}
+					classNames={pickerClassNames}
 					onPick={(recipe) => {
 						form.insert({
 							name: section.items.name,
@@ -662,6 +709,7 @@ function MenuSectionCard({
 				<Button
 					type="button"
 					variant="outline"
+					className={phoneAddButtonClass}
 					onClick={() =>
 						form.insert({
 							name: section.items.name,
@@ -751,7 +799,10 @@ function MenuItemRow({
 			<input key={idKey} {...idProps} />
 			<input key={kindKey} {...kindProps} />
 			<input key={recipeIdKey} {...recipeIdProps} />
-			<div className="flex items-start gap-3">
+			{/* On a phone the name has the row beside the 36px thumb and its
+			    gap to itself, and the scale field and Remove wrap under it at
+			    the right. */}
+			<div className="phone:flex-wrap flex items-start gap-3">
 				{missing ? (
 					<span className="bg-muted/70 flex size-9 shrink-0 items-center justify-center rounded-md">
 						<Icon
@@ -762,17 +813,17 @@ function MenuItemRow({
 				) : (
 					<RecipeThumb title={title} image={recipe?.image ?? null} />
 				)}
-				<div className="min-w-0 flex-1">
-					<p className="line-clamp-2 min-w-0 text-sm font-medium break-words">
+				<div className="phone:basis-[calc(100%-3rem)] min-w-0 flex-1">
+					<p className="phone:text-item-name line-clamp-2 min-w-0 text-sm font-medium break-words">
 						{title}
 					</p>
 					{missing ? (
-						<p className="text-foreground-destructive mt-0.5 text-xs">
+						<p className="text-foreground-destructive phone:text-label mt-0.5 text-xs">
 							This Recipe isn’t in your Recipes any more
 						</p>
 					) : null}
 				</div>
-				<label className="flex shrink-0 items-center gap-1">
+				<label className="phone:ml-auto flex shrink-0 items-center gap-1">
 					<span className="sr-only">Scale multiplier for {title}</span>
 					<Input
 						key={multiplierKey}
@@ -781,7 +832,10 @@ function MenuItemRow({
 						enterKeyHint="done"
 						className="w-16 text-center tabular-nums"
 					/>
-					<span aria-hidden="true" className="text-muted-foreground text-sm">
+					<span
+						aria-hidden="true"
+						className="text-muted-foreground phone:text-base text-sm"
+					>
 						×
 					</span>
 				</label>
@@ -796,7 +850,7 @@ function MenuItemRow({
 				</Button>
 			</div>
 			{recipeYield && derivedTarget != null ? (
-				<p className="text-muted-foreground mt-1 text-right text-xs break-words">
+				<p className="text-muted-foreground phone:text-label mt-1 text-right text-xs break-words">
 					Makes {formatTargetYieldAmount(derivedTarget)} {targetYieldLabel}
 				</p>
 			) : null}
@@ -804,6 +858,7 @@ function MenuItemRow({
 				<div className="mt-2 flex items-center gap-2">
 					<RecipePicker
 						recipes={recipes}
+						classNames={pickerClassNames}
 						label="Replace Recipe"
 						onPick={(replacement) => {
 							form.update({
@@ -878,7 +933,7 @@ function MoveToSectionMenu({
 					type="button"
 					variant="ghost"
 					size="sm"
-					className="text-muted-foreground"
+					className={cn('text-muted-foreground', phoneButtonLabelClass)}
 					aria-label={`Move ${label} to another section`}
 				>
 					Move to…
@@ -889,6 +944,7 @@ function MoveToSectionMenu({
 					target === sectionIndex ? null : (
 						<DropdownMenuItem
 							key={target}
+							className="phone:text-item-name phone:min-h-11"
 							onSelect={() => onMoveToSection(target)}
 						>
 							{sectionLabel}
@@ -989,7 +1045,12 @@ function MenuNoteRow({
 					type="button"
 					variant="ghost"
 					size="sm"
-					className="text-muted-foreground"
+					// On a phone it has a row to itself, so the arrows and Move to…
+					// stay together under it as they do on a Recipe card.
+					className={cn(
+						'text-muted-foreground phone:w-full phone:justify-start',
+						phoneButtonLabelClass,
+					)}
 					onClick={() =>
 						form.insert({
 							name: item.shoppingLines.name,

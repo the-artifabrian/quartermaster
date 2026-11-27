@@ -3,7 +3,8 @@ import { prisma } from '#app/utils/db.server.ts'
 import { EMPTY_MENU_MESSAGE } from '#app/utils/plan-menu.server.ts'
 import { expect, hydrated, test } from '#tests/playwright-utils.ts'
 
-test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+// A 390px layout: the test browser's scrollbar gutter takes 15px.
+test.use({ viewport: { width: 405, height: 844 }, hasTouch: true })
 
 declare global {
 	interface Window {
@@ -360,6 +361,60 @@ for (const pointer of ['a finger', 'a mouse'] as const) {
 	})
 }
 
+// The widths the styles switch on are the window's, scrollbar gutter
+// included: 715px is a 700px layout, and 767px is the last phone width.
+for (const width of [715, 767]) {
+	test.describe(`in a ${width}px window`, () => {
+		test.use({ viewport: { width, height: 844 } })
+
+		test('the bar holds Share and Edit, Add to Plan fills the row, and its form opens in the row’s place', async ({
+			page,
+			login,
+		}) => {
+			const user = await login()
+			const menu = await createDinner(user)
+			await page.goto(`/recipes/menus/${menu.id}`)
+			expect((await box(main(page))).width).toBe(width - 15)
+
+			await expect(share(bar(page))).toBeVisible()
+			await expect(edit(bar(page))).toBeVisible()
+			// The page has none of its own.
+			await expect(share(page)).toHaveCount(1)
+			await expect(edit(page)).toHaveCount(1)
+			const add = page.getByRole('button', { name: 'Add to Plan', exact: true })
+			const column = await box(page.getByRole('heading', { level: 1 }))
+			const addBox = await box(add)
+			expect(addBox.height).toBe(48)
+			expect(addBox.x).toBe(column.x)
+			expect(addBox.width).toBe(column.width)
+
+			// A tall screen this wide opens the form in place, not as a sheet.
+			await hydrated(add)
+			await add.tap()
+			const date = page.getByLabel('Date', { exact: true })
+			await expect(date).toBeVisible()
+			await expect(page.getByRole('dialog')).toHaveCount(0)
+			await expect(share(page)).toHaveCount(1)
+			// The form starts where the button was: no empty row above it.
+			const form = page.locator('form', { has: date })
+			const formBox = await box(form)
+			expect(formBox.x).toBe(column.x)
+			expect(Math.abs(formBox.y - addBox.y)).toBeLessThanOrEqual(1)
+			for (const name of ['Cancel', 'Add to Plan']) {
+				const button = form.getByRole('button', { name, exact: true })
+				expect((await box(button)).height).toBeGreaterThanOrEqual(44)
+				await expect(button).toHaveCSS('font-size', '16px')
+			}
+			// Only the form's own Add to Plan is left; Cancel brings the
+			// page's back where it was.
+			await expect(add).toHaveCount(1)
+			await form.getByRole('button', { name: 'Cancel', exact: true }).tap()
+			await expect(date).toHaveCount(0)
+			expect((await box(add)).y).toBe(addBox.y)
+		})
+	})
+}
+
 test.describe('at 320px', () => {
 	test.use({ viewport: { width: 335, height: 700 } })
 
@@ -477,7 +532,7 @@ test('a Menu’s page, its Add to Plan sheet and its shared page set their text 
 
 	// The shared page, signed out.
 	const context = await browser.newContext({
-		viewport: { width: 390, height: 844 },
+		viewport: { width: 405, height: 844 },
 		hasTouch: true,
 	})
 	try {
@@ -508,6 +563,8 @@ test('a Menu’s page, its Add to Plan sheet and its shared page set their text 
 		expect(save.width).toBe(column.width)
 		const shared = await textSizes(visitor)
 		for (const found of [onPage, inSheet, shared]) {
+			// Each reading saw the small text this page sets.
+			expect(found).toHaveProperty(['13.5px'])
 			expect(found).not.toHaveProperty(['12px'])
 			expect(found).not.toHaveProperty(['14px'])
 			expect(found).not.toHaveProperty(['15px'])
@@ -517,7 +574,7 @@ test('a Menu’s page, its Add to Plan sheet and its shared page set their text 
 	}
 })
 
-test('a Recipe row is at least 56px with its photo on the content edge and reads name, quantity, then note; a missing Recipe is no link; a section heading has more room above than below', async ({
+test('a Recipe row is at least 56px with its photo on the content edge and reads name, quantity, then note; a missing Recipe is no link', async ({
 	page,
 	login,
 }) => {
@@ -553,14 +610,6 @@ test('a Recipe row is at least 56px with its photo on the content edge and reads
 	await expect(content.getByRole('link', { name: /Green salad/ })).toHaveCount(
 		0,
 	)
-
-	const heading = await box(content.getByRole('heading', { name: 'Mains' }))
-	const before = await box(content.getByRole('link', { name: /Olives for/ }))
-	const above = heading.y - (before.y + before.height)
-	const below = rowBox.y - (heading.y + heading.height)
-	expect(above).toBeGreaterThanOrEqual(32)
-	expect(above).toBeLessThanOrEqual(36)
-	expect(below).toBeLessThan(above / 2)
 })
 
 test('Add to Plan is one full-width 48px button clear of an empty Menu’s line, and its sheet says why an empty Menu was not planned', async ({

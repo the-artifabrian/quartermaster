@@ -56,7 +56,7 @@ Useful sizes:
 | Tab title (`TabTitle`)                                                   | 40px Newsreader, 1.05 lines                                                         |
 | Recipe title on a phone (`text-recipe-title`)                            | 36px Newsreader, 1.1 lines; 32px wider                                              |
 | Menu title on a phone (`text-menu-title`)                                | 32px Newsreader, 1.125 lines; wider, 24px on its page and 30px shared               |
-| Recipe edit, New Recipe and Import title on a phone (`text-menu-title`)  | 32px Newsreader, 1.125 lines; 24px wider                                            |
+| Recipe edit, New Recipe and Import title on a phone (`text-edit-title`)  | 28px Newsreader, 1.15 lines; 24px wider                                             |
 | Plan's day heading on a phone                                            | 31px Newsreader                                                                     |
 | Recipe or Menu section heading on a phone (`text-recipe-section`)        | 24px Newsreader; 18px wider                                                         |
 | A section of the Recipe form on a phone (`text-recipe-section`)          | 24px Newsreader; wider, the 12px uppercase label                                    |
@@ -65,6 +65,7 @@ Useful sizes:
 | Recipe or Menu row on a phone (`text-list-name`)                         | 17px Schibsted Grotesk                                                              |
 | Shopping item or Staple on a phone (`text-item-name`)                    | 17px Schibsted Grotesk                                                              |
 | A closed ingredient row in the Recipe form on a phone (`text-item-name`) | 17px Schibsted Grotesk, weight 400; 14px wider                                      |
+| The line that says an import is running, on a phone (`text-item-name`)   | 17px Schibsted Grotesk, weight 500; 18px wider                                      |
 | A step on a phone (`text-step`)                                          | 17px Schibsted Grotesk, 1.6 lines; its numeral 24px Newsreader (`text-step-number`) |
 | An ingredient on a phone (`text-ingredient`)                             | 17px Schibsted Grotesk, 1.45 lines                                                  |
 | Body, and ingredients and steps wider                                    | 16px Schibsted Grotesk                                                              |
@@ -77,11 +78,11 @@ The Plan dish sizes (`text-dish`, `text-dish-photo`), the list row size
 (`text-list-name`), the Shopping item and Staple size (`text-item-name`), the
 Recipe page's sizes (`text-recipe-title`, `text-recipe-section`,
 `text-ingredient`, `text-step`, `text-step-number`), a Menu's title size
-(`text-menu-title`) and `text-label` are font size tokens in
-`app/styles/tailwind.css`, each set once, and `cn` in `app/utils/misc.tsx` knows
-them. A `leading-*` class beside one of them wins over the size's own line
-height, so a class list that has both names the line height again
-(`leading-(--text-step--line-height)`).
+(`text-menu-title`), the edit screens' title size (`text-edit-title`) and
+`text-label` are font size tokens in `app/styles/tailwind.css`, each set once,
+and `cn` in `app/utils/misc.tsx` knows them. A `leading-*` class beside one of
+them wins over the size's own line height, so a class list that has both names
+the line height again (`leading-(--text-step--line-height)`).
 
 A small label (a Meal's label, the weekday in Plan's strip and over its day, the
 groups of a picker, a heading inside a Recipe's ingredients, a Recipe's facts
@@ -521,15 +522,19 @@ On a phone the Recipes and Menus lists share a title and a row shape:
 On a phone Recipe edit, New Recipe and Import are set in the Recipe page's
 sizes. Wider screens keep the sizes they had.
 
-- The screen's title is 32px in the serif (`text-menu-title`).
+- The screen's title is 28px in the serif (`text-edit-title`).
 - Each section of the Recipe form (Ingredients, Instructions, Photo, Details,
   Classification) opens and closes from its whole heading row: a chevron, the
   heading in sentence case at 24px in the serif (`text-recipe-section`) and a
   muted 13.5px summary such as “7 items”. A hairline sits above each section.
 - Labels are the small label, muted. Hints, a section's summary and Import's
   status lines are 13.5px muted, and an error is 13.5px in the error colour.
-- Fields are 44px tall with 16px text, so iOS never zooms the page on focus. A
-  closed ingredient row reads at 17px on one line in a 52px row.
+- Inputs are 44px tall, and every field has 16px text, so iOS never zooms the
+  page on focus. A closed ingredient row reads at 17px on one line in a 52px
+  row. A heading among the ingredients keeps its tint and drops the thicker left
+  edge it has on wider screens.
+- While an import runs, its line reads at 17px (`text-item-name`) over the
+  13.5px status lines.
 - Button labels are 16px. The buttons under each of Import's sources (Import,
   Read as written, Read with AI) are a full-width stack, 48px tall, up to 767px
   wide; from 768px they sit in a row at the right. Other buttons stay 44px.

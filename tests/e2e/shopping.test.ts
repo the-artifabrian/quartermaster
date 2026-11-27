@@ -1212,8 +1212,10 @@ test('the phone add sheet opens empty after each way of closing it, and still ad
 			'Close',
 			() => sheet.getByRole('button', { name: 'Close', exact: true }).click(),
 		],
-		// The backdrop, above the sheet.
-		['the backdrop', () => page.mouse.click(195, 200)],
+		// The backdrop shows only above the sheet, which stops 2.5rem under
+		// the top of the screen. A tap lower down lands on the backdrop only
+		// while the sheet is still sliding up.
+		['the backdrop', () => page.mouse.click(195, 20)],
 		['Escape', () => page.keyboard.press('Escape')],
 	]
 	for (const [way, close] of closeWays) {

@@ -56,15 +56,16 @@ Useful sizes:
 | Tab title (`TabTitle`)                                                   | 40px Newsreader, 1.05 lines                                                         |
 | Recipe title on a phone (`text-recipe-title`)                            | 36px Newsreader, 1.1 lines; 32px wider                                              |
 | Menu title on a phone (`text-menu-title`)                                | 32px Newsreader, 1.125 lines; wider, 24px on its page and 30px shared               |
-| Recipe edit, New Recipe and Import title on a phone (`text-edit-title`)  | 28px Newsreader, 1.15 lines; 24px wider                                             |
+| An edit screen's or Import's title on a phone (`text-edit-title`)        | 28px Newsreader, 1.15 lines; 24px wider                                             |
 | Plan's day heading on a phone                                            | 31px Newsreader                                                                     |
 | Recipe or Menu section heading on a phone (`text-recipe-section`)        | 24px Newsreader; 18px wider                                                         |
-| A section of the Recipe form on a phone (`text-recipe-section`)          | 24px Newsreader; wider, the 12px uppercase label                                    |
+| A section of the Recipe or Menu form on a phone (`text-recipe-section`)  | 24px Newsreader; wider, the 12px uppercase label                                    |
 | Other page title                                                         | 24px Newsreader                                                                     |
 | Plan dish on a phone (`text-dish`)                                       | 17px Schibsted Grotesk, 19px under a Dinner's photo (`text-dish-photo`)             |
 | Recipe or Menu row on a phone (`text-list-name`)                         | 17px Schibsted Grotesk                                                              |
 | Shopping item or Staple on a phone (`text-item-name`)                    | 17px Schibsted Grotesk                                                              |
 | A closed ingredient row in the Recipe form on a phone (`text-item-name`) | 17px Schibsted Grotesk, weight 400; 14px wider                                      |
+| A Recipe card's name in the Menu form on a phone (`text-item-name`)      | 17px Schibsted Grotesk, weight 500; 14px wider                                      |
 | The line that says an import is running, on a phone (`text-item-name`)   | 17px Schibsted Grotesk, weight 500; 18px wider                                      |
 | A step on a phone (`text-step`)                                          | 17px Schibsted Grotesk, 1.6 lines; its numeral 24px Newsreader (`text-step-number`) |
 | An ingredient on a phone (`text-ingredient`)                             | 17px Schibsted Grotesk, 1.45 lines                                                  |
@@ -87,12 +88,13 @@ the line height again (`leading-(--text-step--line-height)`).
 A small label (a Meal's label, the weekday in Plan's strip and over its day, the
 groups of a picker, a heading inside a Recipe's ingredients, a Recipe's facts
 and its Notes) is sentence case at weight 600 with no tracking:
-`text-label font-semibold`. On a phone a field's label in the Recipe form and on
-Import is the same small label, muted, on its own line above the field
-(`phoneFieldLabelClass` in `app/utils/misc.tsx`); wider it is the 14px UI label.
-Other screens set theirs uppercase and letter-spaced (`sectionLabelClass`), as
-the Recipe form's sections do on wider screens. A printed Recipe keeps its
-uppercase headings.
+`text-label font-semibold`. On a phone a field's label in the Recipe form, in
+the Menu form and on Import is the same small label, muted, on its own line
+above the field (`phoneFieldLabelClass` in `app/utils/misc.tsx`); wider it is
+the 14px UI label. Other screens set theirs uppercase and letter-spaced
+(`sectionLabelClass`), as the sections of the Recipe form and the Menu form's
+Recipes heading do on wider screens. A printed Recipe keeps its uppercase
+headings.
 
 Every tab's own page (Recipes, Menus, Staples, Plan, Shopping, Settings) opens
 with its title in `TabTitle`, beside the controls of its row.
@@ -570,6 +572,20 @@ segmented control are 14px.
   a 48px full-width button.
 - The shared Menu page draws the same rows, and its header follows on a phone:
   the same title, 13.5px small lines and one full-width 48px button.
+- On a phone Menu edit and New Menu take the Recipe form's sizes: the title at
+  28px (`text-edit-title`), "Recipes" in sentence case at 24px in the serif with
+  a 13.5px muted line under it, small muted labels over 44px fields with 16px
+  text, 13.5px hints ("Makes 8 servings", an empty section's line, a missing
+  Recipe's line in the error red) and errors, and 16px button labels. Wider
+  screens keep the sizes they had.
+- In the form on a phone a Recipe card's name is 17px at weight 500 on up to two
+  lines, with the row beside its thumb to itself; the scale field and Remove sit
+  under it at the right, then the note field, then the arrows and Move to…. A
+  note card's Add shopping line has a row of its own above its arrows and Move
+  to…. Add Recipe and Add note stay side by side down to a 320px screen.
+- The Add Recipe sheet and the Move to… menu read at 17px in rows of 44px or
+  more on a phone; the sheet's group labels and a Recipe's time are 13.5px. The
+  sheet's title and the letter of a Recipe without a photo keep their own sizes.
 - Use quiet section insets only when several sections need visual grouping.
 - Reorder and move controls need labels, keyboard access, and phone-sized
   targets; drag is optional.

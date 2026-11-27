@@ -284,6 +284,8 @@ test('recipe form buttons, remove and classification chips are thumb-sized', asy
 		page.getByRole('button', { name: 'Remove ingredient' }).first(),
 	)
 
+	// A section's whole heading row opens and closes it.
+	await expectThumbTall(page.locator('summary', { hasText: 'Classification' }))
 	await page.getByText('Classification', { exact: true }).click()
 	await expectThumbTall(
 		page
@@ -296,6 +298,134 @@ test('recipe form buttons, remove and classification chips are thumb-sized', asy
 			.getByRole('button', { name: 'Breakfast' }),
 	)
 	await expectThumbTall(page.getByRole('button', { name: 'Add cuisine' }))
+})
+
+test('the Recipe form reads in its phone sizes up to 767px and in the wider sizes from 768px', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await prisma.recipe.create({
+		data: {
+			title: 'Size Check',
+			userId: user.id,
+			householdId: user.householdId,
+			ingredients: {
+				create: ['flour', 'butter', 'salt'].map((name, order) => ({
+					name,
+					order,
+				})),
+			},
+			instructions: { create: { content: 'Mix.', order: 0 } },
+		},
+	})
+	// A 390px layout beside the test browser's 15px scrollbar.
+	await page.setViewportSize({ width: 405, height: 844 })
+	await page.goto(`/recipes/${recipe.id}/edit`)
+	const save = page.getByRole('button', { name: 'Save', exact: true })
+	await hydrated(save)
+	await page.getByLabel('Title', { exact: true }).fill('')
+	await save.click()
+
+	const title = page.getByRole('heading', { level: 1 })
+	const section = page.getByRole('heading', { level: 3, name: 'Ingredients' })
+	const label = page.getByText('Title', { exact: true })
+	// A row between two others, with the hairline under it: the first and last
+	// are trimmed on wider screens.
+	const row = page.getByRole('button', { name: /^butter/ })
+	const rowHeight = () =>
+		row.evaluate((button) => button.parentElement!.parentElement!.offsetHeight)
+	const addStep = page.getByRole('button', { name: 'Add step' })
+	const error = page.getByText('Add a title', { exact: true })
+	await expect(error).toBeVisible()
+
+	await expect(title).toHaveCSS('font-size', '28px')
+	await expect(section).toHaveCSS('font-size', '24px')
+	await expect(section).toHaveCSS('text-transform', 'none')
+	await expect(label).toHaveCSS('font-size', '13.5px')
+	await expect(row).toHaveCSS('font-size', '17px')
+	expect(await rowHeight()).toBe(53)
+	await expect(addStep).toHaveCSS('font-size', '16px')
+	await expect(error).toHaveCSS('font-size', '13.5px')
+
+	await page.setViewportSize({ width: 767, height: 844 })
+	await expect(title).toHaveCSS('font-size', '28px')
+	await expect(section).toHaveCSS('font-size', '24px')
+	await expect(row).toHaveCSS('font-size', '17px')
+
+	await page.setViewportSize({ width: 768, height: 844 })
+	await expect(title).toHaveCSS('font-size', '24px')
+	await expect(section).toHaveCSS('font-size', '12px')
+	await expect(section).toHaveCSS('text-transform', 'uppercase')
+	await expect(label).toHaveCSS('font-size', '14px')
+	await expect(row).toHaveCSS('font-size', '14px')
+	expect(await rowHeight()).toBe(49)
+	await expect(addStep).toHaveCSS('font-size', '14px')
+	await expect(error).toHaveCSS('font-size', '14px')
+})
+
+test.describe('at a 320px layout', () => {
+	// The test browser keeps 15px for its scrollbar.
+	test.use({ viewport: { width: 335, height: 700 } })
+
+	test('long ingredient text stays on one line inside the form, with Remove on screen', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const oneWord =
+			'Rindfleischetikettierungsueberwachungsaufgabenuebertragungsge'
+		const manyWords =
+			'very ripe plum tomatoes from the market stall by the old bridge'
+		const recipe = await prisma.recipe.create({
+			data: {
+				title: 'Long Names',
+				userId: user.id,
+				householdId: user.householdId,
+				ingredients: {
+					create: [
+						{ name: oneWord, amount: '2', unit: 'tbsp', order: 0 },
+						{ name: manyWords, amount: '800', unit: 'g', order: 1 },
+						{ name: 'salt', order: 2 },
+					],
+				},
+			},
+		})
+		await page.goto(`/recipes/${recipe.id}/edit`)
+		const main = page.locator('#main-content')
+		const mainBox = (await main.boundingBox())!
+		expect(mainBox.width).toBe(320)
+
+		for (const name of [oneWord, manyWords]) {
+			const summary = page.getByRole('button', { name: new RegExp(name) })
+			await expect(summary).toBeVisible()
+			// One line: the text is as tall as a short row's, where a second
+			// line would still fit inside the row's own height.
+			const lineHeight = (row: Locator) =>
+				row
+					.locator('span')
+					.evaluate((text) => text.getBoundingClientRect().height)
+			expect(await lineHeight(summary)).toBe(
+				await lineHeight(page.getByRole('button', { name: /^salt/ })),
+			)
+		}
+		for (const remove of await page
+			.getByRole('button', { name: 'Remove ingredient' })
+			.all()) {
+			const box = (await remove.boundingBox())!
+			expect(box.x + box.width).toBeLessThanOrEqual(mainBox.x + 320)
+		}
+		expect(
+			await page.evaluate(() => {
+				const root = document.documentElement
+				const main = document.querySelector('#main-content')!
+				return (
+					root.scrollWidth <= root.clientWidth &&
+					main.scrollWidth <= main.clientWidth
+				)
+			}),
+		).toBe(true)
+	})
 })
 
 test.describe('in the iOS app', () => {

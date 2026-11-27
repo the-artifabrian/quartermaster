@@ -148,7 +148,9 @@ export function RecipeMetadataFields({
 				]
 				return (
 					<fieldset key={dimension} className="space-y-2">
-						<legend className="text-sm font-medium">{label}</legend>
+						<legend className="phone:text-label phone:text-muted-foreground phone:font-semibold text-sm font-medium">
+							{label}
+						</legend>
 						<div className="flex flex-wrap items-center gap-2">
 							{chips.map((chip) => (
 								<Chip
@@ -204,7 +206,10 @@ export function RecipeMetadataFields({
 							)}
 						</div>
 						{adding === dimension && error && (
-							<p className="text-foreground-destructive text-sm" role="alert">
+							<p
+								className="text-foreground-destructive phone:text-label text-sm"
+								role="alert"
+							>
 								{error}
 							</p>
 						)}

@@ -281,7 +281,13 @@ export function IngredientFields({
 	return (
 		<div className="space-y-4">
 			<div className="flex gap-2 sm:justify-end">
-				<Button type="button" variant="outline" size="sm" onClick={addHeading}>
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					className="phone:text-base"
+					onClick={addHeading}
+				>
 					<Icon name="plus" size="sm" />
 					Heading
 				</Button>
@@ -289,6 +295,7 @@ export function IngredientFields({
 					type="button"
 					variant="outline"
 					size="sm"
+					className="phone:text-base"
 					onClick={addIngredient}
 				>
 					<Icon name="plus" size="sm" />
@@ -417,7 +424,7 @@ function SortableIngredientRow({
 			ref={setNodeRef}
 			style={style}
 			className={cn(
-				'rounded-lg py-2 first:pt-0 last:pb-0',
+				'phone:first:pt-2 phone:last:pb-2 rounded-lg py-2 first:pt-0 last:pb-0',
 				isDragging && 'shadow-warm-lg z-10 opacity-80',
 			)}
 		>
@@ -546,8 +553,9 @@ function SortableIngredientRow({
 					<button
 						type="button"
 						onClick={onToggleExpand}
-						// The row's full height, like its 44px neighbours.
-						className="text-foreground -my-1.5 flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left text-sm"
+						// The row's full height, like its 44px neighbours. On a phone
+						// it reads at an item's size in a 52px row.
+						className="text-foreground phone:text-item-name phone:min-h-12 -my-1.5 flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left text-sm"
 					>
 						<Icon
 							name="chevron-down"
@@ -626,7 +634,7 @@ function RecipeLinkPicker({
 	const linkedBox = linked ? (
 		<div className="flex items-center gap-2 rounded-md border px-3 py-2">
 			<Icon name="link-2" size="sm" className="text-primary shrink-0" />
-			<span className="min-w-0 flex-1 truncate text-sm">
+			<span className="phone:text-base min-w-0 flex-1 truncate text-sm">
 				{linkedRecipeTitle}
 			</span>
 			<button
@@ -657,15 +665,15 @@ function RecipeLinkPicker({
 				className="mb-2"
 			/>
 			{query.length < 2 ? (
-				<p className="text-muted-foreground px-2 py-3 text-center text-xs">
+				<p className="text-muted-foreground phone:text-label px-2 py-3 text-center text-xs">
 					Type to search your Recipes
 				</p>
 			) : fetcher.state !== 'idle' ? (
-				<p className="text-muted-foreground px-2 py-3 text-center text-xs">
+				<p className="text-muted-foreground phone:text-label px-2 py-3 text-center text-xs">
 					Searching…
 				</p>
 			) : results.length === 0 ? (
-				<p className="text-muted-foreground px-2 py-3 text-center text-xs">
+				<p className="text-muted-foreground phone:text-label px-2 py-3 text-center text-xs">
 					No Recipes found
 				</p>
 			) : (
@@ -675,7 +683,7 @@ function RecipeLinkPicker({
 							<button
 								type="button"
 								className={cn(
-									'hover:bg-muted w-full rounded-md px-2 py-1.5 text-left text-sm',
+									'hover:bg-muted phone:text-item-name phone:min-h-11 w-full rounded-md px-2 py-1.5 text-left text-sm',
 									inSheet && 'min-h-11',
 								)}
 								onClick={() => {
@@ -715,7 +723,7 @@ function RecipeLinkPicker({
 							aria-expanded={open}
 							// Small to the eye, 44px to the thumb: the tap area reaches
 							// into the gap above and the row's padding below.
-							className="text-muted-foreground hover:text-foreground relative flex items-center gap-1.5 rounded-md px-1 py-1 text-xs transition-colors before:absolute before:inset-x-0 before:-top-2 before:-bottom-3 before:content-['']"
+							className="text-muted-foreground hover:text-foreground phone:text-base relative flex items-center gap-1.5 rounded-md px-1 py-1 text-xs transition-colors before:absolute before:inset-x-0 before:-top-2 before:-bottom-3 before:content-['']"
 						>
 							<Icon name="link-2" size="sm" />
 							Link Recipe
@@ -799,7 +807,7 @@ function SortableHeadingRow({
 			ref={setNodeRef}
 			style={style}
 			className={cn(
-				'border-primary/30 bg-primary-tint flex flex-col gap-1 rounded-lg border-l-4 px-2 py-3 first:pt-2 last:pb-2',
+				'border-primary/30 bg-primary-tint phone:border-l-0 flex flex-col gap-1 rounded-lg border-l-4 px-2 py-3 first:pt-2 last:pb-2',
 				isDragging && 'shadow-warm-lg z-10 opacity-80',
 			)}
 		>

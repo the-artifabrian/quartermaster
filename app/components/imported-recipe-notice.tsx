@@ -91,22 +91,22 @@ export function ImportedRecipeNotice({
 					<h2 id="imported-recipe-notice" className="font-medium">
 						Saved to your Recipes
 					</h2>
-					<p className="text-muted-foreground text-sm">
+					<p className="text-muted-foreground phone:text-label text-sm">
 						{fromLabel(from, sourceUrl)}
 					</p>
 					{missing ? (
-						<p className="text-sm">
+						<p className="phone:text-base text-sm">
 							We couldn’t find {missing}. Add them with Edit.
 						</p>
 					) : null}
 					{shortened.length ? (
-						<p className="text-sm">
+						<p className="phone:text-base text-sm">
 							We shortened{' '}
 							{listed(shortened.map((part) => shortenedLabels[part]))} to fit.
 						</p>
 					) : null}
 					{sameTitle ? (
-						<p className="text-sm">
+						<p className="phone:text-base text-sm">
 							Another Recipe has this title.{' '}
 							<PushLink
 								to={`/recipes/${sameTitle.id}`}
@@ -129,10 +129,15 @@ export function ImportedRecipeNotice({
 				</Button>
 			</div>
 			<div className="mt-3 flex flex-wrap gap-2 pl-8">
-				<Button asChild size="sm" variant={needsEdit ? 'default' : 'outline'}>
+				<Button
+					asChild
+					size="sm"
+					variant={needsEdit ? 'default' : 'outline'}
+					className="phone:text-base"
+				>
 					<PushLink to={`/recipes/${recipeId}/edit`}>Edit</PushLink>
 				</Button>
-				<Button asChild size="sm" variant="outline">
+				<Button asChild size="sm" variant="outline" className="phone:text-base">
 					<PushLink to="/recipes/import">Import another</PushLink>
 				</Button>
 				{/* Replaces this Recipe in history, so Back cannot return to it. */}
@@ -149,6 +154,7 @@ export function ImportedRecipeNotice({
 						onClick={() => setConfirmingUndo(true)}
 						size="sm"
 						variant="ghost"
+						className="phone:text-base"
 						status={undoing ? 'pending' : 'idle'}
 						disabled={undoing}
 					>

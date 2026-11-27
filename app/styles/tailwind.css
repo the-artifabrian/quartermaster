@@ -159,7 +159,9 @@
 	--text-label: 0.84375rem;
 	--text-label--line-height: 1.3;
 	/* Names you read in a row are in the sans at weight 500 (`font-medium`).
-	   A Shopping item's name. */
+	   A Shopping item's name. On a phone also a closed ingredient row in the
+	   Recipe form (at weight 400), a Recipe to pick in Link a Recipe, and the
+	   line that says an import is running. */
 	--text-item-name: 1.0625rem;
 	--text-item-name--line-height: 1.35;
 	/* A dish on a phone's Plan day, and the dishes of a Dinner that shows its
@@ -174,7 +176,8 @@
 	--text-list-name--line-height: 1.35;
 	/* A Recipe's page on a phone: in the serif its title, its Ingredients and
 	   Instructions headings and a step's numeral; in the sans an ingredient
-	   row and a step's text. */
+	   row and a step's text. The section size is also a Menu's section
+	   heading and a section of the Recipe form. */
 	--text-recipe-title: 2.25rem;
 	--text-recipe-title--line-height: 1.1;
 	--text-recipe-section: 1.5rem;
@@ -184,6 +187,10 @@
 	   lines, so it is a step under a Recipe's. */
 	--text-menu-title: 2rem;
 	--text-menu-title--line-height: 1.125;
+	/* The title of Recipe edit, New Recipe and Import on a phone. It names the
+	   screen above a form, so it is a step under a Menu's. */
+	--text-edit-title: 1.75rem;
+	--text-edit-title--line-height: 1.15;
 	--text-ingredient: 1.0625rem;
 	--text-ingredient--line-height: 1.45;
 	--text-step: 1.0625rem;

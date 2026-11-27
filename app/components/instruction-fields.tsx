@@ -97,6 +97,7 @@ export function InstructionFields({
 					type="button"
 					variant="outline"
 					size="sm"
+					className="phone:text-base"
 					onClick={addInstruction}
 				>
 					<Icon name="plus" size="sm" />
@@ -197,7 +198,7 @@ function SortableInstructionRow({
 				>
 					<Icon name="dots-horizontal" size="sm" />
 				</button>
-				<div className="bg-primary-fill text-primary-foreground flex size-7 items-center justify-center rounded-full text-sm font-medium sm:size-8">
+				<div className="bg-primary-fill text-primary-foreground phone:text-label phone:font-semibold flex size-7 items-center justify-center rounded-full text-sm font-medium sm:size-8">
 					{index + 1}
 				</div>
 			</div>

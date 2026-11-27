@@ -20,6 +20,7 @@ import {
 	stapleRowClassName,
 } from './staple-row-styles.ts'
 import { buttonVariants } from './ui/button.tsx'
+import { CheckCircle as RowCheckCircle } from './ui/check-circle.tsx'
 import { chipClassName } from './ui/chip.tsx'
 import { Icon, type IconName } from './ui/icon.tsx'
 import { tabTitleClassName } from './ui/title-add-button.tsx'
@@ -494,9 +495,9 @@ export function RecipePhone({ scale, className }: PhoneProps) {
 					yieldLabel="servings"
 					scaleMultiplier={2}
 					sourceUrl={null}
-					className="mt-[18px]"
+					className="mt-4"
 				/>
-				<div className="mt-5 flex gap-2">
+				<div className="mt-5 flex">
 					<span
 						className={cn(
 							buttonVariants({
@@ -507,19 +508,8 @@ export function RecipePhone({ scale, className }: PhoneProps) {
 						<Icon name="calendar" size="md" />
 						Add to Plan
 					</span>
-					<span
-						className={cn(
-							buttonVariants({
-								variant: 'secondary',
-								className: 'h-12 px-5 text-base font-semibold',
-							}),
-						)}
-					>
-						<Icon name="pencil-1" size="md" />
-						Edit
-					</span>
 				</div>
-				<div className="mt-4 mb-4 flex flex-wrap items-center gap-1">
+				<div className="mt-6.5 flex flex-wrap items-center gap-1">
 					<span className="flex min-h-11 items-center gap-1.5 pr-1">
 						<span className="text-recipe-section font-serif">Ingredients</span>
 						<Icon
@@ -529,20 +519,21 @@ export function RecipePhone({ scale, className }: PhoneProps) {
 						/>
 					</span>
 					<span className="ml-auto flex items-center gap-1">
-						<span className="text-muted-foreground flex min-h-11 items-center gap-1 px-2 text-sm">
+						<span className="text-muted-foreground text-label flex min-h-11 items-center gap-1 px-2">
 							Scale
 							<span className="text-foreground tabular-nums">2×</span>
 							<Icon name="chevron-down" size="xs" />
 						</span>
 						<span className={chipClassName(false)}>Metric</span>
 					</span>
-					<span className="text-muted-foreground basis-full text-xs leading-relaxed">
+					<span className="text-muted-foreground text-label basis-full pb-1 leading-relaxed">
 						Makes 8 servings · original: 4
 					</span>
 				</div>
-				<ul className="text-ingredient space-y-1 leading-(--text-ingredient--line-height)">
+				<ul className="text-ingredient leading-(--text-ingredient--line-height)">
 					{salmonIngredients.map((item) => (
-						<li key={item.name} className="flex min-h-11 items-center gap-3">
+						<li key={item.name} className="flex min-h-14 items-center gap-3">
+							<RowCheckCircle checked={Boolean(item.checked)} />
 							<span
 								className={cn(
 									'min-w-0 flex-1 py-2.5',
@@ -553,20 +544,12 @@ export function RecipePhone({ scale, className }: PhoneProps) {
 								{item.unit ? (
 									<span className="font-semibold">{item.unit} </span>
 								) : null}
-								<span
-									className={cn(
-										item.checked && 'decoration-faint/60 line-through',
-									)}
-								>
-									{item.name}
-									{item.note ? (
-										<span
-											className={item.checked ? '' : 'text-muted-foreground'}
-										>
-											, {item.note}
-										</span>
-									) : null}
-								</span>
+								{item.name}
+								{item.note ? (
+									<span className={item.checked ? '' : 'text-muted-foreground'}>
+										, {item.note}
+									</span>
+								) : null}
 							</span>
 							{item.checked ? null : (
 								<span className="text-muted-foreground/70 -mr-3.5 flex size-11 shrink-0 items-center justify-center">
@@ -576,14 +559,16 @@ export function RecipePhone({ scale, className }: PhoneProps) {
 						</li>
 					))}
 				</ul>
-				<p className="text-recipe-section mt-5 mb-4 font-serif">Instructions</p>
+				<p className="text-recipe-section mt-4 mb-1.5 font-serif">
+					Instructions
+				</p>
 				<ol>
 					{salmonSteps.map((step, index) => (
 						<li
 							key={index}
-							className="grid grid-cols-[2.375rem_minmax(0,1fr)] py-[11px]"
+							className="border-border grid grid-cols-[2.25rem_minmax(0,1fr)] border-b py-3.5 last:border-b-0"
 						>
-							<span className="text-step-number text-primary pt-px font-serif font-normal">
+							<span className="text-step-number text-primary flex h-[1.7rem] items-center font-serif font-normal">
 								{index + 1}
 							</span>
 							<span className="text-step leading-(--text-step--line-height)">

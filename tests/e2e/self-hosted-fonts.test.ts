@@ -51,47 +51,52 @@ async function fontsOn(page: Page, path: string) {
 
 const face = (name: string) => new RegExp(`^${name}-[\\w-]+\\.woff2$`)
 
-test('the homepage keeps Young Serif, DM Sans and its espresso Log in', async ({
+test('the homepage sets the app’s two faces and the green Log in', async ({
 	page,
 }) => {
 	const { fetched, preloaded } = await fontsOn(page, '/')
 	expect(preloaded).toEqual([
-		expect.stringMatching(face('dm-sans-latin')),
-		expect.stringMatching(face('young-serif-latin')),
+		expect.stringMatching(face('schibsted-grotesk-latin')),
+		expect.stringMatching(face('newsreader-latin')),
 	])
-	expect(fetched.filter((file) => /newsreader|schibsted/.test(file))).toEqual(
-		[],
-	)
+	// Its phones and the band numerals set the serif too, so nothing else
+	// comes down.
+	expect(
+		fetched.filter(
+			(file) => !/^(schibsted-grotesk|newsreader)-latin-/.test(file),
+		),
+	).toEqual([])
 
 	const styles = await page.evaluate(() => {
+		const style = (el: Element | null) => getComputedStyle(el!)
 		const family = (el: Element | null) =>
-			el
-				? getComputedStyle(el).fontFamily.split(',')[0]!.replace(/"/g, '')
-				: null
-		const logIn = document.querySelector('[data-site-header] a[href="/login"]')
+			style(el).fontFamily.split(',')[0]!.replace(/"/g, '')
+		const h1 = document.querySelector('main h1')
 		return {
-			headline: family(document.querySelector('main h1')),
-			headlineWeight: getComputedStyle(document.querySelector('main h1')!)
-				.fontWeight,
-			// Inherited, as most of the page's text is.
-			body: family(document.querySelector('footer nav a')),
+			headline: family(h1),
+			headlineWeight: style(h1).fontWeight,
+			headlineStyle: style(h1).fontStyle,
+			body: family(document.querySelector('main p')),
 			logo: family(
 				document.querySelector('[data-site-header] a[href="/"] span'),
 			),
-			logIn: logIn ? getComputedStyle(logIn).backgroundColor : null,
+			logIn: style(
+				document.querySelector('[data-site-header] a[href="/login"]'),
+			).backgroundColor,
 		}
 	})
 	expect(styles).toEqual({
-		headline: 'Young Serif',
-		headlineWeight: '400',
-		body: 'DM Sans',
-		logo: 'DM Sans',
-		// espresso-raised
-		logIn: 'rgb(65, 55, 41)',
+		headline: 'Newsreader',
+		headlineWeight: '500',
+		headlineStyle: 'normal',
+		body: 'Schibsted Grotesk',
+		logo: 'Schibsted Grotesk',
+		// The green fill
+		logIn: 'rgb(31, 90, 61)',
 	})
 })
 
-test('an app page sets Newsreader and Schibsted Grotesk and never loads the homepage faces', async ({
+test('an app page sets Newsreader and Schibsted Grotesk and loads no other face', async ({
 	page,
 }) => {
 	const { fetched, preloaded } = await fontsOn(page, '/login')
@@ -100,7 +105,9 @@ test('an app page sets Newsreader and Schibsted Grotesk and never loads the home
 		expect.stringMatching(face('newsreader-latin')),
 	])
 	expect(
-		fetched.filter((file) => /young-serif|dm-sans|source-sans/.test(file)),
+		fetched.filter(
+			(file) => !/^(schibsted-grotesk|newsreader)-latin-/.test(file),
+		),
 	).toEqual([])
 
 	const styles = await page.evaluate(() => {

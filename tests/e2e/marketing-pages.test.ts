@@ -1,12 +1,14 @@
 import { type Page } from '@playwright/test'
 import {
-	addDaysUTC,
+	formatMonthDay,
 	formatWeekRange,
+	formatWeekdayName,
 	getWeekStart,
 	parseDate,
 	serializeDate,
 	todayInTimeZone,
 } from '#app/utils/date.ts'
+import { nextSaturday } from '#app/utils/homepage-plan-days.ts'
 import { expect, test, waitForHydration } from '#tests/playwright-utils.ts'
 
 // Every public page is checked on its own: the footer is shared, but a page
@@ -82,7 +84,7 @@ test.describe('the homepage Plans follow the visitor’s calendar', () => {
 			: 'Pacific/Pago_Pago'
 	test.use({ timezoneId: timeZone })
 
-	test('the hero marks today and the Plan section shows next week', async ({
+	test('the hero picks today and the Plan section the coming Saturday', async ({
 		page,
 	}) => {
 		// A production build reports a mismatch as a minified React error,
@@ -98,30 +100,125 @@ test.describe('the homepage Plans follow the visitor’s calendar', () => {
 		page.on('pageerror', (error) => {
 			if (isHydrationError(String(error))) hydrationErrors.push(String(error))
 		})
-		const today = parseDate(todayInTimeZone(timeZone))
-		const nextWeek = addDaysUTC(getWeekStart(today), 7)
+		const todayString = todayInTimeZone(timeZone)
+		const today = parseDate(todayString)
+		const saturday = parseDate(nextSaturday(todayString))
 
 		await page.goto('/')
 		await waitForHydration(page)
 		const hero = page.getByRole('img', {
-			name: 'This week’s Plan, Monday to Sunday',
+			name: `The Plan on a phone: today, ${formatWeekdayName(today)}, ${formatMonthDay(today)}`,
+			exact: false,
 		})
-		const todayRow = hero.locator('section').filter({ hasText: 'Today' })
-		await expect(todayRow).toHaveCount(1)
-		await expect(todayRow.locator('p.font-serif').first()).toHaveText(
+		await expect(hero.locator('[data-strip-day][data-picked]')).toHaveText(
 			String(today.getUTCDate()),
 		)
-		// Only yesterday's Meal is cooked, so the hero looks the same every day.
-		const isMonday = today.getUTCDay() === 1
-		await expect(hero.locator('p.line-through')).toHaveCount(isMonday ? 0 : 1)
+		await expect(hero.locator('[data-strip-day][data-today]')).toHaveCount(1)
+		await expect(hero.locator('[data-day-heading]')).toHaveText(
+			formatMonthDay(today),
+		)
+		await expect(hero.locator('[data-week-range]')).toHaveText(
+			formatWeekRange(getWeekStart(today), todayString),
+		)
+		// One cooked dish whatever the day, so the picture is the same daily.
+		await expect(hero.locator('.line-through')).toHaveCount(1)
 
-		const range = formatWeekRange(nextWeek, serializeDate(today))
-		await expect(
-			page.getByRole('img', {
-				name: `The Plan page: next week, ${range}`,
-				exact: false,
-			}),
-		).toBeVisible()
+		const plan = page.getByRole('img', {
+			name: `The Plan on a phone: ${formatWeekdayName(saturday)}, ${formatMonthDay(saturday)}`,
+			exact: false,
+		})
+		await expect(plan.locator('[data-strip-day][data-picked]')).toHaveText(
+			String(saturday.getUTCDate()),
+		)
+		// Saturday and Sunday look a week on, where today isn't in the strip.
+		const sameWeek =
+			serializeDate(getWeekStart(saturday)) ===
+			serializeDate(getWeekStart(today))
+		await expect(plan.locator('[data-strip-day][data-today]')).toHaveCount(
+			sameWeek ? 1 : 0,
+		)
 		expect(hydrationErrors).toEqual([])
 	})
 })
+
+/** The homepage's phone pictures, each a scaled 390px screen in a frame. */
+async function phoneBoxes(page: Page) {
+	return page.locator('main [role="img"]').evaluateAll((phones) =>
+		phones.map((phone) => {
+			const slot = phone.querySelector('[data-phone-slot]')!
+			const screen = phone.querySelector('[data-phone-screen]')!
+			const box = (el: Element) => {
+				const { x, y, width, height } = el.getBoundingClientRect()
+				return { x, y, width, height }
+			}
+			return {
+				label: phone.getAttribute('aria-label'),
+				hidden: phone.firstElementChild?.getAttribute('aria-hidden'),
+				focusable: phone.querySelectorAll(
+					'a[href], button, input, select, textarea, [tabindex]',
+				).length,
+				phone: box(phone),
+				slot: box(slot),
+				screen: box(screen),
+			}
+		}),
+	)
+}
+
+for (const width of [320, 768]) {
+	test(`the homepage's five phones fit a ${width}px page, filled to their frames`, async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width, height: 800 })
+		await page.goto('/')
+		const clientWidth = await page.evaluate(
+			() => document.documentElement.clientWidth,
+		)
+		expect(
+			await page.evaluate(() => document.documentElement.scrollWidth),
+		).toBeLessThanOrEqual(clientWidth)
+		const phones = await phoneBoxes(page)
+		expect(phones).toHaveLength(5)
+		for (const phone of phones) {
+			expect(phone.label, 'named for what it shows').toBeTruthy()
+			expect(phone.hidden).toBe('true')
+			expect(phone.focusable, phone.label!).toBe(0)
+			expect(phone.phone.x).toBeGreaterThanOrEqual(0)
+			expect(phone.phone.x + phone.phone.width).toBeLessThanOrEqual(clientWidth)
+			// The scaled screen covers its slot in the frame, with no strip
+			// left beside or under it.
+			for (const side of ['x', 'y', 'width', 'height'] as const) {
+				expect(
+					Math.abs(phone.screen[side] - phone.slot[side]),
+					`${phone.label} ${side}`,
+				).toBeLessThan(0.5)
+			}
+		}
+	})
+}
+
+for (const width of [390, 1280]) {
+	test(`See how it works lands the first section under the header at ${width}px`, async ({
+		page,
+	}) => {
+		await page.emulateMedia({ reducedMotion: 'reduce' })
+		await page.setViewportSize({ width, height: 800 })
+		await page.goto('/')
+		await waitForHydration(page)
+		await page.getByRole('link', { name: 'See how it works' }).click()
+		await expect(page).toHaveURL(/#how-it-works$/)
+		// Reduced motion jumps: the place is final at once.
+		const top = await page.evaluate(() => {
+			const header = document.querySelector('[data-site-header]')!
+			const stuck = getComputedStyle(header).position === 'sticky'
+			return {
+				section: document
+					.getElementById('how-it-works')!
+					.getBoundingClientRect().top,
+				under: stuck ? header.getBoundingClientRect().bottom : 0,
+			}
+		})
+		expect(top.section - top.under).toBeGreaterThanOrEqual(8)
+		expect(top.section - top.under).toBeLessThanOrEqual(48)
+	})
+}

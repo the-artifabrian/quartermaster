@@ -2,17 +2,16 @@ import { type SEOHandle } from '@nasa-gcn/remix-seo'
 import { type MouseEvent, type ReactNode } from 'react'
 import { data, Link, redirect, useLoaderData } from 'react-router'
 import { TryDemoButton } from '#app/components/demo.tsx'
-import { Icon } from '#app/components/ui/icon.tsx'
-import { getUserId } from '#app/utils/auth.server.ts'
 import {
-	addDaysUTC,
-	formatWeekRange,
-	getWeekStart,
-	loadedToday,
-	parseDate,
-	serializeDate,
-} from '#app/utils/date.ts'
-import { scaledLineWords } from '#app/utils/ingredient-plural.ts'
+	GuestsPlanPhone,
+	RecipePhone,
+	ShoppingPhone,
+	StaplesPhone,
+	TodayPlanPhone,
+} from '#app/components/homepage-phones.tsx'
+import { Button } from '#app/components/ui/button.tsx'
+import { getUserId } from '#app/utils/auth.server.ts'
+import { loadedToday } from '#app/utils/date.ts'
 import { pipeHeaders } from '#app/utils/headers.server.ts'
 import { baseMetaTags } from '#app/utils/meta.ts'
 import { cn } from '#app/utils/misc.tsx'
@@ -38,7 +37,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 	if (userId) {
 		throw redirect('/recipes')
 	}
-	// The mock Plans show this week and next around the visitor's own today.
+	// The pictures of Plan show today and the coming Saturday on the
+	// visitor's own calendar.
 	// It comes from the loader so the server and the browser draw the same
 	// days; the page isn't cached anywhere, so it is never a day behind.
 	return data({ today: getRequestToday(request) })
@@ -60,13 +60,10 @@ const webApplicationJsonLd = JSON.stringify({
 	},
 }).replace(/</g, '\\u003c')
 
-// The site chrome around this page (header, footer) is re-themed onto the
-// espresso palette by the `data-chrome` attribute in root.tsx.
-
 export default function Index() {
 	const today = loadedToday(useLoaderData<typeof loader>()?.today)
 	return (
-		<div className="bg-espresso text-cream font-humanist antialiased">
+		<div className="antialiased">
 			{/* Static JSON-LD structured data (no user input) */}
 			<script
 				type="application/ld+json"
@@ -80,28 +77,28 @@ export default function Index() {
 				heading="Your Recipes, in one place"
 				body="Paste a link or the text of a Recipe, or type one in. Scale up for guests and check off ingredients as you cook."
 				screenSide="left"
-				screen={<RecipesScreen />}
+				screen={<RecipePhone />}
 			/>
 			<FeatureBand
 				index={2}
 				heading="A week pencilled in"
 				body="Add Recipes to the week and group dishes into Meals. Move a Meal to another day when plans change."
 				screenSide="right"
-				screen={<PlanScreen today={today} />}
+				screen={<GuestsPlanPhone today={today} />}
 			/>
 			<FeatureBand
 				index={3}
 				heading="Minus what you already have"
 				body="Add the Staples you usually have. Shopping leaves them out, and one tap puts any of them back on the list."
 				screenSide="left"
-				screen={<StaplesScreen />}
+				screen={<StaplesPhone />}
 			/>
 			<FeatureBand
 				index={4}
 				heading="Pick what you’ll buy"
 				body="Open From Plan, tick the Meals you’re shopping for, and only those lines land on the list."
 				screenSide="right"
-				screen={<ShoppingScreen />}
+				screen={<ShoppingPhone />}
 			/>
 			<ClosingCta />
 		</div>
@@ -112,43 +109,40 @@ function Hero({ today }: { today: string }) {
 	// The iOS app shows no copy about Pro or its trial (ADR 0001).
 	const isNativeShell = useIsNativeShell()
 	return (
-		<section className="container pt-10 pb-12 sm:pt-16 sm:pb-20 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-end lg:gap-16 lg:pt-16 lg:pb-16">
-			<div className="max-w-[34rem]">
+		<section className="container pt-10 pb-14 sm:pt-16 sm:pb-20 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-10 lg:gap-16 lg:pb-24">
+			<div className="max-w-[36rem]">
 				<h1 className="font-serif text-[2.75rem] leading-[1.02] tracking-[-0.02em] text-balance sm:text-[3.5rem] lg:text-[5.5rem]">
 					What are we making this week?
 				</h1>
-				<p className="text-cream/80 mt-7 max-w-[30rem] text-lg leading-[1.55] sm:text-xl">
+				<p className="text-muted-foreground mt-6 max-w-[30rem] text-lg leading-[1.55] sm:text-xl">
 					Keep the Recipes you cook and plan a few Meals for the week. Then
 					Shopping fills in from the Meals you pick, minus what you already
 					have.
 				</p>
-				<div className="mt-9 flex flex-wrap items-center gap-x-5 gap-y-4">
+				<div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-3">
 					<PrimaryCta />
-					{/* Secondary: the header's Log in colours in the CTA's shape. */}
 					<TryDemoButton
 						redirectTo="/"
-						className="bg-espresso-raised text-cream ring-offset-espresso focus-visible:ring-cream-muted hover:bg-espresso-raised h-12 rounded-full px-7 text-base font-semibold hover:brightness-110 active:brightness-95"
+						variant="secondary"
+						className="h-12 px-6 text-base font-semibold"
 					/>
 					<a
 						href="#how-it-works"
 						onClick={glideToHowItWorks}
-						className="text-cream decoration-cream-muted/60 hover:decoration-cream text-base font-medium underline underline-offset-[6px] transition-colors"
+						className="text-primary decoration-primary/40 hover:decoration-primary focus-visible:ring-ring inline-flex min-h-11 items-center rounded-sm text-base font-medium underline underline-offset-[6px] outline-hidden transition-colors focus-visible:ring-2 focus-visible:ring-offset-2"
 					>
 						See how it works
 					</a>
 				</div>
 				{isNativeShell ? null : (
-					<p className="text-cream-muted mt-5 text-[15px]">
+					<p className="text-muted-foreground mt-5 text-[15px]">
 						Free to use. New accounts get 14 days of Pro.
 					</p>
 				)}
 			</div>
 
-			<div className="mt-10 lg:mt-0">
-				<PlanAgenda
-					days={onDates(thisWeek, getWeekStart(parseDate(today)), today)}
-					controls={false}
-				/>
+			<div className="mt-12 flex justify-center md:mt-0">
+				<TodayPlanPhone today={today} />
 			</div>
 		</section>
 	)
@@ -164,17 +158,12 @@ function glideToHowItWorks(event: MouseEvent<HTMLAnchorElement>) {
 	history.pushState(null, '', '#how-it-works')
 }
 
-function PrimaryCta({ className }: { className?: string }) {
+/** The app's primary button, at the Recipe page's Add to Plan height. */
+function PrimaryCta() {
 	return (
-		<Link
-			to="/signup"
-			className={cn(
-				'bg-sage text-sage-foreground ring-offset-espresso focus-visible:ring-sage inline-flex h-12 items-center justify-center rounded-full px-7 text-base font-semibold transition-[filter] outline-none hover:brightness-110 focus-visible:ring-2 focus-visible:ring-offset-2 active:brightness-95',
-				className,
-			)}
-		>
-			Start cooking
-		</Link>
+		<Button asChild className="h-12 px-7 text-base font-semibold">
+			<Link to="/signup">Start cooking</Link>
+		</Button>
 	)
 }
 
@@ -193,29 +182,27 @@ function FeatureBand({
 	screenSide: 'left' | 'right'
 	screen: ReactNode
 }) {
-	// Even bands sink below the canvas so the screen is always the lighter
-	// plane.
-	const sunk = index % 2 === 0
+	// Every other band sits on the quiet fill, so the bands read apart.
+	const filled = index % 2 === 0
 	return (
-		<section
-			className={cn('py-16 sm:py-24 lg:py-28', sunk && 'bg-espresso-deep')}
-		>
+		<section className={cn('py-16 sm:py-24 lg:py-28', filled && 'bg-muted')}>
 			{/* The anchor sits on the content, not the padded section, so "See how
-			    it works" lands the band just under the header (sticky from md,
-			    69px tall) instead of leaving the padding as a blank gap. */}
+			    it works" lands the band just under the header (sticky from md)
+			    instead of leaving the padding as a blank gap. */}
 			<div
 				id={id}
 				className={cn(
-					'container grid scroll-mt-6 gap-8 md:scroll-mt-24 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-start lg:gap-20',
-					screenSide === 'right' &&
-						'lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]',
+					'container grid scroll-mt-6 gap-10 md:scroll-mt-24 md:items-center md:justify-center lg:gap-20',
+					screenSide === 'right'
+						? 'md:grid-cols-[minmax(0,28rem)_auto]'
+						: 'md:grid-cols-[auto_minmax(0,28rem)]',
 				)}
 			>
 				{/* Caption first in the DOM so phones read heading, then screen. */}
 				<div
 					className={cn(
 						'max-w-[28rem]',
-						screenSide === 'right' ? 'lg:order-1' : 'lg:order-2',
+						screenSide === 'right' ? 'md:order-1' : 'md:order-2',
 					)}
 				>
 					<p className="font-serif text-2xl tabular-nums">
@@ -224,16 +211,14 @@ function FeatureBand({
 					<h2 className="mt-5 font-serif text-[2.25rem] leading-[1.1] tracking-[-0.015em] text-balance sm:text-[3rem]">
 						{heading}
 					</h2>
-					<p className="text-cream/80 mt-6 text-lg leading-[1.55] sm:text-xl">
+					<p className="text-muted-foreground mt-6 text-lg leading-[1.55] sm:text-xl">
 						{body}
 					</p>
 				</div>
-				{/* Cap the screen at 600px and fade its tail into the canvas so the
-				    number, heading, copy and screen share one viewport. */}
 				<div
 					className={cn(
-						'max-h-150 min-w-0 overflow-hidden mask-b-from-92%',
-						screenSide === 'right' ? 'lg:order-2' : 'lg:order-1',
+						'flex min-w-0 justify-center',
+						screenSide === 'right' ? 'md:order-2' : 'md:order-1',
 					)}
 				>
 					{screen}
@@ -253,7 +238,7 @@ function ClosingCta() {
 				Decide dinner once, for the whole week.
 			</h2>
 			{isNativeShell ? null : (
-				<p className="text-cream/80 mx-auto mt-5 max-w-[28rem] text-lg leading-[1.55]">
+				<p className="text-muted-foreground mx-auto mt-5 max-w-[28rem] text-lg leading-[1.55]">
 					It&apos;s free, and the first 14 days include Pro.
 				</p>
 			)}
@@ -261,698 +246,5 @@ function ClosingCta() {
 				<PrimaryCta />
 			</div>
 		</section>
-	)
-}
-
-// Static app screens. The real Plan/Shopping/Staples components submit through
-// fetchers and load choices on demand, so they can't render outside their
-// routes; these mirror their markup and dimensions at 1:1.
-
-/** The page body only: the section heading already names the tab, so the
- *  app's nav bar would be repeated chrome in every frame. */
-function AppScreen({
-	children,
-	label,
-}: {
-	children: ReactNode
-	label: string
-}) {
-	return (
-		<div
-			role="img"
-			aria-label={label}
-			className="border-espresso-line bg-espresso-surface shadow-warm-lg overflow-hidden rounded-xl border"
-		>
-			<div aria-hidden="true">{children}</div>
-		</div>
-	)
-}
-
-function DoneCircle({ done }: { done: boolean }) {
-	return done ? (
-		<span className="border-sage bg-sage text-sage-foreground flex size-5 items-center justify-center rounded-full border-2">
-			<Icon name="check" className="size-3" />
-		</span>
-	) : (
-		<span className="border-cream-muted/40 flex size-5 rounded-full border-2" />
-	)
-}
-
-/** The Meal action menu from the real Plan, opening below its trigger. A
- *  Meal alone on its day has no Move earlier or Move later. */
-function MealMenu() {
-	const item = 'flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm'
-	const separator = 'bg-espresso-line/70 my-1 h-px'
-	return (
-		<div className="border-espresso-line bg-espresso-raised shadow-warm-md absolute top-8 right-0 z-20 w-56 rounded-lg border p-1 text-left normal-case">
-			<div className={item}>
-				<Icon name="check" size="sm" />
-				Mark cooked
-			</div>
-			<div className={cn(item, 'bg-cream/8')}>
-				<Icon name="pencil-1" size="sm" />
-				Edit details
-			</div>
-			<div className={item}>
-				<Icon name="cart" size="sm" />
-				Add to Shopping
-			</div>
-			<div className={separator} />
-			<div className={item}>
-				<Icon name="trash" size="sm" />
-				Delete
-			</div>
-		</div>
-	)
-}
-
-type PlanItem = { dish: string; multiplier?: number; done?: boolean }
-type PlanMealEntry = {
-	label: string
-	/** When it is served, as the Plan shows it. */
-	time: string
-	guests?: number
-	items: PlanItem[]
-	/** Render the Meal's action menu open, as after tapping its dots. */
-	menuOpen?: boolean
-}
-/** A mock day as written: its name and Meal. `onDates` adds the rest. */
-type WeekDay = {
-	day: string
-	meal?: PlanMealEntry
-}
-type PlanDay = WeekDay & {
-	date: number
-	today: boolean
-}
-
-/**
- * The mock week on the real calendar: Monday is `weekStart` and the row for
- * `today` says Today. Only yesterday's Meal is cooked, as the mock always
- * showed, so the hero looks the same whatever the weekday.
- */
-function onDates(days: WeekDay[], weekStart: Date, today: string): PlanDay[] {
-	const yesterday = serializeDate(addDaysUTC(parseDate(today), -1))
-	return days.map((row, index) => {
-		const date = addDaysUTC(weekStart, index)
-		const day = serializeDate(date)
-		const done = day === yesterday
-		return {
-			...row,
-			date: date.getUTCDate(),
-			today: day === today,
-			meal: row.meal && {
-				...row.meal,
-				items: row.meal.items.map((item) => ({ ...item, done })),
-			},
-		}
-	})
-}
-
-const thisWeek: WeekDay[] = [
-	{
-		day: 'Monday',
-		meal: {
-			label: 'Dinner',
-			time: '7:00 PM',
-			items: [{ dish: 'Pasta al limone' }],
-		},
-	},
-	{
-		day: 'Tuesday',
-		meal: {
-			label: 'Dinner',
-			time: '7:00 PM',
-			items: [{ dish: 'Miso-glazed salmon' }],
-		},
-	},
-	{
-		day: 'Wednesday',
-		meal: {
-			label: 'Dinner',
-			time: '6:30 PM',
-			items: [{ dish: 'Black bean tacos' }],
-		},
-	},
-	{
-		day: 'Thursday',
-		meal: {
-			label: 'Dinner',
-			time: '7:30 PM',
-			items: [{ dish: 'Chicken tikka' }],
-		},
-	},
-	{
-		day: 'Friday',
-		meal: { label: 'Dinner', time: '7:00 PM', items: [{ dish: 'Shakshuka' }] },
-	},
-	{
-		day: 'Saturday',
-		meal: { label: 'Dinner', time: '7:00 PM', items: [{ dish: 'Ramen' }] },
-	},
-	{
-		day: 'Sunday',
-		meal: {
-			label: 'Dinner',
-			time: '6:00 PM',
-			items: [{ dish: 'Roast chicken' }],
-		},
-	},
-]
-
-/** Next week, half planned: a three-dish Meal with its roast doubled for
- *  guests, open days.
- *  The Meal with guests is first so the 600px crop shows it whole at every
- *  width; the open menu hangs from Tuesday so all its items sit above the
- *  crop and its fade. */
-const nextWeek: WeekDay[] = [
-	{
-		day: 'Monday',
-		meal: {
-			label: 'Dinner',
-			time: '7:30 PM',
-			guests: 6,
-			items: [
-				{ dish: 'Roast chicken', multiplier: 2 },
-				{ dish: 'Focaccia' },
-				{ dish: 'Green salad' },
-			],
-		},
-	},
-	{
-		day: 'Tuesday',
-		meal: {
-			label: 'Dinner',
-			time: '6:30 PM',
-			menuOpen: true,
-			items: [{ dish: 'Black bean tacos' }],
-		},
-	},
-	{
-		day: 'Wednesday',
-		meal: {
-			label: 'Dinner',
-			time: '7:00 PM',
-			items: [{ dish: 'Chicken tikka' }],
-		},
-	},
-	{ day: 'Thursday' },
-	{
-		day: 'Friday',
-		meal: { label: 'Dinner', time: '7:00 PM', items: [{ dish: 'Shakshuka' }] },
-	},
-	{
-		day: 'Saturday',
-		meal: { label: 'Lunch', time: '12:30 PM', items: [{ dish: 'Ramen' }] },
-	},
-	{ day: 'Sunday' },
-]
-
-/** The desktop week agenda from `MealPlanCalendar`, rendered statically. */
-function PlanAgenda({
-	days,
-	framed = true,
-	controls = true,
-}: {
-	days: PlanDay[]
-	framed?: boolean
-	/** Render each Meal's ⋯ trigger and each Recipe's scale field. Off in the
-	 *  hero, where they are only chrome. */
-	controls?: boolean
-}) {
-	return (
-		<div
-			role={framed ? 'img' : undefined}
-			aria-label={framed ? 'This week’s Plan, Monday to Sunday' : undefined}
-			className={cn(
-				'bg-espresso-surface overflow-hidden rounded-2xl',
-				framed && 'border-espresso-line shadow-warm-lg border',
-				!framed && 'border-espresso-line/80 border',
-			)}
-		>
-			{days.map((row) => (
-				<section
-					key={row.day}
-					className={cn(
-						'border-espresso-line/70 grid grid-cols-[5.75rem_1fr] border-b last:border-b-0 sm:grid-cols-[7.5rem_1fr]',
-						row.today &&
-							"before:bg-copper relative before:absolute before:inset-y-0 before:left-0 before:w-1 before:content-['']",
-					)}
-				>
-					<div
-						className={cn(
-							'border-espresso-line/70 bg-espresso-raised/35 border-r px-4 sm:px-5',
-							row.meal ? 'py-3.5' : 'py-3',
-							row.today && 'bg-copper/12',
-						)}
-					>
-						<p
-							className={cn(
-								'text-cream-muted text-xs font-semibold tracking-wider uppercase',
-								row.today && 'text-copper',
-							)}
-						>
-							{row.today ? (
-								'Today'
-							) : (
-								<>
-									<span className="sm:hidden">{row.day.slice(0, 3)}</span>
-									<span className="hidden sm:inline">{row.day}</span>
-								</>
-							)}
-						</p>
-						<p className="mt-0.5 font-serif text-lg">{row.date}</p>
-					</div>
-					<div
-						className={cn('min-w-0 px-4 sm:px-5', row.meal ? 'py-3' : 'py-1')}
-					>
-						{row.meal ? (
-							<>
-								<div className="relative flex items-start justify-between gap-2">
-									<div className="text-cream-muted flex min-h-6 flex-wrap items-center gap-x-1.5 text-xs font-semibold tracking-wider uppercase">
-										<span>{row.meal.label}</span>
-										<span className="inline-flex items-center gap-0.5 normal-case">
-											<Icon name="clock" className="size-3" />
-											{row.meal.time}
-										</span>
-										{row.meal.guests ? (
-											<span className="normal-case">
-												· {row.meal.guests} guests
-											</span>
-										) : null}
-									</div>
-									{controls ? (
-										<span
-											className={cn(
-												'flex size-6 shrink-0 items-center justify-center rounded',
-												row.meal.menuOpen
-													? 'bg-espresso-raised text-cream'
-													: 'text-cream-muted',
-											)}
-										>
-											<Icon name="dots-horizontal" className="size-3.5" />
-										</span>
-									) : null}
-									{row.meal.menuOpen ? <MealMenu /> : null}
-								</div>
-								<div className="mt-1">
-									{/* Like the Plan's Meal card: 28px rows, 16px apart with a
-									    line between them that starts at the titles. */}
-									{row.meal.items.map((item, index) => (
-										<div
-											key={item.dish}
-											className={cn(
-												'flex gap-2',
-												controls ? 'min-h-7 items-center' : 'items-start',
-												index > 0 &&
-													"before:border-espresso-line/60 relative mt-2 pt-2 before:absolute before:top-0 before:right-0 before:left-7 before:border-t before:content-['']",
-											)}
-										>
-											<span className="flex h-5 items-center">
-												<DoneCircle done={Boolean(item.done)} />
-											</span>
-											<p
-												className={cn(
-													'min-w-0 flex-1 font-serif text-[15px] leading-snug',
-													item.done && 'text-cream-muted line-through',
-												)}
-											>
-												{item.dish}
-											</p>
-											{/* The scale field trails every Recipe; 1× is the usual
-											    and reads muted. */}
-											{controls ? (
-												<span
-													className={cn(
-														'bg-espresso-raised/70 inline-flex h-7 min-w-11 shrink-0 items-center justify-center rounded-md px-2 text-xs tabular-nums',
-														!item.multiplier && 'text-cream-muted',
-													)}
-												>
-													{item.multiplier ?? 1}×
-												</span>
-											) : null}
-										</div>
-									))}
-								</div>
-							</>
-						) : (
-							<div className="flex flex-col items-start pt-2 text-sm">
-								<span className="text-cream-muted">Nothing planned</span>
-								<span className="text-sage inline-flex min-h-9 items-center gap-1 text-xs font-semibold">
-									<Icon name="plus" className="size-3" />
-									Add Meal
-								</span>
-							</div>
-						)}
-					</div>
-				</section>
-			))}
-		</div>
-	)
-}
-
-function PlanScreen({ today }: { today: string }) {
-	const weekStart = addDaysUTC(getWeekStart(parseDate(today)), 7)
-	const range = formatWeekRange(weekStart, today)
-	return (
-		<AppScreen
-			label={`The Plan page: next week, ${range}, with the action menu open on Tuesday’s dinner`}
-		>
-			<div className="px-5 py-4 sm:px-6">
-				{/* The week row is the calendar's own title row; the section
-				    heading already says which page this is. */}
-				<div className="flex items-center gap-2">
-					<span className="-ml-2.5 flex size-9 items-center justify-center rounded-full">
-						<Icon name="chevron-left" size="md" />
-					</span>
-					<div className="text-center">
-						<p className="font-serif text-lg">{range}</p>
-						<p className="text-sage text-sm font-medium">This week</p>
-					</div>
-					<span className="flex size-9 items-center justify-center rounded-full">
-						<Icon name="chevron-right" size="md" />
-					</span>
-				</div>
-				<div className="mt-4">
-					<PlanAgenda
-						days={onDates(nextWeek, weekStart, today)}
-						framed={false}
-					/>
-				</div>
-			</div>
-		</AppScreen>
-	)
-}
-
-const ingredients = [
-	{ amount: '4', name: 'salmon fillets', notes: 'skin on', checked: true },
-	{ amount: '3 tbsp', name: 'white miso', checked: true },
-	{ amount: '2 tbsp', name: 'mirin' },
-	{ amount: '1 tbsp', name: 'soy sauce' },
-	{ amount: '2 tsp', name: 'brown sugar' },
-	{ amount: '1 tbsp', name: 'rice vinegar' },
-	{ amount: '2', name: 'spring onions', notes: 'thinly sliced' },
-	{ amount: '1', name: 'lime', notes: 'cut into wedges' },
-]
-
-const steps = [
-	'Whisk the miso, mirin, soy, sugar, and vinegar into a loose paste. Pat the salmon dry and coat it on all sides.',
-	'Rest 20 minutes at room temperature, or overnight in the fridge if you have the time.',
-	'Heat the grill with a rack 15 cm below it. Line a baking tray with foil.',
-	'Grill skin side down until the glaze blisters and the edges catch, 6 to 8 minutes. Finish with spring onions and a squeeze of lime.',
-]
-
-/** The Recipe detail page at rest, scaled to 2× with two ingredients checked. */
-function RecipesScreen() {
-	return (
-		<AppScreen label="A Recipe page: Miso-glazed salmon, scaled to 2×, two ingredients checked off">
-			<div className="px-5 pt-5 pb-6 sm:px-6">
-				<h3 className="font-serif text-[2rem] leading-[1.15] tracking-[-0.02em]">
-					Miso-glazed salmon
-				</h3>
-				<div className="text-cream-muted mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-					<span className="inline-flex items-center gap-1">
-						<Icon name="timer" size="sm" className="opacity-70" />
-						Active: 10 min
-					</span>
-					<span className="inline-flex items-center gap-1">
-						<Icon name="clock" size="sm" className="opacity-70" />
-						Total: 25 min
-					</span>
-				</div>
-				<p className="text-cream-muted mt-5 text-base leading-relaxed">
-					Sweet-salty glaze, grilled until the edges catch. Rice and something
-					green and dinner is done.
-				</p>
-				<div className="text-cream-muted mt-4 flex items-center gap-1">
-					{(
-						[
-							'heart-filled',
-							'calendar',
-							'pencil-1',
-							'copy',
-							'share',
-							'dots-horizontal',
-						] as const
-					).map((name) => (
-						<span
-							key={name}
-							className={cn(
-								'flex size-11 items-center justify-center',
-								name === 'heart-filled' && 'text-copper',
-							)}
-						>
-							<Icon name={name} size="md" />
-						</span>
-					))}
-				</div>
-
-				<div className="mt-6 grid gap-6 sm:grid-cols-[6fr_7fr]">
-					<div className="min-w-0">
-						<div className="flex items-center gap-1">
-							<p className="font-serif text-lg">Ingredients</p>
-							<span className="text-cream-muted ml-auto flex items-center gap-1 px-2 text-sm">
-								Scale <span className="text-cream tabular-nums">2×</span>
-								<Icon name="chevron-down" size="xs" />
-							</span>
-							<span className="text-cream-muted flex h-8 items-center rounded-full border border-transparent px-2.5 text-xs font-medium">
-								Metric
-							</span>
-						</div>
-						<p className="text-cream-muted mt-1 text-xs">
-							Makes 8 servings · original: 4
-						</p>
-						<ul className="mt-3 space-y-1 leading-[1.7]">
-							{ingredients.map((item) => (
-								<li
-									key={item.name}
-									className="flex items-center gap-3 rounded-lg px-1 py-2"
-								>
-									<span
-										className={cn(
-											'flex size-6 shrink-0 items-center justify-center rounded border',
-											item.checked
-												? 'border-sage bg-sage text-sage-foreground'
-												: 'border-cream-muted/25 bg-espresso-raised/40',
-										)}
-									>
-										{item.checked ? (
-											<Icon name="check" className="size-4" />
-										) : null}
-									</span>
-									<span
-										className={cn(
-											'min-w-0 flex-1 text-[15px]',
-											item.checked && 'text-cream-muted line-through',
-										)}
-									>
-										<span className="font-medium">{scaled(item.amount)} </span>
-										{scaledName(item)}
-										{item.notes ? (
-											<span className={item.checked ? '' : 'text-cream-muted'}>
-												, {item.notes}
-											</span>
-										) : null}
-									</span>
-									{/* Add to Shopping, on the rows not yet checked off. */}
-									{item.checked ? null : (
-										<span className="text-cream-muted/70 flex size-6 shrink-0 items-center justify-center">
-											<Icon name="cart" className="size-4" />
-										</span>
-									)}
-								</li>
-							))}
-						</ul>
-					</div>
-					<div className="min-w-0">
-						<p className="mb-3 font-serif text-lg">Instructions</p>
-						<ol>
-							{steps.map((step, index) => (
-								<li
-									key={step}
-									className="border-espresso-line/50 flex gap-3 border-b py-3 last:border-b-0"
-								>
-									<span className="text-cream-muted flex h-8 w-6 shrink-0 items-center justify-center font-serif text-xl leading-none">
-										{index + 1}
-									</span>
-									<p className="pt-0.5 text-[15px] leading-[1.75]">{step}</p>
-								</li>
-							))}
-						</ol>
-					</div>
-				</div>
-			</div>
-		</AppScreen>
-	)
-}
-
-/** Doubles the leading number of an amount string ("3 tbsp" → "6 tbsp"). */
-function scaled(amount: string) {
-	const [count = '', unit] = amount.split(' ')
-	const doubled = String(Number(count) * 2)
-	const words = scaledLineWords(
-		{ amount: count, unit: unit ?? null, name: '' },
-		2,
-	)
-	return words.unit ? `${doubled} ${words.unit}` : doubled
-}
-
-/** The name as the app shows it at 2× ("1 lime" → "2 limes"). */
-function scaledName({ amount, name }: { amount: string; name: string }) {
-	const [count = '', unit] = amount.split(' ')
-	return scaledLineWords({ amount: count, unit: unit ?? null, name }, 2).name
-}
-
-const staples = [
-	{ name: 'plain flour' },
-	{ name: 'black pepper' },
-	{ name: 'butter' },
-	{ name: 'tinned tomatoes' },
-	{ name: 'eggs' },
-	{ name: 'garlic' },
-	{ name: 'limes', onList: true },
-	{ name: 'white miso', onList: true },
-]
-
-function StaplesScreen() {
-	return (
-		<AppScreen label="The Staples page: 33 usual items, two already on Next shop">
-			<div className="px-5 py-5 sm:px-6">
-				<div className="flex items-center justify-between gap-3">
-					<h3 className="font-serif text-2xl">Staples</h3>
-					<span className="bg-sage text-sage-foreground flex size-11 shrink-0 items-center justify-center rounded-full">
-						<Icon name="plus" size="sm" />
-					</span>
-				</div>
-				<p className="text-cream-muted mt-1 text-sm">
-					Things you usually have. Add one to put it on Next shop.
-				</p>
-				{/* Search shows from 12 Staples. */}
-				<div className="border-espresso-line/60 bg-espresso-raised/50 text-cream-muted mt-4 flex h-11 items-center gap-2 rounded-lg border px-3 text-sm sm:max-w-md">
-					<Icon name="magnifying-glass" size="sm" />
-					Search
-				</div>
-
-				<div className="border-espresso-line/60 divide-espresso-line/60 mt-5 divide-y border-t">
-					{staples.map((staple) => (
-						<div key={staple.name} className="flex items-center gap-2 py-2">
-							<span className="min-w-0 flex-1 truncate text-[15px]">
-								{staple.name}
-							</span>
-							{staple.onList ? (
-								<span className="text-cream-muted inline-flex h-9 min-w-24 items-center justify-center gap-1.5 px-3 text-sm">
-									<Icon name="check" size="sm" />
-									On list
-								</span>
-							) : (
-								<span className="border-espresso-line/70 bg-espresso-raised inline-flex h-9 min-w-24 items-center justify-center rounded-md border px-3 text-sm font-medium">
-									Need
-								</span>
-							)}
-							<span className="text-cream-muted flex size-8 items-center justify-center">
-								<Icon name="trash" size="sm" />
-							</span>
-						</div>
-					))}
-				</div>
-			</div>
-		</AppScreen>
-	)
-}
-
-const shoppingNext = [
-	{ name: 'salmon fillets', amount: '4 fillets' },
-	{ name: 'limes', amount: '3' },
-	{ name: 'white miso', amount: '1 tub' },
-	{ name: 'black beans', amount: '2 cans' },
-	{ name: 'corn tortillas', amount: '12' },
-	{ name: 'feta', amount: '200 g' },
-	{ name: 'whole chicken', amount: '1 · about 1.8 kg' },
-	{ name: 'spaghetti', amount: '500 g', checked: true },
-	{ name: 'parmesan', amount: '1 wedge', checked: true },
-]
-
-function ShoppingRow({
-	name,
-	amount,
-	checked,
-}: {
-	name: string
-	amount?: string
-	checked?: boolean
-}) {
-	return (
-		<div className="flex items-center gap-3 py-2.5">
-			<span
-				className={cn(
-					'flex size-6 shrink-0 items-center justify-center rounded border-2',
-					checked
-						? 'border-sage bg-sage text-sage-foreground'
-						: 'border-espresso-line bg-espresso-raised/40',
-				)}
-			>
-				{checked ? <Icon name="check" size="xs" /> : null}
-			</span>
-			<div className="min-w-0 flex-1">
-				<p
-					className={cn(
-						'text-base',
-						checked && 'text-cream-muted line-through',
-					)}
-				>
-					{name}
-				</p>
-				{amount ? <p className="text-cream-muted text-sm">{amount}</p> : null}
-			</div>
-			<span className="text-cream-muted/50 flex size-10 items-center justify-center">
-				<Icon name="dots-horizontal" size="sm" />
-			</span>
-		</div>
-	)
-}
-
-function ShoppingScreen() {
-	const checked = shoppingNext.filter((item) => item.checked).length
-	return (
-		<AppScreen label="The Shopping page: 2 of 9 items checked for Next shop">
-			<div className="border-espresso-line/70 border-b px-5 py-4 sm:px-6">
-				<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-					<h3 className="font-serif text-2xl">
-						Shopping{' '}
-						<span className="text-cream-muted font-humanist text-lg tabular-nums">
-							({checked}/{shoppingNext.length})
-						</span>
-					</h3>
-					{/* The app keeps these right after the title; here they sit on
-					    the right edge, and under the title on a phone. */}
-					<div className="flex items-center gap-2 sm:ml-auto">
-						<span className="border-espresso-line/70 inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium">
-							<Icon name="file-text" size="sm" />
-							From Staples
-						</span>
-						<span className="border-espresso-line/70 inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium">
-							<Icon name="calendar" size="sm" />
-							From Plan
-						</span>
-					</div>
-				</div>
-			</div>
-			<div className="px-5 py-4 sm:px-6">
-				<div className="divide-espresso-line/60 divide-y">
-					{shoppingNext.map((item) => (
-						<ShoppingRow key={item.name} {...item} />
-					))}
-				</div>
-				<p className="text-cream-muted flex min-h-11 items-center justify-center pt-1 text-sm underline underline-offset-2">
-					Clear checked
-				</p>
-				{/* Later starts folded. */}
-				<div className="border-espresso-line/60 mt-8 flex min-h-11 items-center gap-2 border-t pt-3">
-					<p className="font-serif text-lg">Later</p>
-					<span className="text-cream-muted text-sm tabular-nums">(1)</span>
-					<Icon name="chevron-down" size="sm" className="text-cream-muted" />
-				</div>
-			</div>
-		</AppScreen>
 	)
 }

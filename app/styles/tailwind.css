@@ -18,10 +18,6 @@
 :root {
 	--radius: 0.5rem;
 
-	/* The app's faces (fonts.css). The homepage swaps them below. */
-	--typeface-sans: 'Schibsted Grotesk', system-ui, sans-serif;
-	--typeface-serif: 'Newsreader', Georgia, serif;
-
 	--background: #fbfbf8;
 	--foreground: #1a1915;
 
@@ -61,10 +57,6 @@
 	--foreground-destructive: #a8281f;
 
 	--ring: var(--primary);
-
-	--elevation-sm: 0 1px 2px rgb(0 0 0 / 0.06);
-	--elevation-md: 0 2px 8px rgb(0 0 0 / 0.08), 0 1px 2px rgb(0 0 0 / 0.04);
-	--elevation-lg: 0 4px 16px rgb(0 0 0 / 0.08), 0 1px 4px rgb(0 0 0 / 0.05);
 
 	--ease-page-settle: cubic-bezier(0.22, 0.68, 0.35, 1);
 	--ease-hover-lift: cubic-bezier(0.34, 0.01, 0.21, 1);
@@ -118,94 +110,6 @@
 	--foreground-destructive: #f0a198;
 }
 
-/* The homepage keeps its own faces and the palette it had before the app's
-   changed, on <html>: the page's text takes its face there, and what sits
-   outside its espresso shell reads the tokens there (the canvas around the
-   page in overscroll and a scrollbar's gutter, the focused skip link,
-   toasts). homepageCanvas in pwa-launch.ts holds the same two canvases. */
-:root:has([data-chrome='espresso']) {
-	--typeface-sans: 'DM Sans', system-ui, sans-serif;
-	--typeface-serif: 'Young Serif', Georgia, serif;
-
-	--background: #f6f1eb;
-	--foreground: #2d2926;
-	--card: #fdfaf6;
-	--card-foreground: #2d2926;
-	--popover: #fdfaf6;
-	--popover-foreground: #2d2926;
-	--primary: #48724e;
-	--primary-fill: #48724e;
-	--primary-foreground: #fdfaf6;
-	--secondary: #e8e0d4;
-	--secondary-foreground: #4a4139;
-	--muted: #ede7de;
-	--muted-foreground: #6f6358;
-	--border: #ded6ca;
-	--input: #ded6ca;
-	--input-invalid: #a85040;
-	--destructive: #b85c4a;
-	--destructive-foreground: #fdfaf6;
-	--foreground-destructive: #a85040;
-	--ring: #48724e;
-
-	--elevation-sm: 0 1px 2px oklch(25% 0.02 60 / 0.06);
-	--elevation-md:
-		0 2px 8px oklch(25% 0.02 60 / 0.08), 0 1px 2px oklch(25% 0.02 60 / 0.04);
-	--elevation-lg:
-		0 4px 16px oklch(25% 0.02 60 / 0.08), 0 1px 4px oklch(25% 0.02 60 / 0.05);
-}
-
-.dark:has([data-chrome='espresso']) {
-	--background: #1a1816;
-	--foreground: #e2dbd1;
-	--card: #2a2620;
-	--card-foreground: #e2dbd1;
-	--popover: #2a2620;
-	--popover-foreground: #e2dbd1;
-	--primary: #8cb393;
-	--primary-fill: #8cb393;
-	--primary-foreground: #1a1816;
-	--secondary: #2e2b26;
-	--secondary-foreground: #d4ccc0;
-	--muted: #302c26;
-	--muted-foreground: #b5a99b;
-	--border: #3d3830;
-	--input: #3d3830;
-	--input-invalid: #d07a68;
-	--destructive: #d07a68;
-	--destructive-foreground: #1a1816;
-	--foreground-destructive: #d07a68;
-	--ring: #8cb393;
-}
-
-/* The homepage re-themes the site chrome around it (header, Log In)
-   so the whole viewport sits on the espresso palette in either theme.
-   Every token the app adds is remapped here. After .dark, which sets the
-   same tokens on <html>. */
-[data-chrome='espresso'] {
-	--background: var(--color-espresso);
-	--foreground: var(--color-cream);
-	--card: var(--color-espresso);
-	--card-foreground: var(--color-cream);
-	--popover: var(--color-espresso);
-	--popover-foreground: var(--color-cream);
-	--muted-foreground: var(--color-cream-muted);
-	--faint: var(--color-cream-muted);
-	--control-edge: var(--color-cream-muted);
-	--border: var(--color-espresso-line);
-	--primary: var(--color-espresso-raised);
-	--primary-fill: var(--color-espresso-raised);
-	--primary-foreground: var(--color-cream);
-	--primary-tint: var(--color-espresso-surface);
-	--ring: var(--color-cream-muted);
-
-	--elevation-sm: 0 1px 2px oklch(25% 0.02 60 / 0.06);
-	--elevation-md:
-		0 2px 8px oklch(25% 0.02 60 / 0.08), 0 1px 2px oklch(25% 0.02 60 / 0.04);
-	--elevation-lg:
-		0 4px 16px oklch(25% 0.02 60 / 0.08), 0 1px 4px oklch(25% 0.02 60 / 0.05);
-}
-
 @theme inline {
 	--radius-sm: 0.25rem;
 	--radius-md: var(--radius);
@@ -234,27 +138,6 @@
 	--color-input-invalid: var(--input-invalid);
 	--color-destructive-foreground: var(--destructive-foreground);
 	--color-foreground-destructive: var(--foreground-destructive);
-	/* Through variables, so the homepage can keep its warm shadows and its
-	   faces: `inline` would otherwise write the values into the utilities. */
-	--shadow-warm: var(--elevation-sm);
-	--shadow-warm-md: var(--elevation-md);
-	--shadow-warm-lg: var(--elevation-lg);
-	--font-sans: var(--typeface-sans);
-	--font-serif: var(--typeface-serif);
-	/* Homepage palette: warm espresso canvas, visibly lighter
-	   surfaces, cream text, and one accent (the app's sage green) reserved for the primary
-	   CTA and at most two highlights. */
-	--color-espresso: #241f1a;
-	--color-espresso-deep: #1c1814;
-	--color-espresso-surface: #332a22;
-	--color-espresso-raised: #413729;
-	--color-espresso-line: #564a3c;
-	--color-cream: #f3ebdf;
-	--color-cream-muted: #bdae9a;
-	--color-sage: #8cb393;
-	--color-sage-foreground: #1a1816;
-	--color-copper: #d4a87a;
-	--font-humanist: 'Source Sans 3', 'Helvetica Neue', Arial, sans-serif;
 	--ease-page-settle: var(--ease-page-settle);
 	--ease-hover-lift: var(--ease-hover-lift);
 	--ease-reveal: var(--ease-reveal);
@@ -263,6 +146,14 @@
 }
 
 @theme {
+	/* The app's faces (fonts.css). */
+	--font-sans: 'Schibsted Grotesk', system-ui, sans-serif;
+	--font-serif: 'Newsreader', Georgia, serif;
+
+	--shadow-warm: 0 1px 2px rgb(0 0 0 / 0.06);
+	--shadow-warm-md: 0 2px 8px rgb(0 0 0 / 0.08), 0 1px 2px rgb(0 0 0 / 0.04);
+	--shadow-warm-lg: 0 4px 16px rgb(0 0 0 / 0.08), 0 1px 4px rgb(0 0 0 / 0.05);
+
 	/* Small labels: sentence case at weight 600 with no tracking (`text-label
 	   font-semibold`). */
 	--text-label: 0.84375rem;
@@ -516,9 +407,8 @@ html {
 
 	/* The serif sets titles and names at 500, with lining figures; a weight
 	   class beside it still wins, being a utility. The figure variable lets
-	   `tabular-nums` add to lining figures instead of replacing them. The
-	   homepage's Young Serif has one weight and inherits the rest. */
-	.font-serif:not([data-chrome='espresso'] *) {
+	   `tabular-nums` add to lining figures instead of replacing them. */
+	.font-serif {
 		font-weight: 500;
 		--tw-numeric-figure: lining-nums;
 		font-variant-numeric: lining-nums;

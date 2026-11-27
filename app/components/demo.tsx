@@ -204,7 +204,7 @@ export function TryDemoButton({
 }: {
 	redirectTo: string
 	className?: string
-	variant?: 'outline'
+	variant?: 'outline' | 'secondary'
 }) {
 	const navigation = useNavigation()
 	const pending =

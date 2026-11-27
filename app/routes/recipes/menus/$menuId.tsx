@@ -288,14 +288,14 @@ export async function action({ request, params }: Route.ActionArgs) {
 	return redirect(`/plan?weekStart=${serializeDate(getWeekStart(date))}`)
 }
 
+const fieldLabel =
+	'text-muted-foreground phone:text-label phone:mb-1.5 phone:font-semibold mb-1 block text-xs font-medium'
+
 /**
  * The Add to Plan panel: date plus optional label, serving time, and guest
  * count. Guest count is prefilled from the Menu's default as context. It
  * never scales quantities, and multipliers copy unchanged.
  */
-const fieldLabel =
-	'text-muted-foreground phone:text-label phone:mb-1.5 phone:font-semibold mb-1 block text-xs font-medium'
-
 function AddToPlanPanel({
 	defaultDate,
 	defaultGuestCount,
@@ -325,7 +325,8 @@ function AddToPlanPanel({
 		<Form
 			method="POST"
 			className={cn(
-				!inSheet && 'border-border/60 bg-card mt-4 rounded-lg border p-4',
+				!inSheet &&
+					'border-border/60 bg-card phone:mt-5 mt-4 rounded-lg border p-4',
 			)}
 		>
 			<input type="hidden" name="intent" value="planMenu" />
@@ -484,11 +485,20 @@ export default function MenuDetail({
 
 			{/* One primary action. On a phone it is the one full-width button and
 			    Share and Edit are in the nav bar; wider, they stay quiet beside
-			    it, the same shape as the Recipe action bar. */}
-			<div className="phone:mt-5 mt-4 flex items-center gap-1">
+			    it, the same shape as the Recipe action bar. While the form is
+			    open in place the button is gone, so on a phone the row, which
+			    would be empty, goes too. */}
+			<div
+				className={cn(
+					'phone:mt-5 mt-4 flex items-center gap-1',
+					showPlanPanel && !planInSheet && 'phone:hidden',
+				)}
+			>
 				{(!showPlanPanel || planInSheet) && (
 					<Button
-						className="phone:h-12 phone:flex-1 phone:text-base phone:font-semibold"
+						// From 640px the button keeps its own width, except on a
+						// phone's screen, where it fills the row.
+						className="phone:h-12 phone:text-base phone:font-semibold not-phone:sm:flex-none flex-1"
 						onClick={() => {
 							setPlanInSheet(opensAsSheet())
 							setPlanning(true)

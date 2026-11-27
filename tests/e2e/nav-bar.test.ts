@@ -8,6 +8,7 @@ import {
 	browserToday,
 	expect,
 	hydrated,
+	recipeEditItem,
 	test,
 } from '#tests/playwright-utils.ts'
 
@@ -427,7 +428,7 @@ test('Save in the nav bar saves the edit and returns to the Recipe', async ({
 	const listIdx = await historyIdx(page)
 	await page.getByRole('link', { name: /^Lentil soup/ }).tap()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}`)
-	await page.getByRole('link', { name: 'Edit Recipe' }).tap()
+	await (await recipeEditItem(page)).tap()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
 
 	// The edit screen's bar holds Cancel and Save; the form has no Save of
@@ -468,9 +469,9 @@ test('Cancel discards the edit', async ({ page, login }) => {
 	const recipe = await createLongRecipe(user, 'Lentil soup')
 
 	await page.goto(`/recipes/${recipe.id}`)
-	await hydrated(page.getByRole('link', { name: 'Edit Recipe' }))
+	const edit = await recipeEditItem(page)
 	const recipeIdx = await historyIdx(page)
-	await page.getByRole('link', { name: 'Edit Recipe' }).tap()
+	await edit.tap()
 	await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
 	await page.getByLabel('Title').fill('Something else')
 	await page

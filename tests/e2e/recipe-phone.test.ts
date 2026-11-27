@@ -183,7 +183,7 @@ test('Share in the bar copies the public link', async ({ page, login }) => {
 	)
 })
 
-test('More actions holds Copy Recipe above Print, and Reset cooking checks once a row is checked', async ({
+test('More actions holds Edit, Copy Recipe and Print, and Reset cooking checks once a row is checked', async ({
 	page,
 	login,
 }) => {
@@ -194,7 +194,11 @@ test('More actions holds Copy Recipe above Print, and Reset cooking checks once 
 	const more = bar(page).getByRole('button', { name: 'More actions' })
 	await hydrated(more)
 	await more.tap()
-	await expect(page.getByRole('menuitem')).toHaveText(['Copy Recipe', 'Print'])
+	await expect(page.getByRole('menuitem')).toHaveText([
+		'Edit',
+		'Copy Recipe',
+		'Print',
+	])
 	await page.getByRole('menuitem', { name: 'Copy Recipe' }).tap()
 	await expect
 		.poll(() => page.evaluate(() => navigator.clipboard.readText()))
@@ -205,6 +209,7 @@ test('More actions holds Copy Recipe above Print, and Reset cooking checks once 
 	await expect(oil).toBeChecked()
 	await more.tap()
 	await expect(page.getByRole('menuitem')).toHaveText([
+		'Edit',
 		'Reset cooking checks',
 		'Copy Recipe',
 		'Print',

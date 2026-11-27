@@ -264,6 +264,21 @@ export async function openShopping(page: Page) {
 	)
 }
 
+/**
+ * On a phone a Recipe's Edit is the first item in the nav bar's More actions.
+ * Opens that menu and returns the item.
+ */
+export async function recipeEditItem(page: Page) {
+	const more = page
+		.locator('[data-nav-bar]')
+		.getByRole('button', { name: 'More actions' })
+	await hydrated(more)
+	await more.click()
+	const edit = page.getByRole('menuitem', { name: 'Edit Recipe' })
+	await expect(edit).toBeVisible()
+	return edit
+}
+
 /** Checks that a control is visible and at least 44px tall, a thumb's height. */
 export async function expectThumbTall(control: Locator) {
 	await expect(control).toBeVisible()

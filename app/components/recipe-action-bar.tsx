@@ -21,6 +21,7 @@ import { cn } from '#app/utils/misc.tsx'
 import { formatRecipeForCopy } from '#app/utils/recipe-copy.ts'
 import { type EnhanceableFields } from '#app/utils/recipe-enhance-llm.server.ts'
 import { browserShareFunctions, shareOrCopy } from '#app/utils/share-link.ts'
+import { navActionButton, navActionIcon } from './nav-bar.tsx'
 import { PushLink } from './push-link.tsx'
 
 type CopyableRecipe = Parameters<typeof formatRecipeForCopy>[0] & {
@@ -204,9 +205,8 @@ export function RecipeNavActions({
 	const { share, copy, enhancing } = useRecipeActions(recipe)
 	const { isFavorite } = useRecipeFavorite(recipe)
 	const page = useRecipePage(recipe.id)
-	const button =
-		'text-foreground hover:bg-transparent transition-opacity active:opacity-60'
-	const icon = 'size-[22px]'
+	const button = navActionButton
+	const icon = navActionIcon
 	return (
 		<>
 			<Button

@@ -295,6 +295,12 @@ function PageActions({
 	)
 }
 
+/** A page's icon button in the bar: ink, and dimmed while pressed. No hover
+ * fill, which a tap would leave behind. */
+export const navActionButton =
+	'text-foreground hover:bg-transparent transition-opacity active:opacity-60'
+export const navActionIcon = 'size-[22px]'
+
 // A page whose route names buttons for the bar registers while it is on
 // screen, as an edit form does, so an error after load (a favourite tapped on
 // a Recipe someone deleted) takes the buttons away with the page.

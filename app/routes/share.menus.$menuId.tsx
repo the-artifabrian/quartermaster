@@ -125,20 +125,27 @@ export async function action({ params, request }: Route.ActionArgs) {
 	return redirect(`/recipes/menus/${savedId}`)
 }
 
+// The page's one button is full width and 48px on a phone, as Add to Plan is
+// on a Menu's own page.
+const phoneButton =
+	'phone:h-12 phone:w-full phone:text-base phone:font-semibold'
+
 export default function SharedMenu({ loaderData }: Route.ComponentProps) {
 	const { menu, savedMenuId, isLoggedIn } = loaderData
 	const save = useFetcher<typeof action>()
 	return (
 		<div className="container max-w-2xl py-6 pb-[calc(var(--bottom-nav-h)+1rem+var(--bottom-nav-inset))] md:pb-6">
-			<p className="text-muted-foreground mb-2 text-sm">
+			<p className="text-muted-foreground phone:text-label mb-2 text-sm">
 				Shared on{' '}
 				<Link to="/" className="text-primary hover:underline">
 					Quartermaster
 				</Link>
 			</p>
-			<h1 className="font-serif text-3xl break-words">{menu.title}</h1>
+			<h1 className="phone:text-menu-title font-serif text-3xl break-words">
+				{menu.title}
+			</h1>
 			{menu.defaultGuestCount && (
-				<p className="text-muted-foreground mt-2 text-sm">
+				<p className="text-muted-foreground phone:text-label mt-2 text-sm">
 					Usually for {menu.defaultGuestCount} guests
 				</p>
 			)}
@@ -149,20 +156,24 @@ export default function SharedMenu({ loaderData }: Route.ComponentProps) {
 			)}
 			<div className="mt-5">
 				{savedMenuId ? (
-					<Button asChild>
+					<Button asChild className={phoneButton}>
 						<PushLink to={`/recipes/menus/${savedMenuId}`}>
 							Open my Menu
 						</PushLink>
 					</Button>
 				) : isLoggedIn ? (
 					<save.Form method="POST">
-						<Button type="submit" disabled={save.state !== 'idle'}>
+						<Button
+							type="submit"
+							disabled={save.state !== 'idle'}
+							className={phoneButton}
+						>
 							<Icon name="plus" />
 							{save.state !== 'idle' ? 'Saving…' : 'Save to your Menus'}
 						</Button>
 					</save.Form>
 				) : (
-					<Button asChild>
+					<Button asChild className={phoneButton}>
 						<Link
 							to={`/login?${new URLSearchParams({ redirectTo: `/share/menus/${menu.id}` })}`}
 						>
@@ -171,12 +182,15 @@ export default function SharedMenu({ loaderData }: Route.ComponentProps) {
 					</Button>
 				)}
 				{!savedMenuId && (
-					<p className="text-muted-foreground mt-2 text-sm">
+					<p className="text-muted-foreground phone:text-label mt-2 text-sm">
 						Save your own copy of this Menu and its Recipes.
 					</p>
 				)}
 				{save.data?.error && (
-					<p role="alert" className="text-foreground-destructive mt-2 text-sm">
+					<p
+						role="alert"
+						className="text-foreground-destructive phone:text-label mt-2 text-sm"
+					>
 						{save.data.error}
 					</p>
 				)}

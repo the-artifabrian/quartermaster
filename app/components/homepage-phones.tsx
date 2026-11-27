@@ -20,11 +20,7 @@ import { Icon, type IconName } from './ui/icon.tsx'
 import { tabTitleClassName } from './ui/title-add-button.tsx'
 
 /** Where a phone sits: its scale steps (`phoneScales`) and its place. */
-type PhoneProps = {
-	scale: string | null
-	decorative?: boolean
-	className?: string
-}
+type PhoneProps = { scale: string | null; className?: string }
 
 /** A phone's page edge: 16px each side, as `container` draws it. */
 const page = 'px-4'
@@ -41,7 +37,10 @@ type MockMeal = {
 	menuOpen?: boolean
 }
 
-/** Today on a phone's Plan: breakfast eaten, the rest of the day to come. */
+/**
+ * Today on a phone's Plan: breakfast eaten, lunch and a snack to come. The
+ * hero cuts the phone through the snack, so nothing past it would show.
+ */
 const todaysMeals: MockMeal[] = [
 	{
 		label: 'Breakfast',
@@ -54,12 +53,6 @@ const todaysMeals: MockMeal[] = [
 		dishes: [{ name: 'Red lentil soup' }, { name: 'Garlic flatbread' }],
 	},
 	{ label: 'Snack', time: '4:00 PM', dishes: [{ name: 'Banana bread' }] },
-	{
-		label: 'Dinner',
-		time: '7:00 PM',
-		guests: 4,
-		dishes: [{ name: 'Miso-glazed salmon' }, { name: 'Sesame greens' }],
-	},
 ]
 
 /**
@@ -99,16 +92,14 @@ const plannedWeekdays = new Set(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'])
 export function TodayPlanPhone({
 	today,
 	scale,
-	decorative,
 	className,
 }: PhoneProps & { today: string }) {
 	const day = planDayOnPhone(today, today, plannedWeekdays)
 	return (
 		<PhoneFrame
 			scale={scale}
-			decorative={decorative}
 			className={className}
-			label={`The Plan on a phone: today, ${day.weekdayName}, ${day.heading}, with breakfast cooked, then lunch, a snack and dinner for 4 guests`}
+			label={`The Plan on a phone: today, ${day.weekdayName}, ${day.heading}, with breakfast cooked, then lunch and a snack`}
 		>
 			<PlanScreen day={day} meals={todaysMeals} />
 		</PhoneFrame>
@@ -119,14 +110,12 @@ export function TodayPlanPhone({
 export function GuestsPlanPhone({
 	today,
 	scale,
-	decorative,
 	className,
 }: PhoneProps & { today: string }) {
 	const day = planDayOnPhone(today, nextSaturday(today), plannedWeekdays)
 	return (
 		<PhoneFrame
 			scale={scale}
-			decorative={decorative}
 			className={className}
 			label={`The Plan on a phone: ${day.weekdayName}, ${day.heading}, lunch with its menu open, then a dinner for 6 guests of roast chicken at 2×, focaccia and green salad`}
 		>
@@ -454,11 +443,10 @@ function Cue({ children }: { children: ReactNode }) {
 }
 
 /** The Recipe page on a phone, for a Recipe without a photo. */
-export function RecipePhone({ scale, decorative, className }: PhoneProps) {
+export function RecipePhone({ scale, className }: PhoneProps) {
 	return (
 		<PhoneFrame
 			scale={scale}
-			decorative={decorative}
 			className={className}
 			label="A Recipe on a phone: Miso-glazed salmon, scaled to 2×, two ingredients checked off, and its first steps"
 		>
@@ -625,11 +613,10 @@ const staples = [
 ]
 
 /** The Staples tab on a phone (ActiveStaples). */
-export function StaplesPhone({ scale, decorative, className }: PhoneProps) {
+export function StaplesPhone({ scale, className }: PhoneProps) {
 	return (
 		<PhoneFrame
 			scale={scale}
-			decorative={decorative}
 			className={className}
 			label="Staples on a phone: Search over the usual items in A to Z order, two of them already on Next shop"
 		>
@@ -691,7 +678,15 @@ const checkedRows = [
 ]
 
 /** Shopping on a phone (ShoppingScreen), its Next shop part checked. */
-export function ShoppingPhone({ scale, decorative, className }: PhoneProps) {
+export function ShoppingPhone({
+	scale,
+	decorative,
+	className,
+}: PhoneProps & {
+	/** Kept out of the accessibility tree: behind the hero's Plan it repeats
+	 *  the Shopping shown, and read, as the fourth step. */
+	decorative?: boolean
+}) {
 	return (
 		<PhoneFrame
 			scale={scale}

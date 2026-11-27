@@ -465,15 +465,18 @@ On a phone the Recipes and Menus lists share a title and a row shape:
   has, with the source site under them. Add to Plan is the one full-width green
   button; Favorite, Share and the dots are in the nav bar, and the dots hold
   Edit (named Edit Recipe) first, then Reset cooking checks while there are
-  checks, Copy Recipe and Print. Wider screens keep the title and facts beside
-  the photo and the row of icon actions, Edit among them.
-- On a phone a section heading (Ingredients, Instructions) has about 36px of
-  room above it and 24px between it and its first row. The yield shows once, in
-  the facts; the line under the Ingredients heading shows only while the Recipe
-  is scaled, with the original beside it.
-- Text on a phone's Recipe page comes in one reading size, 17px (notes,
-  ingredients and steps), and one small size, `text-label` (labels, the source
-  link, Scale). The description stays 16px and muted.
+  checks, Copy Recipe and Print, and for Pro the suggestion of a description and
+  times. Wider screens keep the title and facts beside the photo and the row of
+  icon actions, Edit among them.
+- On a phone a section heading (Ingredients, Instructions) has more room above
+  it (32 to 36px) than between it and its first row (20 to 24px). The yield
+  shows once, in the facts; the line under the Ingredients heading shows only
+  while the Recipe is scaled, with the original beside it.
+- Reading text on a phone's Recipe page is 17px (notes, ingredients and steps),
+  and the description stays 16px and muted. Small text is 13.5px (`text-label`):
+  semibold for labels, regular for the source link, Scale and the scaled yield.
+  Shared controls keep their own 14px (the Metric chip, Show more). Nothing is
+  12 or 15px.
 - On a phone an ingredient row starts with Shopping's check circle
   (`CheckCircle`) on the content edge, then one line of text: the amount and
   unit at weight 600, the name, then any note in muted roman after its comma,

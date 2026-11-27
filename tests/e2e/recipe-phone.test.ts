@@ -1002,7 +1002,7 @@ test('an ingredient row checks from a 44px area round its circle that stays clea
 	expect(row.height).toBeGreaterThanOrEqual(44)
 	expect(cart.width).toBeGreaterThanOrEqual(44)
 	expect(cart.height).toBeGreaterThanOrEqual(44)
-	expect(cart.x).toBeGreaterThanOrEqual(circle.x + circle.width)
+	expect(cart.x).toBeGreaterThanOrEqual(text.x + text.width)
 	// A tap on the circle checks the row; one on the cart only adds to
 	// Shopping.
 	await page.touchscreen.tap(

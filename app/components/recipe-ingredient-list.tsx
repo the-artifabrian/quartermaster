@@ -90,7 +90,7 @@ export function IngredientList({
 								'-mx-2 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 transition-colors select-none',
 								// A phone's rows touch, each at least 56px, so the whole height
 								// of the list checks a row.
-								'group/row phone:min-h-14 phone:py-0',
+								'phone:min-h-14 phone:py-0',
 								// No fill under a checked row: its faint text needs the page.
 								!isChecked && 'hover:bg-muted/50',
 								'focus-visible:ring-primary/50 focus-visible:ring-2 focus-visible:outline-none',
@@ -109,7 +109,7 @@ export function IngredientList({
 							<CheckCircle
 								checked={isChecked}
 								data-ingredient-check=""
-								className="phone:flex hidden group-active/row:scale-[0.97]"
+								className="phone:flex hidden"
 							/>
 							<span
 								className={cn(

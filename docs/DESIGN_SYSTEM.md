@@ -530,8 +530,9 @@ sizes. Wider screens keep the sizes they had.
   status lines are 13.5px muted, and an error is 13.5px in the error colour.
 - Fields are 44px tall with 16px text, so iOS never zooms the page on focus. A
   closed ingredient row reads at 17px on one line in a 52px row.
-- Button labels are 16px. Import's buttons are a full-width stack, 48px tall, up
-  to 767px wide; from 768px they sit in a row at the right.
+- Button labels are 16px. The buttons under each of Import's sources (Import,
+  Read as written, Read with AI) are a full-width stack, 48px tall, up to 767px
+  wide; from 768px they sit in a row at the right. Other buttons stay 44px.
 - The notice on a just-imported Recipe has 16px sentences and actions, with the
   source line at 13.5px.
 

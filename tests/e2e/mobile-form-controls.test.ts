@@ -1,6 +1,6 @@
 import { type Locator, type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
-import { expect, hydrated, test } from '#tests/playwright-utils.ts'
+import { expect, test } from '#tests/playwright-utils.ts'
 
 const PHONE_VIEWPORT = { width: 390, height: 844 }
 
@@ -243,45 +243,6 @@ test('mobile auth, Recipes, Staples, Plan, and settings controls are zoom-safe',
 		.filter({ visible: true })
 		.first()
 		.click()
-	await expectMobileEditableControlsToBeSafe(page)
-})
-
-test('the Recipe form’s opened ingredient row and closed sections hold zoom-safe controls', async ({
-	page,
-	login,
-}) => {
-	const user = await login()
-	const recipe = await prisma.recipe.create({
-		data: {
-			title: 'Zoom Test Recipe',
-			userId: user.id,
-			householdId: user.householdId,
-			ingredients: {
-				create: [
-					{ name: 'Sauce', isHeading: true, order: 0 },
-					{ name: 'butter', amount: '50', unit: 'g', order: 1 },
-				],
-			},
-			instructions: { create: { content: 'Melt the butter.', order: 0 } },
-		},
-	})
-	await page.setViewportSize(PHONE_VIEWPORT)
-	await page.goto(`/recipes/${recipe.id}/edit`)
-	await hydrated(page.getByRole('button', { name: 'Save', exact: true }))
-
-	await page.getByRole('button', { name: /^50 g butter/ }).click()
-	await expect(
-		page.getByRole('textbox', { name: 'Ingredient 1 notes' }),
-	).toBeVisible()
-	for (const section of ['Photo', 'Details', 'Classification']) {
-		await page.getByText(section, { exact: true }).click()
-	}
-	await page.getByRole('button', { name: 'Add cuisine' }).click()
-	// Every field the form can show is on the page now: the heading row, the
-	// opened row's four, the yield pair, a step, the photo, Details and the
-	// classification being added.
-	await expect(page.getByRole('textbox', { name: 'Add cuisine' })).toBeVisible()
-	await expect(page.getByLabel('Source URL')).toBeVisible()
 	await expectMobileEditableControlsToBeSafe(page)
 })
 

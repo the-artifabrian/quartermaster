@@ -1,6 +1,5 @@
 import * as cookie from 'cookie'
-
-const cookieName = 'en_theme'
+import { themeCookieName as cookieName } from './theme-cookie.ts'
 export type Theme = 'light' | 'dark'
 
 export function getTheme(request: Request): Theme | null {

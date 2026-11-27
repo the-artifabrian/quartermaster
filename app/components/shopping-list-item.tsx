@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { useSpinDelay } from 'spin-delay'
 import { BottomSheet, opensAsSheet } from '#app/components/ui/bottom-sheet.tsx'
 import { Button } from '#app/components/ui/button.tsx'
+import { CheckCircle } from '#app/components/ui/check-circle.tsx'
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -404,26 +405,10 @@ export function ShoppingListItemCard({
 						className="group/check flex min-h-14 min-w-0 flex-1 cursor-pointer items-center gap-3 py-2.5 text-left select-none"
 						aria-label={`${optimisticChecked ? 'Uncheck' : 'Check off'} ${item.name}`}
 					>
-						{/* The check circle: it fills and its tick draws at once. */}
-						<div
-							className={cn(
-								'flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition-[scale,background-color,border-color] duration-150 ease-(--ease-micro) group-enabled/check:group-active/check:scale-[0.97]',
-								optimisticChecked
-									? 'border-primary-fill bg-primary-fill'
-									: 'border-control-edge',
-							)}
-						>
-							<Icon
-								name="check"
-								size="xs"
-								className={cn(
-									'text-primary-foreground transition-[clip-path] duration-150 ease-(--ease-micro)',
-									optimisticChecked
-										? '[clip-path:inset(0)]'
-										: '[clip-path:inset(0_100%_0_0)]',
-								)}
-							/>
-						</div>
+						<CheckCircle
+							checked={optimisticChecked}
+							className="group-enabled/check:group-active/check:scale-[0.97]"
+						/>
 
 						{/* On a phone the amount follows the name on its line when
 						    it fits; wider, it is the line under it. */}

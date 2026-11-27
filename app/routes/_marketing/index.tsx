@@ -1,5 +1,5 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { type MouseEvent, type ReactNode } from 'react'
+import { type MouseEvent } from 'react'
 import { data, Link, redirect, useLoaderData } from 'react-router'
 import { TryDemoButton } from '#app/components/demo.tsx'
 import {
@@ -9,6 +9,7 @@ import {
 	StaplesPhone,
 	TodayPlanPhone,
 } from '#app/components/homepage-phones.tsx'
+import { phoneScales } from '#app/components/phone-frame.tsx'
 import { Button } from '#app/components/ui/button.tsx'
 import { getUserId } from '#app/utils/auth.server.ts'
 import { loadedToday } from '#app/utils/date.ts'
@@ -70,36 +71,7 @@ export default function Index() {
 				dangerouslySetInnerHTML={{ __html: webApplicationJsonLd }}
 			/>
 			<Hero today={today} />
-			{/* Same order as the subhead: Recipes, a week, minus Staples, a list. */}
-			<FeatureBand
-				index={1}
-				id="how-it-works"
-				heading="Your Recipes, in one place"
-				body="Paste a link or the text of a Recipe, or type one in. Scale up for guests and check off ingredients as you cook."
-				screenSide="left"
-				screen={<RecipePhone />}
-			/>
-			<FeatureBand
-				index={2}
-				heading="A week pencilled in"
-				body="Add Recipes to the week and group dishes into Meals. Move a Meal to another day when plans change."
-				screenSide="right"
-				screen={<GuestsPlanPhone today={today} />}
-			/>
-			<FeatureBand
-				index={3}
-				heading="Minus what you already have"
-				body="Add the Staples you usually have. Shopping leaves them out, and one tap puts any of them back on the list."
-				screenSide="left"
-				screen={<StaplesPhone />}
-			/>
-			<FeatureBand
-				index={4}
-				heading="Pick what you’ll buy"
-				body="Open From Plan, tick the Meals you’re shopping for, and only those lines land on the list."
-				screenSide="right"
-				screen={<ShoppingPhone />}
-			/>
+			<HowItWorks today={today} />
 			<ClosingCta />
 		</div>
 	)
@@ -109,8 +81,8 @@ function Hero({ today }: { today: string }) {
 	// The iOS app shows no copy about Pro or its trial (ADR 0001).
 	const isNativeShell = useIsNativeShell()
 	return (
-		<section className="container pt-10 pb-14 sm:pt-16 sm:pb-20 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-10 lg:gap-16 lg:pb-24">
-			<div className="max-w-[36rem]">
+		<section className="border-border container border-b pt-10 sm:pt-16 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-12 lg:pt-0 xl:gap-16">
+			<div className="max-w-[36rem] lg:self-center lg:py-16">
 				<h1 className="font-serif text-[2.75rem] leading-[1.02] tracking-[-0.02em] text-balance sm:text-[3.5rem] lg:text-[5.5rem]">
 					What are we making this week?
 				</h1>
@@ -141,8 +113,95 @@ function Hero({ today }: { today: string }) {
 				)}
 			</div>
 
-			<div className="mt-12 flex justify-center md:mt-0">
-				<TodayPlanPhone today={today} />
+			<PlanThenShop today={today} />
+		</section>
+	)
+}
+
+/**
+ * Plan on today in front, Shopping behind it, up and to the right with its
+ * left third covered: plan, then shop. The pair is cut by the hero's bottom
+ * edge, under the Plan's second Meal. A phone-width page has room for the
+ * Plan alone.
+ */
+function PlanThenShop({ today }: { today: string }) {
+	return (
+		<div
+			className={cn(
+				phoneScales.pair,
+				'relative mx-auto mt-12 h-[calc(var(--phone-scale)*600px_+_6px)] w-[calc(var(--phone-scale)*390px_+_12px)] overflow-hidden sm:h-[calc(var(--phone-scale)*740px_+_6px)] sm:w-[calc((var(--phone-scale)*390px_+_12px)*5/3)] lg:mx-0 lg:mt-16 lg:self-end',
+			)}
+		>
+			<ShoppingPhone
+				scale={null}
+				className="absolute top-0 right-0 hidden sm:block"
+			/>
+			<TodayPlanPhone
+				today={today}
+				scale={null}
+				className="absolute top-0 left-0 z-10 sm:top-[calc(var(--phone-scale)*140px)]"
+			/>
+		</div>
+	)
+}
+
+const features = [
+	{
+		heading: 'Your Recipes, in one place',
+		body: 'Paste a link or the text of a Recipe, or type one in. Scale up for guests and check off ingredients as you cook.',
+		phone: 'recipe',
+	},
+	{
+		heading: 'A week pencilled in',
+		body: 'Add Recipes to the week and group dishes into Meals. Move a Meal to another day when plans change.',
+		phone: 'plan',
+	},
+	{
+		heading: 'Minus what you already have',
+		body: 'Add the Staples you usually have. Shopping leaves them out, and one tap puts any of them back on the list.',
+		phone: 'staples',
+	},
+	{
+		heading: 'Pick what you’ll buy',
+		body: 'Open From Plan, tick the Meals you’re shopping for, and only those lines land on the list.',
+		phone: 'shopping',
+	},
+] as const
+
+/** Recipes, a week, minus Staples, a list: the subhead's order, side by side. */
+function HowItWorks({ today }: { today: string }) {
+	const scale = phoneScales.quarter
+	const phones = {
+		recipe: <RecipePhone scale={scale} />,
+		plan: <GuestsPlanPhone today={today} scale={scale} />,
+		staples: <StaplesPhone scale={scale} />,
+		shopping: <ShoppingPhone scale={scale} />,
+	}
+	return (
+		<section className="py-16 sm:py-24 lg:py-28">
+			{/* The anchor sits on the content, not the padded section, so "See how
+			    it works" lands it just under the header (sticky from md). */}
+			<div
+				id="how-it-works"
+				className="container grid scroll-mt-6 gap-x-6 gap-y-16 sm:grid-cols-2 md:scroll-mt-24 lg:grid-cols-4"
+			>
+				{features.map((feature, index) => (
+					<div key={feature.heading} className="flex min-w-0 flex-col">
+						{/* Under its text on a phone, above it once there are columns. */}
+						<div className="order-last mt-8 sm:order-first sm:mt-0 sm:mb-8">
+							{phones[feature.phone]}
+						</div>
+						<p className="font-serif text-xl tabular-nums">
+							{String(index + 1).padStart(2, '0')}
+						</p>
+						<h2 className="mt-3 font-serif text-[1.75rem] leading-[1.15] tracking-[-0.01em] text-balance">
+							{feature.heading}
+						</h2>
+						<p className="text-muted-foreground mt-3 text-[1.0625rem] leading-[1.55]">
+							{feature.body}
+						</p>
+					</div>
+				))}
 			</div>
 		</section>
 	)
@@ -164,67 +223,6 @@ function PrimaryCta() {
 		<Button asChild className="h-12 px-7 text-base font-semibold">
 			<Link to="/signup">Start cooking</Link>
 		</Button>
-	)
-}
-
-function FeatureBand({
-	index,
-	id,
-	heading,
-	body,
-	screenSide,
-	screen,
-}: {
-	index: number
-	id?: string
-	heading: string
-	body: string
-	screenSide: 'left' | 'right'
-	screen: ReactNode
-}) {
-	// Every other band sits on the quiet fill, so the bands read apart.
-	const filled = index % 2 === 0
-	return (
-		<section className={cn('py-16 sm:py-24 lg:py-28', filled && 'bg-muted')}>
-			{/* The anchor sits on the content, not the padded section, so "See how
-			    it works" lands the band just under the header (sticky from md)
-			    instead of leaving the padding as a blank gap. */}
-			<div
-				id={id}
-				className={cn(
-					'container grid scroll-mt-6 gap-10 md:scroll-mt-24 md:items-center md:justify-center lg:gap-20',
-					screenSide === 'right'
-						? 'md:grid-cols-[minmax(0,28rem)_auto]'
-						: 'md:grid-cols-[auto_minmax(0,28rem)]',
-				)}
-			>
-				{/* Caption first in the DOM so phones read heading, then screen. */}
-				<div
-					className={cn(
-						'max-w-[28rem]',
-						screenSide === 'right' ? 'md:order-1' : 'md:order-2',
-					)}
-				>
-					<p className="font-serif text-2xl tabular-nums">
-						{String(index).padStart(2, '0')}
-					</p>
-					<h2 className="mt-5 font-serif text-[2.25rem] leading-[1.1] tracking-[-0.015em] text-balance sm:text-[3rem]">
-						{heading}
-					</h2>
-					<p className="text-muted-foreground mt-6 text-lg leading-[1.55] sm:text-xl">
-						{body}
-					</p>
-				</div>
-				<div
-					className={cn(
-						'flex min-w-0 justify-center',
-						screenSide === 'right' ? 'md:order-2' : 'md:order-1',
-					)}
-				>
-					{screen}
-				</div>
-			</div>
-		</section>
 	)
 }
 

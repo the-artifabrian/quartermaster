@@ -166,7 +166,7 @@ async function phoneBoxes(page: Page) {
 }
 
 for (const width of [320, 768]) {
-	test(`the homepage's five phones fit a ${width}px page, filled to their frames`, async ({
+	test(`the homepage's phones fit a ${width}px page, filled to their frames`, async ({
 		page,
 	}) => {
 		await page.setViewportSize({ width, height: 800 })
@@ -178,7 +178,8 @@ for (const width of [320, 768]) {
 			await page.evaluate(() => document.documentElement.scrollWidth),
 		).toBeLessThanOrEqual(clientWidth)
 		const phones = await phoneBoxes(page)
-		expect(phones).toHaveLength(5)
+		// The hero's Plan and Shopping, then one for each step.
+		expect(phones).toHaveLength(6)
 		for (const phone of phones) {
 			expect(phone.label, 'named for what it shows').toBeTruthy()
 			expect(phone.hidden).toBe('true')

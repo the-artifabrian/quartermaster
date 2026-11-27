@@ -10,6 +10,7 @@ import {
 import { clientHint as timeZoneHint } from '@epic-web/client-hints/time-zone'
 import * as React from 'react'
 import { useRevalidator } from 'react-router'
+import { todayInTimeZone } from './date.ts'
 import { useOptionalRequestInfo, useRequestInfo } from './request-info.ts'
 
 const hintsUtils = getHintUtils({
@@ -48,8 +49,9 @@ export function ClientHintCheck({ nonce }: { nonce: string }) {
 	// The script below reloads the page when a hint cookie was missing, but
 	// Chromium can send that reload before it has stored every cookie the
 	// script wrote. The server then draws the day in UTC, and the reloaded
-	// page, which has the cookie by now, does not reload again. Load the data
-	// once more, when the cookie holds the zone the server did not see.
+	// page, which has the cookie by now, does not reload again. The zone only
+	// sets today, so load the data once more when that makes today another
+	// day, and the cookie holds the zone the server did not see.
 	const checkedTimeZone = React.useRef(false)
 	React.useEffect(() => {
 		if (checkedTimeZone.current || serverTimeZone === undefined) return
@@ -57,7 +59,7 @@ export function ClientHintCheck({ nonce }: { nonce: string }) {
 		const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
 		const cookie = `${encodeURIComponent(timeZoneHint.cookieName)}=${encodeURIComponent(timeZone)}`
 		if (
-			serverTimeZone !== timeZone &&
+			todayInTimeZone(serverTimeZone) !== todayInTimeZone(timeZone) &&
 			document.cookie.split('; ').includes(cookie)
 		) {
 			void revalidate()

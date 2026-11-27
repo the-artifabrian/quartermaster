@@ -33,28 +33,49 @@ type MockMeal = {
 	menuOpen?: boolean
 }
 
-/** Today on a phone's Plan: breakfast eaten, lunch and dinner to come. */
+/** Today on a phone's Plan: breakfast eaten, the rest of the day to come. */
 const todaysMeals: MockMeal[] = [
 	{
 		label: 'Breakfast',
 		time: '8:00 AM',
 		dishes: [{ name: 'Overnight oats', cooked: true }],
 	},
-	{ label: 'Lunch', time: '12:30 PM', dishes: [{ name: 'Red lentil soup' }] },
+	{
+		label: 'Lunch',
+		time: '12:30 PM',
+		dishes: [{ name: 'Red lentil soup' }, { name: 'Garlic flatbread' }],
+	},
+	{ label: 'Snack', time: '4:00 PM', dishes: [{ name: 'Banana bread' }] },
 	{
 		label: 'Dinner',
 		time: '7:00 PM',
+		guests: 4,
 		dishes: [{ name: 'Miso-glazed salmon' }, { name: 'Sesame greens' }],
 	},
 ]
 
-/** The coming Saturday: one dinner for guests, the roast doubled. */
+/**
+ * The coming Saturday: lunch, then a dinner for guests with the roast
+ * doubled. The menu is open on the lunch, which is first of two, so it has
+ * Move later; the lunch's four dishes keep the menu clear of the dinner's
+ * dishes.
+ */
 const saturdayMeals: MockMeal[] = [
+	{
+		label: 'Lunch',
+		time: '1:00 PM',
+		menuOpen: true,
+		dishes: [
+			{ name: 'Tomato soup' },
+			{ name: 'Grilled cheese' },
+			{ name: 'Apple slaw' },
+			{ name: 'Shortbread' },
+		],
+	},
 	{
 		label: 'Dinner',
 		time: '7:30 PM',
 		guests: 6,
-		menuOpen: true,
 		dishes: [
 			{ name: 'Roast chicken', multiplier: 2 },
 			{ name: 'Focaccia' },
@@ -71,7 +92,7 @@ export function TodayPlanPhone({ today }: { today: string }) {
 	const day = planDayOnPhone(today, today)
 	return (
 		<PhoneFrame
-			label={`The Plan on a phone: today, ${day.weekdayName}, ${day.heading}, with breakfast cooked, then lunch and dinner`}
+			label={`The Plan on a phone: today, ${day.weekdayName}, ${day.heading}, with breakfast cooked, then lunch, a snack and dinner for 4 guests`}
 		>
 			<PlanScreen day={day} meals={todaysMeals} />
 		</PhoneFrame>
@@ -83,7 +104,7 @@ export function GuestsPlanPhone({ today }: { today: string }) {
 	const day = planDayOnPhone(today, nextSaturday(today))
 	return (
 		<PhoneFrame
-			label={`The Plan on a phone: ${day.weekdayName}, ${day.heading}, a dinner for 6 guests of roast chicken, focaccia and green salad, with its menu open`}
+			label={`The Plan on a phone: ${day.weekdayName}, ${day.heading}, lunch with its menu open, then a dinner for 6 guests of roast chicken at 2×, focaccia and green salad`}
 		>
 			<PlanScreen day={day} meals={saturdayMeals} />
 		</PhoneFrame>
@@ -151,8 +172,12 @@ function PlanScreen({
 						{day.heading}
 					</p>
 				</div>
-				{meals.map((meal) => (
-					<MealOnDay key={meal.label} meal={meal} />
+				{meals.map((meal, index) => (
+					<MealOnDay
+						key={meal.label}
+						meal={meal}
+						canMoveDown={index < meals.length - 1}
+					/>
 				))}
 				<p className="text-primary border-border flex min-h-11 items-center gap-2 border-t text-[15px] font-semibold">
 					<Icon name="plus" className="size-[18px]" />
@@ -206,7 +231,13 @@ function StripDayCell({ day }: { day: StripDay }) {
 	)
 }
 
-function MealOnDay({ meal }: { meal: MockMeal }) {
+function MealOnDay({
+	meal,
+	canMoveDown,
+}: {
+	meal: MockMeal
+	canMoveDown: boolean
+}) {
 	return (
 		<div className="border-border relative border-t pb-2">
 			<div className="-mb-1 flex min-h-11 items-center">
@@ -255,7 +286,7 @@ function MealOnDay({ meal }: { meal: MockMeal }) {
 					</div>
 				))}
 			</div>
-			{meal.menuOpen ? <MealMenu /> : null}
+			{meal.menuOpen ? <MealMenu canMoveDown={canMoveDown} /> : null}
 		</div>
 	)
 }
@@ -277,12 +308,24 @@ function ScaleField({ multiplier }: { multiplier: number }) {
 	)
 }
 
-/** A Meal's dots menu, opened under its button (DropdownMenuContent). */
-function MealMenu() {
+/**
+ * A Meal's dots menu, opened under its button (DropdownMenuContent). The
+ * first Meal of a day has no Move earlier.
+ */
+function MealMenu({ canMoveDown }: { canMoveDown: boolean }) {
 	const item =
 		'relative flex min-h-11 items-center gap-2 rounded-lg px-3 py-2.5 text-sm'
 	return (
 		<div className="bg-popover text-popover-foreground border-border shadow-warm-md absolute top-11 right-0 z-10 min-w-[8rem] rounded-lg border p-1">
+			{canMoveDown ? (
+				<>
+					<p className={item}>
+						<Icon name="arrow-down" size="sm" />
+						Move later
+					</p>
+					<div className="bg-muted -mx-1 my-1 h-px" />
+				</>
+			) : null}
 			<p className={item}>
 				<Icon name="check" size="sm" />
 				Mark cooked

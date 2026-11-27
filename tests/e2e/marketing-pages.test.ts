@@ -372,29 +372,3 @@ test('each step reads as its number, heading and text, then its picture', async 
 		Array(4).fill('paragraph heading paragraph img').join(' '),
 	)
 })
-
-for (const width of [390, 1280]) {
-	test(`See how it works lands the first section under the header at ${width}px`, async ({
-		page,
-	}) => {
-		await page.emulateMedia({ reducedMotion: 'reduce' })
-		await page.setViewportSize({ width, height: 800 })
-		await page.goto('/')
-		await waitForHydration(page)
-		await page.getByRole('link', { name: 'See how it works' }).click()
-		await expect(page).toHaveURL(/#how-it-works$/)
-		// Reduced motion jumps: the place is final at once.
-		const top = await page.evaluate(() => {
-			const header = document.querySelector('[data-site-header]')!
-			const stuck = getComputedStyle(header).position === 'sticky'
-			return {
-				section: document
-					.getElementById('how-it-works')!
-					.getBoundingClientRect().top,
-				under: stuck ? header.getBoundingClientRect().bottom : 0,
-			}
-		})
-		expect(top.section - top.under).toBeGreaterThanOrEqual(8)
-		expect(top.section - top.under).toBeLessThanOrEqual(48)
-	})
-}

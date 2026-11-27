@@ -1,5 +1,4 @@
 import { type SEOHandle } from '@nasa-gcn/remix-seo'
-import { type MouseEvent } from 'react'
 import { data, Link, redirect, useLoaderData } from 'react-router'
 import { TryDemoButton } from '#app/components/demo.tsx'
 import {
@@ -100,13 +99,6 @@ function Hero({ today }: { today: string }) {
 							variant="secondary"
 							className="h-12 px-6 text-base font-semibold"
 						/>
-						<a
-							href="#how-it-works"
-							onClick={glideToHowItWorks}
-							className="text-primary decoration-primary/40 hover:decoration-primary focus-visible:ring-ring inline-flex min-h-11 items-center rounded-sm text-base font-medium underline underline-offset-[6px] outline-hidden transition-colors focus-visible:ring-2 focus-visible:ring-offset-2"
-						>
-							See how it works
-						</a>
 					</div>
 					{isNativeShell ? null : (
 						<p className="text-muted-foreground mt-5 text-[15px]">
@@ -186,8 +178,8 @@ function HowItWorks({ today }: { today: string }) {
 	}
 	return (
 		<section className="py-16 sm:py-24 lg:py-28">
-			{/* The anchor sits on the content, not the padded section, so "See how
-			    it works" lands it just under the header (sticky from md). */}
+			{/* The anchor sits on the content, not the padded section, so a link
+			    to it lands just under the header (sticky from md). */}
 			<div
 				id="how-it-works"
 				className="container grid scroll-mt-6 gap-x-6 gap-y-16 sm:grid-cols-2 md:scroll-mt-24 xl:grid-cols-4"
@@ -215,16 +207,6 @@ function HowItWorks({ today }: { today: string }) {
 			</div>
 		</section>
 	)
-}
-
-// The app lands every scroll; this in-page link is the one place a glide fits.
-function glideToHowItWorks(event: MouseEvent<HTMLAnchorElement>) {
-	const target = document.getElementById('how-it-works')
-	if (!target) return
-	event.preventDefault()
-	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-	target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' })
-	history.pushState(null, '', '#how-it-works')
 }
 
 /** The app's primary button, at the Recipe page's Add to Plan height. */

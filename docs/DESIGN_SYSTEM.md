@@ -153,8 +153,7 @@ Shopping: a phone, then the number, a 28px heading and the text, all on the
 phone's left edge. They are four across from 1280px, two by two from 640px, and
 one column on a phone, where each phone follows its text. The text comes first
 in the page's order, so a screen reader hears each picture with its own step;
-from 640px CSS `order` lifts the phone above it. "See how it works" lands the
-section just under the header.
+from 640px CSS `order` lifts the phone above it.
 
 Its pictures are phones drawn in CSS (`PhoneFrame` in
 `app/components/phone-frame.tsx`): a rounded card-colored outline with the

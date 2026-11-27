@@ -81,39 +81,42 @@ function Hero({ today }: { today: string }) {
 	// The iOS app shows no copy about Pro or its trial (ADR 0001).
 	const isNativeShell = useIsNativeShell()
 	return (
-		<section className="border-border container border-b pt-10 sm:pt-16 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-12 lg:pt-0 xl:gap-16">
-			<div className="max-w-[36rem] lg:self-center lg:py-16">
-				<h1 className="font-serif text-[2.75rem] leading-[1.02] tracking-[-0.02em] text-balance sm:text-[3.5rem] lg:text-[5.5rem]">
-					What are we making this week?
-				</h1>
-				<p className="text-muted-foreground mt-6 max-w-[30rem] text-lg leading-[1.55] sm:text-xl">
-					Keep the Recipes you cook and plan a few Meals for the week. Then
-					Shopping fills in from the Meals you pick, minus what you already
-					have.
-				</p>
-				<div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-3">
-					<PrimaryCta />
-					<TryDemoButton
-						redirectTo="/"
-						variant="secondary"
-						className="h-12 px-6 text-base font-semibold"
-					/>
-					<a
-						href="#how-it-works"
-						onClick={glideToHowItWorks}
-						className="text-primary decoration-primary/40 hover:decoration-primary focus-visible:ring-ring inline-flex min-h-11 items-center rounded-sm text-base font-medium underline underline-offset-[6px] outline-hidden transition-colors focus-visible:ring-2 focus-visible:ring-offset-2"
-					>
-						See how it works
-					</a>
-				</div>
-				{isNativeShell ? null : (
-					<p className="text-muted-foreground mt-5 text-[15px]">
-						Free to use. New accounts get 14 days of Pro.
+		<section className="border-border border-b">
+			{/* The rule runs the page's width; the pair is cut on it. */}
+			<div className="container pt-10 sm:pt-16 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-12 lg:pt-0 xl:gap-16">
+				<div className="max-w-[36rem] lg:self-center lg:py-16">
+					<h1 className="font-serif text-[2.75rem] leading-[1.02] tracking-[-0.02em] text-balance sm:text-[3.5rem] lg:text-[5.5rem]">
+						What are we making this week?
+					</h1>
+					<p className="text-muted-foreground mt-6 max-w-[30rem] text-lg leading-[1.55] sm:text-xl">
+						Keep the Recipes you cook and plan a few Meals for the week. Then
+						Shopping fills in from the Meals you pick, minus what you already
+						have.
 					</p>
-				)}
-			</div>
+					<div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-3">
+						<PrimaryCta />
+						<TryDemoButton
+							redirectTo="/"
+							variant="secondary"
+							className="h-12 px-6 text-base font-semibold"
+						/>
+						<a
+							href="#how-it-works"
+							onClick={glideToHowItWorks}
+							className="text-primary decoration-primary/40 hover:decoration-primary focus-visible:ring-ring inline-flex min-h-11 items-center rounded-sm text-base font-medium underline underline-offset-[6px] outline-hidden transition-colors focus-visible:ring-2 focus-visible:ring-offset-2"
+						>
+							See how it works
+						</a>
+					</div>
+					{isNativeShell ? null : (
+						<p className="text-muted-foreground mt-5 text-[15px]">
+							Free to use. New accounts get 14 days of Pro.
+						</p>
+					)}
+				</div>
 
-			<PlanThenShop today={today} />
+				<PlanThenShop today={today} />
+			</div>
 		</section>
 	)
 }

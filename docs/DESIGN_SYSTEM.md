@@ -30,20 +30,19 @@ see [GLOSSARY.md](../GLOSSARY.md).
   (`font-medium`). Titles are weight 500 too, which `font-serif` sets on its own
   (`app/styles/tailwind.css`), so a serif title takes no weight class. The files
   carry weights 400 to 600 only, so never ask the serif for less or more. The
-  roman has an optical-size axis the browser sets from the font size. The serif
-  sets lining figures, and `tabular-nums` adds to them.
+  roman has an optical-size axis the browser sets from the font size, and there
+  is no italic file. The serif sets lining figures, and `tabular-nums` adds to
+  them.
 - **Schibsted Grotesk** for everything that is not a title: names, running text,
   controls, labels, metadata and navigation, weights 400 to 700. Running text is
   400, names 500 and amounts 600 on a phone (500 on wider screens). It has no
   italic file, so the app does not set the sans in italic.
-- **Young Serif, DM Sans and Source Sans 3**: the homepage only (see Homepage
-  palette). Source Sans 3 is its body sans (`font-humanist`).
 
 All fonts are self-hosted: the files sit in `app/assets/fonts/` as `latin` and
 `latin-ext` subsets (the Households write Romanian), and `app/styles/fonts.css`
 declares them, so a face downloads only when a page uses it. `app/root.tsx`
-preloads the two latin files the page sets first: Newsreader and Schibsted
-Grotesk on app pages, Young Serif and DM Sans on the homepage.
+preloads the two latin files every page sets first, Newsreader and Schibsted
+Grotesk, the homepage included.
 
 Headings balance their lines (`text-wrap: balance` in
 `app/styles/tailwind.css`). Long reading text, such as a Recipe's description,
@@ -130,22 +129,61 @@ text. Red buttons take white text in both themes.
 Shadows are neutral and belong to floating layers. The tokens live in
 `app/styles/tailwind.css`.
 
-### Homepage palette
+### Homepage
 
-The marketing homepage sits on its own espresso palette in both themes:
-`espresso` (canvas), `espresso-deep` (sunk bands), `espresso-surface` and
-`espresso-raised` (mock app screens and their controls), `espresso-line`
-(hairlines), `cream` and `cream-muted` (text), `sage` for the primary CTA and
-`copper` for at most two highlights such as the “Today” marker. The tokens live
-next to the semantic ones in `app/styles/tailwind.css`.
+The signed-out homepage is an ordinary page in the app's paint: the same tokens
+and faces, the theme the visitor's device or setting picks, and the shared
+header and footer as on About. It is all on the page background, with no filled
+sections. Its h1, its section headings and their numerals are Newsreader;
+everything else is the sans. Its two buttons are the app's: the green fill for
+"Start cooking" and the quiet `secondary` fill for the demo, both 48px tall like
+a Recipe's Add to Plan.
 
-The route sets `data-chrome="espresso"` on the app shell (see `root.tsx`), which
-remaps the semantic tokens so the shared header and footer sit on the same
-canvas, and keeps its warm shadows. It also keeps Young Serif and DM Sans: the
-font variables are remapped on `<html>` whenever the page holds that shell, so
-nothing on it, the skip link included, loads the app's faces. A token or face
-added for the app gets a remap in those two rules. Keep the homepage to these
-tokens; do not add page-specific colors.
+The hero puts the headline, the text and the buttons on the left and, from `lg`,
+two phones on the right: Plan on today in front and Shopping behind it, up and
+to the right with its left third covered. The pair is cut by a full-width
+hairline at the hero's foot, always below the Plan's day heading and its first
+two Meals. Below `lg` the pair sits under the buttons, and below 640px the Plan
+stands alone, since two phones would be too small to read. The Shopping behind
+is decoration, kept out of the accessibility tree; it is read as the fourth
+step.
+
+How it works is one section of four steps in the order Recipes, Plan, Staples,
+Shopping: a phone, then the number, a 28px heading and the text, all on the
+phone's left edge. They are four across from 1280px, two by two from 640px, and
+one column on a phone, where each phone follows its text. The text comes first
+in the page's order, so a screen reader hears each picture with its own step;
+from 640px CSS `order` lifts the phone above it. "See how it works" lands the
+section just under the header.
+
+Its pictures are phones drawn in CSS (`PhoneFrame` in
+`app/components/phone-frame.tsx`): a rounded card-colored outline with the
+page's background inside, no notch and no brand marks. Each screen is laid out
+at 390 by 844 at the app's own sizes and scaled as a whole by `--phone-scale`,
+so at the default text size it never reflows (the frame is in pixels, the text
+in rem). The slot around a screen takes its scaled size, so the outline fits the
+screen with no gap. A picture is one image to a screen reader, named for what it
+shows, and nothing in it takes focus (`inert`).
+
+The scale steps live in `phoneScales`, one set for the hero's pair and one for
+the steps. A phone is as wide as its column allows, up to a cap of 0.86 (347px
+wide, about 740px tall), past which it would only make its row taller than a
+screen: from 1024px to 1279px a step's phone sits at that cap in a wider column.
+No text inside renders under 8px from 640px up. Every step is a `min-[…]` width:
+Tailwind orders those before its named breakpoints, so a set that mixed `lg:`
+with `min-[1280px]:` would let `lg:` win at 1280px.
+
+The screens themselves (`app/components/homepage-phones.tsx`) copy today's phone
+screens: Plan on today (breakfast, lunch and a snack, cut through the snack), a
+Recipe without a photo, Plan on the coming Saturday with a Meal's menu open,
+Staples, and Shopping. The real screens switch layout on the viewport, so the
+copies take the phone's classes directly (`text-dish`, `text-ingredient`, the
+check circle, `chipClassName`, `buttonVariants`), or use the real component
+where it has no `phone:` layout of its own (`RecipeFacts`), and must follow a
+screen when it changes. They leave out the tab bar, since the text with each
+phone names its tab. Their days come from the visitor's own today
+(`app/utils/homepage-plan-days.ts`), sent by the loader, so the server and the
+browser draw the same week.
 
 ## Layout and surfaces
 

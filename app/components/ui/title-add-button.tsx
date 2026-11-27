@@ -39,13 +39,11 @@ export function TitleAddButton({
  * the serif at 40px, weight 500, set tight.
  */
 export function TabTitle({ className, ...props }: ComponentProps<'h1'>) {
-	return (
-		<h1
-			className={cn('font-serif text-[2.5rem] leading-[1.05]', className)}
-			{...props}
-		/>
-	)
+	return <h1 className={cn(tabTitleClassName, className)} {...props} />
 }
+
+/** The tab title's look, for a picture of a tab that has no heading of its own. */
+export const tabTitleClassName = 'font-serif text-[2.5rem] leading-[1.05]'
 
 /** The row a tab root's title and its + share. */
 export function TitleRow({ className, ...props }: ComponentProps<'div'>) {

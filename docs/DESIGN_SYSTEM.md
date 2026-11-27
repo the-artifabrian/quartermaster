@@ -60,7 +60,7 @@ Useful sizes:
 | Other page title                                            | 24px Newsreader                                                                     |
 | Plan dish on a phone (`text-dish`)                          | 17px Schibsted Grotesk, 19px under a Dinner's photo (`text-dish-photo`)             |
 | Recipe or Menu row on a phone (`text-list-name`)            | 17px Schibsted Grotesk                                                              |
-| Shopping item on a phone (`text-item-name`)                 | 17px Schibsted Grotesk                                                              |
+| Shopping item or Staple on a phone (`text-item-name`)       | 17px Schibsted Grotesk                                                              |
 | A step on a phone (`text-step`)                             | 17px Schibsted Grotesk, 1.6 lines; its numeral 32px Newsreader (`text-step-number`) |
 | An ingredient on a phone (`text-ingredient`)                | 17px Schibsted Grotesk, 1.45 lines                                                  |
 | Body, and ingredients and steps wider                       | 16px Schibsted Grotesk                                                              |
@@ -70,13 +70,13 @@ Useful sizes:
 | Tiny navigation label                                       | 12px Schibsted Grotesk                                                              |
 
 The Plan dish sizes (`text-dish`, `text-dish-photo`), the list row size
-(`text-list-name`), the Shopping item size (`text-item-name`), the Recipe page's
-sizes (`text-recipe-title`, `text-recipe-section`, `text-ingredient`,
-`text-step`, `text-step-number`) and `text-label` are font size tokens in
-`app/styles/tailwind.css`, each set once, and `cn` in `app/utils/misc.tsx` knows
-them. A `leading-*` class beside one of them wins over the size's own line
-height, so a class list that has both names the line height again
-(`leading-(--text-step--line-height)`).
+(`text-list-name`), the Shopping item and Staple size (`text-item-name`), the
+Recipe page's sizes (`text-recipe-title`, `text-recipe-section`,
+`text-ingredient`, `text-step`, `text-step-number`) and `text-label` are font
+size tokens in `app/styles/tailwind.css`, each set once, and `cn` in
+`app/utils/misc.tsx` knows them. A `leading-*` class beside one of them wins
+over the size's own line height, so a class list that has both names the line
+height again (`leading-(--text-step--line-height)`).
 
 A small label (a Meal's label, the weekday in Plan's strip and over its day, the
 groups of a picker, a heading inside a Recipe's ingredients, a Recipe's facts
@@ -177,12 +177,12 @@ screens: Plan on today (breakfast, lunch and a snack, cut through the snack), a
 Recipe without a photo, Plan on the coming Saturday with a Meal's menu open,
 Staples, and Shopping. The real screens switch layout on the viewport, so the
 copies take the phone's classes directly (`text-dish`, `text-ingredient`, the
-check circle, `chipClassName`, `buttonVariants`), or use the real component
-where it has no `phone:` layout of its own (`RecipeFacts`), and must follow a
-screen when it changes. They leave out the tab bar, since the text with each
-phone names its tab. Their days come from the visitor's own today
-(`app/utils/homepage-plan-days.ts`), sent by the loader, so the server and the
-browser draw the same week.
+check circle, `chipClassName`, `buttonVariants`, the Staple row's classes), or
+use the real component where it has no `phone:` layout of its own
+(`RecipeFacts`), and must follow a screen when it changes. They leave out the
+tab bar, since the text with each phone names its tab. Their days come from the
+visitor's own today (`app/utils/homepage-plan-days.ts`), sent by the loader, so
+the server and the browser draw the same week.
 
 ## Layout and surfaces
 
@@ -246,8 +246,9 @@ each screen:
 - **Adding on a tab root** is one control (`TitleAddButton`): a round green +,
   44px, at the right end of the big serif title's row on Recipes, Menus, Staples
   and Plan. Its label says what it adds (“New Recipe”, “New Menu”, “Add Staple”,
-  “Add Meal to Thursday, Nov 19”). Shopping adds from its floating “Add an item”
-  pill instead (see Shopping).
+  “Add Meal to Thursday, Nov 19”). On a phone, while Staples' search row is
+  pinned, the row ends with a second + of the same name (see Staples). Shopping
+  adds from its floating “Add an item” pill instead (see Shopping).
 
 ## Sheets and deleting
 
@@ -270,16 +271,16 @@ each screen:
 - A Delete in a menu or behind a swipe is red from the start. Shopping and
   Staples rows swipe left to show theirs; the swipe locks to one axis, so a
   vertical drag still scrolls. A Staple row with a mouse shows a trash button
-  instead; with a keyboard or VoiceOver its Delete is the next stop after Add,
+  instead; with a keyboard or VoiceOver its Delete is the next stop after Need,
   and the row slides open while it has focus.
 - A delete that can be undone (a Meal, a Recipe in a Meal, a Shopping item,
   Clear checked, deleting a Staple) happens at once with an Undo toast at the
   bottom, above the tab bar; every other toast stays at the top, below whatever
-  is pinned there (a pushed page's nav bar, the pinned rows of a phone's Plan
-  and Recipes). A deleted row, Staple or Meal closes its gap and Undo opens it
-  again; Clear checked goes at once. The delete is saved at once and Undo puts
-  back what it removed. Opening a sheet closes the Undo toast, so it never sits
-  over a sheet.
+  is pinned there (a pushed page's nav bar, the pinned rows of a phone's Plan,
+  Recipes and Staples). A deleted row, Staple or Meal closes its gap and Undo
+  opens it again; Clear checked goes at once. The delete is saved at once and
+  Undo puts back what it removed. Opening a sheet closes the Undo toast, so it
+  never sits over a sheet.
 - A delete that cannot be undone (Recipe, Menu, account, passkey, removing a
   member, leaving the Household, disabling 2FA) opens a confirm sheet
   (`ConfirmSheet`): the question as the title, one line on what is lost, a
@@ -608,18 +609,46 @@ keeps its own Add Meal.
 
 ### Staples
 
-- Use one compact searchable alphabetical list; no grouping. Each row has a Need
-  button that puts it on Next shop, and is deleted by a swipe left (a trash
-  button with a mouse). The + beside the title adds a Staple. The button's
-  spoken name starts with its visible words and then names the Staple (“Need,
-  Salt”), so Voice Control can tap it by what it shows; Delete is “Delete Salt”
-  and its toast “Deleted Salt”.
+- Use one searchable alphabetical list; no grouping. A row is shaped like a
+  Shopping row: at least 56px, hairlines between, the name in the sans at weight
+  500 from the content edge (17px on a phone), wrapping to more lines and
+  breaking a long word rather than being cut off. It ends with a Need button
+  that puts it on Next shop, and is deleted by a swipe left (a trash button with
+  a mouse). The + beside the title adds a Staple. The button's spoken name
+  starts with its visible words and then names the Staple (“Need, Salt”), so
+  Voice Control can tap it by what it shows; Delete is “Delete Salt” and its
+  toast “Deleted Salt”.
+- Need is a quiet pill, 44px tall, on `muted` with no border, at 14px and weight
+  600, its fill ending on the content edge. Only the button adds: the row itself
+  is not a tap target, since a tap that lands while scrolling would put the
+  Staple on Next shop and the screen has no Undo for that. The row's look comes
+  from `app/components/staple-row-styles.ts`, which the homepage's picture of
+  the screen uses too.
 - Each row carries its own Add control, its own state and its own errors. A
   shopper is usually scrolled somewhere down a long list, so a banner at the top
   of the page is a message they will never see.
-- A Staple already waiting in Next shop reads “On list” in place of Need. Keep
-  the control focusable and the row where it was; repeat the result in a
+- A Staple already waiting in Next shop reads a green check and “On list” in
+  green text with no fill, in place of Need, ending on the content edge. The
+  button keeps one width in both states, so a tap never wraps the name again.
+  Keep the control focusable and the row where it was; repeat the result in a
   visually hidden live region for a screen reader.
+- The line under the title is 15px muted. Search shows from 12 Staples, and once
+  it has shown it stays for the visit, so a delete under 12 neither moves the
+  list nor drops a search that is still filtering it. On a phone its row stays
+  pinned under the status bar while the list scrolls, opaque, with a hairline
+  under it, as Recipes' does: a focused row lands below it, focusing the field
+  scrolls nothing, and top toasts open below the row where it rests. The field
+  has a clear button, “Clear the search field”, once it has text. While the row
+  is pinned the title's + has scrolled away, so the row ends with its own 44px
+  +, also “Add Staple”; only one of the two is shown and reachable, read from
+  the row's place on each scrolled frame, and focus on one moves to the other as
+  they swap. The add form opens in place under the title, replacing Search:
+  opened from the pinned +, the page goes back to the top with the field focused
+  inside the tap, so iOS raises the keyboard. Escape or Cancel (the quiet
+  button) closes it and focus goes back to the +.
+- “No Staples found” and “No Staples yet” sit on the page as the Recipes list's
+  empty states do, with a serif heading; the suggestions for a new Household sit
+  on the page as a row of chips.
 - No availability state, quantities, expiry dates, stock ledger, images, or
   category sections.
 

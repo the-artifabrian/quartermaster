@@ -51,23 +51,23 @@ Browsers without it wrap as usual.
 
 Useful sizes:
 
-| Use                                                         | Size                                                                                |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Tab title (`TabTitle`)                                      | 40px Newsreader, 1.05 lines                                                         |
-| Recipe title on a phone (`text-recipe-title`)               | 36px Newsreader, 1.1 lines; 32px wider                                              |
-| Plan's day heading on a phone                               | 31px Newsreader                                                                     |
-| Recipe's section heading on a phone (`text-recipe-section`) | 24px Newsreader; 18px wider                                                         |
-| Other page title                                            | 24px Newsreader                                                                     |
-| Plan dish on a phone (`text-dish`)                          | 17px Schibsted Grotesk, 19px under a Dinner's photo (`text-dish-photo`)             |
-| Recipe or Menu row on a phone (`text-list-name`)            | 17px Schibsted Grotesk                                                              |
-| Shopping item or Staple on a phone (`text-item-name`)       | 17px Schibsted Grotesk                                                              |
-| A step on a phone (`text-step`)                             | 17px Schibsted Grotesk, 1.6 lines; its numeral 24px Newsreader (`text-step-number`) |
-| An ingredient on a phone (`text-ingredient`)                | 17px Schibsted Grotesk, 1.45 lines                                                  |
-| Body, and ingredients and steps wider                       | 16px Schibsted Grotesk                                                              |
-| UI label                                                    | 14px Schibsted Grotesk                                                              |
-| Small label (`text-label`)                                  | 13.5px Schibsted Grotesk, weight 600                                                |
-| Caption                                                     | 13px Schibsted Grotesk                                                              |
-| Tiny navigation label                                       | 12px Schibsted Grotesk                                                              |
+| Use                                                               | Size                                                                                |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Tab title (`TabTitle`)                                            | 40px Newsreader, 1.05 lines                                                         |
+| Recipe or Menu title on a phone (`text-recipe-title`)             | 36px Newsreader, 1.1 lines; wider, a Recipe's is 32px and a Menu's 24px             |
+| Plan's day heading on a phone                                     | 31px Newsreader                                                                     |
+| Recipe or Menu section heading on a phone (`text-recipe-section`) | 24px Newsreader; 18px wider                                                         |
+| Other page title                                                  | 24px Newsreader                                                                     |
+| Plan dish on a phone (`text-dish`)                                | 17px Schibsted Grotesk, 19px under a Dinner's photo (`text-dish-photo`)             |
+| Recipe or Menu row on a phone (`text-list-name`)                  | 17px Schibsted Grotesk                                                              |
+| Shopping item or Staple on a phone (`text-item-name`)             | 17px Schibsted Grotesk                                                              |
+| A step on a phone (`text-step`)                                   | 17px Schibsted Grotesk, 1.6 lines; its numeral 24px Newsreader (`text-step-number`) |
+| An ingredient on a phone (`text-ingredient`)                      | 17px Schibsted Grotesk, 1.45 lines                                                  |
+| Body, and ingredients and steps wider                             | 16px Schibsted Grotesk                                                              |
+| UI label                                                          | 14px Schibsted Grotesk                                                              |
+| Small label (`text-label`)                                        | 13.5px Schibsted Grotesk, weight 600                                                |
+| Caption                                                           | 13px Schibsted Grotesk                                                              |
+| Tiny navigation label                                             | 12px Schibsted Grotesk                                                              |
 
 The Plan dish sizes (`text-dish`, `text-dish-photo`), the list row size
 (`text-list-name`), the Shopping item and Staple size (`text-item-name`), the
@@ -326,23 +326,23 @@ tab's page that opened one directly, and Upgrade to whatever page opened it.
 Pages do not add their own “Back to…”, arrow or Cancel links.
 
 A pushed page may put its own buttons at the right of the bar on a phone: a
-Recipe's Favorite, Share and dots, ink icons with a green filled heart for a
-favorite. The route's handle names them (`navActions`) and the bar draws them
-from the route's loader data, so they come with the server's HTML and the page's
-first frame. What they send goes through the page's own fetchers (a fetcher
-answers an error at the route it was made in, and the bar is the root's), and
-the page says whether there are cooking checks to reset. An edit screen's route
-names none. The bar needs the loader's data and the page on screen (it registers
-with `useNavBarActions`), so a page that failed to load, a loader that fails on
-a later navigation, and an error after load (a favorite tapped on a Recipe
-deleted meanwhile) show none. Wider screens show the page's own row instead.
-Beside them the small title takes the room between Back and the buttons rather
-than the bar's centre. Focusing Back or a button in the bar never scrolls the
-page: what can take focus in the page has a scroll margin that clears the bar,
-rather than the page having a scroll padding. A textarea is the exception, since
-Chromium scrolls it by its caret and leaves out the margin: while one in the
-page has focus, the page takes the padding too, so a step field partly under the
-bar comes out below it.
+Recipe's Favorite, Share and dots, and a Menu's Share and Edit, ink icons with a
+green filled heart for a favorite. The route's handle names them (`navActions`)
+and the bar draws them from the route's loader data, so they come with the
+server's HTML and the page's first frame. What they send goes through the page's
+own fetchers (a fetcher answers an error at the route it was made in, and the
+bar is the root's), and the page says whether there are cooking checks to reset.
+An edit screen's route names none. The bar needs the loader's data and the page
+on screen (it registers with `useNavBarActions`), so a page that failed to load,
+a loader that fails on a later navigation, and an error after load (a favorite
+tapped on a Recipe deleted meanwhile) show none. Wider screens show the page's
+own row instead. Beside them the small title takes the room between Back and the
+buttons rather than the bar's centre. Focusing Back or a button in the bar never
+scrolls the page: what can take focus in the page has a scroll margin that
+clears the bar, rather than the page having a scroll padding. A textarea is the
+exception, since Chromium scrolls it by its caret and leaves out the margin:
+while one in the page has focus, the page takes the padding too, so a step field
+partly under the bar comes out below it.
 
 Edit screens (Recipe edit and new, Menu edit and new) put Cancel on the left of
 the bar and Save on the right (green, semibold, dimmed while disabled, a spinner
@@ -513,6 +513,24 @@ On a phone the Recipes and Menus lists share a title and a row shape:
 - A named section is a Newsreader heading over a hairline rule; its Recipes'
   names are in the sans. On phones its rows are flat and divided, and 1× stays
   implicit on Recipe rows.
+- On a phone a Menu's page takes the Recipe page's sizes: the title at 36px, the
+  guest line at 13.5px, the description at 16px and muted, section headings at
+  24px with more room above (32px or more) than between the heading and its
+  first row. Add to Plan is the one full-width 48px button; Share and Edit are
+  in the nav bar, where Edit is a link that works before the page has run
+  script. Wider screens keep Share and Edit beside the button.
+- A Recipe row on a phone is at least 56px, its 44px photo on the content edge,
+  the name at 17px and weight 500 on up to two lines, then at 13.5px and muted
+  the quantity ("2× · makes 8 servings") and the note under it. A missing
+  Recipe's line is 13.5px in the error red, and its row is not a link. A note
+  card reads at 17px with its Shopping lines at 13.5px. An empty section's line
+  is 13.5px; an empty Menu's sits on the page without a box. Nothing is 12, 14
+  or 15px apart from shared controls (a sheet's line under its title, the letter
+  of a Recipe without a photo).
+- Add to Plan's sheet has 13.5px semibold labels over 44px fields and a 48px
+  full-width button.
+- The shared Menu page draws the same rows, and its header follows on a phone:
+  the same title, 13.5px small lines and one full-width 48px button.
 - Use quiet section insets only when several sections need visual grouping.
 - Reorder and move controls need labels, keyboard access, and phone-sized
   targets; drag is optional.

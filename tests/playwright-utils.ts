@@ -127,7 +127,7 @@ export const test = base.extend<{
 	// existing user in the Household they already belong to, and creates one
 	// only if they have none. Seed data into `householdId`; a test that creates
 	// another Household for this user gives them two memberships.
-	login: async ({ page }, use) => {
+	login: async ({ page, colorScheme, timezoneId }, use) => {
 		const createdUserIds: Array<string> = []
 		const createdHouseholdIds: Array<string> = []
 		await use(async (options) => {
@@ -166,7 +166,29 @@ export const test = base.extend<{
 				expires: cookieConfig.expires?.getTime(),
 				sameSite: cookieConfig.sameSite as 'Strict' | 'Lax' | 'None',
 			}
-			await page.context().addCookies([newConfig])
+			// The hint cookies the page's own check would write on a first
+			// visit, so a signed-in test starts on a real page rather than on the
+			// check's reload, whose cookies Chromium can drop (first-visit-hints
+			// covers that reload).
+			const hint = (name: string, value: string) => ({
+				name,
+				value: encodeURIComponent(value),
+				domain: 'localhost',
+				path: '/',
+			})
+			await page
+				.context()
+				.addCookies([
+					newConfig,
+					hint(
+						'CH-time-zone',
+						timezoneId ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+					),
+					hint(
+						'CH-prefers-color-scheme',
+						colorScheme === 'dark' ? 'dark' : 'light',
+					),
+				])
 			return { ...user, householdId }
 		})
 		// Close the page first, so live refresh and revalidation send no new

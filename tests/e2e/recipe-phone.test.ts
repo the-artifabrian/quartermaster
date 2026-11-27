@@ -218,6 +218,36 @@ test('More actions holds Edit, Copy Recipe and Print, and Reset cooking checks o
 	await expect(oil).not.toBeChecked()
 })
 
+test('Edit Recipe in More actions opens the edit screen, from a tap and from the keyboard', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createSoup(user)
+	await page.goto(`/recipes/${recipe.id}`)
+	// The page itself has no Edit button: the bar's menu is the way in.
+	await expect(
+		page.getByRole('main').getByRole('link', { name: /Edit/ }),
+	).toHaveCount(0)
+	const more = bar(page).getByRole('button', { name: 'More actions' })
+	await hydrated(more)
+	await more.tap()
+	await page.getByRole('menuitem', { name: 'Edit Recipe' }).tap()
+	await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
+	await expect(page.getByLabel('Title')).toHaveValue(recipe.title)
+
+	// From the keyboard the menu opens on its first item, Edit Recipe.
+	await page.goto(`/recipes/${recipe.id}`)
+	await hydrated(more)
+	await more.focus()
+	await page.keyboard.press('Enter')
+	await expect(
+		page.getByRole('menuitem', { name: 'Edit Recipe' }),
+	).toBeFocused()
+	await page.keyboard.press('Enter')
+	await expect(page).toHaveURL(`/recipes/${recipe.id}/edit`)
+})
+
 test.describe('in the iOS app', () => {
 	// A lapsed Pro answers in place there; a browser opens Upgrade instead.
 	test.use({ userAgent: SHELL_UA })
@@ -465,7 +495,7 @@ async function createTallSubRecipe(user: Owner) {
 		data: {
 			title: 'Overnight pizza dough for a crisp base',
 			description:
-				'A soft dough that rests overnight in the fridge, then bakes into a crisp, chewy base with a few big bubbles.',
+				'A soft dough that rests overnight in the fridge, then bakes into a crisp, chewy base with a few big bubbles. Shape it cold, straight from the fridge, and bake it on the hottest shelf of the oven. Any flour works, but bread flour gives the chewiest base.',
 			activeTime: 15,
 			totalTime: 720,
 			sourceUrl: 'https://www.example.com/pizza-dough',
@@ -538,10 +568,14 @@ test('a sub-Recipe opened from a Recipe scrolled past its Ingredients starts wit
 	await link.tap()
 	await expectNoPillOnTallSubRecipe(page, dough.id)
 
-	// Back to the first Recipe, where it was: the button is back.
+	// Back to the first Recipe, where it was: the button is back, and the
+	// link's tap left its row unchecked.
 	await page.goBack()
 	await expect(page).toHaveURL(new RegExp(`/recipes/${recipe.id}$`))
 	await expect(ingredientsPill(page)).toBeVisible()
+	await expect(
+		page.getByRole('checkbox', { name: 'pizza dough', exact: true }),
+	).not.toBeChecked()
 })
 
 test.describe('in the iOS app, from the Ingredients sheet', () => {
@@ -605,7 +639,7 @@ test.describe('at 320px', () => {
 		expect(more.x + more.width).toBeLessThanOrEqual(320)
 	})
 
-	test('a long ingredient wraps under its own start without a sideways scroll, and Add to Plan and Edit fit side by side', async ({
+	test('a long ingredient wraps under its own start without a sideways scroll, and Add to Plan fills the row', async ({
 		page,
 		login,
 	}) => {
@@ -622,7 +656,7 @@ test.describe('at 320px', () => {
 		await expect(text).toHaveText(
 			'~ 14.25 fl oz tomatoes, crushed by hand, with their juice, seeds and all',
 		)
-		// Each line starts where the first does, on the content edge.
+		// Each line starts where the first does, after the check circle.
 		const lineStarts = await text.evaluate((span) => {
 			const range = document.createRange()
 			range.selectNodeContents(span)
@@ -635,23 +669,18 @@ test.describe('at 320px', () => {
 			return [...starts.values()].map(Math.round)
 		})
 		expect(lineStarts.length).toBeGreaterThan(1)
-		expect(new Set(lineStarts)).toEqual(new Set([16]))
+		expect(new Set(lineStarts)).toEqual(new Set([52]))
 		expect(await text.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
 			true,
 		)
 
 		const plan = page.getByRole('button', { name: 'Add to Plan' })
-		const edit = page.getByRole('link', { name: 'Edit Recipe' })
 		const planBox = await box(plan)
-		const editBox = await box(edit)
-		expect(Math.abs(planBox.y - editBox.y)).toBeLessThan(1)
-		expect(planBox.x + planBox.width).toBeLessThanOrEqual(editBox.x)
-		expect(editBox.x + editBox.width).toBeLessThanOrEqual(320)
-		for (const control of [plan, edit]) {
-			expect(
-				await control.evaluate((el) => el.scrollWidth <= el.clientWidth),
-			).toBe(true)
-		}
+		expect(planBox).toMatchObject({ x: 16, width: 288, height: 48 })
+		expect(await plan.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
+			true,
+		)
+		await expect(page.getByRole('link', { name: 'Edit Recipe' })).toHaveCount(0)
 		expect(
 			await page.evaluate(() => document.documentElement.scrollWidth <= 320),
 		).toBe(true)
@@ -705,10 +734,19 @@ test.describe('on a sideways phone', () => {
 		await expect(
 			page.getByRole('button', { name: 'Copy Recipe' }),
 		).toBeVisible()
+		// Edit keeps its own button in the row, so its menu has none.
+		await expect(page.getByRole('link', { name: 'Edit Recipe' })).toBeVisible()
+		const more = page.getByRole('button', { name: 'More actions' })
+		await hydrated(more)
+		await more.click()
+		await expect(page.getByRole('menuitem', { name: 'Print' })).toBeVisible()
+		await expect(
+			page.getByRole('menuitem', { name: 'Edit Recipe' }),
+		).toHaveCount(0)
 	})
 })
 
-test('a photo runs edge to edge under the bar at 292px; without one the title clears the bar', async ({
+test('a photo runs edge to edge under the bar at 244px; without one the 36px title clears the bar', async ({
 	page,
 	login,
 }) => {
@@ -743,7 +781,7 @@ test('a photo runs edge to edge under the bar at 292px; without one the title cl
 	const barBottom = (await box(bar(page))).y + 44
 	const shown = await box(photo)
 	const { width } = await box(page.getByRole('main'))
-	expect(shown).toMatchObject({ x: 0, width, height: 292 })
+	expect(shown).toMatchObject({ x: 0, width, height: 244 })
 	// The header's hairline sits between the bar and the photo.
 	expect(shown.y).toBeGreaterThanOrEqual(barBottom)
 	expect(shown.y).toBeLessThanOrEqual(barBottom + 1)
@@ -754,11 +792,11 @@ test('a photo runs edge to edge under the bar at 292px; without one the title cl
 	const headingBox = await box(heading)
 	expect(headingBox.y).toBeGreaterThanOrEqual(barBottom + 8)
 	expect(await heading.evaluate((h1) => getComputedStyle(h1).fontSize)).toBe(
-		'44px',
+		'36px',
 	)
 })
 
-test('the facts read as label over value, the yield follows the scale, and missing facts leave no gap', async ({
+test('the facts read as label over value, the yield shows once and follows the scale, and missing facts leave no gap', async ({
 	page,
 	login,
 }) => {
@@ -777,6 +815,28 @@ test('the facts read as label over value, the yield follows the scale, and missi
 	await expect(
 		page.getByRole('link', { name: 'seriouseats.com' }),
 	).toBeVisible()
+	// Scaled, the line by Scale keeps the scaled yield with the original.
+	const yieldLine = page.locator('#main-content p[aria-live="polite"]')
+	await expect(yieldLine).toHaveText('Makes 8 servings · original: 4')
+	await expect(yieldLine).toHaveCSS('font-size', '13.5px')
+	const scale = await box(page.getByRole('button', { name: 'Scale 2×' }))
+	const line = await box(yieldLine)
+	expect(line.width).toBeGreaterThan(100)
+	expect(line.y).toBeGreaterThanOrEqual(scale.y + scale.height - 1)
+	expect(line.y).toBeLessThan(scale.y + scale.height + 24)
+
+	// At 1× the facts show the yield, and the line is there only for a
+	// screen reader.
+	await page.goto(`/recipes/${recipe.id}`)
+	await expect(page.getByRole('definition').nth(2)).toHaveText('4 servings')
+	await expect(yieldLine).toHaveText('Makes 4 servings')
+	expect((await box(yieldLine)).width).toBeLessThanOrEqual(1)
+	// A share page has no facts row, so its line stays in sight.
+	await page.goto(`/share/${recipe.id}`)
+	await expect(page.getByText('Makes 4 servings')).toBeVisible()
+	expect((await box(page.getByText('Makes 4 servings'))).width).toBeGreaterThan(
+		50,
+	)
 
 	await prisma.recipe.update({
 		where: { id: recipe.id },
@@ -792,6 +852,11 @@ test('the facts read as label over value, the yield follows the scale, and missi
 	const heading = await box(page.getByRole('heading', { level: 1 }))
 	const plan = await box(page.getByRole('button', { name: 'Add to Plan' }))
 	expect(plan.y - (heading.y + heading.height)).toBeLessThanOrEqual(24)
+	// And Ingredients starts a section well clear of it.
+	const ingredients = await box(
+		page.getByRole('heading', { name: 'Ingredients' }).first(),
+	)
+	expect(ingredients.y - (plan.y + plan.height)).toBeGreaterThanOrEqual(32)
 })
 
 test('Add to Plan is a full-width button that opens its sheet and plans the Recipe', async ({
@@ -837,16 +902,24 @@ test.describe('between 640 and 767px', () => {
 	})
 })
 
-/** Where each ingredient row's text and each heading inside the list start. */
-function rowStarts(scope: Locator) {
-	return scope
-		.locator('[data-ingredient-text], [data-ingredient-heading]')
-		.evaluateAll((cells) =>
-			cells.map((cell) => Math.round(cell.getBoundingClientRect().left)),
-		)
+/**
+ * Where each ingredient row's check circle and each heading inside the list
+ * start, and where each row's text starts.
+ */
+async function rowEdges(scope: Locator) {
+	const lefts = (selector: string) =>
+		scope
+			.locator(selector)
+			.evaluateAll((cells) =>
+				cells.map((cell) => Math.round(cell.getBoundingClientRect().left)),
+			)
+	return {
+		leads: await lefts('[data-ingredient-check], [data-ingredient-heading]'),
+		texts: await lefts('[data-ingredient-text]'),
+	}
 }
 
-test('every ingredient row starts its text on the content edge and ends its cart on the other, a row with no amount, a heading and a sub-Recipe included', async ({
+test('every ingredient row starts with its check circle on the content edge, its text in one column and its cart on the other edge, a row with no amount, a heading and a sub-Recipe included', async ({
 	page,
 	login,
 }) => {
@@ -855,19 +928,38 @@ test('every ingredient row starts its text on the content edge and ends its cart
 	await page.goto(`/recipes/${recipe.id}`)
 	await expect(page.locator('[data-ingredient-text]')).toHaveCount(6)
 	const { x: edge } = await box(page.getByRole('heading', { level: 1 }))
-	const starts = await rowStarts(page.locator('#ingredients-list'))
+	const { leads, texts } = await rowEdges(page.locator('#ingredients-list'))
 	// Six rows (one with no amount, one a sub-Recipe) and two headings.
-	expect(starts).toHaveLength(8)
-	expect(new Set(starts)).toEqual(new Set([Math.round(edge)]))
-	await expect(page.getByText('To serve', { exact: true })).toHaveCSS(
-		'text-transform',
-		'none',
-	)
-	// A one-line row is a tap tall, the cart beside it adding nothing.
-	const oil = page.getByRole('checkbox', { name: 'olive oil', exact: true })
-	const oilHeight = (await box(oil)).height
-	expect(oilHeight).toBeGreaterThanOrEqual(44)
-	expect(oilHeight).toBeLessThan(48)
+	expect(leads).toHaveLength(8)
+	expect(new Set(leads)).toEqual(new Set([Math.round(edge)]))
+	expect(texts).toHaveLength(6)
+	expect(new Set(texts)).toEqual(new Set([Math.round(edge) + 36]))
+	const toServe = page.getByText('To serve', { exact: true })
+	await expect(toServe).toHaveCSS('text-transform', 'none')
+	// A heading has a hairline under it, and more room above than below.
+	await expect(toServe).toHaveCSS('border-bottom-width', '1px')
+	const heading = await box(toServe)
+	// Measured to the rows' text, not their 56px boxes.
+	const textOf = (name: string) =>
+		page
+			.getByRole('checkbox', { name, exact: true })
+			.locator('[data-ingredient-text]')
+			.evaluate((el) => {
+				const range = document.createRange()
+				range.selectNodeContents(el)
+				const rect = range.getBoundingClientRect()
+				return { top: rect.top, bottom: rect.bottom }
+			})
+	const stockText = await textOf('stock')
+	const saltText = await textOf('salt')
+	const spaceAbove = heading.y - stockText.bottom
+	const spaceBelow = saltText.top - (heading.y + heading.height)
+	expect(spaceAbove).toBeGreaterThan(spaceBelow + 8)
+	// One-line rows sit 56px apart, and touch, so all of the list checks one.
+	const oil = await box(page.getByRole('checkbox', { name: 'olive oil' }))
+	const onion = await box(page.getByRole('checkbox', { name: 'onion' }))
+	expect(Math.round(onion.y - oil.y)).toBe(56)
+	expect(Math.round(oil.height)).toBe(56)
 	// The amount leads the line at weight 600.
 	await expect(
 		page
@@ -890,7 +982,48 @@ test('every ingredient row starts its text on the content edge and ends its cart
 	)
 })
 
-test('an ingredient row is one checkbox named by the ingredient; a tap or Space checks it and strikes its name', async ({
+test('an ingredient row checks from a 44px area round its circle that stays clear of its 44px cart', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createSoup(user)
+	await page.goto(`/recipes/${recipe.id}`)
+	const oil = page.getByRole('checkbox', { name: 'olive oil', exact: true })
+	await hydrated(oil)
+	const row = await box(oil)
+	const circle = await box(oil.locator('[data-ingredient-check]'))
+	const text = await box(oil.locator('[data-ingredient-text]'))
+	const cart = await box(oil.getByRole('button', { name: 'Add to Shopping' }))
+	expect(circle).toMatchObject({ width: 24, height: 24 })
+	// The row reaches 44px and more round the circle, up to where its text
+	// starts, and the cart's own 44px box starts after the text ends.
+	expect(text.x - row.x).toBeGreaterThanOrEqual(44)
+	expect(row.height).toBeGreaterThanOrEqual(44)
+	expect(cart.width).toBeGreaterThanOrEqual(44)
+	expect(cart.height).toBeGreaterThanOrEqual(44)
+	expect(cart.x).toBeGreaterThanOrEqual(circle.x + circle.width)
+	// A tap on the circle checks the row; one on the cart only adds to
+	// Shopping.
+	await page.touchscreen.tap(
+		circle.x + circle.width / 2,
+		circle.y + circle.height / 2,
+	)
+	await expect(oil).toBeChecked()
+	await oil.press('Space')
+	await expect(oil).not.toBeChecked()
+	await page.touchscreen.tap(cart.x + cart.width / 2, cart.y + cart.height / 2)
+	await expect
+		.poll(() =>
+			prisma.shoppingListItem.count({
+				where: { name: 'olive oil', list: { householdId: user.householdId } },
+			}),
+		)
+		.toBe(1)
+	await expect(oil).not.toBeChecked()
+})
+
+test('a checked ingredient fills its circle and fades its whole line without a strike, and stays checked after a reload', async ({
 	page,
 	login,
 }) => {
@@ -900,35 +1033,53 @@ test('an ingredient row is one checkbox named by the ingredient; a tap or Space 
 	const onion = page.getByRole('checkbox', { name: 'onion', exact: true })
 	await hydrated(onion)
 	await expect(onion).toHaveText('1 onion, chopped')
-	// No check box is drawn; the text starts the row, on the content edge.
-	const text = await box(onion.locator('[data-ingredient-text]'))
-	expect(Math.round(text.x)).toBe(16)
+	const circle = onion.locator('[data-ingredient-check]')
+	await expect(circle).toBeVisible()
+	await expect(circle).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
 	await onion.locator('[data-ingredient-text]').tap()
 	await expect(onion).toBeChecked()
-	await expect(onion.locator('[data-ingredient-name]')).toHaveCSS(
-		'text-decoration-line',
-		'line-through',
-	)
+	const expectCheckedLook = async () => {
+		await expect(circle).toBeVisible()
+		// The light theme's primary fill and faint text.
+		await expect(circle).toHaveCSS('background-color', 'rgb(31, 90, 61)')
+		for (const part of [
+			onion.locator('[data-ingredient-text]'),
+			onion.locator('[data-ingredient-text] > span').first(),
+			onion.locator('[data-ingredient-name]'),
+			onion.locator('[data-ingredient-name] > span').last(),
+		]) {
+			await expect(part).toHaveCSS('color', 'rgb(118, 115, 107)')
+			await expect(part).toHaveCSS('text-decoration-line', 'none')
+		}
+	}
+	await expectCheckedLook()
 	const saved = await page.evaluate(() =>
 		Object.keys(localStorage).filter((key) =>
 			key.startsWith('cooking-progress:'),
 		),
 	)
 	expect(saved).toHaveLength(1)
+	await page.reload()
+	await hydrated(onion)
+	await expect(onion).toBeChecked()
+	await expectCheckedLook()
 	await onion.press('Space')
 	await expect(onion).not.toBeChecked()
+	await expect(circle).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
 })
 
-test('the Ingredients sheet and a share page start every row and heading on one edge', async ({
+test('the Ingredients sheet and a share page start every circle and heading on one edge and every row’s text in one column', async ({
 	page,
 	login,
 }) => {
 	const user = await login()
 	const recipe = await createSoup(user)
 	const oneEdge = async (scope: Locator) => {
-		const starts = await rowStarts(scope)
-		expect(starts).toHaveLength(8)
-		expect(new Set(starts).size).toBe(1)
+		const { leads, texts } = await rowEdges(scope)
+		expect(leads).toHaveLength(8)
+		expect(new Set(leads).size).toBe(1)
+		expect(texts).toHaveLength(6)
+		expect(new Set(texts)).toEqual(new Set([leads[0]! + 36]))
 	}
 
 	await page.goto(`/recipes/${recipe.id}`)
@@ -983,7 +1134,7 @@ test('ingredients, steps and the description read in the sans, upright; the titl
 	)
 })
 
-test('step numerals are large and green, two digits clear the text, and a finished step turns its numeral into a check', async ({
+test('step numerals are 24px and green, two digits clear the text, hairlines part the steps, and a finished step fades without a strike, its check where its numeral was', async ({
 	page,
 	login,
 }) => {
@@ -995,7 +1146,7 @@ test('step numerals are large and green, two digits clear the text, and a finish
 	const tenth = steps.nth(9)
 	const numeral = tenth.locator('[data-step-number]')
 	await expect(numeral).toHaveText('10')
-	await expect(numeral).toHaveCSS('font-size', '32px')
+	await expect(numeral).toHaveCSS('font-size', '24px')
 	// The primary green in light.
 	await expect(numeral).toHaveCSS('color', 'rgb(31, 90, 61)')
 	const text = await box(tenth.locator('[data-step-text]'))
@@ -1006,15 +1157,123 @@ test('step numerals are large and green, two digits clear the text, and a finish
 	})
 	expect(number).toBeLessThan(text.x)
 	await expect(tenth.locator('[data-step-text]')).toHaveCSS('font-size', '17px')
+	// Its text starts in the column the ingredients' text does.
+	const ingredientText = await box(
+		page
+			.getByRole('checkbox', { name: 'olive oil', exact: true })
+			.locator('[data-ingredient-text]'),
+	)
+	expect(Math.round(text.x)).toBe(Math.round(ingredientText.x))
+	// A hairline under every step but the last.
+	await expect(tenth).toHaveCSS('border-bottom-width', '1px')
+	await expect(steps.last()).toHaveCSS('border-bottom-width', '0px')
 
 	const first = steps.first()
 	await hydrated(first)
+	// Within its row, read in one go: checking a step scrolls to the next.
+	const inRow = (part: Locator) =>
+		part.evaluate((el) => {
+			const row = el.closest('[data-step-id]')!.getBoundingClientRect()
+			const inner = el.getBoundingClientRect()
+			return {
+				x: inner.x - row.x,
+				y: inner.y - row.y,
+				width: inner.width,
+				height: inner.height,
+			}
+		})
+	const digit = await inRow(first.locator('[data-step-number]'))
 	// Its middle is the temperature, which converts on a tap.
 	await first.locator('[data-step-number]').tap()
 	await expect(first).toBeChecked()
-	// The check in the numeral's place (print keeps the number).
-	await expect(first.locator('[data-step-number] svg')).toBeVisible()
-	// A cue keeps its weight and its underline.
+	// The check in the numeral's place (print keeps the number), centred on
+	// the same first line.
+	const check = first.locator('[data-step-number] svg')
+	await expect(check).toBeVisible()
+	const checkBox = await inRow(check)
+	expect(
+		Math.abs(checkBox.y + checkBox.height / 2 - (digit.y + digit.height / 2)),
+	).toBeLessThanOrEqual(1)
+	expect(Math.round(checkBox.x)).toBe(Math.round(digit.x))
+	const stepText = first.locator('[data-step-text]')
+	await expect(stepText).toHaveCSS('text-decoration-line', 'none')
+	await expect(stepText).toHaveCSS('color', 'rgb(118, 115, 107)')
+	// A cue keeps its weight, fades and loses its underline.
 	const cue = first.getByTestId('cooking-duration-cue')
 	await expect(cue).toHaveCSS('font-weight', '600')
+	await expect(cue).toHaveCSS('text-decoration-line', 'none')
+})
+
+test('the page sets its text in one reading size and one small size, never 12 or 15px', async ({
+	page,
+	login,
+}) => {
+	const user = await login()
+	const recipe = await createSoup(user)
+	await prisma.recipe.update({
+		where: { id: recipe.id },
+		data: { notes: 'Leave the beans out for a smoother soup.' },
+	})
+	const sizes = () =>
+		page.evaluate(() => {
+			const found = new Map<string, string>()
+			const walker = document.createTreeWalker(
+				document.body,
+				NodeFilter.SHOW_TEXT,
+			)
+			for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+				const el = node.parentElement!
+				if (!node.textContent?.trim()) continue
+				if (!el.closest('#main-content, [data-nav-bar], [role="dialog"]')) {
+					continue
+				}
+				const rect = el.getBoundingClientRect()
+				// Out of sight (a screen reader's line) counts for nothing.
+				if (rect.width <= 1 || rect.height <= 1) continue
+				if (!el.checkVisibility()) continue
+				found.set(getComputedStyle(el).fontSize, node.textContent.trim())
+			}
+			return Object.fromEntries(found)
+		})
+	// Scaled, so the yield line shows, and scrolled, so the Ingredients
+	// button floats.
+	await page.goto(`/recipes/${recipe.id}?scale=2`)
+	await expect(page.getByText('original: 4')).toBeVisible()
+	const top = await sizes()
+	await page
+		.getByRole('heading', { name: 'Instructions' })
+		.evaluate((heading) => heading.scrollIntoView())
+	await expect(
+		page.getByRole('button', { name: /^Ingredients ·/ }),
+	).toBeVisible()
+	const scrolled = await sizes()
+	// And the Add to Plan sheet.
+	await page.evaluate(() => window.scrollTo(0, 0))
+	await page.getByRole('button', { name: 'Add to Plan' }).tap()
+	await expect(page.getByRole('dialog', { name: 'Add to Plan' })).toBeVisible()
+	const sheet = await sizes()
+	expect(sheet).toHaveProperty(['13.5px'])
+	for (const found of [top, scrolled, sheet]) {
+		expect(found).not.toHaveProperty(['12px'])
+		expect(found).not.toHaveProperty(['15px'])
+	}
+	// Notes read at the ingredients' size; small labels at 13.5px.
+	await expect(
+		page.getByText('Leave the beans out for a smoother soup.'),
+	).toHaveCSS('font-size', '17px')
+	await expect(page.getByRole('link', { name: 'seriouseats.com' })).toHaveCSS(
+		'font-size',
+		'13.5px',
+	)
+	await expect(page.getByRole('button', { name: 'Scale 2×' })).toHaveCSS(
+		'font-size',
+		'13.5px',
+	)
+	await expect(
+		page.getByRole('heading', { name: 'Ingredients' }).first(),
+	).toHaveCSS('font-size', '24px')
+	await expect(page.getByRole('heading', { name: 'Instructions' })).toHaveCSS(
+		'font-size',
+		'24px',
+	)
 })

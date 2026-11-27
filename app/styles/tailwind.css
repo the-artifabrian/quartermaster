@@ -175,15 +175,15 @@
 	/* A Recipe's page on a phone: in the serif its title, its Ingredients and
 	   Instructions headings and a step's numeral; in the sans an ingredient
 	   row and a step's text. */
-	--text-recipe-title: 2.75rem;
-	--text-recipe-title--line-height: 1.02;
-	--text-recipe-section: 1.8125rem;
+	--text-recipe-title: 2.25rem;
+	--text-recipe-title--line-height: 1.1;
+	--text-recipe-section: 1.5rem;
 	--text-recipe-section--line-height: 1.1;
 	--text-ingredient: 1.0625rem;
 	--text-ingredient--line-height: 1.45;
 	--text-step: 1.0625rem;
 	--text-step--line-height: 1.6;
-	--text-step-number: 2rem;
+	--text-step-number: 1.5rem;
 	--text-step-number--line-height: 1;
 
 	--animate-roll-reveal: roll-reveal 0.4s cubic-bezier(0.22, 1.28, 0.54, 0.99);

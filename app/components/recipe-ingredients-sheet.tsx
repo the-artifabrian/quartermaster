@@ -51,7 +51,7 @@ export function RecipeIngredientsSheet({
 					)}
 				>
 					Ingredients
-					<span className="text-muted-foreground text-xs tabular-nums">
+					<span className="text-muted-foreground phone:text-label text-xs tabular-nums">
 						· {checkedCount}/{totalCount}
 					</span>
 				</button>

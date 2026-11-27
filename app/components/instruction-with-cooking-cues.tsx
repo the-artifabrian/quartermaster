@@ -77,7 +77,7 @@ export function InstructionWithCookingCues({
 					className={cn(
 						'font-semibold print:text-inherit print:no-underline',
 						isChecked
-							? 'text-faint decoration-faint/60 line-through'
+							? 'text-faint decoration-faint/60 phone:no-underline line-through'
 							: 'text-primary decoration-primary/40 phone:text-foreground phone:decoration-primary phone:decoration-[1.5px] underline decoration-2 underline-offset-4',
 					)}
 				>

@@ -501,8 +501,11 @@ test('custom Recipe yield labels fit phone and desktop detail layouts', async ({
 	]) {
 		await page.setViewportSize(viewport)
 		await page.goto(`/recipes/${recipe.id}`)
+		// A phone shows the yield once, in the facts under the title.
 		await expectYieldFits(
-			page.getByText(`Makes 2.5 ${yieldLabel}`),
+			viewport.width < 768
+				? page.getByRole('definition').filter({ hasText: `2.5 ${yieldLabel}` })
+				: page.getByText(`Makes 2.5 ${yieldLabel}`),
 			viewport.width,
 		)
 	}
@@ -623,7 +626,11 @@ test('manual Recipe scaling stays multiplier-first and shows known yield as cont
 		const scaleTrigger = page.getByRole('button', { name: 'Scale 1×' })
 		await expect(scaleTrigger).toBeVisible()
 		await expect(page.getByLabel('Scale multiplier')).toHaveCount(0)
-		await expect(page.getByText('Makes 12 pieces')).toBeVisible()
+		await expect(
+			viewport.width < 768
+				? page.getByRole('definition').filter({ hasText: '12 pieces' })
+				: page.getByText('Makes 12 pieces'),
+		).toBeVisible()
 		await expect(page.getByLabel(/Target pieces/)).toHaveCount(0)
 		await expect(page.getByText(/You have \d+\/\d+ ingredients/)).toHaveCount(0)
 		await expect(page.getByRole('button', { name: 'Metric' })).toBeVisible()
@@ -924,11 +931,11 @@ test('Recipe instructions show passive cooking cues and ignore stored timers', a
 
 	await step.click({ position: { x: 8, y: 8 } })
 	await expect(step).toHaveAttribute('aria-checked', 'true')
-	await expect(durationCues.first()).toHaveCSS(
-		'text-decoration-line',
-		/line-through/,
-	)
-	await expect(temperatureCue).toHaveCSS('text-decoration-line', /line-through/)
+	// On a phone a finished step fades, cues and all, without a strike.
+	for (const cue of [durationCues.first(), temperatureCue]) {
+		await expect(cue).toHaveCSS('text-decoration-line', 'none')
+		await expect(cue).toHaveCSS('color', 'rgb(118, 115, 107)')
+	}
 
 	const ordinaryStep = page
 		.getByRole('checkbox')
@@ -948,6 +955,11 @@ test('Recipe instructions show passive cooking cues and ignore stored timers', a
 	await page.setViewportSize({ width: 1024, height: 800 })
 	await expect(durationCues.first()).toHaveCSS('font-weight', '600')
 	await expect(temperatureCue).toHaveCSS('font-weight', '600')
+	// Wider, a finished step still strikes its text.
+	await expect(durationCues.first()).toHaveCSS(
+		'text-decoration-line',
+		/line-through/,
+	)
 })
 
 test('Recipe detail copies clean scaled text and reports clipboard results', async ({
@@ -1044,7 +1056,9 @@ test('a scaled Recipe counts its loaves, eggs and pinches in the plural, and bac
 
 	await page.setViewportSize({ width: 390, height: 844 })
 	await page.goto(`/recipes/${recipe.id}`)
-	await expect(page.getByText('Makes 1 loaf')).toBeVisible()
+	await expect(
+		page.getByRole('definition').filter({ hasText: '1 loaf' }),
+	).toBeVisible()
 	await expect(row('egg')).toHaveText('1 egg')
 
 	const trigger = page.getByRole('button', { name: 'Scale 1×' })
@@ -1140,11 +1154,11 @@ test.describe('on a phone', () => {
 			left,
 		)
 
-		// No check box: the ingredient's text and the step numbers start on
-		// the edge.
+		// The ingredient's check circle and the step numbers start on the
+		// edge.
 		const ingredient = page.getByRole('checkbox', { name: 'chicken thighs' })
 		expectNear(
-			(await box(ingredient.locator('[data-ingredient-text]'))).left,
+			(await box(ingredient.locator('[data-ingredient-check]'))).left,
 			left,
 		)
 		const step = page.getByRole('checkbox').filter({ hasText: 'Marinate' })

@@ -54,14 +54,14 @@ Useful sizes:
 | Use                                                         | Size                                                                                |
 | ----------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | Tab title (`TabTitle`)                                      | 40px Newsreader, 1.05 lines                                                         |
-| Recipe title on a phone (`text-recipe-title`)               | 44px Newsreader, 1.02 lines; 32px wider                                             |
+| Recipe title on a phone (`text-recipe-title`)               | 36px Newsreader, 1.1 lines; 32px wider                                              |
 | Plan's day heading on a phone                               | 31px Newsreader                                                                     |
-| Recipe's section heading on a phone (`text-recipe-section`) | 29px Newsreader; 18px wider                                                         |
+| Recipe's section heading on a phone (`text-recipe-section`) | 24px Newsreader; 18px wider                                                         |
 | Other page title                                            | 24px Newsreader                                                                     |
 | Plan dish on a phone (`text-dish`)                          | 17px Schibsted Grotesk, 19px under a Dinner's photo (`text-dish-photo`)             |
 | Recipe or Menu row on a phone (`text-list-name`)            | 17px Schibsted Grotesk                                                              |
 | Shopping item or Staple on a phone (`text-item-name`)       | 17px Schibsted Grotesk                                                              |
-| A step on a phone (`text-step`)                             | 17px Schibsted Grotesk, 1.6 lines; its numeral 32px Newsreader (`text-step-number`) |
+| A step on a phone (`text-step`)                             | 17px Schibsted Grotesk, 1.6 lines; its numeral 24px Newsreader (`text-step-number`) |
 | An ingredient on a phone (`text-ingredient`)                | 17px Schibsted Grotesk, 1.45 lines                                                  |
 | Body, and ingredients and steps wider                       | 16px Schibsted Grotesk                                                              |
 | UI label                                                    | 14px Schibsted Grotesk                                                              |
@@ -398,7 +398,7 @@ Typical square thumbnail sizes:
   top
 - 36–40px in pickers
 
-On a phone a Recipe's photo runs edge to edge, 292px tall, under the nav bar; a
+On a phone a Recipe's photo runs edge to edge, 244px tall, under the nav bar; a
 Recipe without one starts with its title. Desktop shows it beside the title.
 Thumbnails beside visible titles are decorative (`alt=""`). Shopping, Staples,
 Menus, settings, and forms stay text-first; an upload preview is the exception.
@@ -459,24 +459,37 @@ On a phone the Recipes and Menus lists share a title and a row shape:
 ### Recipe detail
 
 - Put the title and optional hero first, then metadata, ingredients, and steps.
-- On a phone the page is the photo, the title, the description in muted sans,
-  then the facts: Active, Total and what it makes (at the current scale), each a
-  small label over its value, only those the Recipe has, with the source site
-  under them. Add to Plan is a full-width green button with a quiet Edit beside
-  it; Favorite, Share and the dots are in the nav bar, and Copy Recipe is the
-  dots' first item after Reset cooking checks. Wider screens keep the title and
-  facts beside the photo and the row of icon actions.
-- On a phone an ingredient row is one line of text from the content edge: the
-  amount and unit at weight 600, the name, then any note in muted roman after
-  its comma, with the cart on the other edge. A long row wraps under its own
-  start. A row with no amount starts with its name, and headings and sub-Recipes
-  start on the same edge. There is no check box: the row is the checkbox, and a
-  checked row strikes its name and note and fades its text. The Ingredients
-  sheet and the shared Recipe page draw the same rows.
-- On a phone a step is a green Newsreader numeral in its own column and the text
-  in the sans; a finished step fades and its numeral becomes a green check.
-  Times and temperatures are weight 600 over a green underline, in ink on a
-  phone and green wider.
+- On a phone the page is the photo (244px tall, edge to edge), the title, the
+  description in muted sans, then the facts: Active, Total and what it makes (at
+  the current scale), each a small label over its value, only those the Recipe
+  has, with the source site under them. Add to Plan is the one full-width green
+  button; Favorite, Share and the dots are in the nav bar, and the dots hold
+  Edit (named Edit Recipe) first, then Reset cooking checks while there are
+  checks, Copy Recipe and Print. Wider screens keep the title and facts beside
+  the photo and the row of icon actions, Edit among them.
+- On a phone a section heading (Ingredients, Instructions) has about 36px of
+  room above it and 24px between it and its first row. The yield shows once, in
+  the facts; the line under the Ingredients heading shows only while the Recipe
+  is scaled, with the original beside it.
+- Text on a phone's Recipe page comes in one reading size, 17px (notes,
+  ingredients and steps), and one small size, `text-label` (labels, the source
+  link, Scale). The description stays 16px and muted.
+- On a phone an ingredient row starts with Shopping's check circle
+  (`CheckCircle`) on the content edge, then one line of text: the amount and
+  unit at weight 600, the name, then any note in muted roman after its comma,
+  with the cart on the other edge. One-line rows are 56px and touch, so the
+  whole list checks a row. A long row wraps under its own text. Headings start
+  on the content edge in sentence case over a hairline, with more room above
+  than below. The row is the checkbox: a checked row fills its circle and fades
+  its whole line, amount included, without a strike. Wider screens keep a square
+  box and strike a checked row. The Ingredients sheet and the shared Recipe page
+  draw the same rows.
+- On a phone a step is a green Newsreader numeral in a column as wide as an
+  ingredient's circle and its gap, so the two texts line up, and the text in the
+  sans, with a hairline between steps. A finished step fades without a strike
+  and its numeral becomes a green check on its first line. Times and
+  temperatures are weight 600 over a green underline, in ink on a phone and
+  green wider.
 - Print keeps its own layout. A printed page is about as wide as a phone, so
   `max-md:` reaches print too; the Recipe page's phone layout goes through
   `phone:` (a screen below `md`), which print never matches.

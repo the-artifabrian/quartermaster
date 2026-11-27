@@ -55,7 +55,7 @@ export function InlineTemperature({
 				className={cn(
 					'focus-visible:ring-ring cursor-help rounded-sm font-semibold focus-visible:ring-2 focus-visible:outline-none print:text-inherit print:no-underline',
 					isChecked
-						? 'text-faint decoration-faint/60 line-through'
+						? 'text-faint decoration-faint/60 phone:no-underline line-through'
 						: 'text-primary decoration-primary/50 phone:text-foreground phone:decoration-primary phone:decoration-solid phone:decoration-[1.5px] underline decoration-dotted underline-offset-4',
 				)}
 			>

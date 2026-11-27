@@ -54,13 +54,16 @@ export function RecipeMetadataCard({
 	)
 }
 
-function SourceLink({ url }: { url: string }) {
+function SourceLink({ url, className }: { url: string; className?: string }) {
 	return (
 		<a
 			href={url}
 			target="_blank"
 			rel="noopener noreferrer"
-			className="hover:text-foreground inline-flex min-w-0 items-center gap-1 text-xs underline"
+			className={cn(
+				'hover:text-foreground inline-flex min-w-0 items-center gap-1 text-xs underline',
+				className,
+			)}
 		>
 			<Icon name="link-2" size="sm" className="shrink-0" />
 			<span className="truncate">
@@ -127,7 +130,7 @@ export function RecipeFacts({
 			) : null}
 			{sourceUrl ? (
 				<div className="text-muted-foreground flex min-w-0">
-					<SourceLink url={sourceUrl} />
+					<SourceLink url={sourceUrl} className="text-label" />
 				</div>
 			) : null}
 		</div>

@@ -190,8 +190,9 @@ function FavoriteButton({
 }
 
 /**
- * Favourite, Share and ⋯ in the nav bar on a phone. Copy Recipe, which has
- * its own button in the wide row, is the ⋯'s first item there.
+ * Favourite, Share and ⋯ in the nav bar on a phone. Edit Recipe and Copy
+ * Recipe, which have their own buttons in the wide row, are in the ⋯ there,
+ * Edit first.
  */
 export function RecipeNavActions({
 	recipe,
@@ -237,6 +238,7 @@ export function RecipeNavActions({
 						<Icon name="dots-horizontal" className={icon} />
 					</Button>
 				}
+				editTo={`/recipes/${recipe.id}/edit`}
 				onResetCookingChecks={page?.reset}
 				onCopy={copy}
 				isProActive={isProActive}
@@ -249,6 +251,7 @@ export function RecipeNavActions({
 
 function RecipeMoreActions({
 	trigger,
+	editTo,
 	onResetCookingChecks,
 	onCopy,
 	isProActive,
@@ -256,6 +259,8 @@ function RecipeMoreActions({
 	enhancing,
 }: {
 	trigger: React.ReactNode
+	/** The edit screen, for a menu on a screen with no Edit button. */
+	editTo?: string
 	onResetCookingChecks?: () => void
 	onCopy?: () => void
 	isProActive: boolean
@@ -266,6 +271,14 @@ function RecipeMoreActions({
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
 			<DropdownMenuContent align="end">
+				{editTo && (
+					<DropdownMenuItem asChild>
+						<PushLink to={editTo} aria-label="Edit Recipe">
+							<Icon name="pencil-1" size="sm" />
+							Edit
+						</PushLink>
+					</DropdownMenuItem>
+				)}
 				{onResetCookingChecks && (
 					<DropdownMenuItem
 						className="min-h-11"

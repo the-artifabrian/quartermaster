@@ -45,7 +45,7 @@ export function RecipeNotes({
 				ref={textRef}
 				id={textId}
 				className={cn(
-					'text-[15px] leading-relaxed text-pretty whitespace-pre-wrap',
+					'phone:text-[1.0625rem] text-[15px] leading-relaxed text-pretty whitespace-pre-wrap',
 					!expanded && 'line-clamp-3 print:line-clamp-none',
 				)}
 			>

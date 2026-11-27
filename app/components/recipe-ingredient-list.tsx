@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useFetcher } from 'react-router'
 import { toast } from 'sonner'
 import { getHouseholdClientId } from '#app/utils/household-client.tsx'
+import { CheckCircle } from '#app/components/ui/check-circle.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import {
 	Tooltip,
@@ -48,14 +49,15 @@ export function IngredientList({
 }) {
 	return (
 		<>
-			<ul className="phone:text-ingredient phone:leading-(--text-ingredient--line-height) space-y-1 leading-[1.7] print:columns-2 print:space-y-0 print:gap-x-6 print:text-sm print:leading-[1.5]">
+			<ul className="phone:text-ingredient phone:leading-(--text-ingredient--line-height) phone:space-y-0 space-y-1 leading-[1.7] print:columns-2 print:space-y-0 print:gap-x-6 print:text-sm print:leading-[1.5]">
 				{ingredients.map((ingredient) => {
 					if (ingredient.isHeading) {
 						return (
-							<li key={ingredient.id} className="phone:mt-3.5 phone:first:mt-0">
+							// More room above a heading than between it and its rows.
+							<li key={ingredient.id} className="phone:mt-5 phone:first:mt-3.5">
 								<p
 									data-ingredient-heading=""
-									className="text-muted-foreground border-border/50 text-label phone:mb-0.5 phone:border-b-0 phone:pb-0 mt-4 mb-1.5 border-b pb-1 font-sans font-semibold first:mt-0 print:mt-2 print:mb-0.5 print:break-inside-avoid-column print:px-0 print:text-[10px] print:leading-(--text-xs--line-height) print:font-medium print:tracking-widest print:uppercase"
+									className="text-muted-foreground border-border/50 text-label phone:border-border phone:mb-0 phone:pb-1.5 mt-4 mb-1.5 border-b pb-1 font-sans font-semibold first:mt-0 print:mt-2 print:mb-0.5 print:break-inside-avoid-column print:px-0 print:text-[10px] print:leading-(--text-xs--line-height) print:font-medium print:tracking-widest print:uppercase"
 								>
 									{ingredient.name}
 								</p>
@@ -86,9 +88,9 @@ export function IngredientList({
 							className={cn(
 								// The checkbox sits on the content edge; the hover fill reaches past it.
 								'-mx-2 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 transition-colors select-none',
-								// A phone's row is as tall as its text, and at least a tap: the
-								// 44px cart beside the text sets no extra height.
-								'phone:min-h-11 phone:py-0',
+								// A phone's rows touch, each at least 56px, so the whole height
+								// of the list checks a row.
+								'phone:min-h-14 phone:py-0',
 								// No fill under a checked row: its faint text needs the page.
 								!isChecked && 'hover:bg-muted/50',
 								'focus-visible:ring-primary/50 focus-visible:ring-2 focus-visible:outline-none',
@@ -102,9 +104,13 @@ export function IngredientList({
 								}
 							}}
 						>
-							{/* A phone has no box: the row is the control, its text starts
-							    on the content edge, and a checked row strikes its name and
-							    fades. */}
+							{/* A phone draws Shopping's circle on the content edge, and a
+							    checked row fades without a strike. */}
+							<CheckCircle
+								checked={isChecked}
+								data-ingredient-check=""
+								className="phone:flex hidden"
+							/>
 							<span
 								className={cn(
 									'phone:hidden flex size-6 shrink-0 items-center justify-center rounded border transition-colors print:hidden',
@@ -142,16 +148,15 @@ export function IngredientList({
 										)}
 									</>
 								)}
-								<span
-									data-ingredient-name=""
-									className={cn(
-										isChecked && 'phone:decoration-faint/60 phone:line-through',
-									)}
-								>
+								<span data-ingredient-name="">
 									{ingredient.linkedRecipeId ? (
 										<PushLink
 											to={`/recipes/${ingredient.linkedRecipeId}`}
-											className="text-primary decoration-primary/30 hover:decoration-primary/60 underline underline-offset-2"
+											className={cn(
+												'text-primary decoration-primary/30 hover:decoration-primary/60 underline underline-offset-2',
+												isChecked &&
+													'phone:text-faint phone:decoration-faint/60',
+											)}
 											onClick={(e) => e.stopPropagation()}
 										>
 											{words.name}

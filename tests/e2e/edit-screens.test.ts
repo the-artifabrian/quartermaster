@@ -1,7 +1,12 @@
 import { type Locator, type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
 import { SHELL_UA, setShellSafeArea } from '#tests/native-shell.ts'
-import { expect, hydrated, test } from '#tests/playwright-utils.ts'
+import {
+	expect,
+	hydrated,
+	recipeEditItem,
+	test,
+} from '#tests/playwright-utils.ts'
 
 // Recipe and Menu edit screens (edit and new): every error that holds Save
 // back shows at what it is about, the tab bar is gone, leaving with changes
@@ -75,9 +80,7 @@ async function openRecipeFromList(page: Page, title: string) {
 }
 
 async function openEdit(page: Page, recipeId: string) {
-	const edit = page.getByRole('link', { name: 'Edit Recipe' })
-	await hydrated(edit)
-	await edit.tap()
+	await (await recipeEditItem(page)).tap()
 	await expect(page).toHaveURL(`/recipes/${recipeId}/edit`)
 	await hydrated(saveButton(page))
 }

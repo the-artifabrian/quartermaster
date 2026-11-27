@@ -43,7 +43,6 @@ import { RecipeIngredientsControls } from '#app/components/recipe-scale-control.
 import { Button } from '#app/components/ui/button.tsx'
 import { Chip } from '#app/components/ui/chip.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
-import { PushLink } from '#app/components/push-link.tsx'
 import {
 	Popover,
 	PopoverAnchor,
@@ -724,7 +723,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			<div className="mb-3">
 				<p
 					id="plan-picker-day-label"
-					className="text-muted-foreground mb-1.5 text-xs"
+					className="text-muted-foreground phone:text-label mb-1.5 text-xs"
 				>
 					Day
 				</p>
@@ -753,7 +752,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 			<div className="mb-4">
 				<p
 					id="plan-picker-label-label"
-					className="text-muted-foreground mb-1.5 text-xs"
+					className="text-muted-foreground phone:text-label mb-1.5 text-xs"
 				>
 					Label (optional)
 				</p>
@@ -825,14 +824,14 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					</div>
 
 					{recipe.image && (
-						<div className="phone:mb-[22px] order-first -mx-4 -mt-4 mb-5 shrink-0 sm:-mx-8 md:order-none md:mx-0 md:my-0 md:w-[45%] lg:w-100 print:hidden">
+						<div className="phone:mb-5 order-first -mx-4 -mt-4 mb-5 shrink-0 sm:-mx-8 md:order-none md:mx-0 md:my-0 md:w-[45%] lg:w-100 print:hidden">
 							<Img
 								src={`/resources/images?objectKey=${encodeURIComponent(recipe.image.objectKey)}`}
 								alt={recipe.image.altText ?? recipe.title}
 								data-recipe-image-transition={
 									imageTransitionsFromList ? '' : undefined
 								}
-								className="md:border-border phone:aspect-auto phone:h-[292px] aspect-[16/10] w-full object-cover md:aspect-4/3 md:rounded-md md:border"
+								className="md:border-border phone:aspect-auto phone:h-61 aspect-[16/10] w-full object-cover md:aspect-4/3 md:rounded-md md:border"
 								{...IMG_SIZES.hero}
 							/>
 						</div>
@@ -850,7 +849,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					yieldLabel={recipe.yieldLabel}
 					scaleMultiplier={ratio}
 					sourceUrl={recipe.sourceUrl}
-					className="phone:flex mt-[18px] hidden"
+					className="phone:flex mt-4 hidden"
 				/>
 
 				<Popover
@@ -860,26 +859,14 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 					{/* Around whichever row shows, so the popover (640 to 767px)
 					    opens under the phone's Add to Plan too. */}
 					<PopoverAnchor>
-						<div className="phone:flex mt-5 hidden gap-2">
+						{/* A phone's Edit is in the nav bar's ⋯. */}
+						<div className="phone:flex mt-5 hidden">
 							<Button
 								onClick={openPlanPicker}
 								className="h-12 min-w-0 flex-1 text-base font-semibold"
 							>
 								<Icon name="calendar" size="md" />
 								Add to Plan
-							</Button>
-							<Button
-								asChild
-								variant="secondary"
-								className="h-12 px-5 text-base font-semibold"
-							>
-								<PushLink
-									to={`/recipes/${recipe.id}/edit`}
-									aria-label="Edit Recipe"
-								>
-									<Icon name="pencil-1" size="md" />
-									Edit
-								</PushLink>
 							</Button>
 						</div>
 						<RecipeActionBar
@@ -911,7 +898,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 				    stays compact and Ingredients start within the first screen. */}
 				{recipe.notes && <RecipeNotes notes={recipe.notes} className="mt-4" />}
 
-				<div className="mt-4 grid gap-5 md:mt-8 lg:grid-cols-[6fr_7fr] lg:gap-6 print:grid-cols-1 print:gap-4">
+				<div className="phone:mt-6.5 phone:gap-4 mt-4 grid gap-5 md:mt-8 lg:grid-cols-[6fr_7fr] lg:gap-6 print:grid-cols-1 print:gap-4">
 					<div className="min-w-0 lg:sticky lg:top-[calc(var(--nav-bar-bottom,4rem)+1rem)] lg:self-start print:static">
 						<div className="print:p-2">
 							<div ref={ingredientsHeaderRef}>
@@ -919,6 +906,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 									scaleMultiplier={ratio}
 									yieldAmount={recipe.yieldAmount}
 									yieldLabel={recipe.yieldLabel}
+									yieldInPhoneFacts
 									onScaleMultiplierChange={updateScaleMultiplier}
 									ingredientsExpanded={ingredientsExpanded}
 									onToggleIngredients={() =>

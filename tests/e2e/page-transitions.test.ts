@@ -7,6 +7,7 @@ import {
 	browserToday,
 	expect,
 	hydrated,
+	recipeEditItem,
 	test,
 } from '#tests/playwright-utils.ts'
 
@@ -307,9 +308,8 @@ test.describe('in the iOS app', () => {
 		await ui.expectSlide('back', () => backButton(page, 'Recipe').tap())
 		await expect(page).toHaveURL(`/recipes/${soup.id}`)
 
-		await ui.expectSlide('forward', () =>
-			page.getByRole('link', { name: 'Edit Recipe' }).tap(),
-		)
+		const edit = await recipeEditItem(page)
+		await ui.expectSlide('forward', () => edit.tap())
 		await expect(page).toHaveURL(`/recipes/${soup.id}/edit`)
 		await hydrated(saveButton(page))
 		await page.getByLabel('Title').fill('Red lentil soup')
@@ -330,9 +330,8 @@ test.describe('in the iOS app', () => {
 		await ui.expectSlide('forward', () =>
 			page.getByRole('link', { name: /^Red lentil soup/ }).tap(),
 		)
-		await ui.expectSlide('forward', () =>
-			page.getByRole('link', { name: 'Edit Recipe' }).tap(),
-		)
+		const editAgain = await recipeEditItem(page)
+		await ui.expectSlide('forward', () => editAgain.tap())
 		await ui.expectSlide('back', () =>
 			navBar(page).getByRole('link', { name: 'Cancel' }).tap(),
 		)
@@ -687,9 +686,8 @@ test.describe('in the iOS app', () => {
 			() => navBar(page).getByRole('link', { name: 'Cancel' }).tap(),
 			() => page.evaluate(() => window.history.back()),
 		]) {
-			await ui.expectSlide('forward', () =>
-				page.getByRole('link', { name: 'Edit Recipe' }).tap(),
-			)
+			const edit = await recipeEditItem(page)
+			await ui.expectSlide('forward', () => edit.tap())
 			await hydrated(saveButton(page))
 			await page.getByLabel('Title').fill('Something else')
 			await ui.expectNoTransition(leave, () =>
@@ -809,9 +807,8 @@ test.describe('in the iOS app', () => {
 		const card = page.getByRole('link', { name: /^Lentil soup/ })
 		await hydrated(card)
 		await ui.expectSlide('forward', () => card.tap())
-		await ui.expectSlide('forward', () =>
-			page.getByRole('link', { name: 'Edit Recipe' }).tap(),
-		)
+		const editItem = await recipeEditItem(page)
+		await ui.expectSlide('forward', () => editItem.tap())
 		await hydrated(saveButton(page))
 		await ui.expectSlide('back', deleteRecipe)
 		await expect(page).toHaveURL('/recipes')
@@ -819,9 +816,8 @@ test.describe('in the iOS app', () => {
 
 		// Opened cold: a pop over the Recipe, then the list in its place.
 		await page.goto(`/recipes/${second.id}`)
-		const edit = page.getByRole('link', { name: 'Edit Recipe' })
-		await hydrated(edit)
 		await ui.settled()
+		const edit = await recipeEditItem(page)
 		await ui.expectSlide('forward', () => edit.tap())
 		await hydrated(saveButton(page))
 		await ui.expectSlide('back', deleteRecipe)
@@ -851,9 +847,8 @@ test.describe('in the iOS app', () => {
 		const card = page.getByRole('link', { name: /^Lentil soup/ })
 		await hydrated(card)
 		await ui.expectSlide('forward', () => card.tap())
-		await ui.expectSlide('forward', () =>
-			page.getByRole('link', { name: 'Edit Recipe' }).tap(),
-		)
+		const edit = await recipeEditItem(page)
+		await ui.expectSlide('forward', () => edit.tap())
 		const before = (await ui.transitions()).length
 		await page.evaluate(() => {
 			Object.assign(window, { __uaSwipe: true })
@@ -1136,8 +1131,9 @@ test.describe('in Safari', () => {
 		expect(started[0]!.direction).toBeNull()
 		expect(started[0]!.animation).not.toMatch(/^page-/)
 
+		const edit = await recipeEditItem(page)
 		await ui.expectNoTransition(
-			() => page.getByRole('link', { name: 'Edit Recipe' }).tap(),
+			() => edit.tap(),
 			() => expect(page).toHaveURL(`/recipes/${soup.id}/edit`),
 		)
 		expect(

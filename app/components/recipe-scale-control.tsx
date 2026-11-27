@@ -177,6 +177,11 @@ export function RecipeScaleControl({
 }
 
 type RecipeIngredientsControlsProps = RecipeScaleControlProps & {
+	/**
+	 * The page's facts already show the yield on a phone: there the line under
+	 * the heading shows only while scaled, with the original beside it.
+	 */
+	yieldInPhoneFacts?: boolean
 	ingredientsExpanded: boolean
 	onToggleIngredients: () => void
 	useMetric?: boolean
@@ -191,6 +196,7 @@ export function RecipeIngredientsControls({
 	scaleMultiplier,
 	yieldAmount,
 	yieldLabel,
+	yieldInPhoneFacts = false,
 	onScaleMultiplierChange,
 	ingredientsExpanded,
 	onToggleIngredients,
@@ -232,7 +238,7 @@ export function RecipeIngredientsControls({
 	)
 
 	return (
-		<div className="mb-4 min-w-0">
+		<div className="phone:mb-0 mb-4 min-w-0">
 			{/* Scale and Metric go under the heading when the row is too narrow
 			    for all three (a phone's larger heading at 320px). */}
 			<div className="phone:flex-wrap flex min-w-0 items-center gap-1">
@@ -278,7 +284,7 @@ export function RecipeIngredientsControls({
 								// Radix reports its own state, which is closed while the
 								// sheet stands in for the popover.
 								aria-expanded={open}
-								className="text-muted-foreground hover:text-foreground focus-visible:ring-ring ml-auto flex min-h-11 shrink-0 items-center gap-1 rounded-sm px-2 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-hidden print:hidden"
+								className="text-muted-foreground hover:text-foreground focus-visible:ring-ring phone:text-label ml-auto flex min-h-11 shrink-0 items-center gap-1 rounded-sm px-2 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-hidden print:hidden"
 							>
 								<span>Scale</span>
 								<span className="text-foreground tabular-nums">
@@ -326,7 +332,12 @@ export function RecipeIngredientsControls({
 			{targetYield ? (
 				<p
 					aria-live="polite"
-					className="text-muted-foreground min-w-0 text-xs leading-relaxed break-words print:hidden"
+					className={cn(
+						'text-muted-foreground phone:text-label phone:leading-relaxed phone:pb-1 min-w-0 text-xs leading-relaxed break-words print:hidden',
+						// Out of sight, not out of the page, so a screen reader still
+						// hears it change when the Recipe is scaled.
+						yieldInPhoneFacts && scaleMultiplier === 1 && 'phone:sr-only',
+					)}
 				>
 					<span>
 						Makes {targetYield.amount} {targetYield.label}

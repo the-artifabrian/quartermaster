@@ -177,10 +177,14 @@ function MenuRecipeCard({
 					/>
 				</span>
 			)}
-			{/* A phone stacks the lines under the name: the quantity, then the
-			    note. Wider and in print, the quantity sits at the right of the
-			    row. */}
-			<div className="phone:flex-col not-phone:items-center not-phone:gap-3 flex min-w-0 flex-1">
+			{/* A phone's screen stacks the lines under the name: the quantity,
+			    then the note. Off a phone (a wider screen, and print) the
+			    quantity sits at the right of the row from 640px. */}
+			<div className="phone:flex phone:flex-col not-phone:sm:flex not-phone:sm:items-center not-phone:sm:gap-3 min-w-0 flex-1">
+				{/* `contents` on a plain div, so on a phone the name, the note
+				    and the quantity are one column and `order` can put the
+				    quantity above the note. The DOM keeps the note first, as
+				    the wider row reads. */}
 				<div className="phone:contents min-w-0 flex-1">
 					<p className="phone:text-item-name phone:leading-(--text-item-name--line-height) phone:order-1 line-clamp-2 min-w-0 text-[17px] leading-[1.4] font-medium break-words md:text-base">
 						{title}
@@ -199,7 +203,7 @@ function MenuRecipeCard({
 					) : null}
 				</div>
 				{quantity ? (
-					<span className="text-muted-foreground phone:text-label phone:order-3 phone:mt-0.5 phone:leading-snug phone:font-normal not-phone:mt-0 not-phone:shrink-0 mt-1 block text-sm font-medium tabular-nums">
+					<span className="text-muted-foreground phone:text-label phone:order-3 phone:mt-0.5 phone:leading-snug phone:font-normal not-phone:sm:mt-0 not-phone:sm:shrink-0 mt-1 block text-sm font-medium tabular-nums">
 						{quantity}
 					</span>
 				) : null}

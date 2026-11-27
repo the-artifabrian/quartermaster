@@ -6,6 +6,9 @@ import { buttonVariants } from './ui/button.tsx'
  * the homepage's picture of it (`StaplesPhone`), so the two cannot drift.
  */
 
+/** How far a swiped row slides to uncover Delete (px), as on Shopping. */
+export const STAPLE_SWIPE_WIDTH = 76
+
 /** The row: at least 56px, the name then the Need button. */
 export const stapleRowClassName =
 	'flex min-h-14 w-full min-w-0 items-center gap-3 py-1.5'

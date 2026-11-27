@@ -14,6 +14,7 @@ import {
 	useHiddenRows,
 } from './undo-delete.tsx'
 import {
+	STAPLE_SWIPE_WIDTH,
 	stapleNameClassName,
 	stapleNeedClassName,
 	stapleRowClassName,
@@ -417,8 +418,6 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 	)
 }
 
-/** The revealed Delete behind a swiped row is this wide (px), as on Shopping. */
-const SWIPE_ACTION_WIDTH = 76
 /**
  * A mouse: the row shows its own trash button and does not swipe. Read when
  * a finger lands, not on render, so the server and first render agree.
@@ -449,7 +448,7 @@ function StapleRow({
 	// Swiping a row left uncovers a red Delete, as on Shopping.
 	const swipe = useSwipeRow<HTMLDivElement>({
 		enabled: true,
-		width: SWIPE_ACTION_WIDTH,
+		width: STAPLE_SWIPE_WIDTH,
 		onSwiped: () => {
 			openedByFocus.current = false
 		},
@@ -564,7 +563,7 @@ function StapleRow({
 						deleteStaple()
 						swipe.closeAfterDelete()
 					}}
-					style={{ width: SWIPE_ACTION_WIDTH }}
+					style={{ width: STAPLE_SWIPE_WIDTH }}
 					className="bg-destructive text-destructive-foreground active:bg-destructive/90 absolute inset-y-0 right-0 flex flex-col items-center justify-center gap-1 text-xs font-medium pointer-fine:hidden"
 				>
 					<Icon name="trash" size="sm" />

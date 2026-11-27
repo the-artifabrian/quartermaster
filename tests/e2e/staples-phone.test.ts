@@ -1,5 +1,6 @@
 import { type Locator, type Page } from '@playwright/test'
 import { prisma } from '#app/utils/db.server.ts'
+import { STAPLE_SWIPE_WIDTH } from '#app/components/staple-row-styles.ts'
 import { SHELL_UA, setShellSafeArea } from '#tests/native-shell.ts'
 import {
 	animationsFinished,
@@ -55,6 +56,36 @@ async function scrollTo(page: Page, y: number) {
 				requestAnimationFrame(() => requestAnimationFrame(resolve)),
 			),
 	)
+}
+
+/** The page's content edges: its container's box inside its padding. */
+function contentEdges(page: Page) {
+	return page
+		.getByRole('heading', { level: 1, name: 'Staples' })
+		.evaluate((heading) => {
+			const container = heading.closest('header')!.parentElement!
+			const box = container.getBoundingClientRect()
+			const style = getComputedStyle(container)
+			return {
+				left: box.left + parseFloat(style.paddingLeft),
+				right: box.right - parseFloat(style.paddingRight),
+			}
+		})
+}
+
+/**
+ * Where the search row pins (its `top`, the status bar inset), and how far
+ * in from its own top edge the field sits.
+ */
+function pinnedPlace(page: Page) {
+	return pinnedRow(page).evaluate((row) => {
+		const style = getComputedStyle(row)
+		return {
+			top: parseFloat(style.top),
+			fieldInset:
+				parseFloat(style.paddingTop) + parseFloat(style.borderTopWidth),
+		}
+	})
 }
 
 /** Waits for the offline notice to settle, and returns its box. */
@@ -146,7 +177,7 @@ test.describe('a row', () => {
 			const row = stapleRow(page, name)
 			expect((await box(row)).height).toBeGreaterThanOrEqual(56)
 			const label = row.getByText(name, { exact: true })
-			expect((await box(label)).x).toBe(16)
+			expect((await box(label)).x).toBe((await contentEdges(page)).left)
 			expect(
 				await label.evaluate((element) => {
 					const style = getComputedStyle(element)
@@ -219,7 +250,9 @@ test.describe('a row', () => {
 			expect(buttonBox.width).toBe(shortButton.width)
 			expect(buttonBox.height).toBeGreaterThanOrEqual(44)
 			expect(labelBox.x + labelBox.width).toBeLessThanOrEqual(buttonBox.x)
-			expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual(320 - 16 + 0.5)
+			expect(buttonBox.x + buttonBox.width).toBe(
+				(await contentEdges(page)).right,
+			)
 		}
 		expect(
 			await page.evaluate(
@@ -377,7 +410,7 @@ test.describe('a row', () => {
 					return new DOMMatrix(getComputedStyle(layer).transform).m41
 				}),
 			)
-			.toBe(-76)
+			.toBe(-STAPLE_SWIPE_WIDTH)
 		await page.waitForTimeout(400)
 		expect(sent).toEqual([])
 		await expect(row.getByRole('button', { name: 'Need, Salt' })).toBeVisible()
@@ -478,7 +511,9 @@ test.describe('the search row', () => {
 		const resting = await box(searchField(page))
 		await scrollTo(page, 900)
 		const pinned = await box(searchField(page))
-		expect(pinned.y).toBe(14)
+		const place = await pinnedPlace(page)
+		expect((await box(pinnedRow(page))).y).toBe(place.top)
+		expect(pinned.y).toBe(place.top + place.fieldInset)
 		expect(resting.y).toBeGreaterThan(pinned.y)
 		expect((await box(title)).y + (await box(title)).height).toBeLessThan(0)
 		expect(
@@ -498,7 +533,7 @@ test.describe('the search row', () => {
 		await expect.poll(scrollY(page)).toBeGreaterThan(900)
 		const needBox = await box(need)
 		const rowAt = await box(pinnedRow(page))
-		expect(rowAt.y).toBe(0)
+		expect(rowAt.y).toBe(place.top)
 		expect(needBox.y).toBeGreaterThanOrEqual(rowAt.y + rowAt.height)
 	})
 
@@ -593,8 +628,9 @@ test.describe('the search row', () => {
 		await expect(field).toHaveValue('Staple')
 		expect((await box(reference)).y).toBe(before.y)
 		const pinned = await box(pinnedRow(page))
-		expect(pinned.y).toBe(0)
-		expect((await box(field)).y).toBe(14)
+		const place = await pinnedPlace(page)
+		expect(pinned.y).toBe(place.top)
+		expect((await box(field)).y).toBe(place.top + place.fieldInset)
 	})
 
 	test('reloaded far down the list, it is pinned with its + before any scroll', async ({
@@ -628,7 +664,7 @@ test.describe('the search row', () => {
 		for (const y of [0, 900]) {
 			await scrollTo(page, y)
 			const row = await box(pinnedRow(page))
-			if (y > 0) expect(row.y).toBe(0)
+			if (y > 0) expect(row.y).toBe((await pinnedPlace(page)).top)
 			else expect(row.y).toBeGreaterThan(100)
 			expect((await offlineNotice(page)).y).toBeGreaterThanOrEqual(
 				row.y + row.height,
@@ -693,8 +729,10 @@ test.describe('the search row', () => {
 			await page.goto('/staples')
 			await hydrated(searchField(page))
 			await scrollTo(page, 900)
+			// Under the inset the test gives the app.
+			const { fieldInset } = await pinnedPlace(page)
 			expect((await box(pinnedRow(page))).y).toBe(47)
-			expect((await box(searchField(page))).y).toBe(47 + 14)
+			expect((await box(searchField(page))).y).toBe(47 + fieldInset)
 			await searchField(page).focus()
 			expect(await scrollY(page)()).toBe(900)
 		})
@@ -727,12 +765,7 @@ test.describe('the pinned +', () => {
 			} else {
 				await expectThumbSized(pinnedPlus)
 				const [plus, row] = [await box(pinnedPlus), await box(pinnedRow(page))]
-				const page390 = await page.evaluate(
-					() =>
-						document.getElementById('main-content')!.getBoundingClientRect()
-							.width,
-				)
-				expect(plus.x + plus.width).toBe(page390 - 16)
+				expect(plus.x + plus.width).toBe((await contentEdges(page)).right)
 				expect(plus.y).toBeGreaterThanOrEqual(row.y)
 			}
 		}
@@ -740,10 +773,7 @@ test.describe('the pinned +', () => {
 		await page.setViewportSize({ width: 700, height: 844 })
 		await scrollTo(page, 1500)
 		const wide = await box(pinnedPlus)
-		const content = await page.evaluate(() =>
-			document.getElementById('main-content')!.getBoundingClientRect(),
-		)
-		expect(wide.x + wide.width).toBe(content.width - 32)
+		expect(wide.x + wide.width).toBe((await contentEdges(page)).right)
 	})
 
 	test('opens the add form at the top of the page with its field focused inside the tap', async ({
@@ -1094,7 +1124,7 @@ test.describe('a long list', () => {
 					new DOMMatrix(getComputedStyle(layer).transform).m41,
 				]
 			}),
-		).toEqual([0, -76])
+		).toEqual([0, -STAPLE_SWIPE_WIDTH])
 		expect(await box(neighbour)).toEqual(before)
 	})
 })

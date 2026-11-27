@@ -417,6 +417,11 @@ for (const scheme of ['light', 'dark'] as const) {
 			await expect(onList).toHaveText('On list')
 			await expect(onList).toBeEnabled()
 			await animationsFinished(page)
+			// Focused by the tap, with no ring: that is for the keyboard.
+			await expect(onList).toBeFocused()
+			expect(
+				await onList.evaluate((element) => getComputedStyle(element).boxShadow),
+			).not.toMatch(/ [1-9][\d.]*px/)
 			expect(
 				await onList.evaluate(
 					(element) => getComputedStyle(element).backgroundColor,
@@ -452,7 +457,7 @@ test.describe('the search row', () => {
 		login,
 	}) => {
 		const user = await login()
-		await seedStaples(user.householdId, many(30))
+		await seedStaples(user.householdId, many(40))
 		await page.goto('/staples')
 		await hydrated(searchField(page))
 		const title = page.getByRole('heading', { level: 1, name: 'Staples' })
@@ -473,13 +478,14 @@ test.describe('the search row', () => {
 			),
 			'1px',
 		])
-		// A row scrolled to lands below it.
-		const row = stapleRow(page, 'Staple 020')
-		await row.evaluate((element) => element.scrollIntoView({ block: 'start' }))
-		const rowBox = await box(row)
+		// A row's control scrolled to lands below it.
+		const need = page.getByRole('button', { name: 'Need, Staple 020' })
+		await need.evaluate((element) => element.scrollIntoView({ block: 'start' }))
+		await expect.poll(scrollY(page)).toBeGreaterThan(900)
+		const needBox = await box(need)
 		const rowAt = await box(pinnedRow(page))
 		expect(rowAt.y).toBe(0)
-		expect(rowBox.y).toBeGreaterThanOrEqual(rowAt.y + rowAt.height)
+		expect(needBox.y).toBeGreaterThanOrEqual(rowAt.y + rowAt.height)
 	})
 
 	test('focusing its field far down the list keeps the page where it is', async ({
@@ -707,10 +713,23 @@ test.describe('the pinned +', () => {
 			} else {
 				await expectThumbSized(pinnedPlus)
 				const [plus, row] = [await box(pinnedPlus), await box(pinnedRow(page))]
-				expect(plus.x + plus.width).toBeLessThanOrEqual(390 - 16 + 0.5)
+				const page390 = await page.evaluate(
+					() =>
+						document.getElementById('main-content')!.getBoundingClientRect()
+							.width,
+				)
+				expect(plus.x + plus.width).toBe(page390 - 16)
 				expect(plus.y).toBeGreaterThanOrEqual(row.y)
 			}
 		}
+		// Wider, where the field stops short, the + still ends the row.
+		await page.setViewportSize({ width: 700, height: 844 })
+		await scrollTo(page, 1500)
+		const wide = await box(pinnedPlus)
+		const content = await page.evaluate(() =>
+			document.getElementById('main-content')!.getBoundingClientRect(),
+		)
+		expect(wide.x + wide.width).toBe(content.width - 32)
 	})
 
 	test('opens the add form at the top of the page with its field focused inside the tap', async ({

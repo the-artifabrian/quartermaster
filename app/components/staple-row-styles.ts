@@ -12,17 +12,18 @@ export const stapleRowClassName =
 
 /** The name wraps, a long word included, rather than being cut off. */
 export const stapleNameClassName =
-	'text-item-name min-w-0 flex-1 font-medium wrap-anywhere md:text-base'
+	'text-item-name min-w-0 flex-1 font-medium wrap-anywhere'
 
 /**
  * Need is a quiet pill; once the Staple waits in Next shop it reads a green
  * check and "On list" with no fill. One width in both states, so a tap
- * never wraps the name again.
+ * never wraps the name again. The ring shows for the keyboard only, not
+ * after a tap.
  */
 export function stapleNeedClassName(onShoppingList: boolean) {
 	return cn(
 		buttonVariants({ variant: onShoppingList ? 'ghost' : 'secondary' }),
-		'w-19 shrink-0 gap-1.5 rounded-full px-0 font-semibold select-none',
+		'w-19 shrink-0 gap-1.5 rounded-full px-0 font-semibold select-none focus-within:ring-0 focus-within:ring-offset-0 focus-visible:ring-offset-2',
 		onShoppingList
 			? 'text-primary justify-end hover:bg-transparent'
 			: 'justify-center',

@@ -619,16 +619,17 @@ keeps its own Add Meal.
   Voice Control can tap it by what it shows; Delete is “Delete Salt” and its
   toast “Deleted Salt”.
 - Need is a quiet pill, 44px tall, on `muted` with no border, at 14px and weight
-  600, its fill ending on the content edge. Only the button adds: the row itself
-  is not a tap target, since a tap that lands while scrolling would put the
-  Staple on Next shop and the screen has no Undo for that. The row's look comes
-  from `app/components/staple-row-styles.ts`, which the homepage's picture of
-  the screen uses too.
+  600, its fill ending on the content edge on a phone (with a mouse the trash
+  follows it). Its ring shows for the keyboard, not after a tap. Only the button
+  adds: the row itself is not a tap target, since a tap that lands while
+  scrolling would put the Staple on Next shop and the screen has no Undo for
+  that. The row's look comes from `app/components/staple-row-styles.ts`, which
+  the homepage's picture of the screen uses too.
 - Each row carries its own Add control, its own state and its own errors. A
   shopper is usually scrolled somewhere down a long list, so a banner at the top
   of the page is a message they will never see.
 - A Staple already waiting in Next shop reads a green check and “On list” in
-  green text with no fill, in place of Need, ending on the content edge. The
+  green text with no fill, in place of Need, ending where the pill ends. The
   button keeps one width in both states, so a tap never wraps the name again.
   Keep the control focusable and the row where it was; repeat the result in a
   visually hidden live region for a screen reader.

@@ -306,7 +306,7 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 						aria-expanded={addOpen}
 						onClick={() => openAdd('pinned')}
 						// Only while the row is pinned, far from the title's +.
-						className="hidden group-data-[pinned]/staples:inline-flex"
+						className="ml-auto hidden group-data-[pinned]/staples:inline-flex"
 					/>
 				</div>
 			) : null}
@@ -469,7 +469,9 @@ function StapleRow({
 					{/* The row itself is not a tap target, only the button is: a
 					    tap that lands while scrolling would put the Staple on Next
 					    shop, and this screen has no Undo for that. */}
-					<span className={stapleNameClassName}>{staple.displayName}</span>
+					<span className={cn(stapleNameClassName, 'md:text-base')}>
+						{staple.displayName}
+					</span>
 					{/* Enabled even when the row is already on the list: a second tap
 					    writes nothing and answers "is this one done?" out loud. Its
 					    name starts with what it shows, then says which Staple. One

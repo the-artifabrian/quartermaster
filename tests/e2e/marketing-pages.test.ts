@@ -141,60 +141,197 @@ test.describe('the homepage Plans follow the visitor’s calendar', () => {
 	})
 })
 
-/** The homepage's phone pictures, each a scaled 390px screen in a frame. */
+/** The window that gives a `layout`-wide page beside the 15px scrollbar. */
+async function openAt(page: Page, layout: number) {
+	await page.setViewportSize({ width: layout + 15, height: 800 })
+	await page.goto('/')
+	await page.evaluate(() => document.fonts.ready)
+	expect(
+		await page.evaluate(
+			() => document.documentElement.getBoundingClientRect().width,
+		),
+	).toBe(layout)
+}
+
+/** The homepage's phones, each a scaled 390px screen in a frame. */
 async function phoneBoxes(page: Page) {
-	return page.locator('main [role="img"]').evaluateAll((phones) =>
+	return page.locator('main [data-phone-frame]').evaluateAll((phones) =>
 		phones.map((phone) => {
+			const inner = phone.firstElementChild as HTMLElement
 			const slot = phone.querySelector('[data-phone-slot]')!
 			const screen = phone.querySelector('[data-phone-screen]')!
 			const box = (el: Element) => {
 				const { x, y, width, height } = el.getBoundingClientRect()
 				return { x, y, width, height }
 			}
+			// The page's content edges where the phone sits.
+			const container = phone.closest('.container')!
+			const style = getComputedStyle(container)
+			const outer = container.getBoundingClientRect()
 			return {
 				label: phone.getAttribute('aria-label'),
-				hidden: phone.firstElementChild?.getAttribute('aria-hidden'),
+				role: phone.getAttribute('role'),
+				phoneHidden: phone.getAttribute('aria-hidden'),
+				innerHidden: inner.getAttribute('aria-hidden'),
+				inert: inner.inert,
 				focusable: phone.querySelectorAll(
 					'a[href], button, input, select, textarea, [tabindex]',
 				).length,
+				shown: phone.getBoundingClientRect().width > 0,
 				phone: box(phone),
 				slot: box(slot),
 				screen: box(screen),
+				content: {
+					left: outer.left + parseFloat(style.paddingLeft),
+					right: outer.right - parseFloat(style.paddingRight),
+				},
 			}
 		}),
 	)
 }
 
-for (const width of [320, 768]) {
-	test(`the homepage's phones fit a ${width}px page, filled to their frames`, async ({
+for (const layout of [320, 768, 1440]) {
+	test(`the homepage's phones fit a ${layout}px page, inert and filled to their frames`, async ({
 		page,
 	}) => {
-		await page.setViewportSize({ width, height: 800 })
-		await page.goto('/')
-		const clientWidth = await page.evaluate(
-			() => document.documentElement.clientWidth,
-		)
+		await openAt(page, layout)
 		expect(
 			await page.evaluate(() => document.documentElement.scrollWidth),
-		).toBeLessThanOrEqual(clientWidth)
+		).toBeLessThanOrEqual(layout)
 		const phones = await phoneBoxes(page)
 		// The hero's Plan and Shopping, then one for each step.
 		expect(phones).toHaveLength(6)
 		for (const phone of phones) {
-			expect(phone.label, 'named for what it shows').toBeTruthy()
-			expect(phone.hidden).toBe('true')
-			expect(phone.focusable, phone.label!).toBe(0)
-			expect(phone.phone.x).toBeGreaterThanOrEqual(0)
-			expect(phone.phone.x + phone.phone.width).toBeLessThanOrEqual(clientWidth)
+			// An image named for what it shows, or kept out of the tree.
+			const name = phone.label ?? 'a phone kept out of the tree'
+			if (phone.role === 'img') expect(phone.label).toBeTruthy()
+			else expect(phone.phoneHidden, name).toBe('true')
+			expect(phone.innerHidden, name).toBe('true')
+			expect(phone.inert, name).toBe(true)
+			expect(phone.focusable, name).toBe(0)
+			if (!phone.shown) continue
+			expect(phone.phone.x, name).toBeGreaterThanOrEqual(
+				phone.content.left - 0.5,
+			)
+			expect(phone.phone.x + phone.phone.width, name).toBeLessThanOrEqual(
+				phone.content.right + 0.5,
+			)
 			// The scaled screen covers its slot in the frame, with no strip
 			// left beside or under it.
 			for (const side of ['x', 'y', 'width', 'height'] as const) {
 				expect(
 					Math.abs(phone.screen[side] - phone.slot[side]),
-					`${phone.label} ${side}`,
+					`${name} ${side}`,
 				).toBeLessThan(0.5)
 			}
 		}
+	})
+}
+
+/** The hero's phones, and where its bottom edge cuts them. */
+async function heroPhones(page: Page) {
+	return page
+		.locator('main > div > section')
+		.first()
+		.evaluate((hero) => {
+			const cut = hero.getBoundingClientRect().bottom
+			const frames = [...hero.querySelectorAll('[data-phone-frame]')].map(
+				(frame) => {
+					const r = frame.getBoundingClientRect()
+					return {
+						label: frame.getAttribute('aria-label'),
+						shown: r.width > 0,
+						left: r.left,
+						right: r.right,
+						width: r.width,
+					}
+				},
+			)
+			const plan = hero.querySelector('[data-phone-frame][role="img"]')!
+			const bottom = (el: Element) => el.getBoundingClientRect().bottom
+			const meals = plan.querySelectorAll('[data-mock-meal]')
+			return {
+				cut,
+				frames,
+				dayHeading: bottom(plan.querySelector('[data-day-heading]')!),
+				secondMeal: bottom(meals[1]!),
+			}
+		})
+}
+
+for (const layout of [320, 390, 640, 1024, 1280]) {
+	test(`the hero's cut falls below the Plan's day and first two Meals at ${layout}px`, async ({
+		page,
+	}) => {
+		await openAt(page, layout)
+		const hero = await heroPhones(page)
+		expect(hero.dayHeading).toBeLessThan(hero.cut)
+		expect(hero.secondMeal).toBeLessThan(hero.cut)
+	})
+}
+
+test('the hero shows Plan alone on a phone and Plan in front of Shopping from 640px', async ({
+	page,
+}) => {
+	await openAt(page, 390)
+	let hero = await heroPhones(page)
+	expect(hero.frames.filter((frame) => frame.shown)).toHaveLength(1)
+
+	await openAt(page, 640)
+	hero = await heroPhones(page)
+	const [shopping, plan] = hero.frames
+	expect(shopping!.shown && plan!.shown).toBe(true)
+	// Shopping sits up and to the right, its left third under the Plan.
+	const covered = (plan!.right - shopping!.left) / shopping!.width
+	expect(covered).toBeGreaterThan(0.25)
+	expect(covered).toBeLessThan(0.4)
+})
+
+test('the hero reads as one picture, and Shopping as one, in the steps', async ({
+	page,
+}) => {
+	await openAt(page, 1280)
+	const hero = page.locator('main > div > section').first()
+	await expect(hero.getByRole('img')).toHaveCount(1)
+	await expect(hero.getByRole('img')).toHaveAccessibleName(
+		/^The Plan on a phone/,
+	)
+	await expect(
+		page.getByRole('img', { name: /^Shopping on a phone/ }),
+	).toHaveCount(1)
+})
+
+for (const layout of [390, 768, 1280]) {
+	test(`the steps read Recipes, Plan, Staples, Shopping at ${layout}px`, async ({
+		page,
+	}) => {
+		await openAt(page, layout)
+		const steps = await page
+			.locator('#how-it-works > div')
+			.evaluateAll((items) =>
+				items
+					.map((item) => {
+						const r = item.querySelector('h2')!.getBoundingClientRect()
+						return {
+							heading: item.querySelector('h2')!.textContent,
+							phone: item
+								.querySelector('[role="img"]')!
+								.getAttribute('aria-label')!
+								.split(' on a phone')[0],
+							top: Math.round(r.top),
+							left: Math.round(r.left),
+						}
+					})
+					// Reading order: by row, then left to right.
+					.sort((a, b) => a.top - b.top || a.left - b.left)
+					.map(({ heading, phone }) => `${heading} | ${phone}`),
+			)
+		expect(steps).toEqual([
+			'Your Recipes, in one place | A Recipe',
+			'A week pencilled in | The Plan',
+			'Minus what you already have | Staples',
+			'Pick what you’ll buy | Shopping',
+		])
 	})
 }
 

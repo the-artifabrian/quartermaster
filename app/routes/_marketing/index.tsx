@@ -83,7 +83,7 @@ function Hero({ today }: { today: string }) {
 	return (
 		<section className="border-border border-b">
 			{/* The rule runs the page's width; the pair is cut on it. */}
-			<div className="container pt-10 sm:pt-16 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-12 lg:pt-0 xl:gap-16">
+			<div className="container pt-10 sm:pt-16 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-8 lg:pt-0 xl:gap-16">
 				<div className="max-w-[36rem] lg:self-center lg:py-16">
 					<h1 className="font-serif text-[2.75rem] leading-[1.02] tracking-[-0.02em] text-balance sm:text-[3.5rem] lg:text-[5.5rem]">
 						What are we making this week?
@@ -135,8 +135,11 @@ function PlanThenShop({ today }: { today: string }) {
 				'relative mx-auto mt-12 h-[calc(var(--phone-scale)*600px_+_6px)] w-[calc(var(--phone-scale)*390px_+_12px)] overflow-hidden sm:h-[calc(var(--phone-scale)*740px_+_6px)] sm:w-[calc((var(--phone-scale)*390px_+_12px)*5/3)] lg:mx-0 lg:mt-16 lg:self-end',
 			)}
 		>
+			{/* Shopping is shown, and read, as the fourth step; here it is the
+			    picture's back layer. */}
 			<ShoppingPhone
 				scale={null}
+				decorative
 				className="absolute top-0 right-0 hidden sm:block"
 			/>
 			<TodayPlanPhone
@@ -171,9 +174,10 @@ const features = [
 	},
 ] as const
 
-/** Recipes, a week, minus Staples, a list: the subhead's order, side by side. */
+/** Recipes, a week, minus Staples, a list: the subhead's order, in one
+ *  column on a phone, two by two from 640px and four across from 1280px. */
 function HowItWorks({ today }: { today: string }) {
-	const scale = phoneScales.quarter
+	const scale = phoneScales.step
 	const phones = {
 		recipe: <RecipePhone scale={scale} />,
 		plan: <GuestsPlanPhone today={today} scale={scale} />,
@@ -186,7 +190,7 @@ function HowItWorks({ today }: { today: string }) {
 			    it works" lands it just under the header (sticky from md). */}
 			<div
 				id="how-it-works"
-				className="container grid scroll-mt-6 gap-x-6 gap-y-16 sm:grid-cols-2 md:scroll-mt-24 lg:grid-cols-4"
+				className="container grid scroll-mt-6 gap-x-6 gap-y-16 sm:grid-cols-2 md:scroll-mt-24 xl:grid-cols-4"
 			>
 				{features.map((feature, index) => (
 					<div key={feature.heading} className="flex min-w-0 flex-col">

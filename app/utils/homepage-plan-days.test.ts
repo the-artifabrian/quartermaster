@@ -71,6 +71,28 @@ describe('planDayOnPhone', () => {
 	})
 })
 
+describe('the dots under the strip', () => {
+	const weekdays = new Set(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'])
+
+	test('the picked day always has its dot, a Sunday too', () => {
+		const day = planDayOnPhone('2026-11-29', '2026-11-29', weekdays)
+		expect(day.strip.at(-1)).toMatchObject({ picked: true, planned: true })
+	})
+
+	test('other days have a dot only when they have Meals', () => {
+		const day = planDayOnPhone('2026-11-27', '2026-11-27', weekdays)
+		expect(day.strip.map((d) => d.planned)).toEqual([
+			true,
+			true,
+			true,
+			true,
+			true,
+			true,
+			false,
+		])
+	})
+})
+
 describe('nextSaturday', () => {
 	test('from a weekday it is the Saturday of the same week', () => {
 		expect(nextSaturday('2026-11-23')).toBe('2026-11-28')

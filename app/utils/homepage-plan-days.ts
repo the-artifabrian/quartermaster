@@ -20,26 +20,35 @@ export type StripDay = {
 	/** Before today: drawn in faint text. */
 	past: boolean
 	picked: boolean
+	/** Has Meals, so a dot shows under it. */
+	planned: boolean
 }
 
 /**
  * What a phone's Plan shows with `picked` chosen, around the visitor's
  * `today`: the week's range, its strip, and the day's heading. Both are
- * `yyyy-MM-dd`. The homepage's pictures of Plan draw from this alone, so the
+ * `yyyy-MM-dd`. `plannedWeekdays` ("Mon") are the days with Meals; the picked
+ * day shows Meals, so it always counts as one. The homepage's pictures of Plan draw from this alone, so the
  * server and the browser draw the same days.
  */
-export function planDayOnPhone(today: string, picked: string) {
+export function planDayOnPhone(
+	today: string,
+	picked: string,
+	plannedWeekdays: ReadonlySet<string> = new Set(),
+) {
 	const pickedDate = parseDate(picked)
 	const weekStart = getWeekStart(pickedDate)
 	const strip: StripDay[] = getWeekDays(weekStart).map((date) => {
 		const day = serializeDate(date)
+		const weekday = formatWeekdayName(date).slice(0, 3)
 		return {
 			date: day,
-			weekday: formatWeekdayName(date).slice(0, 3),
+			weekday,
 			dayOfMonth: date.getUTCDate(),
 			today: day === today,
 			past: day < today,
 			picked: day === picked,
+			planned: day === picked || plannedWeekdays.has(weekday),
 		}
 	})
 	return {

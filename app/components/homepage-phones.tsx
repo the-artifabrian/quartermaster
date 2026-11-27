@@ -13,13 +13,18 @@ import {
 } from '#app/utils/homepage-plan-days.ts'
 import { cn } from '#app/utils/misc.tsx'
 import { PhoneFrame } from './phone-frame.tsx'
+import { RecipeFacts } from './recipe-metadata-card.tsx'
 import { buttonVariants } from './ui/button.tsx'
 import { chipClassName } from './ui/chip.tsx'
 import { Icon, type IconName } from './ui/icon.tsx'
 import { tabTitleClassName } from './ui/title-add-button.tsx'
 
 /** Where a phone sits: its scale steps (`phoneScales`) and its place. */
-type PhoneProps = { scale?: string | null; className?: string }
+type PhoneProps = {
+	scale: string | null
+	decorative?: boolean
+	className?: string
+}
 
 /** A phone's page edge: 16px each side, as `container` draws it. */
 const page = 'px-4'
@@ -94,12 +99,14 @@ const plannedWeekdays = new Set(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'])
 export function TodayPlanPhone({
 	today,
 	scale,
+	decorative,
 	className,
 }: PhoneProps & { today: string }) {
-	const day = planDayOnPhone(today, today)
+	const day = planDayOnPhone(today, today, plannedWeekdays)
 	return (
 		<PhoneFrame
 			scale={scale}
+			decorative={decorative}
 			className={className}
 			label={`The Plan on a phone: today, ${day.weekdayName}, ${day.heading}, with breakfast cooked, then lunch, a snack and dinner for 4 guests`}
 		>
@@ -112,12 +119,14 @@ export function TodayPlanPhone({
 export function GuestsPlanPhone({
 	today,
 	scale,
+	decorative,
 	className,
 }: PhoneProps & { today: string }) {
-	const day = planDayOnPhone(today, nextSaturday(today))
+	const day = planDayOnPhone(today, nextSaturday(today), plannedWeekdays)
 	return (
 		<PhoneFrame
 			scale={scale}
+			decorative={decorative}
 			className={className}
 			label={`The Plan on a phone: ${day.weekdayName}, ${day.heading}, lunch with its menu open, then a dinner for 6 guests of roast chicken at 2×, focaccia and green salad`}
 		>
@@ -191,6 +200,7 @@ function PlanScreen({
 					<MealOnDay
 						key={meal.label}
 						meal={meal}
+						first={index === 0}
 						canMoveDown={index < meals.length - 1}
 					/>
 				))}
@@ -204,7 +214,6 @@ function PlanScreen({
 }
 
 function StripDayCell({ day }: { day: StripDay }) {
-	const planned = plannedWeekdays.has(day.weekday)
 	return (
 		<span className="flex min-h-11 min-w-0 flex-col items-center gap-[5px]">
 			<span
@@ -233,9 +242,10 @@ function StripDayCell({ day }: { day: StripDay }) {
 				{day.dayOfMonth}
 			</span>
 			<span
+				data-strip-dot={day.planned ? '' : undefined}
 				className={cn(
 					'size-[5px] rounded-full',
-					!planned
+					!day.planned
 						? 'invisible'
 						: day.picked
 							? 'bg-primary'
@@ -248,13 +258,22 @@ function StripDayCell({ day }: { day: StripDay }) {
 
 function MealOnDay({
 	meal,
+	first,
 	canMoveDown,
 }: {
 	meal: MockMeal
+	/** The first Meal of the day has no hairline over it (RowCollapse). */
+	first: boolean
 	canMoveDown: boolean
 }) {
 	return (
-		<div className="border-border relative border-t pb-2">
+		<div
+			data-mock-meal=""
+			className={cn(
+				'border-border relative border-t pb-2',
+				first && 'border-t-transparent',
+			)}
+		>
 			<div className="-mb-1 flex min-h-11 items-center">
 				<div className="text-muted-foreground text-label flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 font-semibold">
 					<span>{meal.label}</span>
@@ -306,17 +325,23 @@ function MealOnDay({
 	)
 }
 
-/** A Recipe's scale field in a Meal: a quiet fill, the × inside, 1× muted. */
+/**
+ * A Recipe's scale field in a Meal: a quiet fill, the × inside, 1× muted. On
+ * a phone the field's text is 16px, as every input is there, and the field is
+ * as wide as its digits.
+ */
 function ScaleField({ multiplier }: { multiplier: number }) {
+	const digits = String(multiplier)
 	return (
 		<span className="bg-muted/70 flex h-7 min-w-11 shrink-0 items-center justify-center gap-0.5 rounded-md pr-2 pl-1.5">
 			<span
 				className={cn(
-					'text-xs tabular-nums',
+					'text-center text-base tabular-nums',
 					multiplier === 1 && 'text-muted-foreground',
 				)}
+				style={{ width: `calc(${Math.max(digits.length, 2)}ch + 2px)` }}
 			>
-				{multiplier}
+				{digits}
 			</span>
 			<span className="text-muted-foreground text-sm">×</span>
 		</span>
@@ -429,10 +454,11 @@ function Cue({ children }: { children: ReactNode }) {
 }
 
 /** The Recipe page on a phone, for a Recipe without a photo. */
-export function RecipePhone({ scale, className }: PhoneProps) {
+export function RecipePhone({ scale, decorative, className }: PhoneProps) {
 	return (
 		<PhoneFrame
 			scale={scale}
+			decorative={decorative}
 			className={className}
 			label="A Recipe on a phone: Miso-glazed salmon, scaled to 2×, two ingredients checked off, and its first steps"
 		>
@@ -468,20 +494,15 @@ export function RecipePhone({ scale, className }: PhoneProps) {
 				<p className="text-recipe-title font-serif leading-(--text-recipe-title--line-height) tracking-[-0.02em]">
 					Miso-glazed salmon
 				</p>
-				<dl className="mt-[18px] flex flex-wrap gap-x-[30px] gap-y-3">
-					{[
-						['Active', '10 min'],
-						['Total', '25 min'],
-						['Makes', '8 servings'],
-					].map(([term, value]) => (
-						<div key={term}>
-							<dt className="text-muted-foreground text-label font-semibold">
-								{term}
-							</dt>
-							<dd className="mt-px text-base font-semibold">{value}</dd>
-						</div>
-					))}
-				</dl>
+				<RecipeFacts
+					activeTime={10}
+					totalTime={25}
+					yieldAmount={4}
+					yieldLabel="servings"
+					scaleMultiplier={2}
+					sourceUrl={null}
+					className="mt-[18px]"
+				/>
 				<div className="mt-5 flex gap-2">
 					<span
 						className={cn(
@@ -585,26 +606,32 @@ export function RecipePhone({ scale, className }: PhoneProps) {
 
 // ── Staples ───────────────────────────────────────────────────────────────
 
+/** Enough for Search to show (from 12) and the list to run past the foot. */
 const staples = [
+	{ name: 'baking powder' },
 	{ name: 'black pepper' },
 	{ name: 'butter' },
-	{ name: 'eggs' },
+	{ name: 'chilli flakes' },
+	{ name: 'eggs', onList: true },
 	{ name: 'garlic' },
+	{ name: 'honey' },
 	{ name: 'limes', onList: true },
 	{ name: 'olive oil' },
 	{ name: 'plain flour' },
 	{ name: 'rice' },
 	{ name: 'soy sauce' },
-	{ name: 'white miso', onList: true },
+	{ name: 'white miso' },
+	{ name: 'yeast' },
 ]
 
 /** The Staples tab on a phone (ActiveStaples). */
-export function StaplesPhone({ scale, className }: PhoneProps) {
+export function StaplesPhone({ scale, decorative, className }: PhoneProps) {
 	return (
 		<PhoneFrame
 			scale={scale}
+			decorative={decorative}
 			className={className}
-			label="Staples on a phone: ten usual items in A to Z order, two of them already on Next shop"
+			label="Staples on a phone: Search over the usual items in A to Z order, two of them already on Next shop"
 		>
 			<div className={cn('pt-4', page)}>
 				<div className="flex items-center justify-between gap-3">
@@ -614,7 +641,6 @@ export function StaplesPhone({ scale, className }: PhoneProps) {
 				<p className="text-muted-foreground mt-1 text-sm">
 					Things you usually have. Add one to put it on Next shop.
 				</p>
-				{/* Search shows from 12 Staples. */}
 				<div className="border-input bg-background text-muted-foreground mt-4 flex h-11 items-center gap-2 rounded-md border px-3 text-base">
 					<Icon name="magnifying-glass" size="sm" />
 					Search
@@ -665,10 +691,11 @@ const checkedRows = [
 ]
 
 /** Shopping on a phone (ShoppingScreen), its Next shop part checked. */
-export function ShoppingPhone({ scale, className }: PhoneProps) {
+export function ShoppingPhone({ scale, decorative, className }: PhoneProps) {
 	return (
 		<PhoneFrame
 			scale={scale}
+			decorative={decorative}
 			className={className}
 			label="Shopping on a phone: 7 to buy, and 2 of 9 checked, with Clear checked"
 		>

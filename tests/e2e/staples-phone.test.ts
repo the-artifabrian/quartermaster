@@ -118,6 +118,20 @@ function recordNeedRequests(page: Page) {
 	return sent
 }
 
+/** Focus is on an "Add Staple" + that shows, inside the window. */
+async function expectFocusOnAPlusOnScreen(page: Page) {
+	const focused = page.locator(':focus')
+	await expect(focused).toHaveAccessibleName('Add Staple')
+	await expect(focused).toBeVisible()
+	expect(
+		await focused.evaluate((element) => getComputedStyle(element).visibility),
+	).toBe('visible')
+	const focusedBox = await box(focused)
+	const height = page.viewportSize()!.height
+	expect(focusedBox.y).toBeGreaterThanOrEqual(0)
+	expect(focusedBox.y + focusedBox.height).toBeLessThanOrEqual(height)
+}
+
 test.describe('a row', () => {
 	test('is at least 56px tall, its name on the content edge at 17px and weight 500, with hairlines between', async ({
 		page,
@@ -799,12 +813,31 @@ test.describe('the pinned +', () => {
 				await page.getByRole('button', { name: 'Cancel' }).tap()
 			else await page.keyboard.press('Escape')
 			await expect(field).toBeHidden()
-			const focused = page.locator(':focus')
-			await expect(focused).toHaveAccessibleName('Add Staple')
-			const focusedBox = await box(focused)
-			expect(focusedBox.y).toBeGreaterThanOrEqual(0)
-			expect(focusedBox.y + focusedBox.height).toBeLessThanOrEqual(844)
+			await expectFocusOnAPlusOnScreen(page)
 		}
+
+		// Opened from the title's +, then scrolled far down with the field
+		// still focused: the search row comes back already pinned, and the
+		// title's + with it hidden.
+		for (const how of ['Cancel', 'Escape', 'Add'] as const) {
+			await scrollTo(page, 0)
+			await page.locator('[data-title-add]').tap()
+			await expect(field).toBeFocused()
+			if (how === 'Add') await field.fill('Zz new Staple')
+			await scrollTo(page, 1500)
+			await expect(field).toBeFocused()
+			if (how === 'Cancel') {
+				// Off the screen up the page, so clicked where it is.
+				await page
+					.getByRole('button', { name: 'Cancel' })
+					.evaluate((element: HTMLElement) => element.click())
+			} else {
+				await page.keyboard.press(how === 'Add' ? 'Enter' : 'Escape')
+			}
+			await expect(field).toBeHidden()
+			await expectFocusOnAPlusOnScreen(page)
+		}
+		await expect(stapleRow(page, 'Zz new Staple')).toHaveCount(1)
 	})
 })
 

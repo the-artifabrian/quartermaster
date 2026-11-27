@@ -47,6 +47,19 @@ type Staple = {
  * of the page is a message you will never see; "On list" on the row itself is
  * the answer to "did that work?" and to "have I already done this one?".
  */
+/**
+ * Whether the search row is pinned under the status bar. Its `top` is
+ * `auto` where it does not pin (wider screens).
+ */
+function isPinned(tools: HTMLElement) {
+	const pinTop = parseFloat(getComputedStyle(tools).top)
+	return (
+		Number.isFinite(pinTop) &&
+		window.scrollY > 0 &&
+		tools.getBoundingClientRect().top <= pinTop + 0.5
+	)
+}
+
 /** Search shows from this many Staples. */
 const SEARCH_FROM = 12
 
@@ -56,6 +69,9 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 	const [newStaple, setNewStaple] = useState('')
 	const [addOpen, setAddOpen] = useState(false)
 	const [announcement, setAnnouncement] = useState('')
+	// Counts the add form's closes, so focus goes back to a + once each one
+	// has rendered.
+	const [addClosed, setAddClosed] = useState(0)
 	const addButtonRef = useRef<HTMLButtonElement>(null)
 	const pinnedAddRef = useRef<HTMLButtonElement>(null)
 	const searchRef = useRef<HTMLInputElement>(null)
@@ -94,7 +110,7 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 			setNewStaple('')
 			setSearch('')
 			setAddOpen(false)
-			requestAnimationFrame(() => addButtonRef.current?.focus())
+			setAddClosed((count) => count + 1)
 		}
 	}, [addFetcher.data, addFetcher.state])
 
@@ -115,12 +131,7 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 		let frame = 0
 		const read = () => {
 			frame = 0
-			// `top` is `auto` where the row does not pin (wider screens).
-			const pinTop = parseFloat(getComputedStyle(tools).top)
-			const pinned =
-				Number.isFinite(pinTop) &&
-				window.scrollY > 0 &&
-				tools.getBoundingClientRect().top <= pinTop + 0.5
+			const pinned = isPinned(tools)
 			if (page.hasAttribute('data-pinned') === pinned) return
 			// Focus on the + that goes away moves to the one that comes.
 			const [leaving, coming] = pinned
@@ -143,6 +154,13 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 		}
 	}, [toolsShown])
 
+	// After the effect above, so the pinned state is current.
+	useEffect(() => {
+		if (addClosed > 0) focusShownAdd()
+		// focusShownAdd reads refs only.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [addClosed])
+
 	function openAdd(from: 'title' | 'pinned') {
 		// Already open: the + takes you back to the field.
 		if (addOpen) {
@@ -164,7 +182,20 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 		addFetcher.reset()
 		setNewStaple('')
 		setAddOpen(false)
-		requestAnimationFrame(() => addButtonRef.current?.focus())
+		setAddClosed((count) => count + 1)
+	}
+
+	/**
+	 * After the add form closes, focus goes to the + on the screen. Scrolled
+	 * far down with the form open, the search row comes back already pinned
+	 * and the title's + hidden, so the pinned state is read here as well.
+	 */
+	function focusShownAdd() {
+		const tools = toolsRef.current
+		const pinned = tools != null && isPinned(tools)
+		pageRef.current?.toggleAttribute('data-pinned', pinned)
+		if (pinned) pinnedAddRef.current?.focus({ preventScroll: true })
+		else addButtonRef.current?.focus()
 	}
 
 	function clearSearch() {

@@ -14,10 +14,8 @@ import {
 } from 'react-router'
 import { type Route } from './+types/root.ts'
 import appleTouchIconAssetUrl from './assets/favicons/apple-touch-icon.png'
-import dmSansFontUrl from './assets/fonts/dm-sans-latin.woff2?url'
 import newsreaderFontUrl from './assets/fonts/newsreader-latin.woff2?url'
 import schibstedGroteskFontUrl from './assets/fonts/schibsted-grotesk-latin.woff2?url'
-import youngSerifFontUrl from './assets/fonts/young-serif-latin.woff2?url'
 import faviconAssetUrl from './assets/favicons/favicon.svg'
 import { BottomNav, isTabRootPath, navItems } from './components/bottom-nav.tsx'
 import { DemoBanner } from './components/demo.tsx'
@@ -67,12 +65,7 @@ import {
 	PostHogPageview,
 	PostHogPwaLifecycle,
 } from './utils/posthog-provider.tsx'
-import {
-	homepageCanvas,
-	homepageForeground,
-	iosStartupImages,
-	launchThemes,
-} from './utils/pwa-launch.ts'
+import { iosStartupImages, launchThemes } from './utils/pwa-launch.ts'
 import { SITE_DESCRIPTION } from './utils/site-description.ts'
 import { getUserTier, type TierInfo } from './utils/subscription.server.ts'
 import { type Theme, getTheme } from './utils/theme.server.ts'
@@ -284,21 +277,9 @@ export const middleware: Route.MiddlewareFunction[] = [
 	demoGuardMiddleware,
 ]
 
-/**
- * The homepage re-themes the chrome around it to espresso in either theme,
- * and keeps its own faces (tailwind.css).
- */
-function chromeFor(pathname: string) {
-	return pathname === '/' ? ('espresso' as const) : undefined
-}
-
-// Self-hosted fonts (app/styles/fonts.css). The two faces above the fold are
-// preloaded, the homepage's on the homepage and the app's elsewhere, so no
-// page preloads a face it does not use.
-const preloadedFonts = {
-	espresso: [dmSansFontUrl, youngSerifFontUrl],
-	app: [schibstedGroteskFontUrl, newsreaderFontUrl],
-}
+// Self-hosted fonts (app/styles/fonts.css). Every page, the homepage
+// included, sets its first text in these two faces, so both are preloaded.
+const preloadedFonts = [schibstedGroteskFontUrl, newsreaderFontUrl]
 
 function Document({
 	children,
@@ -307,7 +288,6 @@ function Document({
 	env = {},
 	origin,
 	path,
-	chrome,
 	isNativeShell = false,
 }: {
 	children: React.ReactNode
@@ -316,13 +296,10 @@ function Document({
 	env?: Record<string, string | undefined>
 	origin?: string
 	path?: string
-	chrome?: ReturnType<typeof chromeFor>
 	isNativeShell?: boolean
 }) {
 	const allowIndexing = ENV.ALLOW_INDEXING !== 'false'
 	const launchTheme = launchThemes[theme]
-	const canvas = (scheme: Theme) =>
-		chrome === 'espresso' ? homepageCanvas[scheme] : launchThemes[scheme].canvas
 	const posthogOrigin = env.POSTHOG_API_KEY
 		? new URL(getPostHogHost(env.POSTHOG_HOST)).origin
 		: null
@@ -339,23 +316,23 @@ function Document({
 				<meta name="color-scheme" content="light dark" />
 				<meta
 					name="theme-color"
-					content={canvas('light')}
+					content={launchThemes.light.canvas}
 					media="(prefers-color-scheme: light)"
 				/>
 				<meta
 					name="theme-color"
-					content={canvas('dark')}
+					content={launchThemes.dark.canvas}
 					media="(prefers-color-scheme: dark)"
 				/>
 				<style
 					nonce={nonce}
 					data-pwa-launch-theme={theme}
 					dangerouslySetInnerHTML={{
-						__html: `:root{color-scheme:${theme}}html,body{background:${canvas(theme)};color:${chrome === 'espresso' ? homepageForeground[theme] : launchTheme.foreground}}`,
+						__html: `:root{color-scheme:${theme}}html,body{background:${launchTheme.canvas};color:${launchTheme.foreground}}`,
 					}}
 				/>
 				<ClientHintCheck nonce={nonce} />
-				{preloadedFonts[chrome ?? 'app'].map((href) => (
+				{preloadedFonts.map((href) => (
 					// Fonts need crossOrigin even on the same origin.
 					<link
 						key={href}
@@ -416,7 +393,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 	const data = useLoaderData<typeof loader | null>()
 	const nonce = useNonce()
 	const theme = useOptionalTheme()
-	const { pathname } = useLocation()
 	// Marks the page as hydrated for the e2e tests. A parent's effects run
 	// after its children's, so by now every mount effect on the page has run
 	// and the router takes navigations. Error pages render inside this too.
@@ -430,7 +406,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 			env={data?.ENV}
 			origin={data?.requestInfo.origin}
 			path={data?.requestInfo.path}
-			chrome={chromeFor(pathname)}
 			isNativeShell={data?.requestInfo.isNativeShell}
 		>
 			{children}
@@ -445,7 +420,6 @@ function App() {
 	const isPro = data.tierInfo.isProActive
 	const { pathname } = useLocation()
 	const isNativeShell = data.requestInfo.isNativeShell
-	const chrome = chromeFor(pathname)
 	useToast(data.toast)
 	useNavDirection()
 	useRecordHistory()
@@ -484,19 +458,13 @@ function App() {
 				householdId={data.householdId}
 			/>
 			<ServiceWorkerUpdate />
-			{isNativeShell ? (
-				// The status bar sits on the chrome, so espresso needs light text.
-				<NativeShellBridge theme={chrome === 'espresso' ? 'dark' : theme} />
-			) : null}
+			{isNativeShell ? <NativeShellBridge theme={theme} /> : null}
 			<OpenImgContextProvider
 				optimizerEndpoint="/resources/images"
 				breakpoints={[...IMAGE_BREAKPOINTS]}
 				getSrc={getImgSrc}
 			>
-				<div
-					className="flex min-h-screen flex-col justify-between"
-					data-chrome={chrome}
-				>
+				<div className="flex min-h-screen flex-col justify-between">
 					{isNativeShell ? (
 						// Content scrolls under the status bar behind an opaque strip
 						// the color of what sits under it: the header or nav bar, or

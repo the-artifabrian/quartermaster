@@ -1,8 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
 	getIosStartupImage,
-	homepageCanvas,
-	homepageForeground,
 	iosStartupScreens,
 	launchThemes,
 	type LaunchTheme,
@@ -115,31 +113,26 @@ function rgb(hex: string) {
 	return `rgb(${r}, ${g}, ${b})`
 }
 
-async function expectCanvas(page: Page, theme: LaunchTheme, homepage: boolean) {
-	const canvas = homepage
-		? homepageCanvas
-		: {
-				light: launchThemes.light.canvas,
-				dark: launchThemes.dark.canvas,
-			}
+async function expectCanvas(page: Page, theme: LaunchTheme) {
 	await expect(page.locator('body')).toHaveCSS(
 		'background-color',
-		rgb(canvas[theme]),
+		rgb(launchThemes[theme].canvas),
 	)
-	// The text color outside the homepage's shell (the focused skip link).
+	// The text color the page sets outside its own elements (the focused skip
+	// link).
 	await expect(page.locator('body')).toHaveCSS(
 		'color',
-		rgb(homepage ? homepageForeground[theme] : launchThemes[theme].foreground),
+		rgb(launchThemes[theme].foreground),
 	)
 	for (const scheme of ['light', 'dark'] as const) {
 		await expect(
 			page.locator(`meta[name="theme-color"][media*="${scheme}"]`),
-		).toHaveAttribute('content', canvas[scheme])
+		).toHaveAttribute('content', launchThemes[scheme].canvas)
 	}
 }
 
 for (const theme of ['light', 'dark'] as const) {
-	test(`the homepage keeps its own canvas and toolbar tint, ${theme}, and hands the app's back on the way out`, async ({
+	test(`the homepage has the app's canvas and toolbar tint, ${theme}, there and back`, async ({
 		page,
 	}) => {
 		await page
@@ -148,22 +141,22 @@ for (const theme of ['light', 'dark'] as const) {
 				{ name: 'en_theme', value: theme, domain: 'localhost', path: '/' },
 			])
 		await page.goto('/')
-		await expectCanvas(page, theme, true)
+		await expectCanvas(page, theme)
 
-		// Client-side, the values follow the page.
+		// Client-side, the values stay the same.
 		const logIn = page
 			.locator('[data-site-header]')
 			.getByRole('link', { name: 'Log in' })
 		await expect(page.locator('html')).toHaveAttribute('data-hydrated', '')
 		await logIn.click()
 		await expect(page).toHaveURL('/login')
-		await expectCanvas(page, theme, false)
+		await expectCanvas(page, theme)
 
 		await page
 			.locator('[data-site-header]')
 			.getByRole('link', { name: 'Quartermaster' })
 			.click()
 		await expect(page).toHaveURL('/')
-		await expectCanvas(page, theme, true)
+		await expectCanvas(page, theme)
 	})
 }

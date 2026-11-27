@@ -233,21 +233,31 @@ test.describe('in the iOS app', () => {
 	})
 })
 
-test.describe('the homepage in the iOS app', () => {
-	test.use({ userAgent: SHELL_UA, colorScheme: 'light' })
+for (const theme of ['light', 'dark'] as const) {
+	test.describe(`the homepage in the iOS app, ${theme}`, () => {
+		test.use({ userAgent: SHELL_UA, colorScheme: theme })
 
-	test('reports dark for the espresso chrome, then the theme again', async ({
-		page,
-	}) => {
-		const messages = await recordBridgeMessages(page)
-		await page.goto('/')
-		await expect.poll(messages).toContain('theme:dark')
+		test(`reports the ${theme} theme, as every other page does`, async ({
+			page,
+		}) => {
+			const messages = await recordBridgeMessages(page)
+			await page.goto('/')
+			await expect.poll(messages).toContain(`theme:${theme}`)
+			expect(await messages()).not.toContain(
+				`theme:${theme === 'light' ? 'dark' : 'light'}`,
+			)
 
-		await page.getByRole('banner').getByRole('link', { name: 'Log in' }).click()
-		await expect(page).toHaveURL('/login')
-		await expect.poll(messages).toContain('theme:light')
+			await page
+				.getByRole('banner')
+				.getByRole('link', { name: 'Log in' })
+				.click()
+			await expect(page).toHaveURL('/login')
+			expect(await messages()).not.toContain(
+				`theme:${theme === 'light' ? 'dark' : 'light'}`,
+			)
+		})
 	})
-})
+}
 
 test.describe('the tab bar in the iOS app', () => {
 	test.use({ userAgent: SHELL_UA, viewport: { width: 390, height: 844 } })

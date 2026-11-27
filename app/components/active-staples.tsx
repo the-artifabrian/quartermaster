@@ -13,6 +13,11 @@ import {
 	useEnteringRows,
 	useHiddenRows,
 } from './undo-delete.tsx'
+import {
+	stapleNameClassName,
+	stapleNeedClassName,
+	stapleRowClassName,
+} from './staple-row-styles.ts'
 import { StapleSuggestions } from './staple-suggestions.tsx'
 import { useSwipeRow } from '#app/hooks/use-swipe-row.ts'
 
@@ -456,27 +461,23 @@ function StapleRow({
 					}}
 					// A tap on an open row shuts it instead of adding the Staple.
 					onClickCapture={swipe.handlers.onClickCapture}
-					className="bg-background relative z-1 flex min-h-14 w-full min-w-0 touch-pan-y touch-pinch-zoom items-center gap-3 py-1.5 pr-3.5"
+					className={cn(
+						stapleRowClassName,
+						'bg-background relative z-1 touch-pan-y touch-pinch-zoom pr-3.5',
+					)}
 				>
 					{/* The row itself is not a tap target, only the button is: a
 					    tap that lands while scrolling would put the Staple on Next
 					    shop, and this screen has no Undo for that. */}
-					<span className="text-item-name min-w-0 flex-1 font-medium wrap-anywhere md:text-base">
-						{staple.displayName}
-					</span>
+					<span className={stapleNameClassName}>{staple.displayName}</span>
 					{/* Enabled even when the row is already on the list: a second tap
 					    writes nothing and answers "is this one done?" out loud. Its
 					    name starts with what it shows, then says which Staple. One
 					    width in both states, so a tap never wraps the name again. */}
-					<Button
+					<button
 						type="button"
-						variant={onShoppingList ? 'ghost' : 'secondary'}
-						className={cn(
-							'w-19 shrink-0 gap-1.5 rounded-full px-0 font-semibold select-none',
-							onShoppingList
-								? 'text-primary justify-end hover:bg-transparent'
-								: 'justify-center',
-						)}
+						data-slot="button"
+						className={stapleNeedClassName(onShoppingList)}
 						aria-label={`${onShoppingList ? 'On list' : 'Need'}, ${staple.displayName}`}
 						aria-busy={isAdding || undefined}
 						onClick={() =>
@@ -498,7 +499,7 @@ function StapleRow({
 						) : (
 							'Need'
 						)}
-					</Button>
+					</button>
 					<Button
 						type="button"
 						variant="ghost"

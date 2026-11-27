@@ -51,24 +51,27 @@ Browsers without it wrap as usual.
 
 Useful sizes:
 
-| Use                                                               | Size                                                                                |
-| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Tab title (`TabTitle`)                                            | 40px Newsreader, 1.05 lines                                                         |
-| Recipe title on a phone (`text-recipe-title`)                     | 36px Newsreader, 1.1 lines; 32px wider                                              |
-| Menu title on a phone (`text-menu-title`)                         | 32px Newsreader, 1.125 lines; wider, 24px on its page and 30px shared               |
-| Plan's day heading on a phone                                     | 31px Newsreader                                                                     |
-| Recipe or Menu section heading on a phone (`text-recipe-section`) | 24px Newsreader; 18px wider                                                         |
-| Other page title                                                  | 24px Newsreader                                                                     |
-| Plan dish on a phone (`text-dish`)                                | 17px Schibsted Grotesk, 19px under a Dinner's photo (`text-dish-photo`)             |
-| Recipe or Menu row on a phone (`text-list-name`)                  | 17px Schibsted Grotesk                                                              |
-| Shopping item or Staple on a phone (`text-item-name`)             | 17px Schibsted Grotesk                                                              |
-| A step on a phone (`text-step`)                                   | 17px Schibsted Grotesk, 1.6 lines; its numeral 24px Newsreader (`text-step-number`) |
-| An ingredient on a phone (`text-ingredient`)                      | 17px Schibsted Grotesk, 1.45 lines                                                  |
-| Body, and ingredients and steps wider                             | 16px Schibsted Grotesk                                                              |
-| UI label                                                          | 14px Schibsted Grotesk                                                              |
-| Small label (`text-label`)                                        | 13.5px Schibsted Grotesk, weight 600                                                |
-| Caption                                                           | 13px Schibsted Grotesk                                                              |
-| Tiny navigation label                                             | 12px Schibsted Grotesk                                                              |
+| Use                                                                      | Size                                                                                |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| Tab title (`TabTitle`)                                                   | 40px Newsreader, 1.05 lines                                                         |
+| Recipe title on a phone (`text-recipe-title`)                            | 36px Newsreader, 1.1 lines; 32px wider                                              |
+| Menu title on a phone (`text-menu-title`)                                | 32px Newsreader, 1.125 lines; wider, 24px on its page and 30px shared               |
+| Recipe edit, New Recipe and Import title on a phone (`text-menu-title`)  | 32px Newsreader, 1.125 lines; 24px wider                                            |
+| Plan's day heading on a phone                                            | 31px Newsreader                                                                     |
+| Recipe or Menu section heading on a phone (`text-recipe-section`)        | 24px Newsreader; 18px wider                                                         |
+| A section of the Recipe form on a phone (`text-recipe-section`)          | 24px Newsreader; wider, the 12px uppercase label                                    |
+| Other page title                                                         | 24px Newsreader                                                                     |
+| Plan dish on a phone (`text-dish`)                                       | 17px Schibsted Grotesk, 19px under a Dinner's photo (`text-dish-photo`)             |
+| Recipe or Menu row on a phone (`text-list-name`)                         | 17px Schibsted Grotesk                                                              |
+| Shopping item or Staple on a phone (`text-item-name`)                    | 17px Schibsted Grotesk                                                              |
+| A closed ingredient row in the Recipe form on a phone (`text-item-name`) | 17px Schibsted Grotesk, weight 400; 14px wider                                      |
+| A step on a phone (`text-step`)                                          | 17px Schibsted Grotesk, 1.6 lines; its numeral 24px Newsreader (`text-step-number`) |
+| An ingredient on a phone (`text-ingredient`)                             | 17px Schibsted Grotesk, 1.45 lines                                                  |
+| Body, and ingredients and steps wider                                    | 16px Schibsted Grotesk                                                              |
+| UI label                                                                 | 14px Schibsted Grotesk                                                              |
+| Small label (`text-label`)                                               | 13.5px Schibsted Grotesk, weight 600                                                |
+| Caption                                                                  | 13px Schibsted Grotesk                                                              |
+| Tiny navigation label                                                    | 12px Schibsted Grotesk                                                              |
 
 The Plan dish sizes (`text-dish`, `text-dish-photo`), the list row size
 (`text-list-name`), the Shopping item and Staple size (`text-item-name`), the
@@ -83,8 +86,12 @@ height, so a class list that has both names the line height again
 A small label (a Meal's label, the weekday in Plan's strip and over its day, the
 groups of a picker, a heading inside a Recipe's ingredients, a Recipe's facts
 and its Notes) is sentence case at weight 600 with no tracking:
-`text-label font-semibold`. Other screens set theirs uppercase and letter-spaced
-(`sectionLabelClass`). A printed Recipe keeps its uppercase headings.
+`text-label font-semibold`. On a phone a field's label in the Recipe form and on
+Import is the same small label, muted, on its own line above the field
+(`phoneFieldLabelClass` in `app/utils/misc.tsx`); wider it is the 14px UI label.
+Other screens set theirs uppercase and letter-spaced (`sectionLabelClass`), as
+the Recipe form's sections do on wider screens. A printed Recipe keeps its
+uppercase headings.
 
 Every tab's own page (Recipes, Menus, Staples, Plan, Shopping, Settings) opens
 with its title in `TabTitle`, beside the controls of its row.
@@ -508,6 +515,28 @@ On a phone the Recipes and Menus lists share a title and a row shape:
   household has.
 - Keep scaling, cooking cues, unit display, and print practical rather than
   decorative.
+
+### Recipe form and Import
+
+On a phone Recipe edit, New Recipe and Import are set in the Recipe page's
+sizes. Wider screens keep the sizes they had.
+
+- The screen's title is 32px in the serif (`text-menu-title`).
+- Each section of the Recipe form (Ingredients, Instructions, Photo, Details,
+  Classification) opens and closes from its whole heading row: a chevron, the
+  heading in sentence case at 24px in the serif (`text-recipe-section`) and a
+  muted 13.5px summary such as “7 items”. A hairline sits above each section.
+- Labels are the small label, muted. Hints, a section's summary and Import's
+  status lines are 13.5px muted, and an error is 13.5px in the error colour.
+- Fields are 44px tall with 16px text, so iOS never zooms the page on focus. A
+  closed ingredient row reads at 17px on one line in a 52px row.
+- Button labels are 16px. Import's buttons are a full-width stack, 48px tall, up
+  to 767px wide; from 768px they sit in a row at the right.
+- The notice on a just-imported Recipe has 16px sentences and actions, with the
+  source line at 13.5px.
+
+The shared controls inside these screens keep their own sizes: chips and the
+segmented control are 14px.
 
 ### Menus
 

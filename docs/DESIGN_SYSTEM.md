@@ -517,11 +517,12 @@ On a phone the Recipes and Menus lists share a title and a row shape:
   implicit on Recipe rows.
 - On a phone a Menu's page takes the Recipe page's sizes, with its title a step
   smaller at 32px (`text-menu-title`): the guest line at 13.5px, the description
-  at 16px and muted, section headings at 24px with more room above (32px or
-  more) than between the heading and its first row. Add to Plan is the one
-  full-width 48px button; Share and Edit are in the nav bar, where Edit is a
-  link that works before the page has run script. Wider screens keep Share and
-  Edit beside the button.
+  at 16px and muted, section headings at 24px with more room above (32px) than
+  between the heading and its first row. Add to Plan is the one full-width 48px
+  button; Share and Edit are in the nav bar, where Edit is a link that works
+  before the page has run script. Wider screens keep Share and Edit beside the
+  button. Between 640 and 767px Add to Plan opens its form in place, where the
+  button's row was.
 - A Recipe row on a phone is at least 56px, its 44px photo on the content edge,
   the name at 17px and weight 500 on up to two lines, then at 13.5px and muted
   the quantity ("2× · makes 8 servings") and the note under it. A missing

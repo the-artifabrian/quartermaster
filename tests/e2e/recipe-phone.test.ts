@@ -648,10 +648,39 @@ test.describe('at 320px', () => {
 			).toBe(true)
 		}
 		expect(
-			await page.evaluate(
-				() => document.documentElement.scrollWidth <= window.innerWidth,
-			),
+			await page.evaluate(() => document.documentElement.scrollWidth <= 320),
 		).toBe(true)
+	})
+
+	test('an ingredient with one long word breaks it and leaves no sideways scroll, on the Recipe and on its share page', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		const recipe = await createSoup(user)
+		const word = 'Hochgeschwindigkeitsbackofenpapierzuschnitt'
+		await prisma.ingredient.updateMany({
+			where: { recipeId: recipe.id, name: 'tomatoes' },
+			data: { name: word },
+		})
+		for (const url of [`/recipes/${recipe.id}`, `/share/${recipe.id}`]) {
+			await page.goto(url)
+			const text = page
+				.locator('[data-ingredient-text]')
+				.filter({ hasText: word })
+				.first()
+			await expect(text).toBeVisible()
+			const edges = await text.evaluate((span) => ({
+				right: span.getBoundingClientRect().right,
+				fits: span.scrollWidth <= span.clientWidth,
+				page: document.documentElement.scrollWidth,
+				main: document.querySelector('main')!.getBoundingClientRect().right,
+			}))
+			expect(edges.main, url).toBe(320)
+			expect(edges.page, url).toBeLessThanOrEqual(320)
+			expect(edges.fits, url).toBe(true)
+			expect(edges.right, url).toBeLessThanOrEqual(320)
+		}
 	})
 })
 

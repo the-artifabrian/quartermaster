@@ -29,13 +29,14 @@ see [GLOSSARY.md](../GLOSSARY.md).
   dish on Plan, a Recipe or Menu in a list or a picker), at weight 500
   (`font-medium`). Titles are weight 500 too, which `font-serif` sets on its own
   (`app/styles/tailwind.css`), so a serif title takes no weight class. The files
-  carry weights 400 to 600 only, so never ask the serif for less or more. It has
-  an optical-size axis the browser sets from the font size, and no italic file.
-  The serif sets lining figures, and `tabular-nums` adds to them.
+  carry weights 400 to 600 only, so never ask the serif for less or more. The
+  roman has an optical-size axis the browser sets from the font size, and there
+  is no italic file. The serif sets lining figures, and `tabular-nums` adds to
+  them.
 - **Schibsted Grotesk** for everything that is not a title: names, running text,
   controls, labels, metadata and navigation, weights 400 to 700. Running text is
-  400, names 500 and amounts 600. It has no italic file either: nothing in the
-  app is set in italic.
+  400, names 500 and amounts 600 on a phone (500 on wider screens). It has no
+  italic file, so the app does not set the sans in italic.
 
 All fonts are self-hosted: the files sit in `app/assets/fonts/` as `latin` and
 `latin-ext` subsets (the Households write Romanian), and `app/styles/fonts.css`
@@ -457,8 +458,9 @@ On a phone the Recipes and Menus lists share a title and a row shape:
 - Personal notes render only when they exist: a quiet tinted block in the body
   sans, collapsed to a few lines with a Show more toggle. No colored edge and no
   handwriting on the detail page.
-- Every ingredient row offers a direct Shopping action; the page never claims to
-  know what the household has.
+- An ingredient row offers a direct Shopping action until it is checked (a
+  sub-Recipe's row links to that Recipe); the page never claims to know what the
+  household has.
 - Keep scaling, cooking cues, unit display, and print practical rather than
   decorative.
 
@@ -514,7 +516,8 @@ On a phone Plan shows one day at a time:
   weight 400, apart from a Recipe's name at 500. A cooked dish strikes through
   and fades its text to faint, on the page, never on a fill.
 - "+ Add Meal" in green ends the day and opens the same Add Meal sheet as the
-  title's +. An empty day reads "Nothing planned" at 20px, weight 500, over the
+  title's +. An empty day reads "Nothing planned" in the sans at 20px, weight
+  500 (a line of text, where other empty states have a serif heading), over the
   line pointing at the +.
 - A sideways swipe anywhere on the day, its bare foot included, steps to the
   next day or the one before, and past Sunday or before Monday into the next or

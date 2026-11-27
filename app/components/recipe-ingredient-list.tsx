@@ -118,7 +118,8 @@ export function IngredientList({
 							<span
 								data-ingredient-text=""
 								className={cn(
-									'phone:py-2.5 min-w-0 flex-1 transition-colors',
+									// A long word breaks rather than widen the page.
+									'phone:py-2.5 min-w-0 flex-1 wrap-anywhere transition-colors',
 									isChecked &&
 										'text-faint decoration-faint/60 phone:no-underline line-through',
 								)}

@@ -43,10 +43,7 @@ export function StapleSuggestions({
 	)
 	if (remaining.length === 0) return null
 	return (
-		<section
-			aria-labelledby="staple-suggestions-heading"
-			className="bg-muted/40 mt-5 rounded-lg p-5"
-		>
+		<section aria-labelledby="staple-suggestions-heading" className="mt-5">
 			<h2 id="staple-suggestions-heading" className="font-serif text-xl">
 				{heading}
 			</h2>

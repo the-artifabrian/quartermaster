@@ -465,16 +465,18 @@ html {
 }
 
 /* On a phone, Plan pins its title row and date strip under the status bar
-   (MealPlanCalendar), and the Recipes list its search row, with the filter
-   chips while they are open. A focused control, a Meal a link opens or a row
-   scrolled to lands below the pinned block. A margin on what can take focus,
-   rather than padding on the page, so focusing the block's own controls
-   scrolls nothing.
+   (MealPlanCalendar), the Recipes list its search row, with the filter chips
+   while they are open, and Staples its search row (ActiveStaples). A focused
+   control, a Meal a link opens or a row scrolled to lands below the pinned
+   block. A margin on what can take focus, rather than padding on the page,
+   so focusing the block's own controls scrolls nothing.
    --pinned-header-bottom is the lowest the block's bottom edge sits: where it
    rests at the top of the page, under the demo banner when there is one.
-   Recipes' row rests under the title and pins higher up. Top toasts open
-   below it (root.tsx), so they clear the block at rest and scrolled. It is
-   set on the toaster alone, so opening the filters restyles only that. */
+   Recipes' and Staples' rows rest under the title and pin higher up; Staples'
+   is read with the line under its title on two lines, as it is on a phone.
+   Top toasts open below it (root.tsx), so they clear the block at rest and
+   scrolled. It is set on the toaster alone, so opening the filters restyles
+   only that. */
 @media (width < 48rem) {
 	:root:has([data-plan-header])
 		#main-content
@@ -497,6 +499,13 @@ html {
 		) {
 		scroll-margin-top: calc(var(--safe-top) + 8.5rem);
 	}
+	:root:has([data-staples-tools])
+		#main-content
+		:is(a[href], button, input, select, textarea, [tabindex]):not(
+			[data-staples-tools] *
+		) {
+		scroll-margin-top: calc(var(--safe-top) + 5.25rem);
+	}
 	:root:has([data-plan-header]) [data-sonner-toaster] {
 		--pinned-header-bottom: calc(
 			var(--safe-top) + var(--demo-banner-h, 0px) + 9.875rem
@@ -510,6 +519,11 @@ html {
 	:root:has([data-recipes-tools][data-filters-open]) [data-sonner-toaster] {
 		--pinned-header-bottom: calc(
 			var(--safe-top) + var(--demo-banner-h, 0px) + 11.1875rem
+		);
+	}
+	:root:has([data-staples-tools]) [data-sonner-toaster] {
+		--pinned-header-bottom: calc(
+			var(--safe-top) + var(--demo-banner-h, 0px) + 12.375rem
 		);
 	}
 }

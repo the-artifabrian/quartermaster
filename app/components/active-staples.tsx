@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { useFetcher } from 'react-router'
 import { getHouseholdClientId } from '#app/utils/household-client.tsx'
+import { cn } from '#app/utils/misc.tsx'
 import { Button } from './ui/button.tsx'
 import { Icon } from './ui/icon.tsx'
 import { Input } from './ui/input.tsx'
@@ -40,6 +42,9 @@ type Staple = {
  * of the page is a message you will never see; "On list" on the row itself is
  * the answer to "did that work?" and to "have I already done this one?".
  */
+/** Search shows from this many Staples. */
+const SEARCH_FROM = 12
+
 export function ActiveStaples({ staples }: { staples: Staple[] }) {
 	const addFetcher = useFetcher<StaplesResponse>()
 	const [search, setSearch] = useState('')
@@ -47,9 +52,20 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 	const [addOpen, setAddOpen] = useState(false)
 	const [announcement, setAnnouncement] = useState('')
 	const addButtonRef = useRef<HTMLButtonElement>(null)
+	const pinnedAddRef = useRef<HTMLButtonElement>(null)
+	const searchRef = useRef<HTMLInputElement>(null)
+	const pageRef = useRef<HTMLDivElement>(null)
+	const toolsRef = useRef<HTMLDivElement>(null)
 	// A household with no Staples gets suggestions; they stay for the visit so
 	// several can be added in a row, and are gone on a later visit.
 	const [suggesting] = useState(staples.length === 0)
+	// Once Search has shown it stays for the visit, so a delete that takes
+	// the list under the threshold neither moves the list under the finger
+	// nor drops a search that is still filtering it.
+	const [searchKept, setSearchKept] = useState(staples.length >= SEARCH_FROM)
+	if (staples.length >= SEARCH_FROM && !searchKept) setSearchKept(true)
+	const showSearch = searchKept && staples.length > 0
+	const toolsShown = showSearch && !addOpen
 	const heldNames = staples.map((staple) => staple.displayName)
 
 	const filteredStaples = useMemo(() => {
@@ -77,15 +93,66 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 		}
 	}, [addFetcher.data, addFetcher.state])
 
-	function openAdd() {
+	// On a phone the search row pins under the status bar. While it is pinned
+	// the title's + has scrolled away, so the row shows its own, and only one
+	// of the two is reachable at a time. Read from the row's place on each
+	// scrolled frame, not from an IntersectionObserver, which reports only a
+	// crossing and misses a jump or a reload far down the list. Set as an
+	// attribute, so a scroll never renders the rows again.
+	useEffect(() => {
+		const page = pageRef.current
+		const tools = toolsRef.current
+		if (!page) return
+		if (!tools) {
+			page.removeAttribute('data-pinned')
+			return
+		}
+		let frame = 0
+		const read = () => {
+			frame = 0
+			// `top` is `auto` where the row does not pin (wider screens).
+			const pinTop = parseFloat(getComputedStyle(tools).top)
+			const pinned =
+				Number.isFinite(pinTop) &&
+				window.scrollY > 0 &&
+				tools.getBoundingClientRect().top <= pinTop + 0.5
+			if (page.hasAttribute('data-pinned') === pinned) return
+			// Focus on the + that goes away moves to the one that comes.
+			const [leaving, coming] = pinned
+				? [addButtonRef.current, pinnedAddRef.current]
+				: [pinnedAddRef.current, addButtonRef.current]
+			const hadFocus = leaving != null && document.activeElement === leaving
+			page.toggleAttribute('data-pinned', pinned)
+			if (hadFocus) coming?.focus({ preventScroll: true })
+		}
+		const schedule = () => {
+			if (!frame) frame = requestAnimationFrame(read)
+		}
+		read()
+		window.addEventListener('scroll', schedule, { passive: true })
+		window.addEventListener('resize', schedule)
+		return () => {
+			cancelAnimationFrame(frame)
+			window.removeEventListener('scroll', schedule)
+			window.removeEventListener('resize', schedule)
+		}
+	}, [toolsShown])
+
+	function openAdd(from: 'title' | 'pinned') {
 		// Already open: the + takes you back to the field.
 		if (addOpen) {
 			document.getElementById('new-staple')?.focus()
 			return
 		}
 		addFetcher.reset()
-		setSearch('')
-		setAddOpen(true)
+		// Rendered and focused inside the tap, so iOS raises the keyboard.
+		flushSync(() => {
+			setSearch('')
+			setAddOpen(true)
+		})
+		document.getElementById('new-staple')?.focus({ preventScroll: true })
+		// From the pinned row the form is far up the page, under the title.
+		if (from === 'pinned') window.scrollTo({ top: 0, behavior: 'instant' })
 	}
 
 	function cancelAdd() {
@@ -95,20 +162,32 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 		requestAnimationFrame(() => addButtonRef.current?.focus())
 	}
 
+	function clearSearch() {
+		setSearch('')
+		searchRef.current?.focus()
+	}
+
 	return (
-		<div className="container-content w-full min-w-0 overflow-x-hidden py-4 pb-[calc(var(--bottom-nav-h)+2rem+var(--bottom-nav-inset))] md:py-6 md:pb-8">
+		<div
+			ref={pageRef}
+			className="group/staples container-content w-full min-w-0 py-4 pb-[calc(var(--bottom-nav-h)+2rem+var(--bottom-nav-inset))] md:py-6 md:pb-8"
+		>
 			<header>
 				<TitleRow>
 					<TabTitle>Staples</TabTitle>
 					<TitleAddButton
 						ref={addButtonRef}
+						data-title-add=""
 						aria-label="Add Staple"
 						aria-expanded={addOpen}
 						aria-controls={addOpen ? 'add-staple-form' : undefined}
-						onClick={openAdd}
+						onClick={() => openAdd('title')}
+						// Scrolled away while the search row is pinned, where the
+						// row's own + takes its place.
+						className="group-data-[pinned]/staples:invisible"
 					/>
 				</TitleRow>
-				<p className="text-muted-foreground mt-1 max-w-xl text-sm">
+				<p className="text-muted-foreground mt-1 max-w-xl text-[0.9375rem] leading-normal">
 					Things you usually have. Add one to put it on Next shop.
 				</p>
 
@@ -130,7 +209,6 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 								Add a Staple
 							</label>
 							<Input
-								autoFocus
 								id="new-staple"
 								name="displayName"
 								value={newStaple}
@@ -151,7 +229,7 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 						</Button>
 						<Button
 							type="button"
-							variant="ghost"
+							variant="secondary"
 							className="shrink-0"
 							disabled={addFetcher.state !== 'idle'}
 							onClick={cancelAdd}
@@ -167,31 +245,66 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 							</p>
 						)}
 					</addFetcher.Form>
-				) : staples.length >= 12 ? (
-					<div className="mt-4 flex items-center gap-2">
-						<div className="relative min-w-0 flex-1 sm:max-w-md">
-							<label htmlFor="search-staples" className="sr-only">
-								Search Staples
-							</label>
-							<Icon
-								name="magnifying-glass"
-								size="sm"
-								className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
-							/>
-							<Input
-								id="search-staples"
-								type="search"
-								inputMode="search"
-								enterKeyHint="search"
-								value={search}
-								onChange={(event) => setSearch(event.currentTarget.value)}
-								placeholder="Search"
-								className="pl-9"
-							/>
-						</div>
-					</div>
 				) : null}
 			</header>
+
+			{toolsShown ? (
+				// A child of the whole page, not of the header, so on a phone it
+				// stays pinned under the status bar for the length of the list,
+				// opaque and edge to edge (tailwind.css keeps what takes focus
+				// below it, and the top toasts under it).
+				<div
+					ref={toolsRef}
+					data-staples-tools=""
+					className="max-md:border-border max-md:bg-background mt-4 flex items-center gap-2 max-md:sticky max-md:top-(--safe-top) max-md:z-30 max-md:-mx-4 max-md:border-b max-md:px-4 max-md:py-3.5 sm:max-md:-mx-8 sm:max-md:px-8"
+				>
+					<div className="relative min-w-0 flex-1 sm:max-w-md">
+						<label htmlFor="search-staples" className="sr-only">
+							Search Staples
+						</label>
+						<Icon
+							name="magnifying-glass"
+							size="sm"
+							className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+						/>
+						<Input
+							ref={searchRef}
+							id="search-staples"
+							type="search"
+							inputMode="search"
+							enterKeyHint="search"
+							value={search}
+							onChange={(event) => setSearch(event.currentTarget.value)}
+							placeholder="Search"
+							// The clear button below replaces the browser's own.
+							className={cn(
+								'pl-9 [&::-webkit-search-cancel-button]:hidden',
+								search && 'pr-11',
+							)}
+						/>
+						{search ? (
+							<button
+								type="button"
+								aria-label="Clear the search field"
+								// Focus stays in the field, so the keyboard stays up.
+								onMouseDown={(event) => event.preventDefault()}
+								onClick={clearSearch}
+								className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex w-11 items-center justify-center transition-opacity active:opacity-60"
+							>
+								<Icon name="cross-1" size="sm" />
+							</button>
+						) : null}
+					</div>
+					<TitleAddButton
+						ref={pinnedAddRef}
+						aria-label="Add Staple"
+						aria-expanded={addOpen}
+						onClick={() => openAdd('pinned')}
+						// Only while the row is pinned, far from the title's +.
+						className="hidden group-data-[pinned]/staples:inline-flex"
+					/>
+				</div>
+			) : null}
 
 			{/* The row says what happened; this repeats it for a screen reader,
 			    whose focus stays on a button whose label just changed. */}
@@ -200,15 +313,21 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 			</p>
 
 			{search.trim() && filteredStaples.length === 0 ? (
-				<div className="bg-muted/40 mt-5 rounded-lg p-6 text-center">
-					<h2 className="font-serif text-xl">No Staples found</h2>
-					<p className="text-muted-foreground mt-1 text-sm">
+				<div className="flex flex-col items-center justify-center py-16 text-center">
+					<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
+						<Icon
+							name="magnifying-glass"
+							className="text-muted-foreground/40 size-8"
+						/>
+					</div>
+					<h2 className="mt-4 font-serif text-xl">No Staples found</h2>
+					<p className="text-muted-foreground mt-2 max-w-sm">
 						Nothing matches &ldquo;{search.trim()}&rdquo;.
 					</p>
 					<Button
 						type="button"
 						variant="outline"
-						className="mt-4"
+						className="mt-6"
 						onClick={() => setSearch('')}
 					>
 						Clear search
@@ -217,7 +336,10 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 			) : filteredStaples.length > 0 ? (
 				<ul
 					aria-label="Staples"
-					className="divide-border/40 mt-5 divide-y border-t"
+					className={cn(
+						'divide-border/40 divide-y md:mt-5 md:border-t',
+						!toolsShown && 'max-md:mt-3',
+					)}
 				>
 					{filteredStaples.map((staple) => (
 						<StapleRow
@@ -234,9 +356,15 @@ export function ActiveStaples({ staples }: { staples: Staple[] }) {
 					lead="Tap the ones your Household usually has, or add your own. Tap Need on one to put it on Next shop."
 				/>
 			) : (
-				<div className="bg-muted/40 mt-5 rounded-lg p-6 text-center">
-					<h2 className="font-serif text-xl">No Staples yet</h2>
-					<p className="text-muted-foreground mt-1 text-sm">
+				<div className="flex flex-col items-center justify-center py-16 text-center">
+					<div className="border-border flex size-20 items-center justify-center rounded-full border-2 border-dashed">
+						<Icon
+							name="file-text"
+							className="text-muted-foreground/40 size-8"
+						/>
+					</div>
+					<h2 className="mt-4 font-serif text-xl">No Staples yet</h2>
+					<p className="text-muted-foreground mt-2 max-w-sm">
 						Add what your Household usually has. Tap Need on one to put it on
 						Next shop.
 					</p>
@@ -316,7 +444,10 @@ function StapleRow({
 			entering={entering.has(staple.id)}
 			className="w-full min-w-0"
 		>
-			<div className="relative overflow-hidden">
+			{/* Reaches 14px into the right gutter, as a Shopping row does, so
+			    the Need button can end on the content edge with room for its
+			    focus ring inside the clip. */}
+			<div className="relative -mr-3.5 overflow-hidden">
 				<div
 					ref={swipe.ref}
 					onPointerDown={(event) => {
@@ -325,16 +456,27 @@ function StapleRow({
 					}}
 					// A tap on an open row shuts it instead of adding the Staple.
 					onClickCapture={swipe.handlers.onClickCapture}
-					className="bg-background relative z-1 flex w-full min-w-0 touch-pan-y touch-pinch-zoom items-center gap-2 py-1"
+					className="bg-background relative z-1 flex min-h-14 w-full min-w-0 touch-pan-y touch-pinch-zoom items-center gap-3 py-1.5 pr-3.5"
 				>
-					<span className="min-w-0 flex-1 truncate">{staple.displayName}</span>
+					{/* The row itself is not a tap target, only the button is: a
+					    tap that lands while scrolling would put the Staple on Next
+					    shop, and this screen has no Undo for that. */}
+					<span className="text-item-name min-w-0 flex-1 font-medium wrap-anywhere md:text-base">
+						{staple.displayName}
+					</span>
 					{/* Enabled even when the row is already on the list: a second tap
 					    writes nothing and answers "is this one done?" out loud. Its
-					    name starts with what it shows, then says which Staple. */}
+					    name starts with what it shows, then says which Staple. One
+					    width in both states, so a tap never wraps the name again. */}
 					<Button
 						type="button"
-						variant={onShoppingList ? 'ghost' : 'outline'}
-						className="min-w-24 shrink-0 justify-center px-3"
+						variant={onShoppingList ? 'ghost' : 'secondary'}
+						className={cn(
+							'w-19 shrink-0 gap-1.5 rounded-full px-0 font-semibold select-none',
+							onShoppingList
+								? 'text-primary justify-end hover:bg-transparent'
+								: 'justify-center',
+						)}
 						aria-label={`${onShoppingList ? 'On list' : 'Need'}, ${staple.displayName}`}
 						aria-busy={isAdding || undefined}
 						onClick={() =>
@@ -351,7 +493,7 @@ function StapleRow({
 						{onShoppingList ? (
 							<>
 								<Icon name="check" size="sm" />
-								<span className="text-muted-foreground">On list</span>
+								<span>On list</span>
 							</>
 						) : (
 							'Need'
@@ -396,7 +538,10 @@ function StapleRow({
 				</button>
 			</div>
 			{shopFailed && (
-				<p className="text-foreground-destructive mt-1 text-sm" role="alert">
+				<p
+					className="text-foreground-destructive -mt-1 pb-2 text-sm"
+					role="alert"
+				>
 					{shopFetcher.data?.message ??
 						`Could not add ${staple.displayName} to Next shop`}
 				</p>

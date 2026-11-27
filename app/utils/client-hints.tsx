@@ -40,10 +40,29 @@ export function useOptionalHints() {
  */
 export function ClientHintCheck({ nonce }: { nonce: string }) {
 	const { revalidate } = useRevalidator()
+	const serverTimeZone = useOptionalHints()?.timeZone
 	React.useEffect(
 		() => subscribeToSchemeChange(() => revalidate()),
 		[revalidate],
 	)
+	// The script below reloads the page when a hint cookie was missing, but
+	// Chromium can send that reload before it has stored every cookie the
+	// script wrote. The server then draws the day in UTC, and the reloaded
+	// page, which has the cookie by now, does not reload again. Load the data
+	// once more, when the cookie holds the zone the server did not see.
+	const checkedTimeZone = React.useRef(false)
+	React.useEffect(() => {
+		if (checkedTimeZone.current || serverTimeZone === undefined) return
+		checkedTimeZone.current = true
+		const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+		const cookie = `${encodeURIComponent(timeZoneHint.cookieName)}=${encodeURIComponent(timeZone)}`
+		if (
+			serverTimeZone !== timeZone &&
+			document.cookie.split('; ').includes(cookie)
+		) {
+			void revalidate()
+		}
+	}, [serverTimeZone, revalidate])
 
 	return (
 		<script

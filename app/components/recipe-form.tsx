@@ -88,7 +88,7 @@ type RecipeFormProps = {
  */
 const sectionHeadingClass = cn(
 	sectionLabelClass,
-	'phone:text-recipe-section phone:text-foreground phone:font-serif phone:font-medium phone:tracking-normal phone:normal-case',
+	'phone:text-recipe-section phone:text-foreground phone:self-baseline phone:font-serif phone:font-medium phone:tracking-normal phone:normal-case',
 )
 
 function FormSection({
@@ -121,7 +121,7 @@ function FormSection({
 				/>
 				<h3 className={sectionHeadingClass}>{title}</h3>
 				{summary && (
-					<span className="text-muted-foreground phone:text-label text-xs">
+					<span className="text-muted-foreground phone:text-label phone:self-baseline text-xs">
 						{summary}
 					</span>
 				)}

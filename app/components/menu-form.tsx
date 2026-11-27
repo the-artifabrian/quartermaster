@@ -12,7 +12,6 @@ import { useEffect, useState } from 'react'
 import { Form, useActionData } from 'react-router'
 import {
 	RecipePicker,
-	type RecipePickerClassNames,
 	type RecipePickerRecipe,
 } from '#app/components/recipe-picker.tsx'
 import { RecipeThumb } from '#app/components/recipe-selector.tsx'
@@ -133,16 +132,6 @@ const phoneButtonLabelClass = 'phone:text-base'
  * side by side in a tinted section on a 320px screen with room to spare.
  */
 const phoneAddButtonClass = `${phoneButtonLabelClass} phone:gap-1.5 phone:px-2.5`
-
-/** The Add Recipe picker on a phone: names as a card's, small text small. */
-const pickerClassNames: RecipePickerClassNames = {
-	trigger: phoneAddButtonClass,
-	groupLabel:
-		'phone:text-label phone:font-semibold phone:tracking-normal phone:normal-case',
-	name: 'phone:text-item-name',
-	time: 'phone:text-label',
-	empty: 'phone:text-label',
-}
 
 /** The id the nav bar's Save submits (the route handle's `navForm`). */
 export const MENU_FORM_ID = 'menu-form'
@@ -505,7 +494,9 @@ function MenuSectionsBuilder({
 
 	return (
 		// A fieldset is never narrower than its longest word unless told so.
-		<fieldset className="min-w-0 pt-2">
+		// On a phone the heading starts a new part of the form, with more
+		// room above it than under it.
+		<fieldset className="phone:mt-8 min-w-0 pt-2">
 			<legend className={recipesHeadingClass}>Recipes</legend>
 			<ErrorList
 				errors={fields.sections.errors}
@@ -690,7 +681,7 @@ function MenuSectionCard({
 			<div className="mt-3 flex flex-wrap items-center gap-2">
 				<RecipePicker
 					recipes={recipes}
-					classNames={pickerClassNames}
+					triggerClassName={phoneAddButtonClass}
 					onPick={(recipe) => {
 						form.insert({
 							name: section.items.name,
@@ -858,7 +849,7 @@ function MenuItemRow({
 				<div className="mt-2 flex items-center gap-2">
 					<RecipePicker
 						recipes={recipes}
-						classNames={pickerClassNames}
+						triggerClassName={phoneAddButtonClass}
 						label="Replace Recipe"
 						onPick={(replacement) => {
 							form.update({

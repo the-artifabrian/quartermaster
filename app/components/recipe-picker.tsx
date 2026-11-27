@@ -13,7 +13,6 @@ import {
 	PopoverTrigger,
 } from '#app/components/ui/popover.tsx'
 import { formatDuration } from '#app/utils/format-duration.ts'
-import { cn } from '#app/utils/misc.tsx'
 import { rankRecipeTitleMatches } from '#app/utils/recipe-search.ts'
 
 export type RecipePickerRecipe = {
@@ -26,15 +25,6 @@ export type RecipePickerRecipe = {
 	image: { objectKey: string } | null
 }
 
-/** Classes the caller adds to the picker's parts, to set them in its sizes. */
-export type RecipePickerClassNames = {
-	trigger?: string
-	groupLabel?: string
-	name?: string
-	time?: string
-	empty?: string
-}
-
 type RecipePickerProps = {
 	recipes: RecipePickerRecipe[]
 	/** Recipes already on the menu, hidden so a Recipe appears only once. */
@@ -43,7 +33,8 @@ type RecipePickerProps = {
 	onPick: (recipe: RecipePickerRecipe) => void
 	label?: string
 	triggerVariant?: React.ComponentProps<typeof Button>['variant']
-	classNames?: RecipePickerClassNames
+	/** Added to the button that opens the picker, to match its neighbours. */
+	triggerClassName?: string
 }
 
 /**
@@ -57,7 +48,7 @@ export function RecipePicker({
 	onPick,
 	label = 'Add Recipe',
 	triggerVariant = 'outline',
-	classNames,
+	triggerClassName,
 }: RecipePickerProps) {
 	const [popoverOpen, setPopoverOpen] = useState(false)
 	const [sheetOpen, setSheetOpen] = useState(false)
@@ -79,7 +70,7 @@ export function RecipePicker({
 						<Button
 							type="button"
 							variant={triggerVariant}
-							className={classNames?.trigger}
+							className={triggerClassName}
 						>
 							<Icon name="plus" size="sm" />
 							{label}
@@ -90,7 +81,6 @@ export function RecipePicker({
 							recipes={recipes}
 							excludeRecipeIds={excludeRecipeIds}
 							onPick={pick}
-							classNames={classNames}
 						/>
 					</PopoverContent>
 				</Popover>
@@ -101,7 +91,7 @@ export function RecipePicker({
 				<Button
 					type="button"
 					variant={triggerVariant}
-					className={classNames?.trigger}
+					className={triggerClassName}
 					onClick={() => setSheetOpen(true)}
 				>
 					<Icon name="plus" size="sm" />
@@ -117,7 +107,6 @@ export function RecipePicker({
 						recipes={recipes}
 						excludeRecipeIds={excludeRecipeIds}
 						onPick={pick}
-						classNames={classNames}
 					/>
 				</BottomSheet>
 			</div>
@@ -129,12 +118,10 @@ function PickerList({
 	recipes,
 	excludeRecipeIds,
 	onPick,
-	classNames,
 }: {
 	recipes: RecipePickerRecipe[]
 	excludeRecipeIds: string[]
 	onPick: (recipe: RecipePickerRecipe) => void
-	classNames?: RecipePickerClassNames
 }) {
 	const [search, setSearch] = useState('')
 	const searchRef = useRef<HTMLInputElement>(null)
@@ -181,12 +168,7 @@ function PickerList({
 			/>
 			<div className="max-h-[300px] scrollbar-thin space-y-0.5 overflow-y-auto overscroll-contain md:max-h-[340px]">
 				{emptyMessage ? (
-					<p
-						className={cn(
-							'text-muted-foreground py-4 text-center text-sm',
-							classNames?.empty,
-						)}
-					>
+					<p className="text-muted-foreground phone:text-label py-4 text-center text-sm">
 						{emptyMessage}
 					</p>
 				) : (
@@ -194,16 +176,13 @@ function PickerList({
 						{favorites.length > 0 && (
 							<>
 								{hasBothGroups && (
-									<PickerGroupLabel className={classNames?.groupLabel}>
-										Favorites
-									</PickerGroupLabel>
+									<PickerGroupLabel>Favorites</PickerGroupLabel>
 								)}
 								{favorites.map((recipe) => (
 									<PickerOption
 										key={recipe.id}
 										recipe={recipe}
 										onPick={onPick}
-										classNames={classNames}
 									/>
 								))}
 							</>
@@ -211,16 +190,13 @@ function PickerList({
 						{rest.length > 0 && (
 							<>
 								{hasBothGroups && (
-									<PickerGroupLabel className={classNames?.groupLabel}>
-										All Recipes
-									</PickerGroupLabel>
+									<PickerGroupLabel>All Recipes</PickerGroupLabel>
 								)}
 								{rest.map((recipe) => (
 									<PickerOption
 										key={recipe.id}
 										recipe={recipe}
 										onPick={onPick}
-										classNames={classNames}
 									/>
 								))}
 							</>
@@ -232,20 +208,11 @@ function PickerList({
 	)
 }
 
-function PickerGroupLabel({
-	children,
-	className,
-}: {
-	children: React.ReactNode
-	className?: string
-}) {
+// On a phone, in the sheet, a group's label is the small label in sentence
+// case, a Recipe's name reads as a card's does and its time is small text.
+function PickerGroupLabel({ children }: { children: React.ReactNode }) {
 	return (
-		<p
-			className={cn(
-				'text-muted-foreground px-2 pt-1 pb-0.5 text-xs font-medium tracking-wide uppercase',
-				className,
-			)}
-		>
+		<p className="text-muted-foreground phone:text-label phone:font-semibold phone:tracking-normal phone:normal-case px-2 pt-1 pb-0.5 text-xs font-medium tracking-wide uppercase">
 			{children}
 		</p>
 	)
@@ -254,11 +221,9 @@ function PickerGroupLabel({
 function PickerOption({
 	recipe,
 	onPick,
-	classNames,
 }: {
 	recipe: RecipePickerRecipe
 	onPick: (recipe: RecipePickerRecipe) => void
-	classNames?: RecipePickerClassNames
 }) {
 	const totalTime = getRecipeTotalTime(recipe)
 
@@ -270,12 +235,7 @@ function PickerOption({
 		>
 			<RecipeThumb title={recipe.title} image={recipe.image} />
 			<div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-				<p
-					className={cn(
-						'min-w-0 truncate text-sm font-medium',
-						classNames?.name,
-					)}
-				>
+				<p className="phone:text-item-name min-w-0 truncate text-sm font-medium">
 					{recipe.isFavorite && (
 						<Icon
 							name="heart-filled"
@@ -285,12 +245,7 @@ function PickerOption({
 					{recipe.title}
 				</p>
 				{totalTime != null && (
-					<span
-						className={cn(
-							'text-muted-foreground inline-flex shrink-0 items-center gap-0.5 text-xs',
-							classNames?.time,
-						)}
-					>
+					<span className="text-muted-foreground phone:text-label inline-flex shrink-0 items-center gap-0.5 text-xs">
 						<Icon name="clock" className="size-3" />
 						{formatDuration(totalTime)}
 					</span>

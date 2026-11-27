@@ -74,6 +74,7 @@ export function RecipeThumb({
 	if (image) {
 		return (
 			<span
+				data-recipe-thumb=""
 				className={cn('size-9 shrink-0 overflow-hidden rounded-md', className)}
 			>
 				<Img
@@ -88,6 +89,7 @@ export function RecipeThumb({
 	const placeholder = getRecipePlaceholder(title)
 	return (
 		<span
+			data-recipe-thumb=""
 			className={cn(
 				'flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md',
 				placeholder.bgClass,

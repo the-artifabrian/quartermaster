@@ -38,17 +38,18 @@ export function MenuContents({
 					<section key={section.id}>
 						{/* The unnamed section stays headingless */}
 						{section.name ? (
-							<h2 className="border-border mb-1 border-b pb-1.5 font-serif text-lg md:mb-3">
+							<h2 className="border-border phone:text-recipe-section phone:pb-2 mb-1 border-b pb-1.5 font-serif text-lg md:mb-3">
 								{section.name}
 							</h2>
 						) : null}
 						{section.items.length === 0 ? (
 							section.name ? (
-								<p className="text-muted-foreground text-sm">
+								<p className="text-muted-foreground phone:text-label phone:mt-3 text-sm">
 									Nothing in this section yet.
 								</p>
 							) : (
-								<p className="text-muted-foreground border-border/60 rounded-lg border-2 border-dashed px-4 py-8 text-center text-sm">
+								// On a phone the line sits on the page, without the box.
+								<p className="text-muted-foreground border-border/60 phone:border-0 phone:px-0 phone:text-base rounded-lg border-2 border-dashed px-4 py-8 text-center text-sm">
 									Nothing on this Menu yet.
 								</p>
 							)
@@ -101,11 +102,11 @@ type MenuDetailItem = {
 function MenuNoteCard({ item }: { item: MenuDetailItem }) {
 	return (
 		<li className="md:border-border/60 md:bg-card min-w-0 py-3.5 md:rounded-lg md:border md:p-3">
-			<p className="min-w-0 text-[15px] leading-relaxed break-words whitespace-pre-wrap">
+			<p className="phone:text-[1.0625rem] min-w-0 text-[15px] leading-relaxed break-words whitespace-pre-wrap">
 				{item.note}
 			</p>
 			{item.shoppingLines.length > 0 ? (
-				<ul className="mt-1.5 space-y-0.5">
+				<ul className="phone:space-y-1 mt-1.5 space-y-0.5">
 					{item.shoppingLines.map((line) => {
 						const quantity = [line.quantity, line.unit]
 							.filter(Boolean)
@@ -113,7 +114,7 @@ function MenuNoteCard({ item }: { item: MenuDetailItem }) {
 						return (
 							<li
 								key={line.id}
-								className="text-muted-foreground flex items-baseline gap-1.5 text-sm"
+								className="text-muted-foreground phone:text-label flex items-baseline gap-1.5 text-sm"
 							>
 								<Icon
 									name="cart"
@@ -176,26 +177,28 @@ function MenuRecipeCard({
 					/>
 				</span>
 			)}
-			<div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-3">
-				<div className="min-w-0 flex-1">
-					<p className="line-clamp-2 min-w-0 text-[17px] leading-[1.4] font-medium break-words md:text-base">
+			{/* A phone stacks the lines under the name: the quantity, then the
+			    note. Wider, the quantity sits at the right of the row. */}
+			<div className="phone:flex-col flex min-w-0 flex-1 md:items-center md:gap-3">
+				<div className="phone:contents min-w-0 flex-1">
+					<p className="phone:text-item-name phone:leading-(--text-item-name--line-height) phone:order-1 line-clamp-2 min-w-0 text-[17px] leading-[1.4] font-medium break-words md:text-base">
 						{title}
 					</p>
 					{item.recipe ? null : (
-						<p className="text-foreground-destructive mt-0.5 text-xs">
+						<p className="text-foreground-destructive phone:text-label phone:order-2 mt-0.5 text-xs">
 							{sharedMenuId
 								? 'Recipe unavailable'
 								: 'This Recipe isn’t in your Recipes any more. Edit the Menu to replace or remove it.'}
 						</p>
 					)}
 					{item.note ? (
-						<p className="text-muted-foreground mt-0.5 text-sm leading-snug">
+						<p className="text-muted-foreground phone:text-label phone:order-4 phone:break-words mt-0.5 text-sm leading-snug">
 							{item.note}
 						</p>
 					) : null}
 				</div>
 				{quantity ? (
-					<span className="text-muted-foreground mt-1 block text-sm font-medium tabular-nums sm:mt-0 sm:shrink-0">
+					<span className="text-muted-foreground phone:text-label phone:order-3 phone:mt-0.5 phone:leading-snug phone:font-normal mt-1 block text-sm font-medium tabular-nums md:mt-0 md:shrink-0">
 						{quantity}
 					</span>
 				) : null}
@@ -216,7 +219,7 @@ function MenuRecipeCard({
 								? `/recipes/${item.recipe.id}?scale=${formatScaleMultiplier(item.scaleMultiplier)}`
 								: `/recipes/${item.recipe.id}`
 					}
-					className="active:bg-muted/40 md:border-border/60 md:bg-card md:hover:bg-muted/40 flex items-center gap-3.5 py-3 transition-colors md:rounded-lg md:border md:p-3"
+					className="active:bg-muted/40 md:border-border/60 md:bg-card md:hover:bg-muted/40 phone:min-h-14 phone:py-2 flex items-center gap-3.5 py-3 transition-colors md:rounded-lg md:border md:p-3"
 				>
 					{content}
 				</RecipeLink>
@@ -224,7 +227,7 @@ function MenuRecipeCard({
 		)
 	}
 	return (
-		<li className="md:border-border/60 md:bg-muted/30 flex items-center gap-3.5 py-3 md:rounded-lg md:border md:border-dashed md:p-3">
+		<li className="md:border-border/60 md:bg-muted/30 phone:min-h-14 phone:py-2 flex items-center gap-3.5 py-3 md:rounded-lg md:border md:border-dashed md:p-3">
 			{content}
 		</li>
 	)

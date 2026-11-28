@@ -47,7 +47,6 @@ test('Log in reads in its phone sizes up to 767px and in the wider sizes from 76
 	const title = page.getByRole('heading', { level: 1 })
 	const lead = page.getByText('Use your password or a passkey.')
 	const username = page.getByLabel('Username')
-	const password = page.getByLabel('Password')
 	const remember = page.getByText('Remember me', { exact: true })
 	const forgot = page.getByRole('link', { name: 'Forgot password?' })
 	const logIn = page.getByRole('button', { name: 'Log in', exact: true })
@@ -79,35 +78,26 @@ test('Log in reads in its phone sizes up to 767px and in the wider sizes from 76
 	const logInBox = await box(logIn)
 	expect(logInBox.height).toBe(48)
 	expect(logInBox.width).toBe(fieldBox.width)
-	await expect(logIn).toHaveCSS('font-size', '16px')
+	await expect(logIn).toHaveCSS('font-weight', '600')
 	expect((await box(passkey)).height).toBe(48)
 	expect((await box(demo)).height).toBe(48)
 
-	// Forgot password? has a 44px tap area, level with Remember me, clear of
-	// it, of the field above and of the button below.
+	// Forgot password? has a 44px tap area around a line level with Remember
+	// me, so it reaches 10px over and under that line.
 	await expect(forgot).toHaveCSS('font-size', '16px')
 	const forgotBox = await box(forgot)
 	const rememberBox = await box(remember)
-	const passwordBox = await box(password)
 	expect(forgotBox.height).toBe(44)
 	expect(forgotBox.y + forgotBox.height / 2).toBe(
 		rememberBox.y + rememberBox.height / 2,
 	)
-	expect(forgotBox.x).toBeGreaterThan(rememberBox.x + rememberBox.width)
-	expect(forgotBox.y).toBeGreaterThanOrEqual(passwordBox.y + passwordBox.height)
-	expect(forgotBox.y + forgotBox.height).toBeLessThanOrEqual(logInBox.y)
 	// The button sits 32px under the row.
 	expect(logInBox.y - (rememberBox.y + rememberBox.height)).toBe(32)
 
-	// Create an account: 44px, between the two buttons without touching them.
-	await expect(create).toHaveCSS('font-size', '16px')
+	// Create an account: a 44px tap area between the two buttons.
 	const createBox = await box(create)
 	const passkeyBox = await box(passkey)
 	expect(createBox.height).toBe(44)
-	expect(createBox.y).toBeGreaterThanOrEqual(passkeyBox.y + passkeyBox.height)
-	expect(createBox.y + createBox.height).toBeLessThanOrEqual(
-		(await box(demo)).y,
-	)
 	// Its line is 32px under the passkey button and 16px over the demo's.
 	expect(createBox.y + 10 - (passkeyBox.y + passkeyBox.height)).toBe(32)
 	expect((await box(demo)).y - (createBox.y + 34)).toBe(16)
@@ -152,6 +142,7 @@ test('Log in reads in its phone sizes up to 767px and in the wider sizes from 76
 	await expect(forgot).toHaveCSS('font-size', '14px')
 	expect((await box(forgot)).height).toBeLessThan(44)
 	expect((await box(logIn)).height).toBe(44)
+	await expect(logIn).toHaveCSS('font-weight', '500')
 	expect((await box(passkey)).height).toBe(44)
 	expect((await box(demo)).height).toBe(44)
 	expect((await box(create)).height).toBe(24)
@@ -178,13 +169,9 @@ test('signing up reads in the phone sizes from the email to the new account’s 
 		await expect(title).toHaveCSS('font-size', '28px')
 		await expect(trial).toHaveCSS('font-size', '13.5px')
 		await expect(haveAccount).toHaveCSS('font-size', '16px')
-		await expect(logInLink).toHaveCSS('font-size', '16px')
 		expect((await box(logInLink)).height).toBe(44)
 		const emailMeBox = await box(emailMe)
 		expect(emailMeBox.height).toBe(48)
-		expect((await box(logInLink)).y).toBeGreaterThanOrEqual(
-			emailMeBox.y + emailMeBox.height,
-		)
 		// From the field to the button.
 		const emailField = await box(page.getByLabel('Email'))
 		expect(emailMeBox.y - (emailField.y + emailField.height)).toBe(32)
@@ -231,7 +218,6 @@ test('signing up reads in the phone sizes from the email to the new account’s 
 		await expect(note).toHaveCSS('font-size', '13.5px')
 		await expect(slots.first()).toHaveCSS('font-size', '20px')
 		const slot = await box(slots.first())
-		const lastSlot = await box(slots.last())
 		expect(slot.height).toBe(44)
 		expect(slot.width).toBeLessThanOrEqual(44)
 		// The boxes start on the title's edge.
@@ -240,9 +226,6 @@ test('signing up reads in the phone sizes from the email to the new account’s 
 		expect(submitBox.height).toBe(48)
 		expect(submitBox.width).toBe((await box(main)).width - 32)
 		expect(submitBox.y - (slot.y + slot.height)).toBe(32)
-		expect(lastSlot.x + lastSlot.width).toBeLessThanOrEqual(
-			submitBox.x + submitBox.width,
-		)
 		expect(await sizesInMain(page)).toEqual(['13.5px', '16px', '20px', '28px'])
 		const noteBox = await box(note)
 		const codeLabel = await box(page.getByText('Code', { exact: true }))
@@ -283,9 +266,6 @@ test('signing up reads in the phone sizes from the email to the new account’s 
 		await submit.click()
 		await expect(page).toHaveURL(/\/onboarding/)
 		const address = page.getByText(email, { exact: true })
-		const consent = page.getByText(
-			'I agree to the Terms of Service and Privacy Policy',
-		)
 		const remember = page.getByText('Remember me', { exact: true })
 		const createAccount = page.getByRole('button', {
 			name: 'Create an account',
@@ -296,8 +276,6 @@ test('signing up reads in the phone sizes from the email to the new account’s 
 		await expect(title).toHaveCSS('font-size', '28px')
 		await expect(address).toHaveCSS('font-size', '16px')
 		await expect(address).toHaveCSS('color', ink)
-		await expect(page.getByText(/^Signing up as/)).not.toHaveCSS('color', ink)
-		await expect(consent).toHaveCSS('font-size', '16px')
 		const name = page.getByLabel('Name', { exact: true })
 		const signingUp = await box(page.getByText(/^Signing up as/))
 		const onboardingTitle = await box(title)

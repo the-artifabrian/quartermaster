@@ -137,10 +137,11 @@ function UpdateProfileForm({
 
 			<ErrorList errors={form.errors} id={form.errorId} />
 
-			<div className="mt-8 flex justify-center">
+			<div className="phone:block mt-8 flex justify-center">
 				<StatusButton
 					type="submit"
 					size="wide"
+					className="phone:h-12 phone:w-full phone:px-4 phone:py-2 phone:text-base phone:font-semibold"
 					name="intent"
 					value={profileUpdateActionIntent}
 					status={

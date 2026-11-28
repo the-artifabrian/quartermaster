@@ -163,8 +163,10 @@ export default function ChangeEmailIndex({
 	const isPending = useIsPending()
 	return (
 		<div>
-			<p>You will receive an email at the new email address to confirm.</p>
-			<p>
+			<p className="phone:text-muted-foreground">
+				You will receive an email at the new email address to confirm.
+			</p>
+			<p className="phone:text-muted-foreground">
 				An email notice will also be sent to your old address{' '}
 				{loaderData.user.email}.
 			</p>
@@ -190,6 +192,7 @@ export default function ChangeEmailIndex({
 						<ErrorList id={form.errorId} errors={form.errors} />
 						<div className="mt-8">
 							<StatusButton
+								className="phone:h-12 phone:w-full phone:font-semibold"
 								status={isPending ? 'pending' : (form.status ?? 'idle')}
 							>
 								Send confirmation

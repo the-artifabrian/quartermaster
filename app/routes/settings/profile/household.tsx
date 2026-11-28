@@ -213,15 +213,21 @@ export default function HouseholdSettings({
 				<RenameHouseholdForm name={household.name} />
 			) : (
 				<div>
-					<p className="text-muted-foreground text-sm">Household name</p>
-					<p className="text-lg font-medium">{household.name}</p>
+					<p className="text-muted-foreground phone:text-label phone:font-semibold text-sm">
+						Household name
+					</p>
+					<p className="phone:text-item-name text-lg font-medium">
+						{household.name}
+					</p>
 				</div>
 			)}
 
 			<Divider />
 
 			<div>
-				<h3 className="mb-4 text-base font-medium">Members</h3>
+				<h3 className="phone:text-recipe-section phone:font-serif mb-4 text-base font-medium">
+					Members
+				</h3>
 				<ul className="flex flex-col gap-3">
 					{household.members.map((member) => (
 						<MemberRow
@@ -313,11 +319,11 @@ function MemberRow({
 	return (
 		<li className="bg-muted/40 flex items-center justify-between rounded-lg p-3">
 			<div>
-				<p className="font-medium">
+				<p className="phone:text-item-name font-medium">
 					{memberName}
 					{isCurrentUser ? ' (you)' : ''}
 				</p>
-				<p className="text-muted-foreground text-sm">
+				<p className="text-muted-foreground phone:text-label text-sm">
 					{member.user.isDemo
 						? member.role
 						: `@${member.user.username} · ${member.role}`}
@@ -368,18 +374,20 @@ function InviteSection({
 
 	return (
 		<div>
-			<h3 className="mb-4 text-base font-medium">Invites</h3>
+			<h3 className="phone:text-recipe-section phone:font-serif mb-4 text-base font-medium">
+				Invites
+			</h3>
 
 			<createFetcher.Form method="POST">
 				<Button type="submit" name="intent" value="create-invite">
-					<Icon name="plus" className="mr-1" />
+					<Icon name="plus" className="mr-1 size-3.5" />
 					Generate invite link
 				</Button>
 			</createFetcher.Form>
 
 			{newToken ? (
 				<div className="bg-primary-tint mt-4 rounded-md p-4">
-					<p className="mb-2 text-sm font-medium">
+					<p className="phone:text-base mb-2 text-sm font-medium">
 						Send this link to the person you’re inviting:
 					</p>
 					<CopyLinkButton token={newToken} />
@@ -388,7 +396,9 @@ function InviteSection({
 
 			{invites.length > 0 ? (
 				<div className="mt-4 flex flex-col gap-2">
-					<p className="text-muted-foreground text-sm">Open invites:</p>
+					<p className="text-muted-foreground phone:text-label phone:font-semibold text-sm">
+						Open invites:
+					</p>
 					{invites.map((invite) => (
 						<InviteRow key={invite.id} invite={invite} />
 					))}
@@ -457,7 +467,7 @@ function CopyLinkButton({ token }: { token: string }) {
 			<div className="flex min-w-0 items-center gap-2">
 				{/* ph-no-capture keeps the token out of PostHog's click events,
 				which record the clicked element's text. */}
-				<code className="ph-no-capture bg-muted min-w-0 flex-1 truncate rounded px-2 py-1 text-sm">
+				<code className="ph-no-capture bg-muted phone:text-base min-w-0 flex-1 truncate rounded px-2 py-1 text-sm">
 					{path}
 				</code>
 				<Button
@@ -485,8 +495,10 @@ function InviteRow({
 	return (
 		<div className="bg-muted/40 flex flex-col gap-3 rounded-lg p-3 sm:flex-row sm:flex-wrap sm:items-center">
 			<div className="min-w-0 flex-1">
-				<code className="text-xs">{invite.token.slice(0, 8)}…</code>
-				<p className="text-muted-foreground text-xs">
+				<code className="phone:text-base text-xs">
+					{invite.token.slice(0, 8)}…
+				</code>
+				<p className="text-muted-foreground phone:text-label text-xs">
 					Expires {new Date(invite.expiresAt).toLocaleDateString()}
 				</p>
 			</div>
@@ -530,8 +542,10 @@ function LeaveHousehold() {
 
 	return (
 		<div>
-			<h3 className="mb-4 text-base font-medium">Leave Household</h3>
-			<p className="text-muted-foreground mb-4 text-sm">
+			<h3 className="phone:text-recipe-section phone:font-serif mb-4 text-base font-medium">
+				Leave Household
+			</h3>
+			<p className="text-muted-foreground phone:text-base mb-4 text-sm">
 				You&apos;ll get a new Household of your own. Your Recipes are copied to
 				it, and the shared Staples and Plan stay here.
 			</p>
@@ -543,7 +557,9 @@ function LeaveHousehold() {
 					className="text-foreground-destructive hover:text-foreground-destructive"
 					status={fetcher.state !== 'idle' ? 'pending' : 'idle'}
 				>
-					<Icon name="exit">Leave Household</Icon>
+					<Icon name="exit" className="size-3.5">
+						Leave Household
+					</Icon>
 				</StatusButton>
 				<ConfirmSheet
 					open={confirming}

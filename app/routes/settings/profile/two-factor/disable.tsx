@@ -40,11 +40,13 @@ export default function TwoFactorDisableRoute() {
 	return (
 		<div className="mx-auto max-w-sm">
 			<disable2FAFetcher.Form method="POST" id="disable-2fa">
-				<p>With 2FA off, anyone with your password can log in.</p>
+				<p className="phone:text-muted-foreground phone:mb-4">
+					With 2FA off, anyone with your password can log in.
+				</p>
 				<StatusButton
 					type="button"
 					variant="destructive"
-					className="mx-auto"
+					className="phone:h-12 phone:w-full phone:font-semibold mx-auto"
 					status={pending ? 'pending' : 'idle'}
 					onClick={() => setConfirming(true)}
 				>

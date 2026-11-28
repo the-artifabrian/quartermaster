@@ -128,7 +128,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 			{isDemo ? (
 				<div className="bg-muted/40 flex items-center gap-4 rounded-lg p-4">
 					{avatar}
-					<p className="min-w-0 flex-1 truncate font-medium">
+					<p className="phone:text-item-name min-w-0 flex-1 truncate font-medium">
 						{user.name ?? user.username}
 					</p>
 				</div>
@@ -139,8 +139,10 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 				>
 					{avatar}
 					<div className="min-w-0 flex-1">
-						<p className="truncate font-medium">{user.name ?? user.username}</p>
-						<p className="text-muted-foreground truncate text-sm">
+						<p className="phone:text-item-name truncate font-medium">
+							{user.name ?? user.username}
+						</p>
+						<p className="text-muted-foreground phone:text-label truncate text-sm">
 							{user.email}
 						</p>
 					</div>
@@ -162,7 +164,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 					badge={
 						<span
 							className={cn(
-								'rounded-full px-2 py-0.5 text-xs font-medium',
+								'phone:text-label rounded-full px-2 py-0.5 text-xs font-medium',
 								tierInfo.isProActive
 									? 'bg-primary-tint text-primary'
 									: 'bg-muted text-muted-foreground',
@@ -181,7 +183,7 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 			</SettingsSection>
 
 			{isDemo ? (
-				<p className="text-muted-foreground px-1 text-sm">
+				<p className="text-muted-foreground phone:text-base px-1 text-sm">
 					Account, Household and backup restore are off in the demo.
 				</p>
 			) : (
@@ -231,7 +233,9 @@ export default function SettingsIndex({ loaderData }: Route.ComponentProps) {
 							name="exit"
 							className="text-muted-foreground size-5 shrink-0"
 						/>
-						<span>Log out</span>
+						<span className="phone:text-item-name phone:font-medium">
+							Log out
+						</span>
 					</button>
 				</Form>
 			</SettingsSection>
@@ -287,7 +291,7 @@ function SettingsSection({
 	return (
 		<div>
 			{label ? (
-				<h3 className="text-muted-foreground mb-1.5 px-1 text-xs font-semibold tracking-wider uppercase">
+				<h3 className="text-muted-foreground phone:text-label phone:tracking-normal phone:normal-case mb-1.5 px-1 text-xs font-semibold tracking-wider uppercase">
 					{label}
 				</h3>
 			) : null}
@@ -322,9 +326,11 @@ function SettingsRow({
 	const content = (
 		<>
 			<Icon name={icon} className="text-muted-foreground size-5 shrink-0" />
-			<span className="min-w-0 flex-1">{label}</span>
+			<span className="phone:text-item-name phone:font-medium min-w-0 flex-1">
+				{label}
+			</span>
 			{value ? (
-				<span className="text-muted-foreground max-w-[40%] truncate text-sm">
+				<span className="text-muted-foreground phone:text-base max-w-[40%] truncate text-sm">
 					{value}
 				</span>
 			) : null}
@@ -402,7 +408,7 @@ function SignOutOfSessions({
 						onClick={() => setConfirming(true)}
 						variant="outline"
 						status={pending ? 'pending' : (fetcher.data?.status ?? 'idle')}
-						className="w-full"
+						className="phone:text-base w-full"
 						size="sm"
 					>
 						<Icon name="avatar">
@@ -422,7 +428,7 @@ function SignOutOfSessions({
 					/>
 				</fetcher.Form>
 			) : (
-				<p className="text-muted-foreground text-sm">
+				<p className="text-muted-foreground phone:text-base text-sm">
 					<Icon name="avatar">This is your only session</Icon>
 				</p>
 			)}
@@ -460,7 +466,7 @@ function DeleteData({ outcome }: { outcome: AccountDeletionOutcome }) {
 					aria-describedby="delete-account-outcome"
 					variant="destructive"
 					status={fetcher.state !== 'idle' ? 'pending' : 'idle'}
-					className="w-full"
+					className="phone:text-base w-full"
 					size="sm"
 				>
 					<Icon name="trash">Delete my account</Icon>
@@ -479,7 +485,7 @@ function DeleteData({ outcome }: { outcome: AccountDeletionOutcome }) {
 			</fetcher.Form>
 			<p
 				id="delete-account-outcome"
-				className="text-muted-foreground mt-2 text-sm"
+				className="text-muted-foreground phone:text-label mt-2 text-sm"
 			>
 				{consequence}
 			</p>

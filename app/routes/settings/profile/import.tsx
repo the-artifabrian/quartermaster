@@ -273,7 +273,9 @@ export default function ImportData() {
 			{results ? (
 				<div className="space-y-4">
 					<div className="bg-muted/40 rounded-lg p-6">
-						<h2 className="mb-4 text-lg font-semibold">Import complete</h2>
+						<h2 className="phone:text-recipe-section phone:font-serif phone:font-medium mb-4 text-lg font-semibold">
+							Import complete
+						</h2>
 						<div className="space-y-3">
 							<ResultRow
 								label="Recipes"
@@ -350,28 +352,30 @@ export default function ImportData() {
 				<>
 					<div className="bg-muted/40 rounded-lg p-6">
 						<label className="block">
-							<span className="text-sm font-medium">Select export file</span>
+							<span className="phone:text-label phone:text-muted-foreground phone:font-semibold text-sm font-medium">
+								Select export file
+							</span>
 							<input
 								ref={fileInputRef}
 								type="file"
 								accept=".json"
 								onChange={handleFileChange}
-								className="file:bg-primary-fill file:text-primary-foreground hover:file:bg-primary-fill/90 mt-2 block w-full text-sm file:mr-4 file:rounded-lg file:border-0 file:px-4 file:py-2 file:text-sm file:font-medium"
+								className="file:bg-primary-fill file:text-primary-foreground hover:file:bg-primary-fill/90 phone:text-base phone:file:min-h-11 phone:file:text-base mt-2 block w-full text-sm file:mr-4 file:rounded-lg file:border-0 file:px-4 file:py-2 file:text-sm file:font-medium"
 							/>
 						</label>
 
 						{fileError && (
-							<p className="text-foreground-destructive mt-3 text-sm">
+							<p className="text-foreground-destructive phone:text-label mt-3 text-sm">
 								{fileError}
 							</p>
 						)}
 						{serverError && !results && (
-							<p className="text-foreground-destructive mt-3 text-sm">
+							<p className="text-foreground-destructive phone:text-label mt-3 text-sm">
 								{serverError}
 							</p>
 						)}
 
-						<p className="text-muted-foreground mt-4 text-xs">
+						<p className="text-muted-foreground phone:text-label mt-4 text-xs">
 							Exports don&apos;t include images, so none are imported.
 						</p>
 					</div>
@@ -379,10 +383,10 @@ export default function ImportData() {
 					{preview && (
 						<div className="mt-4 space-y-4">
 							<div className="bg-muted/40 rounded-lg p-6">
-								<h2 className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase">
+								<h2 className="text-muted-foreground phone:text-label phone:tracking-normal phone:normal-case mb-3 text-sm font-semibold tracking-wider uppercase">
 									{preview.isFullExport ? 'Full export' : 'Recipes-only export'}
 								</h2>
-								<div className="space-y-1.5 text-sm">
+								<div className="phone:text-base space-y-1.5 text-sm">
 									<PreviewRow label="Recipes" count={preview.recipes} />
 									{preview.menus > 0 && (
 										<PreviewRow label="Menus" count={preview.menus} />
@@ -415,7 +419,7 @@ export default function ImportData() {
 										/>
 									)}
 								</div>
-								<p className="text-muted-foreground mt-3 text-xs">
+								<p className="text-muted-foreground phone:text-label mt-3 text-xs">
 									Recipes and Menus with a title you already have, and Staples
 									with a name you already have, are skipped.
 								</p>
@@ -483,7 +487,7 @@ function ResultRow({
 	errored?: number
 }) {
 	return (
-		<div className="flex items-center justify-between text-sm">
+		<div className="phone:text-base flex items-center justify-between text-sm">
 			<span>{label}</span>
 			<span className="flex gap-3">
 				{created > 0 && (

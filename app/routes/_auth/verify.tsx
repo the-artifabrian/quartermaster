@@ -163,7 +163,9 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 			: null
 
 	return (
-		<main className="container flex flex-col justify-center pt-20 pb-32">
+		// The code field's own input is wider than its boxes, for password
+		// managers: clipped here, it never scrolls the page sideways.
+		<main className="phone:overflow-x-clip container flex flex-col justify-center pt-20 pb-32">
 			<div className="text-center">
 				{linkReady ? (
 					<>

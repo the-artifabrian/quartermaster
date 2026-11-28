@@ -245,8 +245,9 @@ each screen:
   control keeps 14px with `phone:text-sm` where it is used: the Need pill, the
   header's Log in and Sign up, a confirm sheet's two buttons, the round add
   button beside a tab's title, and the two buttons of a Household invite.
-  `wide`, `pill` and `icon` set no size. An icon inside a button has a size of
-  its own, so it does not grow with the label. Wider screens keep 14px.
+  `wide`, `pill` and `icon` set no size. An icon in a full-size button, and
+  `StatusButton`'s spinner, tick and cross, have a size of their own on a phone,
+  so they do not grow with the label. Wider screens keep 14px.
 - **Fields.** `Field`, `TextareaField`, `OTPField` and `CheckboxField`
   (`app/components/forms.tsx`) carry the phone sizes, so a screen adds none: the
   label is the small label, 13.5px semibold and muted, on its own line; an error
@@ -780,6 +781,7 @@ Wider screens keep the sizes they had.
 - The Household page has real sections (Members, Invites, Leave Household), so
   their headings are 24px in the serif (`text-recipe-section`). One label over
   one list (Open invites, the kind of export being read) is the small label.
+  "Import complete" reads at 17px.
 - In a list (members, passkeys, invites) a name is 17px at weight 500 over a
   13.5px muted line.
 - A page with one main action (Save changes, Change password, Send confirmation,

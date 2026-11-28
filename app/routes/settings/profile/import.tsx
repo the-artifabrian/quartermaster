@@ -273,7 +273,7 @@ export default function ImportData() {
 			{results ? (
 				<div className="space-y-4">
 					<div className="bg-muted/40 rounded-lg p-6">
-						<h2 className="phone:text-recipe-section phone:font-serif phone:font-medium mb-4 text-lg font-semibold">
+						<h2 className="phone:text-item-name mb-4 text-lg font-semibold">
 							Import complete
 						</h2>
 						<div className="space-y-3">

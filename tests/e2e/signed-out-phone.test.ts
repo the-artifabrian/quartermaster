@@ -276,6 +276,9 @@ test('signing up reads in the phone sizes from the email to the new account’s 
 		await expect(title).toHaveCSS('font-size', '28px')
 		await expect(address).toHaveCSS('font-size', '16px')
 		await expect(address).toHaveCSS('color', ink)
+		await expect(
+			page.getByText('I agree to the Terms of Service and Privacy Policy'),
+		).toHaveCSS('font-size', '16px')
 		const name = page.getByLabel('Name', { exact: true })
 		const signingUp = await box(page.getByText(/^Signing up as/))
 		const onboardingTitle = await box(title)

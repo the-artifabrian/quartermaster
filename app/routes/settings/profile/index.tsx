@@ -411,7 +411,7 @@ function SignOutOfSessions({
 						className="phone:text-base w-full"
 						size="sm"
 					>
-						<Icon name="avatar">
+						<Icon name="avatar" className="size-3.5">
 							Log out of {otherSessionsCount} other sessions
 						</Icon>
 					</StatusButton>
@@ -469,7 +469,9 @@ function DeleteData({ outcome }: { outcome: AccountDeletionOutcome }) {
 					className="phone:text-base w-full"
 					size="sm"
 				>
-					<Icon name="trash">Delete my account</Icon>
+					<Icon name="trash" className="size-3.5">
+						Delete my account
+					</Icon>
 				</StatusButton>
 				<ConfirmSheet
 					open={confirming}

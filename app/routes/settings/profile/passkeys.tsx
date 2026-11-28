@@ -328,7 +328,7 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 						}}
 						errors={passwordError ? [passwordError] : undefined}
 					/>
-					<div className="flex justify-end">
+					<div className="phone:mt-4 flex justify-end">
 						<AddPasskeyButton />
 					</div>
 				</form>

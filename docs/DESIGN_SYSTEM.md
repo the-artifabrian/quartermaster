@@ -244,16 +244,20 @@ each screen:
   `lg`) and 14px on a small one (`sm`). A full-size button that reads as a small
   control keeps 14px with `phone:text-sm` where it is used: the Need pill, the
   header's Log in and Sign up, a confirm sheet's two buttons, the round add
-  button beside a tab's title, and the two buttons of a Household invite.
-  `wide`, `pill` and `icon` set no size. An icon in a full-size button, and
-  `StatusButton`'s spinner, tick and cross, have a size of their own on a phone,
-  so they do not grow with the label. Wider screens keep 14px.
-- **Fields.** `Field`, `TextareaField`, `OTPField` and `CheckboxField`
-  (`app/components/forms.tsx`) carry the phone sizes, so a screen adds none: the
-  label is the small label, 13.5px semibold and muted, on its own line; an error
-  line (`ErrorList`) is 13.5px in the error colour; the words beside a checkbox
-  are 16px in ink, since they are read as text. A field followed by another
-  keeps 16px under it. The Meal editor's error line stays 14px.
+  button beside a tab's title, the two buttons of a Household invite, and
+  Later's Clear checked on Shopping. `wide`, `pill` and `icon` set no size. An
+  icon that would follow the label's size (`1em`) has a fixed size where the
+  label is 16px on a phone only, and `StatusButton`'s spinner, tick and cross
+  hold 14px on a phone, so the words are all that differs from wider screens,
+  where labels are 14px.
+- **Fields.** The field helpers in `app/components/forms.tsx` carry the phone
+  sizes, so a screen adds none. A label (`Field`, `TextareaField`, `OTPField`)
+  is the small label, 13.5px semibold and muted, on its own line. An error line
+  (`ErrorList`) is 13.5px in the error colour. The words beside a checkbox
+  (`CheckboxField`) are 16px in ink, since they are read as text. A `Field` or
+  `TextareaField` with another field helper straight after it keeps 16px under
+  it; two fields side by side turn that off. The Meal editor's error line stays
+  14px.
 - **Chip** is the one chip: 44px tall, fully rounded, a hairline border, and a
   green fill when pressed (`aria-pressed`). Use it for picking days, labels, and
   classification values, and for one-tap suggestions with a leading `+`. A
@@ -764,7 +768,7 @@ keeps its own Add Meal.
 ### Settings
 
 On a phone Settings and its pages take the sizes of the other phone screens.
-Wider screens keep the sizes they had.
+From 768px they are set in the 14 and 16px of the wider layouts.
 
 - Settings is a tab, so its title is the 40px tab title. A page pushed from it
   (Edit profile, Password, Email, Passkeys, Household, Import data, Two-factor

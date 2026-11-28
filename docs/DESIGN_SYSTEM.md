@@ -56,7 +56,7 @@ Useful sizes:
 | Tab title (`TabTitle`)                                                               | 40px Newsreader, 1.05 lines                                                         |
 | Recipe title on a phone (`text-recipe-title`)                                        | 36px Newsreader, 1.1 lines; 32px wider                                              |
 | Menu title on a phone (`text-menu-title`)                                            | 32px Newsreader, 1.125 lines; wider, 24px on its page and 30px shared               |
-| An edit screen's, Import's or a Settings page's title on a phone (`text-edit-title`) | 28px Newsreader, 1.15 lines; 24px wider                                             |
+| Any edit, Import, Settings or signed-out form's title on a phone (`text-edit-title`) | 28px Newsreader, 1.15 lines; 24px wider                                             |
 | Plan's day heading on a phone                                                        | 31px Newsreader                                                                     |
 | Recipe or Menu section heading on a phone (`text-recipe-section`)                    | 24px Newsreader; 18px wider                                                         |
 | A section of the Recipe or Menu form on a phone (`text-recipe-section`)              | 24px Newsreader; wider, the 12px uppercase label                                    |
@@ -252,12 +252,13 @@ each screen:
   where labels are 14px.
 - **Fields.** The field helpers in `app/components/forms.tsx` carry the phone
   sizes, so a screen adds none. A label (`Field`, `TextareaField`, `OTPField`)
-  is the small label, 13.5px semibold and muted, on its own line. An error line
-  (`ErrorList`) is 13.5px in the error colour. The words beside a checkbox
-  (`CheckboxField`) are 16px in ink, since they are read as text. A `Field` or
-  `TextareaField` with another field helper straight after it keeps 16px under
-  it; two fields side by side turn that off. The Meal editor's error line stays
-  14px.
+  is the small label, 13.5px semibold and muted, on its own line. A code's boxes
+  (`OTPField`) are 44px tall with 20px characters, the six of a 2FA code 44px
+  squares. An error line (`ErrorList`) is 13.5px in the error colour. The words
+  beside a checkbox (`CheckboxField`) are 16px in ink, since they are read as
+  text. A `Field` or `TextareaField` with another field helper straight after it
+  keeps 16px under it; two fields side by side turn that off. The Meal editor's
+  error line stays 14px.
 - **Chip** is the one chip: 44px tall, fully rounded, a hairline border, and a
   green fill when pressed (`aria-pressed`). Use it for picking days, labels, and
   classification values, and for one-tap suggestions with a leading `+`. A
@@ -794,6 +795,36 @@ From 768px they are set in the 14 and 16px of the wider layouts.
 - The small buttons inside rows (Remove, Copy, Copy link, Revoke, a passkey's
   Delete) are `sm` and keep 14px. Deleting the account and logging out of other
   sessions are full-width and read at 16px.
+
+### Signed-out forms
+
+Log in, Create an account, Forgot password, the code screens, Choose a new
+password and Set up your account share one layout on a phone. Its classes are in
+`app/routes/_auth/+signed-out.tsx`, and each screen keeps its own layout from
+768px.
+
+- One column on the page gutter, 448px wide at most and centred once the page is
+  wider than that. The title, the fields and the buttons share both its edges.
+- The title is the 28px serif (`text-edit-title`) from the left edge, 32px under
+  the header. "This link isn't valid" is that title too, and reads as body text
+  from 768px. Signed in, a code screen comes from Settings under a notice, so it
+  keeps the 80px above its title that it has from 768px.
+- The paragraph under the title is 16px and muted, 8px below it. "Check your
+  email." after a reset is asked for is 17px in ink. A second line (the trial,
+  how long a code lasts, what a reset logs out) is 13.5px and muted. The address
+  on Set up your account is in ink and breaks inside the column.
+- The first field starts 24px under the text, and the main action sits 32px
+  under the last field or checkbox row.
+- The main action is full width, 48px tall, with a 16px semibold label. Log in
+  with a passkey and Try the demo are 48px too, outlined, at the button's usual
+  weight, so Log in is the one filled button. The passkey button is outlined at
+  every width.
+- A link ("Forgot password?", "Create an account", "Log in", "Back to log in",
+  "Ask for a new code") is 16px with a 44px tap area. One under the main action
+  is centred on its own row.
+- A code's boxes are `OTPField`'s (see Controls). The eight of an emailed code
+  share the column up to 352px, so each is about 43px wide.
+- The header's Log in and Sign up button keeps its 14px.
 
 ### Empty states and onboarding
 

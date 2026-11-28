@@ -6,10 +6,21 @@ import { Form, Link, useLocation, useSearchParams } from 'react-router'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { ErrorList, OTPField } from '#app/components/forms.tsx'
-import { Spacer } from '#app/components/spacer.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
-import { useIsPending } from '#app/utils/misc.tsx'
+import { cn, useIsPending } from '#app/utils/misc.tsx'
+import { useOptionalUser } from '#app/utils/user.ts'
 import { type Route } from './+types/verify.ts'
+import {
+	signedOutAlignClass,
+	signedOutColumnClass,
+	signedOutJustifyClass,
+	signedOutLeadClass,
+	signedOutMainActionClass,
+	signedOutPageClass,
+	signedOutRowLinkClass,
+	signedOutSmallClass,
+	SignedOutTitle,
+} from './+signed-out.tsx'
 import { validateRequest } from './verify.server.ts'
 
 export const handle: SEOHandle = {
@@ -40,6 +51,15 @@ export type VerificationTypes = z.infer<typeof VerificationTypeSchema>
 const EMAILED_CODE_LENGTH = 8
 const TWO_FA_CODE_LENGTH = 6
 
+const pageClass = cn(
+	'container flex flex-col justify-center pt-20 pb-32',
+	signedOutPageClass,
+)
+const headClass = cn('text-center', signedOutAlignClass, signedOutColumnClass)
+const leadClass = cn(
+	'text-muted-foreground phone:mt-2 mt-3 text-lg',
+	signedOutLeadClass,
+)
 function isEmailedType(type: VerificationTypes | null) {
 	return type !== null && type !== '2fa'
 }
@@ -94,6 +114,10 @@ export default function VerifyRoute(props: Route.ComponentProps) {
 function VerifyStep({ actionData }: Route.ComponentProps) {
 	const [searchParams] = useSearchParams()
 	const isPending = useIsPending()
+	// Signed in, this screen comes from Settings (a 2FA check before a change,
+	// or a new email address) and opens under a notice that says why. On a
+	// phone it keeps the top space it has wider, which clears that notice.
+	const signedIn = Boolean(useOptionalUser())
 	const parseWithZoddType = VerificationTypeSchema.safeParse(
 		searchParams.get(typeQueryParam),
 	)
@@ -101,11 +125,13 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 
 	const checkEmail = (
 		<>
-			<h1 className="font-serif text-2xl">Check your email</h1>
-			<p className="text-muted-foreground mt-3 text-lg">
+			<SignedOutTitle>Check your email</SignedOutTitle>
+			<p className={leadClass}>
 				We've sent you a code to verify your email address.
 			</p>
-			<p className="text-muted-foreground mt-2">{SEVERAL_CODES_NOTE}</p>
+			<p className={cn('text-muted-foreground mt-2', signedOutSmallClass)}>
+				{SEVERAL_CODES_NOTE}
+			</p>
 		</>
 	)
 
@@ -115,10 +141,8 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 		'change-email': checkEmail,
 		'2fa': (
 			<>
-				<h1 className="font-serif text-2xl">Check your 2FA app</h1>
-				<p className="text-muted-foreground mt-3 text-lg">
-					Enter the code it shows for Quartermaster.
-				</p>
+				<SignedOutTitle>Check your 2FA app</SignedOutTitle>
+				<p className={leadClass}>Enter the code it shows for Quartermaster.</p>
 			</>
 		),
 	}
@@ -163,32 +187,44 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 			: null
 
 	return (
-		<main className="container flex flex-col justify-center pt-20 pb-32">
-			<div className="text-center">
+		<main className={cn(pageClass, signedIn && 'phone:pt-20')}>
+			<div className={headClass}>
 				{linkReady ? (
 					<>
-						<h1 className="font-serif text-2xl">Your link is ready</h1>
-						<p className="text-muted-foreground mt-3 text-lg">
-							Press Submit to carry on.
-						</p>
+						<SignedOutTitle>Your link is ready</SignedOutTitle>
+						<p className={leadClass}>Press Submit to carry on.</p>
 					</>
 				) : type ? (
 					headings[type]
 				) : (
-					'This link isn’t valid'
+					// The screen’s title, in the serif titles’ look on a phone; from 768px
+					// it keeps the body text’s look.
+					<h1 className="phone:font-serif phone:text-edit-title phone:font-medium">
+						This link isn’t valid
+					</h1>
 				)}
 			</div>
 
-			<Spacer size="xs" />
+			<div className="phone:h-6 h-16" />
 
-			<div className="mx-auto flex w-80 max-w-full flex-col justify-center gap-1">
+			<div
+				className={cn(
+					'phone:gap-0 mx-auto flex w-80 max-w-full flex-col justify-center gap-1',
+					signedOutColumnClass,
+				)}
+			>
 				<div>
 					<ErrorList errors={form.errors} id={form.errorId} />
 				</div>
 				<div className="flex w-full gap-2">
 					<Form method="POST" {...getFormProps(form)} className="flex-1">
 						{linkReady ? null : (
-							<div className="flex items-center justify-center">
+							<div
+								className={cn(
+									'flex items-center justify-center',
+									signedOutJustifyClass,
+								)}
+							>
 								<OTPField
 									// Eight boxes share the column's width; six keep their size.
 									className={
@@ -226,7 +262,13 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 							})}
 						/>
 						<StatusButton
-							className="w-full"
+							className={cn(
+								'w-full',
+								signedOutMainActionClass,
+								// The code field keeps 36px under it for its error;
+								// the button sits 32px under the boxes all the same.
+								!linkReady && 'phone:-mt-1',
+							)}
 							status={isPending ? 'pending' : (form.status ?? 'idle')}
 							type="submit"
 							disabled={isPending}
@@ -238,7 +280,10 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 				{newCodePath ? (
 					<Link
 						to={newCodePath}
-						className="mt-6 text-center text-base font-bold"
+						className={cn(
+							'mt-6 text-center text-base font-bold',
+							signedOutRowLinkClass,
+						)}
 					>
 						Ask for a new code
 					</Link>
@@ -258,21 +303,25 @@ function LoggedInStep({ username }: { username: string }) {
 	const heading = useRef<HTMLHeadingElement>(null)
 	useEffect(() => heading.current?.focus(), [])
 	return (
-		<main className="container flex flex-col justify-center pt-20 pb-32">
-			<div className="text-center">
-				<h1 ref={heading} tabIndex={-1} className="font-serif text-2xl">
-					You’re logged in as {username}
-				</h1>
-				<p className="text-muted-foreground mt-3 text-lg">
+		<main className={pageClass}>
+			<div className={headClass}>
+				<SignedOutTitle ref={heading} tabIndex={-1}>
+					You’re logged in as {/* A long username breaks inside the column. */}
+					<span className="phone:wrap-anywhere">{username}</span>
+				</SignedOutTitle>
+				<p className={leadClass}>
 					Log out to finish signing up the new address. The code in your email
 					will still work.
 				</p>
 			</div>
-			<Spacer size="xs" />
+			<div className="phone:h-6 h-16" />
 			<Form
 				method="POST"
 				action="/logout"
-				className="mx-auto flex w-80 max-w-full flex-col"
+				className={cn(
+					'mx-auto flex w-80 max-w-full flex-col',
+					signedOutColumnClass,
+				)}
 			>
 				<input
 					type="hidden"
@@ -280,7 +329,7 @@ function LoggedInStep({ username }: { username: string }) {
 					value={`${location.pathname}${location.search}`}
 				/>
 				<StatusButton
-					className="w-full"
+					className={cn('w-full', signedOutMainActionClass)}
 					status={isPending ? 'pending' : 'idle'}
 					type="submit"
 					disabled={isPending}

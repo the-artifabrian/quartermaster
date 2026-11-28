@@ -190,9 +190,9 @@
 	   lines, so it is a step under a Recipe's. */
 	--text-menu-title: 2rem;
 	--text-menu-title--line-height: 1.125;
-	/* The title of Recipe edit, New Recipe, Import, Menu edit and New Menu on
-	   a phone. It names the screen above a form, so it is a step under a
-	   Menu's. */
+	/* The title of Recipe edit, New Recipe, Import, Menu edit, New Menu, the
+	   pages pushed from Settings and the signed-out forms on a phone. It names
+	   the screen above a form, so it is a step under a Menu's. */
 	--text-edit-title: 1.75rem;
 	--text-edit-title--line-height: 1.15;
 	--text-ingredient: 1.0625rem;

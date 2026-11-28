@@ -12,11 +12,10 @@ import { z } from 'zod'
 import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { CheckboxField, ErrorList, Field } from '#app/components/forms.tsx'
 import { TryDemoButton } from '#app/components/demo.tsx'
-import { Spacer } from '#app/components/spacer.tsx'
 import { Icon } from '#app/components/ui/icon.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { login, requireAnonymous } from '#app/utils/auth.server.ts'
-import { getErrorMessage, useIsPending } from '#app/utils/misc.tsx'
+import { cn, getErrorMessage, useIsPending } from '#app/utils/misc.tsx'
 import {
 	isPasskeyPromptDismissed,
 	passkeyErrorName,
@@ -27,6 +26,14 @@ import {
 import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { PasswordSchema, UsernameSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/login.ts'
+import {
+	signedOutAlignClass,
+	signedOutLeadClass,
+	signedOutLinkClass,
+	signedOutMainActionClass,
+	signedOutPageClass,
+	SignedOutTitle,
+} from './+signed-out.tsx'
 import { handleNewSession } from './login.server.ts'
 
 export const handle: SEOHandle = {
@@ -114,18 +121,30 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 	})
 
 	return (
-		<div className="flex min-h-full flex-col justify-center pt-20 pb-32">
+		<div
+			className={cn(
+				'phone:px-4 flex min-h-full flex-col justify-center pt-20 pb-32',
+				signedOutPageClass,
+			)}
+		>
 			<div className="mx-auto w-full max-w-md">
-				<div className="flex flex-col gap-3 text-center">
-					<h1 className="font-serif text-2xl">Log in</h1>
-					<p className="text-muted-foreground text-lg">
+				<div
+					className={cn(
+						'phone:gap-2 flex flex-col gap-3 text-center',
+						signedOutAlignClass,
+					)}
+				>
+					<SignedOutTitle>Log in</SignedOutTitle>
+					<p
+						className={cn('text-muted-foreground text-lg', signedOutLeadClass)}
+					>
 						Use your password or a passkey.
 					</p>
 				</div>
-				<Spacer size="xs" />
+				<div className="phone:h-6 h-16" />
 
 				<div>
-					<div className="mx-auto w-full max-w-md px-8">
+					<div className="phone:px-0 mx-auto w-full max-w-md px-8">
 						<Form method="POST" {...getFormProps(form)}>
 							<Field
 								labelProps={{ children: 'Username' }}
@@ -153,7 +172,14 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 								errors={fields.password.errors}
 							/>
 
-							<div className="flex justify-between pt-3">
+							<div
+								className={cn(
+									'flex justify-between pt-3',
+									// Remember me keeps 16px under it for its error. With
+									// the row down to its link, the button stays 32px away.
+									isNativeShell && 'phone:pb-4',
+								)}
+							>
 								{isNativeShell ? null : (
 									<CheckboxField
 										labelProps={{
@@ -167,7 +193,15 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 									/>
 								)}
 								<div className="ml-auto">
-									<Link to="/forgot-password" className="text-sm font-semibold">
+									{/* The tap area is 44px tall around a line that stays
+									    level with Remember me. */}
+									<Link
+										to="/forgot-password"
+										className={cn(
+											'phone:-my-2.5 text-sm font-semibold',
+											signedOutLinkClass,
+										)}
+									>
 										Forgot password?
 									</Link>
 								</div>
@@ -178,9 +212,9 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 							/>
 							<ErrorList errors={form.errors} id={form.errorId} />
 
-							<div className="flex items-center justify-between gap-6 pt-8">
+							<div className="phone:pt-4 flex items-center justify-between gap-6 pt-8">
 								<StatusButton
-									className="w-full"
+									className={cn('w-full', signedOutMainActionClass)}
 									status={isPending ? 'pending' : (form.status ?? 'idle')}
 									type="submit"
 									disabled={isPending}
@@ -196,9 +230,10 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 								remember={fields.remember.value === 'on'}
 							/>
 						</div>
-						<div className="flex items-center justify-center gap-2 pt-6">
+						<div className="phone:pt-3.5 flex items-center justify-center gap-2 pt-6">
 							<span className="text-muted-foreground">New here?</span>
 							<Link
+								className={signedOutLinkClass}
 								to={
 									redirectTo
 										? `/signup?redirectTo=${encodeURIComponent(redirectTo)}`
@@ -211,11 +246,11 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
 						{/* A redirectTo is an invite or a page to come back to, and a
 						    demo can't join a Household or keep anything. */}
 						{redirectTo ? null : (
-							<div className="pt-4">
+							<div className="phone:pt-1.5 pt-4">
 								<TryDemoButton
 									redirectTo="/login"
 									variant="outline"
-									className="w-full"
+									className="phone:h-12 w-full"
 								/>
 							</div>
 						)}
@@ -417,7 +452,9 @@ function PasskeyLoginButton({
 			<StatusButton
 				id="passkey-login-button"
 				aria-describedby="passkey-login-button-error"
-				className="w-full"
+				// Outlined, so Log in is the one filled button.
+				variant="outline"
+				className="phone:h-12 w-full"
 				status={pending ? 'pending' : shownError ? 'error' : 'idle'}
 				type="submit"
 				disabled={pending}

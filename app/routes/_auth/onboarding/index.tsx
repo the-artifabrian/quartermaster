@@ -4,7 +4,6 @@ import { data, redirect, Form, useSearchParams } from 'react-router'
 import { safeRedirect } from '#app/utils/safe-redirect.ts'
 import { z } from 'zod'
 import { CheckboxField, ErrorList, Field } from '#app/components/forms.tsx'
-import { Spacer } from '#app/components/spacer.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import {
 	checkIsCommonPassword,
@@ -13,7 +12,7 @@ import {
 	signup,
 } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { useIsPending } from '#app/utils/misc.tsx'
+import { cn, useIsPending } from '#app/utils/misc.tsx'
 import {
 	isNativeShell,
 	shouldRememberSession,
@@ -30,6 +29,14 @@ import {
 } from '#app/utils/user-validation.ts'
 import { verifySessionStorage } from '#app/utils/verification.server.ts'
 import { type Route } from './+types/index.ts'
+import {
+	signedOutAlignClass,
+	signedOutColumnClass,
+	signedOutLeadClass,
+	signedOutMainActionClass,
+	signedOutPageClass,
+	SignedOutTitle,
+} from '../+signed-out.tsx'
 import { getOnboardingEmail } from './onboarding-email.server.ts'
 
 const SignupFormSchema = z
@@ -165,18 +172,33 @@ export default function OnboardingRoute({
 	})
 
 	return (
-		<div className="container flex min-h-full flex-col justify-center pt-20 pb-32">
-			<div className="mx-auto w-full max-w-lg">
-				<div className="flex flex-col gap-3 text-center">
-					<h1 className="font-serif text-2xl">Set up your account</h1>
-					<p className="text-muted-foreground text-lg">
-						Signing up as {loaderData.email}
+		<div
+			className={cn(
+				'container flex min-h-full flex-col justify-center pt-20 pb-32',
+				signedOutPageClass,
+			)}
+		>
+			<div className={cn('mx-auto w-full max-w-lg', signedOutColumnClass)}>
+				<div
+					className={cn(
+						'phone:gap-2 flex flex-col gap-3 text-center',
+						signedOutAlignClass,
+					)}
+				>
+					<SignedOutTitle>Set up your account</SignedOutTitle>
+					<p
+						className={cn('text-muted-foreground text-lg', signedOutLeadClass)}
+					>
+						Signing up as {/* A long address breaks inside the column. */}
+						<span className="phone:text-foreground phone:wrap-anywhere">
+							{loaderData.email}
+						</span>
 					</p>
 				</div>
-				<Spacer size="3xs" />
+				<div className="phone:h-6 h-8" />
 				<Form
 					method="POST"
-					className="mx-auto max-w-sm min-w-full space-y-4 sm:min-w-[368px]"
+					className="phone:max-w-none mx-auto max-w-sm min-w-full space-y-4 sm:min-w-[368px]"
 					{...getFormProps(form)}
 				>
 					<Field
@@ -245,9 +267,9 @@ export default function OnboardingRoute({
 					<input {...getInputProps(fields.redirectTo, { type: 'hidden' })} />
 					<ErrorList errors={form.errors} id={form.errorId} />
 
-					<div className="mt-8 flex items-center justify-between gap-6">
+					<div className="phone:mt-4 mt-8 flex items-center justify-between gap-6">
 						<StatusButton
-							className="w-full"
+							className={cn('w-full', signedOutMainActionClass)}
 							status={isPending ? 'pending' : (form.status ?? 'idle')}
 							type="submit"
 							disabled={isPending}

@@ -527,11 +527,12 @@ test('a signup link opened while logged in waits for a log out, then works', asy
 		.getByRole('button', { name: /submit/i })
 		.click()
 
-	await expect(
-		page.getByRole('heading', {
-			name: `You’re logged in as ${someone.username}`,
-		}),
-	).toBeVisible()
+	const loggedInHeading = page.getByRole('heading', {
+		name: `You’re logged in as ${someone.username}`,
+	})
+	await expect(loggedInHeading).toBeVisible()
+	// The answer takes focus, so a screen reader says it.
+	await expect(loggedInHeading).toBeFocused()
 	expect(await prisma.emailCode.count(emailCodes)).toBe(1)
 
 	await page.getByRole('button', { name: /log out/i }).click()

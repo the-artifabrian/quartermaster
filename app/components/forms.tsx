@@ -176,11 +176,15 @@ export function OTPField({
 	const id = inputProps.id ?? fallbackId
 	const errorId = errors?.length ? `${id}-error` : undefined
 	const half = length / 2
-	// Eight boxes at full size are wider than a small phone's column, so they
-	// share the width instead and stop growing at 40px each.
+	// A box is 40px, and 44px with a 20px character on a phone. Eight boxes at
+	// full size are wider than a small phone's column, so they share the
+	// field's width instead, up to 320px (352px on a phone), which makes each
+	// about 39px (43px on a phone).
 	const flexible = length > 6
 	const groupClass = flexible ? 'flex-1' : undefined
-	const slotClass = flexible ? 'size-auto h-10 min-w-0 flex-1' : undefined
+	const slotClass = flexible
+		? 'phone:h-11 phone:text-xl size-auto h-10 min-w-0 flex-1'
+		: 'phone:size-11 phone:text-xl'
 	const slots = (from: number) =>
 		Array.from({ length: half }, (_, i) => (
 			<InputOTPSlot key={from + i} index={from + i} className={slotClass} />
@@ -194,7 +198,9 @@ export function OTPField({
 				id={id}
 				aria-invalid={errorId ? true : undefined}
 				aria-describedby={errorId}
-				containerClassName={flexible ? 'w-full max-w-80' : undefined}
+				containerClassName={
+					flexible ? 'phone:max-w-[22rem] w-full max-w-80' : undefined
+				}
 				// A code copied from an email can carry spaces or a dash, which
 				// the pattern would refuse.
 				pasteTransformer={(pasted) =>

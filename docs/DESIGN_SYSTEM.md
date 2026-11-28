@@ -56,7 +56,7 @@ Useful sizes:
 | Tab title (`TabTitle`)                                                               | 40px Newsreader, 1.05 lines                                                         |
 | Recipe title on a phone (`text-recipe-title`)                                        | 36px Newsreader, 1.1 lines; 32px wider                                              |
 | Menu title on a phone (`text-menu-title`)                                            | 32px Newsreader, 1.125 lines; wider, 24px on its page and 30px shared               |
-| An edit screen's, Import's or a Settings page's title on a phone (`text-edit-title`) | 28px Newsreader, 1.15 lines; 24px wider                                             |
+| Any edit, Import, Settings or signed-out form's title on a phone (`text-edit-title`) | 28px Newsreader, 1.15 lines; 24px wider                                             |
 | Plan's day heading on a phone                                                        | 31px Newsreader                                                                     |
 | Recipe or Menu section heading on a phone (`text-recipe-section`)                    | 24px Newsreader; 18px wider                                                         |
 | A section of the Recipe or Menu form on a phone (`text-recipe-section`)              | 24px Newsreader; wider, the 12px uppercase label                                    |
@@ -794,6 +794,35 @@ From 768px they are set in the 14 and 16px of the wider layouts.
 - The small buttons inside rows (Remove, Copy, Copy link, Revoke, a passkey's
   Delete) are `sm` and keep 14px. Deleting the account and logging out of other
   sessions are full-width and read at 16px.
+
+### Signed-out forms
+
+Log in, Create an account, Forgot password, the code screens, Choose a new
+password and Set up your account share one layout on a phone. Its classes are in
+`app/routes/_auth/+signed-out.tsx`, and each screen keeps its own layout from
+768px.
+
+- One column on the page gutter, 448px wide at most and centred from 640 to
+  767px. The title, the fields and the buttons share its left edge.
+- The title is the 28px serif (`text-edit-title`) from the left edge, 32px under
+  the header. Adding `title-centred` beside `signedOutPageClass` centres the
+  title, its paragraph and the code field and sets the title at 32px
+  (`text-menu-title`).
+- The paragraph under the title is 16px and muted, 8px below it. "Check your
+  email." after a reset is asked for is 17px in ink. A second line (the trial,
+  how long a code lasts, what a reset logs out) is 13.5px and muted. The address
+  on Set up your account is in ink and breaks inside the column.
+- The first field starts 24px under the text, and the main action sits 32px
+  under the last field or checkbox row.
+- The main action is full width, 48px tall, with a 16px semibold label. Log in
+  with a passkey and Try the demo are 48px too, at the button's usual weight.
+- A link ("Forgot password?", "Create an account", "Log in", "Back to log in",
+  "Ask for a new code") is 16px with a 44px tap area. One under the main action
+  is centred on its own row.
+- A code's boxes are 44px tall with 20px characters. The eight of an emailed
+  code share the column and stop growing at 44px wide; the six of a 2FA code are
+  44px squares.
+- The header's Log in and Sign up button keeps its 14px.
 
 ### Empty states and onboarding
 

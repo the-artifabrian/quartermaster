@@ -120,14 +120,14 @@ const recipesHeadingClass = cn(
 	'phone:text-recipe-section phone:text-foreground phone:font-serif phone:font-medium phone:tracking-normal phone:normal-case',
 )
 
-/** A text button's label on a phone. */
+/** A small text button's label on a phone. */
 const phoneButtonLabelClass = 'phone:text-base'
 
 /**
  * Add Recipe and Add note under a section. Set a little tighter, the two sit
  * side by side in a tinted section on a 320px screen with room to spare.
  */
-const phoneAddButtonClass = `${phoneButtonLabelClass} phone:gap-1.5 phone:px-2.5`
+const phoneAddButtonClass = 'phone:gap-1.5 phone:px-2.5'
 
 /** The id the nav bar's Save submits (the route handle's `navForm`). */
 export const MENU_FORM_ID = 'menu-form'
@@ -522,7 +522,6 @@ function MenuSectionsBuilder({
 				<Button
 					type="button"
 					variant="outline"
-					className={phoneButtonLabelClass}
 					onClick={() =>
 						form.insert({
 							name: fields.sections.name,

@@ -71,7 +71,7 @@ export function ConfirmSheet({
 					value={value}
 					variant="destructive"
 					size="lg"
-					className="w-full"
+					className="phone:text-sm w-full"
 					status={pending ? 'pending' : 'idle'}
 					disabled={pending}
 				>
@@ -82,7 +82,7 @@ export function ConfirmSheet({
 					type="button"
 					variant="outline"
 					size="lg"
-					className="w-full"
+					className="phone:text-sm w-full"
 					onClick={onCancel}
 				>
 					{cancelLabel}

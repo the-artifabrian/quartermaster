@@ -25,7 +25,10 @@ export function TitleAddButton({
 		<Button
 			type={asChild ? undefined : 'button'}
 			asChild={asChild}
-			className={cn('size-11 shrink-0 rounded-full p-0', className)}
+			className={cn(
+				'phone:text-sm size-11 shrink-0 rounded-full p-0',
+				className,
+			)}
 			{...props}
 		>
 			<Icon name="plus" size="sm" />

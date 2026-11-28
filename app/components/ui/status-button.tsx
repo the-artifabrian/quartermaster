@@ -33,7 +33,7 @@ export const StatusButton = ({
 				role="status"
 				className="inline-flex size-6 items-center justify-center"
 			>
-				<Icon name="update" className="animate-spin" title="loading" />
+				<Icon name="update" className="size-3.5 animate-spin" title="loading" />
 			</div>
 		) : null,
 		success: (
@@ -41,7 +41,7 @@ export const StatusButton = ({
 				role="status"
 				className="inline-flex size-6 items-center justify-center"
 			>
-				<Icon name="check" title="success" />
+				<Icon name="check" className="size-3.5" title="success" />
 			</div>
 		),
 		error: (
@@ -51,7 +51,7 @@ export const StatusButton = ({
 			>
 				<Icon
 					name="cross-1"
-					className="text-destructive-foreground"
+					className="text-destructive-foreground size-3.5"
 					title="error"
 				/>
 			</div>

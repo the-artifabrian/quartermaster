@@ -127,8 +127,7 @@ export async function action({ params, request }: Route.ActionArgs) {
 
 // The page's one button is full width and 48px on a phone, as Add to Plan is
 // on a Menu's own page.
-const phoneButton =
-	'phone:h-12 phone:w-full phone:text-base phone:font-semibold'
+const phoneButton = 'phone:h-12 phone:w-full phone:font-semibold'
 
 export default function SharedMenu({ loaderData }: Route.ComponentProps) {
 	const { menu, savedMenuId, isLoggedIn } = loaderData

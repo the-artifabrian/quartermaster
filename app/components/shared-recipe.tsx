@@ -217,7 +217,9 @@ export function SharedRecipeView({
 									<div className="mt-4 flex justify-center">
 										{alreadySaved ? (
 											<Button disabled variant="outline">
-												<Icon name="check">Already saved</Icon>
+												<Icon name="check" className="size-3.5">
+													Already saved
+												</Icon>
 											</Button>
 										) : (
 											<saveFetcher.Form method="POST">
@@ -225,7 +227,9 @@ export function SharedRecipeView({
 													type="submit"
 													disabled={saveFetcher.state !== 'idle'}
 												>
-													<Icon name="plus">Save to your Recipes</Icon>
+													<Icon name="plus" className="size-3.5">
+														Save to your Recipes
+													</Icon>
 												</Button>
 											</saveFetcher.Form>
 										)}

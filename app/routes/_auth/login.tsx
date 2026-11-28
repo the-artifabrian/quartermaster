@@ -423,7 +423,7 @@ function PasskeyLoginButton({
 				disabled={pending}
 			>
 				<span className="inline-flex items-center gap-1.5">
-					<Icon name="passkey" />
+					<Icon name="passkey" className="size-3.5" />
 					<span>{message}</span>
 				</span>
 			</StatusButton>

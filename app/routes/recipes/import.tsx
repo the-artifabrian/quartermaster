@@ -193,7 +193,7 @@ function useShareImport({
 // right.
 const actionsClass =
 	'flex flex-col-reverse gap-2 not-phone:sm:flex-row not-phone:sm:justify-end not-phone:sm:gap-4'
-const actionClass = 'phone:h-12 phone:text-base'
+const actionClass = 'phone:h-12'
 const primaryActionClass = `${actionClass} phone:font-semibold`
 const errorClass =
 	'border-destructive bg-destructive/5 text-foreground-destructive phone:text-label rounded-lg border p-4 text-sm'

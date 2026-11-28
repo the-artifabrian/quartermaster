@@ -582,7 +582,7 @@ function HeaderAuthButton() {
 	const { pathname } = useLocation()
 	const isLogin = pathname === '/login'
 	return (
-		<Button asChild variant="default" size="lg">
+		<Button asChild variant="default" size="lg" className="phone:text-sm">
 			<Link to={isLogin ? '/signup' : '/login'}>
 				{isLogin ? 'Sign up' : 'Log in'}
 			</Link>

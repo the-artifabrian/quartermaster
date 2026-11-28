@@ -1707,28 +1707,44 @@ test.describe('pulling a sheet down', () => {
 	/**
 	 * Puts one finger down at `fromY` of the way down a locator. Chromium
 	 * dispatches these as touch events, the way a phone sends them.
+	 *
+	 * The finger keeps its own clock. Every event carries the time the test
+	 * gave it, as a phone stamps a touch when it happens, so the sheet reads
+	 * the finger's speed from the gesture and not from how long each event
+	 * took to reach the page (some 50ms each, more on a busy machine). It
+	 * waits out each gap for real as well, so its clock never runs ahead of
+	 * the page's.
 	 */
 	async function fingerDown(page: Page, target: Locator, fromY: number) {
 		const box = (await target.boundingBox())!
 		const x = box.x + box.width / 2
 		const y = box.y + box.height * fromY
 		const cdp = await page.context().newCDPSession(page)
-		await cdp.send('Input.dispatchTouchEvent', {
-			type: 'touchStart',
-			touchPoints: [{ x, y, id: 1 }],
-		})
+		const downAt = Date.now()
+		let elapsed = 0
+		const send = async (
+			type: 'touchStart' | 'touchMove' | 'touchEnd',
+			after: number,
+			dy?: number,
+		) => {
+			if (after > 0) await page.waitForTimeout(after)
+			elapsed += after
+			await cdp.send('Input.dispatchTouchEvent', {
+				type,
+				touchPoints: dy == null ? [] : [{ x, y: y + dy, id: 1 }],
+				timestamp: (downAt + elapsed) / 1000,
+			})
+		}
+		await send('touchStart', 0, 0)
 		return {
-			/** Moves the finger to `dy` below where it went down. */
-			move: (dy: number) =>
-				cdp.send('Input.dispatchTouchEvent', {
-					type: 'touchMove',
-					touchPoints: [{ x, y: y + dy, id: 1 }],
-				}),
-			lift: async () => {
-				await cdp.send('Input.dispatchTouchEvent', {
-					type: 'touchEnd',
-					touchPoints: [],
-				})
+			/**
+			 * Moves the finger to `dy` below where it went down, `after` ms
+			 * after its last event: a frame, unless said.
+			 */
+			move: (dy: number, after = 16) => send('touchMove', after, dy),
+			/** Lifts the finger `after` ms after its last move. */
+			lift: async (after = 0) => {
+				await send('touchEnd', after)
 				await cdp.detach()
 			},
 		}
@@ -1736,7 +1752,8 @@ test.describe('pulling a sheet down', () => {
 
 	/**
 	 * Drags one finger down (or up, with a negative `by`) from `fromY` of the
-	 * way down a locator, over `ms`.
+	 * way down a locator, over `ms`, and lifts it at once, or after holding
+	 * it still for `hold` ms.
 	 */
 	async function pull(
 		page: Page,
@@ -1746,14 +1763,14 @@ test.describe('pulling a sheet down', () => {
 			by,
 			ms,
 			steps = 12,
-		}: { fromY: number; by: number; ms: number; steps?: number },
+			hold = 0,
+		}: { fromY: number; by: number; ms: number; steps?: number; hold?: number },
 	) {
 		const finger = await fingerDown(page, target, fromY)
 		for (let i = 1; i <= steps; i++) {
-			await finger.move((by * i) / steps)
-			await page.waitForTimeout(ms / steps)
+			await finger.move((by * i) / steps, ms / steps)
 		}
-		await finger.lift()
+		await finger.lift(hold)
 	}
 
 	/** The panel's offset from its open spot, as shown now (px). */
@@ -1820,8 +1837,7 @@ test.describe('pulling a sheet down', () => {
 		expect(await shownOffset(sheet)).toBeGreaterThan(height * 0.1)
 		expect(await shownShade(page)).toBeLessThan(0.95)
 		// Held still before it lifts, so it isn't a flick.
-		await page.waitForTimeout(200)
-		await finger.lift()
+		await finger.lift(200)
 		await expect(sheet).toBeVisible()
 		expect(await restingOffset(sheet)).toBe(0)
 		await expect.poll(() => shownShade(page)).toBe(1)
@@ -1832,12 +1848,12 @@ test.describe('pulling a sheet down', () => {
 		const stretched = await shownOffset(sheet)
 		expect(stretched).toBeLessThan(-5)
 		expect(stretched).toBeGreaterThan(-60)
-		await page.waitForTimeout(200)
-		await push.lift()
+		await push.lift(200)
 		expect(await restingOffset(sheet)).toBe(0)
 
-		// A tap straight after a drag is a tap.
-		await pull(page, sheet, { fromY: 0.2, by: height * 0.15, ms: 200 })
+		// A tap straight after a drag is a tap. The drag is slow, so letting
+		// go doesn't flick the sheet closed.
+		await pull(page, sheet, { fromY: 0.2, by: height * 0.15, ms: 600 })
 		await page.getByRole('button', { name: 'Close' }).tap()
 		await expect(sheet).toBeHidden()
 
@@ -1852,7 +1868,7 @@ test.describe('pulling a sheet down', () => {
 		// the sheet follows only the second move, half the flick.
 		await addItem.click()
 		await slidIn(sheet)
-		await pull(page, sheet, { fromY: 0.2, by: height * 0.5, ms: 0, steps: 2 })
+		await pull(page, sheet, { fromY: 0.2, by: height * 0.5, ms: 40, steps: 2 })
 		await expect(sheet).toBeHidden()
 	})
 
@@ -1904,8 +1920,7 @@ test.describe('pulling a sheet down', () => {
 		expect(await shownOffset(sheet)).toBeGreaterThan(height * 0.1)
 		// Read at once: a backdrop that trails the finger is still near 1 here.
 		expect(await shownShade(page)).toBeLessThan(0.9)
-		await page.waitForTimeout(200)
-		await finger.lift()
+		await finger.lift(200)
 		expect(await restingOffset(sheet)).toBe(0)
 	})
 
@@ -1947,7 +1962,9 @@ test.describe('pulling a sheet down', () => {
 			element.scrollTop = 300
 		})
 
-		await pull(page, list, { fromY: 0.3, by: 200, ms: 400 })
+		// Held still before it lifts, so the list isn't left gliding: a touch
+		// on a gliding list only stops it.
+		await pull(page, list, { fromY: 0.3, by: 200, ms: 400, hold: 200 })
 		await expect(sheet).toBeVisible()
 		expect(await restingOffset(sheet)).toBe(0)
 		expect(await list.evaluate((element) => element.scrollTop)).toBeLessThan(

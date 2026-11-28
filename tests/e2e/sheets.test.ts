@@ -1711,24 +1711,30 @@ test.describe('pulling a sheet down', () => {
 	 * The finger keeps its own clock. Every event carries the time the test
 	 * gave it, as a phone stamps a touch when it happens, so the sheet reads
 	 * the finger's speed from the gesture and not from how long each event
-	 * took to reach the page (some 50ms each, more on a busy machine). It
-	 * waits out each gap for real as well, so its clock never runs ahead of
-	 * the page's.
+	 * took to reach the page (some 50ms each, more on a busy machine). An
+	 * event is never sent before its time, so the finger's clock stays at or
+	 * just behind the page's. `downAt` lands it at a set time (ms since the
+	 * epoch) after another finger's `liftedAt`, not at once.
 	 */
-	async function fingerDown(page: Page, target: Locator, fromY: number) {
+	async function fingerDown(
+		page: Page,
+		target: Locator,
+		fromY: number,
+		downAt = Date.now(),
+	) {
 		const box = (await target.boundingBox())!
 		const x = box.x + box.width / 2
 		const y = box.y + box.height * fromY
 		const cdp = await page.context().newCDPSession(page)
-		const downAt = Date.now()
 		let elapsed = 0
 		const send = async (
 			type: 'touchStart' | 'touchMove' | 'touchEnd',
 			after: number,
 			dy?: number,
 		) => {
-			if (after > 0) await page.waitForTimeout(after)
 			elapsed += after
+			const early = downAt + elapsed - Date.now()
+			if (early > 0) await page.waitForTimeout(early)
 			await cdp.send('Input.dispatchTouchEvent', {
 				type,
 				touchPoints: dy == null ? [] : [{ x, y: y + dy, id: 1 }],
@@ -1746,6 +1752,7 @@ test.describe('pulling a sheet down', () => {
 			lift: async (after = 0) => {
 				await send('touchEnd', after)
 				await cdp.detach()
+				return { liftedAt: downAt + elapsed }
 			},
 		}
 	}
@@ -1770,7 +1777,7 @@ test.describe('pulling a sheet down', () => {
 		for (let i = 1; i <= steps; i++) {
 			await finger.move((by * i) / steps, ms / steps)
 		}
-		await finger.lift(hold)
+		return finger.lift(hold)
 	}
 
 	/** The panel's offset from its open spot, as shown now (px). */
@@ -1852,9 +1859,22 @@ test.describe('pulling a sheet down', () => {
 		expect(await restingOffset(sheet)).toBe(0)
 
 		// A tap straight after a drag is a tap. The drag is slow, so letting
-		// go doesn't flick the sheet closed.
-		await pull(page, sheet, { fromY: 0.2, by: height * 0.15, ms: 600 })
-		await page.getByRole('button', { name: 'Close' }).tap()
+		// go doesn't flick the sheet closed. The tap is on the finger's clock,
+		// 100ms after the drag ended, while a click of the drag's own would
+		// still be swallowed.
+		const { liftedAt } = await pull(page, sheet, {
+			fromY: 0.2,
+			by: height * 0.15,
+			ms: 600,
+		})
+		expect(await restingOffset(sheet)).toBe(0)
+		const tap = await fingerDown(
+			page,
+			page.getByRole('button', { name: 'Close' }),
+			0.5,
+			liftedAt + 100,
+		)
+		await tap.lift(50)
 		await expect(sheet).toBeHidden()
 
 		// A long pull closes it, and focus goes back to the button.

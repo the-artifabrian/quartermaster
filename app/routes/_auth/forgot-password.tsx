@@ -10,8 +10,22 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { runInBackground } from '#app/utils/background.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
+import { cn } from '#app/utils/misc.tsx'
 import { EmailSchema, UsernameSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/forgot-password.ts'
+import {
+	signedOutAlignClass,
+	signedOutColumnClass,
+	signedOutGapClass,
+	signedOutJustifyClass,
+	signedOutLeadClass,
+	signedOutLeadInkClass,
+	signedOutMainActionClass,
+	signedOutPageClass,
+	signedOutRowLinkClass,
+	signedOutSmallClass,
+	SignedOutTitle,
+} from './+signed-out.tsx'
 import { SEVERAL_CODES_NOTE } from './verify.tsx'
 import { emailCodeTarget, prepareVerification } from './verify.server.ts'
 
@@ -118,27 +132,54 @@ export default function ForgotPasswordRoute() {
 	const isSent = forgotPassword.data?.status === 'sent'
 
 	return (
-		<div className="container pt-20 pb-32">
+		<div className={cn('container pt-20 pb-32', signedOutPageClass)}>
 			<div className="flex flex-col justify-center">
-				<div className="text-center">
-					<h1 className="font-serif text-2xl">Forgot password</h1>
-					<p className="text-muted-foreground mt-3 text-lg">
+				<div
+					className={cn(
+						'text-center',
+						signedOutAlignClass,
+						signedOutColumnClass,
+					)}
+				>
+					<SignedOutTitle>Forgot password</SignedOutTitle>
+					<p
+						className={cn(
+							'text-muted-foreground phone:mt-2 mt-3 text-lg',
+							isSent ? signedOutLeadInkClass : signedOutLeadClass,
+						)}
+					>
 						{isSent
 							? 'Check your email.'
 							: "We'll email you a link to reset it."}
 					</p>
 				</div>
-				<div className="mx-auto mt-16 max-w-sm min-w-full sm:min-w-[368px]">
+				<div
+					className={cn(
+						'mx-auto mt-16 max-w-sm min-w-full sm:min-w-[368px]',
+						signedOutGapClass,
+						signedOutColumnClass,
+					)}
+				>
 					{isSent ? (
-						<div className="text-center">
+						<div className={cn('text-center', signedOutAlignClass)}>
 							<p className="text-muted-foreground">
 								If an account matches, we&apos;ve sent a code and a link to its
 								email address.
 							</p>
-							<p className="text-muted-foreground mt-2">{SEVERAL_CODES_NOTE}</p>
+							<p
+								className={cn(
+									'text-muted-foreground mt-2',
+									signedOutSmallClass,
+								)}
+							>
+								{SEVERAL_CODES_NOTE}
+							</p>
 							<Link
 								to="/login"
-								className="mt-8 inline-block text-base font-bold"
+								className={cn(
+									'phone:mt-3.5 phone:flex phone:min-h-11 phone:items-center mt-8 inline-block text-base font-bold',
+									signedOutJustifyClass,
+								)}
 							>
 								Back to log in
 							</Link>
@@ -165,7 +206,7 @@ export default function ForgotPasswordRoute() {
 
 								<div className="mt-8">
 									<StatusButton
-										className="w-full"
+										className={cn('w-full', signedOutMainActionClass)}
 										status={
 											forgotPassword.state === 'submitting'
 												? 'pending'
@@ -180,7 +221,10 @@ export default function ForgotPasswordRoute() {
 							</forgotPassword.Form>
 							<Link
 								to="/login"
-								className="mt-6 block text-center text-base font-bold"
+								className={cn(
+									'mt-6 block text-center text-base font-bold',
+									signedOutRowLinkClass,
+								)}
 							>
 								Back to log in
 							</Link>

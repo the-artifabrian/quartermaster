@@ -10,11 +10,22 @@ import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { requireAnonymous } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
 import { sendEmail } from '#app/utils/email.server.ts'
-import { useIsPending } from '#app/utils/misc.tsx'
+import { cn, useIsPending } from '#app/utils/misc.tsx'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { redirectWithToast } from '#app/utils/toast.server.ts'
 import { EmailSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/signup.ts'
+import {
+	signedOutAlignClass,
+	signedOutColumnClass,
+	signedOutGapClass,
+	signedOutLeadClass,
+	signedOutLinkClass,
+	signedOutMainActionClass,
+	signedOutPageClass,
+	signedOutSmallClass,
+	SignedOutTitle,
+} from './+signed-out.tsx'
 import { NO_NEW_EMAIL_TOAST, prepareVerification } from './verify.server.ts'
 
 export const handle: SEOHandle = {
@@ -138,20 +149,43 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 	})
 
 	return (
-		<div className="container flex flex-col justify-center pt-20 pb-32">
-			<div className="text-center">
-				<h1 className="font-serif text-2xl">Create an account</h1>
-				<p className="text-muted-foreground mt-3 text-lg">
+		<div
+			className={cn(
+				'container flex flex-col justify-center pt-20 pb-32',
+				signedOutPageClass,
+			)}
+		>
+			<div
+				className={cn('text-center', signedOutAlignClass, signedOutColumnClass)}
+			>
+				<SignedOutTitle>Create an account</SignedOutTitle>
+				<p
+					className={cn(
+						'text-muted-foreground phone:mt-2 mt-3 text-lg',
+						signedOutLeadClass,
+					)}
+				>
 					We&apos;ll email you a code to confirm your address.
 				</p>
 				{/* The iOS app shows no copy about Pro or its trial (ADR 0001). */}
 				{isNativeShell ? null : (
-					<p className="text-muted-foreground mt-1 text-sm">
+					<p
+						className={cn(
+							'text-muted-foreground mt-1 text-sm',
+							signedOutSmallClass,
+						)}
+					>
 						Free to use. New accounts get 14 days of Pro.
 					</p>
 				)}
 			</div>
-			<div className="mx-auto mt-8 max-w-sm min-w-full sm:min-w-[368px]">
+			<div
+				className={cn(
+					'mx-auto mt-8 max-w-sm min-w-full sm:min-w-[368px]',
+					signedOutGapClass,
+					signedOutColumnClass,
+				)}
+			>
 				<Form method="POST" {...getFormProps(form)}>
 					<input {...getInputProps(fields.redirectTo, { type: 'hidden' })} />
 					<Field
@@ -169,7 +203,7 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 					<ErrorList errors={form.errors} id={form.errorId} />
 					<div className="mt-8" />
 					<StatusButton
-						className="w-full"
+						className={cn('w-full', signedOutMainActionClass)}
 						status={isPending ? 'pending' : (form.status ?? 'idle')}
 						type="submit"
 						disabled={isPending}
@@ -177,7 +211,7 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 						Email me a code
 					</StatusButton>
 				</Form>
-				<div className="text-muted-foreground mt-6 text-center text-sm">
+				<div className="text-muted-foreground phone:mt-3.5 phone:text-base mt-6 text-center text-sm">
 					Already have an account?{' '}
 					<Link
 						to={
@@ -185,7 +219,7 @@ export default function SignupRoute({ actionData }: Route.ComponentProps) {
 								? `/login?${new URLSearchParams({ redirectTo })}`
 								: '/login'
 						}
-						className="text-foreground font-bold"
+						className={cn('text-foreground font-bold', signedOutLinkClass)}
 					>
 						Log in
 					</Link>

@@ -12,9 +12,19 @@ import {
 	resetUserPassword,
 } from '#app/utils/auth.server.ts'
 import { prisma } from '#app/utils/db.server.ts'
-import { useIsPending } from '#app/utils/misc.tsx'
+import { cn, useIsPending } from '#app/utils/misc.tsx'
 import { PasswordAndConfirmPasswordSchema } from '#app/utils/user-validation.ts'
 import { type Route } from './+types/reset-password.ts'
+import {
+	signedOutAlignClass,
+	signedOutColumnClass,
+	signedOutGapClass,
+	signedOutLeadClass,
+	signedOutMainActionClass,
+	signedOutPageClass,
+	signedOutSmallClass,
+	SignedOutTitle,
+} from './+signed-out.tsx'
 import { requireResetPasswordUser } from './reset-password.server.ts'
 
 export const handle: SEOHandle = {
@@ -87,19 +97,37 @@ export default function ResetPasswordPage({
 	})
 
 	return (
-		<div className="container flex flex-col justify-center pt-20 pb-32">
-			<div className="text-center">
-				<h1 className="font-serif text-2xl">Choose a new password</h1>
-				<p className="text-muted-foreground mt-3 text-lg">
+		<div
+			className={cn(
+				'container flex flex-col justify-center pt-20 pb-32',
+				signedOutPageClass,
+			)}
+		>
+			<div
+				className={cn('text-center', signedOutAlignClass, signedOutColumnClass)}
+			>
+				<SignedOutTitle>Choose a new password</SignedOutTitle>
+				<p
+					className={cn(
+						'text-muted-foreground phone:mt-2 mt-3 text-lg',
+						signedOutLeadClass,
+					)}
+				>
 					For {loaderData.username}
 				</p>
 				{loaderData.loggedIn ? (
-					<p className="text-muted-foreground mt-2">
+					<p className={cn('text-muted-foreground mt-2', signedOutSmallClass)}>
 						Resetting your password logs this device out.
 					</p>
 				) : null}
 			</div>
-			<div className="mx-auto mt-16 max-w-sm min-w-full sm:min-w-[368px]">
+			<div
+				className={cn(
+					'mx-auto mt-16 max-w-sm min-w-full sm:min-w-[368px]',
+					signedOutGapClass,
+					signedOutColumnClass,
+				)}
+			>
 				<Form method="POST" {...getFormProps(form)}>
 					<Field
 						labelProps={{
@@ -128,7 +156,7 @@ export default function ResetPasswordPage({
 					<ErrorList errors={form.errors} id={form.errorId} />
 
 					<StatusButton
-						className="mt-8 w-full"
+						className={cn('mt-8 w-full', signedOutMainActionClass)}
 						status={isPending ? 'pending' : (form.status ?? 'idle')}
 						type="submit"
 						disabled={isPending}

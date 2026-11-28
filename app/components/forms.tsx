@@ -1,6 +1,7 @@
 import { useInputControl } from '@conform-to/react'
 import { REGEXP_ONLY_DIGITS_AND_CHARS, type OTPInputProps } from 'input-otp'
 import React, { useEffect, useId, useRef } from 'react'
+import { cn } from '#app/utils/misc.tsx'
 import { Checkbox, type CheckboxProps } from './ui/checkbox.tsx'
 import {
 	InputOTP,
@@ -121,6 +122,10 @@ export function useFocusErrorOnFailedSave(formId: string, lastResult: unknown) {
 	}
 }
 
+// On a phone a field with another field straight after it keeps 16px under
+// it, so the next label never touches its input.
+const fieldGapClass = 'phone:has-[+[data-field]]:mb-4'
+
 export function Field({
 	labelProps,
 	inputProps,
@@ -136,7 +141,7 @@ export function Field({
 	const id = inputProps.id ?? fallbackId
 	const errorId = errors?.length ? `${id}-error` : undefined
 	return (
-		<div className={className}>
+		<div data-field className={cn(fieldGapClass, className)}>
 			<Label htmlFor={id} {...labelProps} />
 			<Input
 				id={id}
@@ -181,7 +186,7 @@ export function OTPField({
 			<InputOTPSlot key={from + i} index={from + i} className={slotClass} />
 		))
 	return (
-		<div className={className}>
+		<div data-field className={className}>
 			<Label htmlFor={id} {...labelProps} />
 			<InputOTP
 				pattern={REGEXP_ONLY_DIGITS_AND_CHARS}
@@ -223,7 +228,7 @@ export function TextareaField({
 	const id = textareaProps.id ?? textareaProps.name ?? fallbackId
 	const errorId = errors?.length ? `${id}-error` : undefined
 	return (
-		<div className={className}>
+		<div data-field className={cn(fieldGapClass, className)}>
 			<Label htmlFor={id} {...labelProps} />
 			<Textarea
 				id={id}
@@ -268,7 +273,7 @@ export function CheckboxField({
 	const errorId = errors?.length ? `${id}-error` : undefined
 
 	return (
-		<div className={className}>
+		<div data-field className={className}>
 			<div className="flex gap-2">
 				<Checkbox
 					{...checkboxProps}

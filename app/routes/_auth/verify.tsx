@@ -59,11 +59,6 @@ const leadClass = cn(
 	'text-muted-foreground phone:mt-2 mt-3 text-lg',
 	signedOutLeadClass,
 )
-// On a phone a box is 44px tall with a 20px character, and stops growing at
-// 44px wide.
-const codeBoxClass =
-	'phone:[&_[data-slot=input-otp-slot]]:h-11 phone:[&_[data-slot=input-otp-slot]]:text-xl'
-
 function isEmailedType(type: VerificationTypes | null) {
 	return type !== null && type !== '2fa'
 }
@@ -223,12 +218,9 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 							>
 								<OTPField
 									// Eight boxes share the column's width; six keep their size.
-									className={cn(
-										codeBoxClass,
-										codeLength === EMAILED_CODE_LENGTH
-											? 'phone:max-w-[22rem] phone:[&_[data-input-otp-container]]:max-w-none w-full'
-											: 'phone:[&_[data-slot=input-otp-slot]]:w-11',
-									)}
+									className={
+										codeLength === EMAILED_CODE_LENGTH ? 'w-full' : undefined
+									}
 									length={codeLength}
 									labelProps={{
 										htmlFor: fields[codeQueryParam].id,

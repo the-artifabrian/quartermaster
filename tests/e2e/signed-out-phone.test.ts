@@ -31,9 +31,38 @@ async function sizesInMain(page: Page) {
 }
 
 const box = async (locator: Locator) => (await locator.boundingBox())!
+/** The line of text in the middle of a link's taller tap area. */
+async function lineOf(locator: Locator) {
+	const tap = await box(locator)
+	const height = await locator.evaluate((el) =>
+		parseFloat(getComputedStyle(el).lineHeight),
+	)
+	const top = tap.y + (tap.height - height) / 2
+	return { top, bottom: top + height }
+}
+const background = (locator: Locator) =>
+	locator.evaluate((el) => getComputedStyle(el).backgroundColor)
+/** Expects every box to start and end where the first one does. */
+async function expectSharedEdges(...locators: Locator[]) {
+	const [first, ...rest] = await Promise.all(locators.map(box))
+	for (const other of rest) {
+		expect(other.x).toBeCloseTo(first!.x, 0)
+		expect(other.x + other.width).toBeCloseTo(first!.x + first!.width, 0)
+	}
+}
 const fontsReady = (page: Page) => page.evaluate(() => document.fonts.ready)
 const phone = (page: Page) => page.setViewportSize({ width: 405, height: 844 })
 const wider = (page: Page) => page.setViewportSize({ width: 768, height: 844 })
+// A 560px layout, where a column capped at 448px sits in the middle.
+const band = (page: Page) => page.setViewportSize({ width: 575, height: 844 })
+
+const TOTP = {
+	secret: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
+	algorithm: 'SHA-1',
+	digits: 6,
+	period: 30,
+	charSet: '0123456789',
+}
 
 function extractUrl(text: string) {
 	return text.match(/https?:\/\/[^\s$.?#].[^\s]*/)?.[0]
@@ -81,6 +110,11 @@ test('Log in reads in its phone sizes up to 767px and in the wider sizes from 76
 	await expect(logIn).toHaveCSS('font-weight', '600')
 	expect((await box(passkey)).height).toBe(48)
 	expect((await box(demo)).height).toBe(48)
+	// Log in is the one filled button: the passkey one is outlined like the
+	// demo's.
+	const logInFill = await background(logIn)
+	await expect(passkey).toHaveCSS('background-color', await background(demo))
+	await expect(passkey).not.toHaveCSS('background-color', logInFill)
 
 	// Forgot password? has a 44px tap area around a line level with Remember
 	// me, so it reaches 10px over and under that line.
@@ -88,19 +122,26 @@ test('Log in reads in its phone sizes up to 767px and in the wider sizes from 76
 	const forgotBox = await box(forgot)
 	const rememberBox = await box(remember)
 	expect(forgotBox.height).toBe(44)
-	expect(forgotBox.y + forgotBox.height / 2).toBe(
+	expect(forgotBox.y + forgotBox.height / 2).toBeCloseTo(
 		rememberBox.y + rememberBox.height / 2,
+		0,
 	)
 	// The button sits 32px under the row.
 	expect(logInBox.y - (rememberBox.y + rememberBox.height)).toBe(32)
 
-	// Create an account: a 44px tap area between the two buttons.
+	// Create an account: a 44px tap area between the two buttons, around the
+	// line it shares with "New here?".
 	const createBox = await box(create)
 	const passkeyBox = await box(passkey)
+	const newHere = await box(main.getByText('New here?'))
 	expect(createBox.height).toBe(44)
-	// Its line is 32px under the passkey button and 16px over the demo's.
-	expect(createBox.y + 10 - (passkeyBox.y + passkeyBox.height)).toBe(32)
-	expect((await box(demo)).y - (createBox.y + 34)).toBe(16)
+	expect(createBox.y + createBox.height / 2).toBeCloseTo(
+		newHere.y + newHere.height / 2,
+		0,
+	)
+	// That line is 32px under the passkey button and 16px over the demo's.
+	expect(newHere.y - (passkeyBox.y + passkeyBox.height)).toBe(32)
+	expect((await box(demo)).y - (newHere.y + newHere.height)).toBe(16)
 
 	expect(await sizesInMain(page)).toEqual(['13.5px', '16px', '28px'])
 
@@ -113,17 +154,10 @@ test('Log in reads in its phone sizes up to 767px and in the wider sizes from 76
 	)
 	expect(narrowRemember.height).toBe(24)
 
-	// The other title treatment is one class on the page's wrapper.
-	await phone(page)
-	await page.evaluate(() =>
-		document.querySelector('.group\\/out')!.classList.add('title-centred'),
-	)
-	await expect(title).toHaveCSS('font-size', '32px')
-	await expect(title).toHaveCSS('text-align', 'center')
-	await expect(lead).toHaveCSS('text-align', 'center')
-	await page.evaluate(() =>
-		document.querySelector('.group\\/out')!.classList.remove('title-centred'),
-	)
+	// At 560px the title, its paragraph, the fields and the buttons share both
+	// edges of the column.
+	await band(page)
+	await expectSharedEdges(title, lead, username, logIn, passkey)
 
 	await page.setViewportSize({ width: 767, height: 844 })
 	await expect(title).toHaveCSS('font-size', '28px')
@@ -147,6 +181,8 @@ test('Log in reads in its phone sizes up to 767px and in the wider sizes from 76
 	expect((await box(demo)).height).toBe(44)
 	expect((await box(create)).height).toBe(24)
 	expect((await box(username)).width).toBe(384)
+	await expect(passkey).toHaveCSS('background-color', await background(demo))
+	await expect(passkey).not.toHaveCSS('background-color', logInFill)
 })
 
 test('signing up reads in the phone sizes from the email to the new account’s form', async ({
@@ -187,6 +223,17 @@ test('signing up reads in the phone sizes from the email to the new account’s 
 		)
 		expect(emailLabel.y - (trialBox.y + trialBox.height)).toBeCloseTo(24, 0)
 
+		// At 560px the title, its paragraphs, the field and the button share
+		// both edges of the column.
+		await band(page)
+		await expectSharedEdges(
+			title,
+			page.getByText(/^We'll email you a code/),
+			trial,
+			page.getByLabel('Email'),
+			emailMe,
+		)
+
 		// Up to 767px the title and the form share a 448px column.
 		await page.setViewportSize({ width: 767, height: 844 })
 		const bandField = await box(page.getByLabel('Email'))
@@ -219,6 +266,9 @@ test('signing up reads in the phone sizes from the email to the new account’s 
 		await expect(slots.first()).toHaveCSS('font-size', '20px')
 		const slot = await box(slots.first())
 		expect(slot.height).toBe(44)
+		// Eight boxes share the field, which stops at 352px on a phone.
+		const boxes = page.locator('[data-input-otp-container]')
+		expect((await box(boxes)).width).toBe(352)
 		expect(slot.width).toBeLessThanOrEqual(44)
 		// The boxes start on the title's edge.
 		expect(slot.x).toBe((await box(title)).x)
@@ -231,24 +281,36 @@ test('signing up reads in the phone sizes from the email to the new account’s 
 		const codeLabel = await box(page.getByText('Code', { exact: true }))
 		expect(codeLabel.y - (noteBox.y + noteBox.height)).toBeCloseTo(24, 0)
 
-		// In the other title treatment the boxes are centred too.
-		await page.evaluate(() =>
-			document.querySelector('.group\\/out')!.classList.add('title-centred'),
-		)
-		const centredFirst = await box(slots.first())
-		const centredLast = await box(slots.last())
-		const mainBox = await box(main)
-		expect(centredFirst.x - mainBox.x).toBeCloseTo(
-			mainBox.x + mainBox.width - (centredLast.x + centredLast.width),
-			0,
-		)
-		await page.evaluate(() =>
-			document.querySelector('.group\\/out')!.classList.remove('title-centred'),
+		// A wrong code: Submit stays clear of the error over it and of the link
+		// to a new code under it.
+		await code.fill('AAAAAAAA')
+		await submit.click()
+		const codeError = page.locator('#main-content li').first()
+		const newCode = page.getByRole('link', { name: 'Ask for a new code' })
+		await expect(codeError).toBeVisible()
+		await expect(newCode).toBeVisible()
+		const errorBox = await box(codeError)
+		const wrongSubmit = await box(submit)
+		expect(wrongSubmit.y).toBeGreaterThanOrEqual(errorBox.y + errorBox.height)
+		expect((await box(newCode)).y).toBeGreaterThanOrEqual(
+			wrongSubmit.y + wrongSubmit.height,
 		)
 
-		// A box stops growing at 44px in the wide end of the phone sizes.
+		// At 560px the title, the paragraphs, the field and Submit share both
+		// edges; the boxes start on them.
+		await band(page)
+		await expectSharedEdges(
+			title,
+			page.getByText(/^We've sent you a code/),
+			note,
+			page.locator('#main-content [data-field]'),
+			submit,
+		)
+		expect((await box(slots.first())).x).toBeCloseTo((await box(title)).x, 0)
+
+		// The boxes keep their 352px in the wide end of the phone sizes.
 		await page.setViewportSize({ width: 767, height: 844 })
-		expect((await box(slots.first())).width).toBeLessThanOrEqual(44)
+		expect((await box(boxes)).width).toBe(352)
 		expect((await box(submit)).width).toBe(448)
 
 		await wider(page)
@@ -263,6 +325,11 @@ test('signing up reads in the phone sizes from the email to the new account’s 
 		const message = await waitFor(() => readEmail(email), { timeout: 10_000 })
 		await page.goto(extractUrl(message.text)!)
 		await hydrated(submit)
+		await fontsReady(page)
+		await expect(
+			page.getByRole('heading', { level: 1, name: 'Your link is ready' }),
+		).toHaveCSS('font-size', '28px')
+		await expect(title).toHaveCSS('text-align', 'left')
 		await submit.click()
 		await expect(page).toHaveURL(/\/onboarding/)
 		const address = page.getByText(email, { exact: true })
@@ -293,6 +360,15 @@ test('signing up reads in the phone sizes from the email to the new account’s 
 		const narrowAddress = await box(address)
 		expect(narrowAddress.x + narrowAddress.width).toBeLessThanOrEqual(
 			narrowMain.x + narrowMain.width - 16,
+		)
+		// At 560px the title, its paragraph, the fields and the button share
+		// both edges of the column.
+		await band(page)
+		await expectSharedEdges(
+			title,
+			page.getByText(/^Signing up as/),
+			name,
+			createAccount,
 		)
 		// Up to 767px the title and the form share a 448px column.
 		await page.setViewportSize({ width: 767, height: 844 })
@@ -336,8 +412,19 @@ test('Forgot password reads in the phone sizes before and after it sends', async
 	expect(sendBox.height).toBe(48)
 	expect(backLink.height).toBe(44)
 	// Its line is 24px under the button.
-	expect(backLink.y + 10 - (sendBox.y + sendBox.height)).toBe(24)
+	expect((await lineOf(back)).top - (sendBox.y + sendBox.height)).toBe(24)
 	expect(await sizesInMain(page)).toEqual(['13.5px', '16px', '28px'])
+
+	// At 560px the title, its paragraph, the field and the button share both
+	// edges of the column.
+	await band(page)
+	await expectSharedEdges(
+		title,
+		page.getByText(/^We'll email you a link/),
+		page.getByLabel('Username or email'),
+		send,
+	)
+	await phone(page)
 
 	await page.getByLabel('Username or email').fill('nobodyhere')
 	await send.click()
@@ -361,6 +448,150 @@ test('Forgot password reads in the phone sizes before and after it sends', async
 	expect((await box(back)).height).toBe(24)
 })
 
+test('Choose a new password reads in the phone sizes', async ({
+	page,
+	insertNewUser,
+}) => {
+	const user = await insertNewUser()
+	await page.goto('/forgot-password')
+	const send = page.getByRole('button', { name: 'Email me a link' })
+	await hydrated(send)
+	await page.getByLabel('Username or email').fill(user.username)
+	await send.click()
+	await expect(page.getByText('Check your email.')).toBeVisible()
+	const message = await waitFor(() => readEmail(user.email), {
+		timeout: 10_000,
+	})
+	await page.goto(extractUrl(message.text)!)
+	const submit = page.getByRole('main').getByRole('button', { name: 'Submit' })
+	await hydrated(submit)
+	await submit.click()
+	await expect(page).toHaveURL(/\/reset-password/)
+	const title = page.getByRole('heading', {
+		level: 1,
+		name: 'Choose a new password',
+	})
+	const reset = page.getByRole('button', { name: 'Reset password' })
+	await hydrated(reset)
+	await fontsReady(page)
+
+	await expect(title).toHaveCSS('font-size', '28px')
+	await expect(title).toHaveCSS('text-align', 'left')
+	expect((await box(reset)).height).toBe(48)
+	await band(page)
+	await expectSharedEdges(
+		title,
+		page.getByText(`For ${user.username}`),
+		page.getByLabel('New password'),
+		reset,
+	)
+	await wider(page)
+	await expect(title).toHaveCSS('font-size', '24px')
+	expect((await box(reset)).height).toBe(44)
+})
+
+test('a link that isn’t valid says so in the screen’s title', async ({
+	page,
+}) => {
+	await page.goto('/verify')
+	const title = page.getByRole('heading', {
+		level: 1,
+		name: 'This link isn’t valid',
+	})
+	await fontsReady(page)
+	await expect(title).toHaveCSS('font-size', '28px')
+	await expect(title).toHaveCSS('font-weight', '500')
+	await expect(title).toHaveCSS('text-align', 'left')
+	// From 768px it reads as the body text.
+	await wider(page)
+	await expect(title).toHaveCSS('font-size', '16px')
+	await expect(title).toHaveCSS('font-weight', '400')
+	await expect(title).toHaveCSS('text-align', 'center')
+	await expect(title).toHaveCSS(
+		'font-family',
+		await page.evaluate(() => getComputedStyle(document.body).fontFamily),
+	)
+})
+
+test('a long username in the logged-in answer breaks inside a 320px column', async ({
+	page,
+	login,
+}) => {
+	const email = createUser().email.toLowerCase()
+	try {
+		await page.goto('/signup')
+		const emailMe = page.getByRole('button', { name: 'Email me a code' })
+		await hydrated(emailMe)
+		await page.getByLabel('Email').fill(email)
+		await emailMe.click()
+		await expect(page).toHaveURL(/\/verify/)
+		const message = await waitFor(() => readEmail(email), { timeout: 10_000 })
+		// The longest username, in capitals, the widest letters.
+		const username = 'W'.repeat(20)
+		await login({ username })
+		await page.setViewportSize({ width: 335, height: 844 })
+		await page.goto(extractUrl(message.text)!)
+		const submit = page
+			.getByRole('main')
+			.getByRole('button', { name: 'Submit' })
+		await hydrated(submit)
+		await submit.click()
+		const title = page.getByRole('heading', {
+			level: 1,
+			name: `You’re logged in as ${username}`,
+		})
+		await expect(title).toBeVisible()
+		await fontsReady(page)
+		const main = await box(page.locator('#main-content'))
+		const name = await box(title.getByText(username))
+		expect(name.x + name.width).toBeLessThanOrEqual(main.x + main.width - 16)
+	} finally {
+		await prisma.emailCode.deleteMany({ where: { target: email } })
+	}
+})
+
+test.describe('signed in, the code screen', () => {
+	test('starts under the notice that asks for the code', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		try {
+			await prisma.verification.create({
+				data: { ...TOTP, type: '2fa', target: user.id },
+			})
+			for (const width of [405, 335]) {
+				await page.setViewportSize({ width, height: 844 })
+				await page.goto('/settings/profile/two-factor/disable')
+				await expect(page).toHaveURL(/\/verify\?/)
+				const toast = page.locator('[data-sonner-toast]', {
+					hasText: 'Confirm it’s you',
+				})
+				await expect(toast).toBeVisible()
+				await fontsReady(page)
+				const title = page.getByRole('heading', { level: 1 })
+				// The notice slides in from above: wait until it stops moving.
+				await expect(toast).toHaveAttribute('data-mounted', 'true')
+				let lastTop = NaN
+				await expect
+					.poll(async () => {
+						const top = (await box(toast)).y
+						const settled = top === lastTop
+						lastTop = top
+						return settled
+					})
+					.toBe(true)
+				const notice = await box(toast)
+				expect((await box(title)).y).toBeGreaterThanOrEqual(
+					notice.y + notice.height + 12,
+				)
+			}
+		} finally {
+			await prisma.verification.deleteMany({ where: { target: user.id } })
+		}
+	})
+})
+
 test.describe('in the iOS app', () => {
 	test.use({ userAgent: SHELL_UA })
 
@@ -374,9 +605,21 @@ test.describe('in the iOS app', () => {
 		await fontsReady(page)
 		await expect(page.getByText('Remember me')).toHaveCount(0)
 		const forgotBox = await box(forgot)
-		// The link's line is the middle 24px of its 44px tap area.
-		const lineBottom = forgotBox.y + forgotBox.height / 2 + 12
-		expect((await box(logIn)).y - lineBottom).toBe(32)
+		expect(forgotBox.height).toBe(44)
+		expect((await box(logIn)).y - (await lineOf(forgot)).bottom).toBe(32)
+	})
+
+	test('Sign up leaves no gap where the trial line is hidden', async ({
+		page,
+	}) => {
+		await page.goto('/signup')
+		const emailMe = page.getByRole('button', { name: 'Email me a code' })
+		await hydrated(emailMe)
+		await fontsReady(page)
+		await expect(page.getByText(/^Free to use\./)).toHaveCount(0)
+		const lead = await box(page.getByText(/^We'll email you a code/))
+		const label = await box(page.getByText('Email', { exact: true }))
+		expect(label.y - (lead.y + lead.height)).toBeCloseTo(24, 0)
 	})
 })
 
@@ -395,35 +638,60 @@ test.describe('on a 320px phone', () => {
 	}) => {
 		const password = 'signed-out-sizes-1'
 		const user = await insertNewUser({ password })
-		await prisma.verification.create({
-			data: {
-				type: '2fa',
-				target: user.id,
-				secret: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
-				algorithm: 'SHA-1',
-				digits: 6,
-				period: 30,
-				charSet: '0123456789',
-			},
-		})
-		await page.goto('/login')
-		const logIn = page.getByRole('button', { name: 'Log in', exact: true })
-		await hydrated(logIn)
-		await page.getByLabel('Username').fill(user.username)
-		await page.getByLabel('Password').fill(password)
-		await logIn.click()
-		await expect(page).toHaveURL(/\/verify/)
-		const slots = page.locator('[data-slot=input-otp-slot]')
-		await expect(slots).toHaveCount(6)
-		await fontsReady(page)
+		try {
+			await prisma.verification.create({
+				data: { ...TOTP, type: '2fa', target: user.id },
+			})
+			await page.goto('/login')
+			const logIn = page.getByRole('button', { name: 'Log in', exact: true })
+			await hydrated(logIn)
+			await page.getByLabel('Username').fill(user.username)
+			await page.getByLabel('Password').fill(password)
+			await logIn.click()
+			await expect(page).toHaveURL(/\/verify/)
+			const slots = page.locator('[data-slot=input-otp-slot]')
+			await expect(slots).toHaveCount(6)
+			await fontsReady(page)
 
-		const slot = await box(slots.first())
-		expect(slot.height).toBe(44)
-		expect(slot.width).toBe(44)
-		await expect(slots.first()).toHaveCSS('font-size', '20px')
-		expect(slot.x).toBe((await box(page.getByRole('heading', { level: 1 }))).x)
-		// The last box ends inside the column.
-		const last = await box(slots.last())
-		expect(last.x + last.width).toBeLessThanOrEqual(320 - 16)
+			const slot = await box(slots.first())
+			expect(slot.height).toBe(44)
+			expect(slot.width).toBe(44)
+			await expect(slots.first()).toHaveCSS('font-size', '20px')
+			expect(slot.x).toBe(
+				(await box(page.getByRole('heading', { level: 1 }))).x,
+			)
+			// The last box ends inside the column.
+			const last = await box(slots.last())
+			expect(last.x + last.width).toBeLessThanOrEqual(320 - 16)
+		} finally {
+			await prisma.verification.deleteMany({ where: { target: user.id } })
+		}
+	})
+
+	test('the six boxes of Settings’ two-factor setup fit the page', async ({
+		page,
+		login,
+	}) => {
+		const user = await login()
+		try {
+			await prisma.verification.create({
+				data: { ...TOTP, type: '2fa-verify', target: user.id },
+			})
+			await page.goto('/settings/profile/two-factor/verify')
+			const slots = page.locator('[data-slot=input-otp-slot]')
+			await expect(slots).toHaveCount(6)
+			await fontsReady(page)
+			const slot = await box(slots.first())
+			expect(slot.height).toBe(44)
+			expect(slot.width).toBe(44)
+			await expect(slots.first()).toHaveCSS('font-size', '20px')
+			const last = await box(slots.last())
+			expect(last.x + last.width).toBeLessThanOrEqual(320 - 16)
+			expect(
+				await page.evaluate(() => document.documentElement.scrollWidth),
+			).toBe(320)
+		} finally {
+			await prisma.verification.deleteMany({ where: { target: user.id } })
+		}
 	})
 })

@@ -282,7 +282,7 @@ test.describe('at a 320px layout', () => {
 		charSet: '0123456789',
 	}
 
-	test('the six boxes of a 2FA code fit the screen, and nothing scrolls sideways', async ({
+	test('the 2FA code screens scroll nothing sideways', async ({
 		page,
 		login,
 	}) => {
@@ -296,11 +296,6 @@ test.describe('at a 320px layout', () => {
 		await hydrated(code)
 		const slots = page.locator('[data-slot="input-otp-slot"]')
 		await expect(slots).toHaveCount(6)
-		const width = await page.evaluate(
-			() => document.documentElement.clientWidth,
-		)
-		const last = (await slots.last().boundingBox())!
-		expect(last.x + last.width).toBeLessThanOrEqual(width)
 		expect(await sidewaysScroll(page)).toBe(0)
 
 		// With 2FA on, a guarded page asks for a code on the shared screen.

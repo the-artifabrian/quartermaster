@@ -149,19 +149,21 @@ export default function TwoFactorRoute({
 					src={loaderData.qrCode}
 					className="ph-no-capture size-56"
 				/>
-				<p>Scan this QR code with your authenticator app.</p>
-				<p className="text-sm">
+				<p className="phone:text-item-name">
+					Scan this QR code with your authenticator app.
+				</p>
+				<p className="phone:text-item-name text-sm">
 					If you can&apos;t scan it, add this to the app by hand instead:
 				</p>
 				<div className="p-3">
 					<pre
-						className="ph-no-capture text-sm break-all whitespace-pre-wrap"
+						className="ph-no-capture phone:text-label text-sm break-all whitespace-pre-wrap"
 						aria-label="One-time Password URI"
 					>
 						{loaderData.otpUri}
 					</pre>
 				</div>
-				<p className="text-sm">
+				<p className="phone:text-item-name text-sm">
 					Then enter the code the app shows. From now on, logging in asks for a
 					code too. If you lose the app, you lose access to your account.
 				</p>

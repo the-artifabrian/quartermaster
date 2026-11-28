@@ -50,7 +50,7 @@ export default function TwoFactorRoute({ loaderData }: Route.ComponentProps) {
 		<div className="flex flex-col gap-4">
 			{loaderData.is2FAEnabled ? (
 				<>
-					<p className="text-lg">
+					<p className="phone:text-item-name text-lg">
 						<Icon name="check">Two-factor authentication is on.</Icon>
 					</p>
 					<PushLink to="disable">
@@ -62,7 +62,7 @@ export default function TwoFactorRoute({ loaderData }: Route.ComponentProps) {
 					<p>
 						<Icon name="lock-open-1">Two-factor authentication is off.</Icon>
 					</p>
-					<p className="text-sm">
+					<p className="phone:text-muted-foreground phone:text-base text-sm">
 						With it on, logging in also asks for a code from an authenticator
 						app such as{' '}
 						<a className="underline" href="https://1password.com/">
@@ -76,7 +76,7 @@ export default function TwoFactorRoute({ loaderData }: Route.ComponentProps) {
 							name="intent"
 							value="enable"
 							status={enable2FAFetcher.state === 'loading' ? 'pending' : 'idle'}
-							className="mx-auto"
+							className="phone:h-12 phone:w-full phone:font-semibold mx-auto"
 						>
 							Enable 2FA
 						</StatusButton>

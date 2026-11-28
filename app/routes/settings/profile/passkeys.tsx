@@ -328,7 +328,7 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 						}}
 						errors={passwordError ? [passwordError] : undefined}
 					/>
-					<div className="flex justify-end">
+					<div className="phone:mt-4 flex justify-end">
 						<AddPasskeyButton />
 					</div>
 				</form>
@@ -362,13 +362,13 @@ export default function Passkeys({ loaderData }: Route.ComponentProps) {
 							<div className="flex flex-col gap-2">
 								<div className="flex items-center gap-2">
 									<Icon name="lock-closed" />
-									<span className="font-semibold">
+									<span className="phone:text-item-name phone:font-medium font-semibold">
 										{passkey.deviceType === 'platform'
 											? 'Device'
 											: 'Security key'}
 									</span>
 								</div>
-								<div className="text-muted-foreground text-sm">
+								<div className="text-muted-foreground phone:text-label text-sm">
 									Registered {formatDistanceToNow(new Date(passkey.createdAt))}{' '}
 									ago
 								</div>
@@ -394,9 +394,11 @@ function AddPasskeyButton() {
 			variant="secondary"
 			status={pending ? 'pending' : 'idle'}
 			disabled={pending}
-			className="flex items-center gap-2"
+			className="phone:h-12 phone:w-full phone:font-semibold flex items-center gap-2"
 		>
-			<Icon name="plus">Add passkey</Icon>
+			<Icon name="plus" className="size-3.5">
+				Add passkey
+			</Icon>
 		</StatusButton>
 	)
 }

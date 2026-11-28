@@ -27,11 +27,7 @@ import {
 import { isEditScreenDone } from '#app/utils/edit-screen.ts'
 import { scaledYieldLabel } from '#app/utils/ingredient-plural.ts'
 import { CREATED_IDS_FIELD, loadedIdsValue } from '#app/utils/loaded-rows.ts'
-import {
-	cn,
-	phoneFieldLabelClass,
-	sectionLabelClass,
-} from '#app/utils/misc.tsx'
+import { cn, sectionLabelClass } from '#app/utils/misc.tsx'
 import { getHistoryLog, resolveAfterSave } from '#app/utils/nav-back.ts'
 import { historyIndex } from '#app/utils/nav-direction.ts'
 import { haptic } from '#app/utils/shell-bridge.ts'
@@ -124,14 +120,14 @@ const recipesHeadingClass = cn(
 	'phone:text-recipe-section phone:text-foreground phone:font-serif phone:font-medium phone:tracking-normal phone:normal-case',
 )
 
-/** A text button's label on a phone. */
+/** A small text button's label on a phone. */
 const phoneButtonLabelClass = 'phone:text-base'
 
 /**
  * Add Recipe and Add note under a section. Set a little tighter, the two sit
  * side by side in a tinted section on a 320px screen with room to spare.
  */
-const phoneAddButtonClass = `${phoneButtonLabelClass} phone:gap-1.5 phone:px-2.5`
+const phoneAddButtonClass = 'phone:gap-1.5 phone:px-2.5'
 
 /** The id the nav bar's Save submits (the route handle's `navForm`). */
 export const MENU_FORM_ID = 'menu-form'
@@ -243,11 +239,7 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 			onKeyDown={(event) =>
 				keepReturnFromSaving(event, { titleSaves: !builder })
 			}
-			// An error's line is the shared list's; on a phone it reads at the
-			// small text size wherever it shows in the form. Sections, cards and
-			// Shopping lines are list items too, so the rule names the error's
-			// own colour class.
-			className="phone:[&_li.text-foreground-destructive]:text-label space-y-4"
+			className="space-y-4"
 		>
 			<ClientLeavesField />
 			{loadedIds && (
@@ -280,7 +272,7 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 			)}
 
 			<Field
-				labelProps={{ children: 'Title', className: phoneFieldLabelClass }}
+				labelProps={{ children: 'Title' }}
 				inputProps={{
 					...getInputProps(fields.title, { type: 'text' }),
 					placeholder: 'e.g. Terrace dinner',
@@ -292,7 +284,6 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 			<TextareaField
 				labelProps={{
 					children: 'Description',
-					className: phoneFieldLabelClass,
 				}}
 				textareaProps={{
 					...getInputProps(fields.description, { type: 'text' }),
@@ -306,7 +297,6 @@ export function MenuForm({ menu, builder }: MenuFormProps) {
 				className="max-w-48"
 				labelProps={{
 					children: 'Default guests',
-					className: phoneFieldLabelClass,
 				}}
 				inputProps={{
 					...getInputProps(fields.defaultGuestCount, { type: 'number' }),
@@ -532,7 +522,6 @@ function MenuSectionsBuilder({
 				<Button
 					type="button"
 					variant="outline"
-					className={phoneButtonLabelClass}
 					onClick={() =>
 						form.insert({
 							name: fields.sections.name,

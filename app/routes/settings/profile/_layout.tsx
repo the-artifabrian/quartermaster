@@ -47,7 +47,9 @@ export default function SettingsLayout() {
 			)}
 		>
 			{pageTitle ? (
-				<h1 className="mb-6 font-serif text-2xl">{pageTitle}</h1>
+				<h1 className="phone:text-edit-title mb-6 font-serif text-2xl">
+					{pageTitle}
+				</h1>
 			) : (
 				<TabTitle className="mb-6">Settings</TabTitle>
 			)}

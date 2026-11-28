@@ -131,7 +131,15 @@ export default function JoinHousehold({ loaderData }: Route.ComponentProps) {
 					</p>
 					<Form method="POST" className="flex justify-center gap-4">
 						<input type="hidden" name="token" value={token} />
-						<Button type="submit" name="intent" value="accept" size="lg">
+						{/* Two wide buttons share this row: their labels stay 14px on a
+						    phone so the pair fits a small screen. */}
+						<Button
+							type="submit"
+							name="intent"
+							value="accept"
+							size="lg"
+							className="phone:text-sm"
+						>
 							Accept
 						</Button>
 						<Button
@@ -140,6 +148,7 @@ export default function JoinHousehold({ loaderData }: Route.ComponentProps) {
 							value="decline"
 							variant="outline"
 							size="lg"
+							className="phone:text-sm"
 						>
 							Decline
 						</Button>

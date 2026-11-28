@@ -863,7 +863,7 @@ export default function RecipeDetail({ loaderData }: Route.ComponentProps) {
 						<div className="phone:flex mt-5 hidden">
 							<Button
 								onClick={openPlanPicker}
-								className="h-12 min-w-0 flex-1 text-base font-semibold"
+								className="h-12 min-w-0 flex-1 font-semibold"
 							>
 								<Icon name="calendar" size="md" />
 								Add to Plan

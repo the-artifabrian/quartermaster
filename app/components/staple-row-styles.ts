@@ -26,7 +26,7 @@ export const stapleNameClassName =
 export function stapleNeedClassName(onShoppingList: boolean) {
 	return cn(
 		buttonVariants({ variant: onShoppingList ? 'ghost' : 'secondary' }),
-		'w-19 shrink-0 gap-1.5 rounded-full px-0 font-semibold select-none focus-within:ring-0 focus-within:ring-offset-0 focus-visible:ring-offset-2',
+		'phone:text-sm w-19 shrink-0 gap-1.5 rounded-full px-0 font-semibold select-none focus-within:ring-0 focus-within:ring-offset-0 focus-visible:ring-offset-2',
 		onShoppingList
 			? 'text-primary justify-end hover:bg-transparent'
 			: 'justify-center',

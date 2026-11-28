@@ -398,7 +398,7 @@ function AddToPlanPanel({
 			{inSheet ? (
 				<Button
 					type="submit"
-					className="phone:h-12 phone:text-base phone:font-semibold mt-4 w-full"
+					className="phone:h-12 phone:font-semibold mt-4 w-full"
 					disabled={submitting}
 				>
 					<Icon name="calendar" size="sm" className="phone:size-5" />
@@ -498,7 +498,7 @@ export default function MenuDetail({
 					<Button
 						// From 640px the button keeps its own width, except on a
 						// phone's screen, where it fills the row.
-						className="phone:h-12 phone:text-base phone:font-semibold not-phone:sm:flex-none flex-1"
+						className="phone:h-12 phone:font-semibold not-phone:sm:flex-none flex-1"
 						onClick={() => {
 							setPlanInSheet(opensAsSheet())
 							setPlanning(true)

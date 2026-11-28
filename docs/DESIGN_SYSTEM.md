@@ -51,29 +51,30 @@ Browsers without it wrap as usual.
 
 Useful sizes:
 
-| Use                                                                      | Size                                                                                |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| Tab title (`TabTitle`)                                                   | 40px Newsreader, 1.05 lines                                                         |
-| Recipe title on a phone (`text-recipe-title`)                            | 36px Newsreader, 1.1 lines; 32px wider                                              |
-| Menu title on a phone (`text-menu-title`)                                | 32px Newsreader, 1.125 lines; wider, 24px on its page and 30px shared               |
-| An edit screen's or Import's title on a phone (`text-edit-title`)        | 28px Newsreader, 1.15 lines; 24px wider                                             |
-| Plan's day heading on a phone                                            | 31px Newsreader                                                                     |
-| Recipe or Menu section heading on a phone (`text-recipe-section`)        | 24px Newsreader; 18px wider                                                         |
-| A section of the Recipe or Menu form on a phone (`text-recipe-section`)  | 24px Newsreader; wider, the 12px uppercase label                                    |
-| Other page title                                                         | 24px Newsreader                                                                     |
-| Plan dish on a phone (`text-dish`)                                       | 17px Schibsted Grotesk, 19px under a Dinner's photo (`text-dish-photo`)             |
-| Recipe or Menu row on a phone (`text-list-name`)                         | 17px Schibsted Grotesk                                                              |
-| Shopping item or Staple on a phone (`text-item-name`)                    | 17px Schibsted Grotesk                                                              |
-| A closed ingredient row in the Recipe form on a phone (`text-item-name`) | 17px Schibsted Grotesk, weight 400; 14px wider                                      |
-| A Recipe card's name in the Menu form on a phone (`text-item-name`)      | 17px Schibsted Grotesk, weight 500; 14px wider                                      |
-| The line that says an import is running, on a phone (`text-item-name`)   | 17px Schibsted Grotesk, weight 500; 18px wider                                      |
-| A step on a phone (`text-step`)                                          | 17px Schibsted Grotesk, 1.6 lines; its numeral 24px Newsreader (`text-step-number`) |
-| An ingredient on a phone (`text-ingredient`)                             | 17px Schibsted Grotesk, 1.45 lines                                                  |
-| Body, and ingredients and steps wider                                    | 16px Schibsted Grotesk                                                              |
-| UI label                                                                 | 14px Schibsted Grotesk                                                              |
-| Small label (`text-label`)                                               | 13.5px Schibsted Grotesk, weight 600                                                |
-| Caption                                                                  | 13px Schibsted Grotesk                                                              |
-| Tiny navigation label                                                    | 12px Schibsted Grotesk                                                              |
+| Use                                                                                  | Size                                                                                |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| Tab title (`TabTitle`)                                                               | 40px Newsreader, 1.05 lines                                                         |
+| Recipe title on a phone (`text-recipe-title`)                                        | 36px Newsreader, 1.1 lines; 32px wider                                              |
+| Menu title on a phone (`text-menu-title`)                                            | 32px Newsreader, 1.125 lines; wider, 24px on its page and 30px shared               |
+| An edit screen's, Import's or a Settings page's title on a phone (`text-edit-title`) | 28px Newsreader, 1.15 lines; 24px wider                                             |
+| Plan's day heading on a phone                                                        | 31px Newsreader                                                                     |
+| Recipe or Menu section heading on a phone (`text-recipe-section`)                    | 24px Newsreader; 18px wider                                                         |
+| A section of the Recipe or Menu form on a phone (`text-recipe-section`)              | 24px Newsreader; wider, the 12px uppercase label                                    |
+| Other page title                                                                     | 24px Newsreader                                                                     |
+| Plan dish on a phone (`text-dish`)                                                   | 17px Schibsted Grotesk, 19px under a Dinner's photo (`text-dish-photo`)             |
+| Recipe or Menu row on a phone (`text-list-name`)                                     | 17px Schibsted Grotesk                                                              |
+| Shopping item or Staple on a phone (`text-item-name`)                                | 17px Schibsted Grotesk                                                              |
+| A closed ingredient row in the Recipe form on a phone (`text-item-name`)             | 17px Schibsted Grotesk, weight 400; 14px wider                                      |
+| A Recipe card's name in the Menu form on a phone (`text-item-name`)                  | 17px Schibsted Grotesk, weight 500; 14px wider                                      |
+| The line that says an import is running, on a phone (`text-item-name`)               | 17px Schibsted Grotesk, weight 500; 18px wider                                      |
+| A row's name in Settings on a phone (`text-item-name`)                               | 17px Schibsted Grotesk, weight 500; 16px wider                                      |
+| A step on a phone (`text-step`)                                                      | 17px Schibsted Grotesk, 1.6 lines; its numeral 24px Newsreader (`text-step-number`) |
+| An ingredient on a phone (`text-ingredient`)                                         | 17px Schibsted Grotesk, 1.45 lines                                                  |
+| Body, and ingredients and steps wider                                                | 16px Schibsted Grotesk                                                              |
+| UI label                                                                             | 14px Schibsted Grotesk                                                              |
+| Small label (`text-label`)                                                           | 13.5px Schibsted Grotesk, weight 600                                                |
+| Caption                                                                              | 13px Schibsted Grotesk                                                              |
+| Tiny navigation label                                                                | 12px Schibsted Grotesk                                                              |
 
 The Plan dish sizes (`text-dish`, `text-dish-photo`), the list row size
 (`text-list-name`), the Shopping item and Staple size (`text-item-name`), the
@@ -88,13 +89,12 @@ the line height again (`leading-(--text-step--line-height)`).
 A small label (a Meal's label, the weekday in Plan's strip and over its day, the
 groups of a picker, a heading inside a Recipe's ingredients, a Recipe's facts
 and its Notes) is sentence case at weight 600 with no tracking:
-`text-label font-semibold`. On a phone a field's label in the Recipe form, in
-the Menu form and on Import is the same small label, muted, on its own line
-above the field (`phoneFieldLabelClass` in `app/utils/misc.tsx`); wider it is
-the 14px UI label. Other screens set theirs uppercase and letter-spaced
-(`sectionLabelClass`), as the sections of the Recipe form and the Menu form's
-Recipes heading do on wider screens. A printed Recipe keeps its uppercase
-headings.
+`text-label font-semibold`. On a phone a field's label is the same small label,
+muted, on its own line above the field; the shared `Label` sets it, so every
+form has it. Wider it is the 14px UI label. Wider screens set a section's label
+uppercase and letter-spaced (`sectionLabelClass`), as the sections of the Recipe
+form, the Menu form's Recipes heading and the groups of Settings do; on a phone
+those are sentence case. A printed Recipe keeps its uppercase headings.
 
 Every tab's own page (Recipes, Menus, Staples, Plan, Shopping, Settings) opens
 with its title in `TabTitle`, beside the controls of its row.
@@ -240,6 +240,24 @@ each screen:
   drop below 44px only under the `desktop:` variant (a wide screen with a fine
   pointer), never by width alone: a phone on its side or an iPad is wide but
   touched. Button `sm` is compact only there.
+- **Button labels** on a phone are 16px on a full-size button (`default` and
+  `lg`) and 14px on a small one (`sm`). A full-size button that reads as a small
+  control keeps 14px with `phone:text-sm` where it is used: the Need pill, the
+  header's Log in and Sign up, a confirm sheet's two buttons, the round add
+  button beside a tab's title, the two buttons of a Household invite, and
+  Later's Clear checked on Shopping. `wide`, `pill` and `icon` set no size. An
+  icon that would follow the label's size (`1em`) has a fixed size where the
+  label is 16px on a phone only, and `StatusButton`'s spinner, tick and cross
+  hold 14px on a phone, so the words are all that differs from wider screens,
+  where labels are 14px.
+- **Fields.** The field helpers in `app/components/forms.tsx` carry the phone
+  sizes, so a screen adds none. A label (`Field`, `TextareaField`, `OTPField`)
+  is the small label, 13.5px semibold and muted, on its own line. An error line
+  (`ErrorList`) is 13.5px in the error colour. The words beside a checkbox
+  (`CheckboxField`) are 16px in ink, since they are read as text. A `Field` or
+  `TextareaField` with another field helper straight after it keeps 16px under
+  it; two fields side by side turn that off. The Meal editor's error line stays
+  14px.
 - **Chip** is the one chip: 44px tall, fully rounded, a hairline border, and a
   green fill when pressed (`aria-pressed`). Use it for picking days, labels, and
   classification values, and for one-tap suggestions with a leading `+`. A
@@ -746,6 +764,36 @@ keeps its own Add Meal.
   on the page as a row of chips.
 - No availability state, quantities, expiry dates, stock ledger, images, or
   category sections.
+
+### Settings
+
+On a phone Settings and its pages take the sizes of the other phone screens.
+From 768px they are set in the 14 and 16px of the wider layouts.
+
+- Settings is a tab, so its title is the 40px tab title. A page pushed from it
+  (Edit profile, Password, Email, Passkeys, Household, Import data, Two-factor
+  auth) has a 28px serif title (`text-edit-title`).
+- On Settings itself a group's heading (General, Account, Data) is the small
+  label in sentence case, muted. A row is at least 44px: its name at 17px and
+  weight 500, its value at the right at 16px and muted. The profile block has
+  the name at 17px over the email at 13.5px, and the tier pill reads at 13.5px.
+  The big initial keeps its 20px.
+- A paragraph that explains a page or a section is 16px and muted; the steps of
+  setting up two-factor are 17px, since they are read through. Small print (what
+  deleting the account does, an invite's expiry, the notes on Import data) is
+  13.5px.
+- The Household page has real sections (Members, Invites, Leave Household), so
+  their headings are 24px in the serif (`text-recipe-section`). One label over
+  one list (Open invites, the kind of export being read) is the small label.
+  "Import complete" reads at 17px.
+- In a list (members, passkeys, invites) a name is 17px at weight 500 over a
+  13.5px muted line.
+- A page with one main action (Save changes, Change password, Send confirmation,
+  Add passkey, Enable 2FA, Disable 2FA) sets it full width and 48px tall. Pages
+  with several keep 44px buttons.
+- The small buttons inside rows (Remove, Copy, Copy link, Revoke, a passkey's
+  Delete) are `sm` and keep 14px. Deleting the account and logging out of other
+  sessions are full-width and read at 16px.
 
 ### Empty states and onboarding
 

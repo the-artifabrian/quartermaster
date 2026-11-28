@@ -121,6 +121,8 @@ function UpdateProfileForm({
 		<fetcher.Form method="POST" {...getFormProps(form)}>
 			<div className="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
 				<Field
+					// Beside Name from 640px, where the row has no gap under it.
+					className="sm:mb-0!"
 					labelProps={{
 						htmlFor: fields.username.id,
 						children: 'Username',
@@ -137,10 +139,11 @@ function UpdateProfileForm({
 
 			<ErrorList errors={form.errors} id={form.errorId} />
 
-			<div className="mt-8 flex justify-center">
+			<div className="phone:block mt-8 flex justify-center">
 				<StatusButton
 					type="submit"
 					size="wide"
+					className="phone:h-12 phone:w-full phone:px-4 phone:py-2 phone:text-base phone:font-semibold"
 					name="intent"
 					value={profileUpdateActionIntent}
 					status={

@@ -12,7 +12,6 @@ import {
 	tabPanelProps,
 } from '#app/components/ui/segmented-control.tsx'
 import { Textarea } from '#app/components/ui/textarea.tsx'
-import { phoneFieldLabelClass } from '#app/utils/misc.tsx'
 import { useIsNativeShell } from '#app/utils/request-info.ts'
 import { useFitFileInput } from '#app/utils/downscale-image.ts'
 import { findRecipeFromUrl } from '#app/utils/import-recipe-save.server.ts'
@@ -194,7 +193,7 @@ function useShareImport({
 // right.
 const actionsClass =
 	'flex flex-col-reverse gap-2 not-phone:sm:flex-row not-phone:sm:justify-end not-phone:sm:gap-4'
-const actionClass = 'phone:h-12 phone:text-base'
+const actionClass = 'phone:h-12'
 const primaryActionClass = `${actionClass} phone:font-semibold`
 const errorClass =
 	'border-destructive bg-destructive/5 text-foreground-destructive phone:text-label rounded-lg border p-4 text-sm'
@@ -423,9 +422,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					>
 						<input type="hidden" name="intent" value="fetch" />
 						<div className="space-y-2">
-							<Label htmlFor="url" className={phoneFieldLabelClass}>
-								Recipe link
-							</Label>
+							<Label htmlFor="url">Recipe link</Label>
 							<Input
 								id="url"
 								name="url"
@@ -452,9 +449,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 						className="space-y-4"
 					>
 						<div className="space-y-2">
-							<Label htmlFor="rawText" className={phoneFieldLabelClass}>
-								Recipe text
-							</Label>
+							<Label htmlFor="rawText">Recipe text</Label>
 							<Textarea
 								id="rawText"
 								name="rawText"
@@ -506,7 +501,7 @@ export default function ImportRecipe({ loaderData }: Route.ComponentProps) {
 					>
 						<input type="hidden" name="intent" value="extract-image" />
 						<div className="space-y-2">
-							<Label htmlFor="image" className={phoneFieldLabelClass}>
+							<Label htmlFor="image">
 								Upload screenshots (up to {MAX_IMPORT_IMAGE_COUNT})
 							</Label>
 							<Input

@@ -180,6 +180,7 @@ export default function ChangePasswordRoute({
 			<div className="mt-8">
 				<StatusButton
 					type="submit"
+					className="phone:h-12 phone:w-full phone:font-semibold"
 					status={isPending ? 'pending' : (form.status ?? 'idle')}
 				>
 					Change password

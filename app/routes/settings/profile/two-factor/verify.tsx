@@ -141,9 +141,7 @@ export default function TwoFactorRoute({
 
 	return (
 		<div>
-			{/* The code field's own input is wider than its boxes, for password
-			    managers: clipped here, it never scrolls the page sideways. */}
-			<div className="phone:overflow-x-clip flex flex-col items-center gap-4">
+			<div className="flex flex-col items-center gap-4">
 				{/* ph-no-capture keeps the secret out of PostHog's click events,
 				which record the clicked element's text and attributes. */}
 				<img

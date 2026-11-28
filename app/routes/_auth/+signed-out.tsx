@@ -1,29 +1,31 @@
 import { cn } from '#app/utils/misc.tsx'
 
 // What the signed-out forms (Log in, Sign up, Forgot password, the code
-// screens, Reset password and Set up your account) share on a phone. Every
-// class here is behind `phone:`, so wider screens keep each screen's own
-// layout.
+// screens, Reset password and Set up your account) share on a phone. The
+// classes are behind `phone:`, so wider screens keep each screen's own layout;
+// the title's serif and its 24px are the one exception, as they are every
+// screen's own title look from 768px.
+
+/** The page: 32px above the title and 96px under the form. */
+export const signedOutPageClass = 'phone:pt-8 phone:pb-24'
 
 /**
- * The page: 32px above the title and 96px under the form. A title reads from
- * the left edge; `title-centred` beside this class centres it, with its
- * paragraph and the code field, and sets it a size up.
+ * One column for the title and the form: the page gutter, 448px at most. No
+ * min-width, so a form that is full width from 768px stops at 448px too.
  */
-export const signedOutPageClass = 'group/out phone:pt-8 phone:pb-24'
-
-/** One column for the title and the form: the page gutter, 448px at most. */
-export const signedOutColumnClass = 'phone:mx-auto phone:w-full phone:max-w-md'
+export const signedOutColumnClass =
+	'phone:mx-auto phone:w-full phone:max-w-md phone:min-w-0'
 
 /** The title's block and any text that follows its alignment. */
-export const signedOutAlignClass =
-	'phone:text-left phone:group-[.title-centred]/out:text-center'
+export const signedOutAlignClass = 'phone:text-left'
 
 /** A row that starts where the title does. */
-export const signedOutJustifyClass =
-	'phone:justify-start phone:group-[.title-centred]/out:justify-center'
+export const signedOutJustifyClass = 'phone:justify-start'
 
-/** The paragraph under the title, 8px below it. */
+/**
+ * The paragraph under the title. Each screen sets the 8px between them, as a
+ * margin or as its title block's gap.
+ */
 export const signedOutLeadClass = 'phone:text-base'
 
 /** A paragraph that is the one thing to read on its screen. */
@@ -43,7 +45,7 @@ export const signedOutMainActionClass = 'phone:h-12 phone:font-semibold'
 export const signedOutLinkClass =
 	'phone:inline-flex phone:min-h-11 phone:items-center phone:text-base'
 
-/** A link on its own row under the main action, 24px below it. */
+/** A link on its own row under the main action, its line 24px below it. */
 export const signedOutRowLinkClass =
 	'phone:mt-3.5 phone:flex phone:min-h-11 phone:items-center phone:justify-center phone:text-base'
 
@@ -53,10 +55,7 @@ export function SignedOutTitle({
 }: React.ComponentProps<'h1'>) {
 	return (
 		<h1
-			className={cn(
-				'phone:text-edit-title phone:group-[.title-centred]/out:text-menu-title font-serif text-2xl',
-				className,
-			)}
+			className={cn('phone:text-edit-title font-serif text-2xl', className)}
 			{...props}
 		/>
 	)

@@ -8,6 +8,7 @@ import { GeneralErrorBoundary } from '#app/components/error-boundary.tsx'
 import { ErrorList, OTPField } from '#app/components/forms.tsx'
 import { StatusButton } from '#app/components/ui/status-button.tsx'
 import { cn, useIsPending } from '#app/utils/misc.tsx'
+import { useOptionalUser } from '#app/utils/user.ts'
 import { type Route } from './+types/verify.ts'
 import {
 	signedOutAlignClass,
@@ -113,6 +114,10 @@ export default function VerifyRoute(props: Route.ComponentProps) {
 function VerifyStep({ actionData }: Route.ComponentProps) {
 	const [searchParams] = useSearchParams()
 	const isPending = useIsPending()
+	// Signed in, this screen comes from Settings (a 2FA check before a change,
+	// or a new email address) and opens under a notice that says why. On a
+	// phone it keeps the top space it has wider, which clears that notice.
+	const signedIn = Boolean(useOptionalUser())
 	const parseWithZoddType = VerificationTypeSchema.safeParse(
 		searchParams.get(typeQueryParam),
 	)
@@ -182,7 +187,7 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 			: null
 
 	return (
-		<main className={pageClass}>
+		<main className={cn(pageClass, signedIn && 'phone:pt-20')}>
 			<div className={headClass}>
 				{linkReady ? (
 					<>
@@ -192,7 +197,11 @@ function VerifyStep({ actionData }: Route.ComponentProps) {
 				) : type ? (
 					headings[type]
 				) : (
-					'This link isn’t valid'
+					// The screen’s title, in the serif titles’ look on a phone; from 768px
+					// it keeps the body text’s look.
+					<h1 className="phone:font-serif phone:text-edit-title phone:font-medium">
+						This link isn’t valid
+					</h1>
 				)}
 			</div>
 
@@ -297,7 +306,8 @@ function LoggedInStep({ username }: { username: string }) {
 		<main className={pageClass}>
 			<div className={headClass}>
 				<SignedOutTitle ref={heading} tabIndex={-1}>
-					You’re logged in as {username}
+					You’re logged in as {/* A long username breaks inside the column. */}
+					<span className="phone:wrap-anywhere">{username}</span>
 				</SignedOutTitle>
 				<p className={leadClass}>
 					Log out to finish signing up the new address. The code in your email

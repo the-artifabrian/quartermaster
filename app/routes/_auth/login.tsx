@@ -452,6 +452,8 @@ function PasskeyLoginButton({
 			<StatusButton
 				id="passkey-login-button"
 				aria-describedby="passkey-login-button-error"
+				// Outlined, so Log in is the one filled button.
+				variant="outline"
 				className="phone:h-12 w-full"
 				status={pending ? 'pending' : shownError ? 'error' : 'idle'}
 				type="submit"

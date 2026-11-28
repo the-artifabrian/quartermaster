@@ -213,7 +213,7 @@ export function ClearCheckedControl({
 				aria-label={`Clear checked items from ${sectionLabel}`}
 				onClick={clear}
 				// 44px tall for the thumb; pt-1 above keeps the link where it was.
-				className="text-muted-foreground hover:text-foreground min-h-11 px-3 py-0 text-sm underline underline-offset-2"
+				className="text-muted-foreground hover:text-foreground phone:text-sm min-h-11 px-3 py-0 text-sm underline underline-offset-2"
 			>
 				Clear checked
 			</Button>

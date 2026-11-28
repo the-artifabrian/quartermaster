@@ -20,7 +20,7 @@ import {
 	stapleRowClassName,
 } from './staple-row-styles.ts'
 import { buttonVariants } from './ui/button.tsx'
-import { CheckCircle as RowCheckCircle } from './ui/check-circle.tsx'
+import { CheckCircle } from './ui/check-circle.tsx'
 import { chipClassName } from './ui/chip.tsx'
 import { Icon, type IconName } from './ui/icon.tsx'
 import { tabTitleClassName } from './ui/title-add-button.tsx'
@@ -283,12 +283,7 @@ function MealOnDay({
 				<span className="text-muted-foreground flex size-11 shrink-0 items-center justify-center">
 					<Icon name="plus" className="size-5" />
 				</span>
-				<span
-					className={cn(
-						'-mr-3 flex size-11 shrink-0 items-center justify-center',
-						meal.menuOpen ? 'text-foreground' : 'text-muted-foreground',
-					)}
-				>
+				<span className="text-muted-foreground -mr-3 flex size-11 shrink-0 items-center justify-center">
 					<Icon name="dots-horizontal" className="size-5" />
 				</span>
 			</div>
@@ -310,7 +305,7 @@ function MealOnDay({
 						) : null}
 						<ScaleField multiplier={dish.multiplier ?? 1} />
 						<span className="-mr-2.5 flex size-11 shrink-0 items-center justify-center">
-							<CheckCircle checked={Boolean(dish.cooked)} />
+							<CookedCircle cooked={Boolean(dish.cooked)} />
 						</span>
 					</div>
 				))}
@@ -344,14 +339,15 @@ function ScaleField({ multiplier }: { multiplier: number }) {
 }
 
 /**
- * A Meal's dots menu, opened under its button (DropdownMenuContent). The
- * first Meal of a day has no Move earlier.
+ * A Meal's dots menu, opened 4px under its button with their right edges
+ * together (DropdownMenuContent, `align="end"`). The first Meal of a day has
+ * no Move earlier.
  */
 function MealMenu({ canMoveDown }: { canMoveDown: boolean }) {
 	const item =
 		'relative flex min-h-11 items-center gap-2 rounded-lg px-3 py-2.5 text-sm'
 	return (
-		<div className="bg-popover text-popover-foreground border-border shadow-warm-md absolute top-11 right-0 z-10 min-w-[8rem] rounded-lg border p-1">
+		<div className="bg-popover text-popover-foreground border-border shadow-warm-md absolute top-12 -right-3 z-10 min-w-[8rem] rounded-lg border p-1">
 			{canMoveDown ? (
 				<>
 					<p className={item}>
@@ -382,18 +378,18 @@ function MealMenu({ canMoveDown }: { canMoveDown: boolean }) {
 	)
 }
 
-/** The 24px check circle Plan's dishes and Shopping's rows share. */
-function CheckCircle({ checked }: { checked: boolean }) {
+/** The cooked circle of a dish on a phone's day (MealCard's DayCookedCircle). */
+function CookedCircle({ cooked }: { cooked: boolean }) {
 	return (
 		<span
 			className={cn(
 				'flex size-6 shrink-0 items-center justify-center rounded-full border-2',
-				checked
+				cooked
 					? 'border-primary-fill bg-primary-fill text-primary-foreground'
 					: 'border-control-edge',
 			)}
 		>
-			{checked ? <Icon name="check" className="size-3.5" /> : null}
+			{cooked ? <Icon name="check" className="size-3.5" /> : null}
 		</span>
 	)
 }
@@ -456,33 +452,38 @@ export function RecipePhone({ scale, className }: PhoneProps) {
 			className={className}
 			label="A Recipe on a phone: Miso-glazed salmon, scaled to 2×, two ingredients checked off, and its first steps"
 		>
-			{/* The nav bar (NavBar): Back, then the page's own buttons. */}
-			<div
-				className={cn(
-					'bg-card border-border/50 grid h-11 shrink-0 grid-cols-[max-content_1fr_max-content] items-center border-b',
-					page,
-				)}
-			>
-				<span className="text-primary -ml-3 flex min-h-11 items-center gap-0.5 px-2 pl-1 text-[17px] leading-none">
-					<Icon name="chevron-left" className="size-6 shrink-0" />
-					Recipes
-				</span>
-				<span />
-				<span className="-mr-[11px] flex items-center">
-					{(['heart-filled', 'share', 'dots-horizontal'] as IconName[]).map(
-						(name) => (
-							<span
-								key={name}
-								className={cn(
-									'flex size-11 items-center justify-center',
-									name === 'heart-filled' ? 'text-primary' : 'text-foreground',
-								)}
-							>
-								<Icon name={name} className="size-[22px]" />
-							</span>
-						),
+			{/* The nav bar (NavBar), 44px over the header's hairline: Back, then
+			    the page's own buttons. */}
+			<div className="bg-card border-border/50 shrink-0 border-b">
+				<div
+					className={cn(
+						'grid h-11 grid-cols-[max-content_1fr_max-content] items-center',
+						page,
 					)}
-				</span>
+				>
+					<span className="text-primary -ml-3 flex min-h-11 items-center gap-0.5 px-2 pl-1 text-[17px] leading-none">
+						<Icon name="chevron-left" className="size-6 shrink-0" />
+						Recipes
+					</span>
+					<span />
+					<span className="-mr-[11px] flex items-center">
+						{(['heart-filled', 'share', 'dots-horizontal'] as IconName[]).map(
+							(name) => (
+								<span
+									key={name}
+									className={cn(
+										'flex size-11 items-center justify-center',
+										name === 'heart-filled'
+											? 'text-primary'
+											: 'text-foreground',
+									)}
+								>
+									<Icon name={name} className="size-[22px]" />
+								</span>
+							),
+						)}
+					</span>
+				</div>
 			</div>
 			<div className={cn('pt-4', page)}>
 				<p className="text-recipe-title font-serif leading-(--text-recipe-title--line-height) tracking-[-0.02em]">
@@ -526,14 +527,14 @@ export function RecipePhone({ scale, className }: PhoneProps) {
 						</span>
 						<span className={chipClassName(false)}>Metric</span>
 					</span>
-					<span className="text-muted-foreground text-label basis-full pb-1 leading-relaxed">
-						Makes 8 servings · original: 4
-					</span>
 				</div>
+				<p className="text-muted-foreground text-label pb-1 leading-relaxed">
+					Makes 8 servings · original: 4
+				</p>
 				<ul className="text-ingredient leading-(--text-ingredient--line-height)">
 					{salmonIngredients.map((item) => (
 						<li key={item.name} className="flex min-h-14 items-center gap-3">
-							<RowCheckCircle checked={Boolean(item.checked)} />
+							<CheckCircle checked={Boolean(item.checked)} />
 							<span
 								className={cn(
 									'min-w-0 flex-1 py-2.5',
@@ -571,7 +572,7 @@ export function RecipePhone({ scale, className }: PhoneProps) {
 							<span className="text-step-number text-primary flex h-[1.7rem] items-center font-serif font-normal">
 								{index + 1}
 							</span>
-							<span className="text-step leading-(--text-step--line-height)">
+							<span className="text-step leading-(--text-step--line-height) text-pretty">
 								{step}
 							</span>
 						</li>
@@ -620,7 +621,7 @@ export function StaplesPhone({ scale, className }: PhoneProps) {
 				</p>
 				{/* The search row as it rests under the title, before it pins. */}
 				<div className="border-border -mx-4 mt-4 border-b px-4 py-3.5">
-					<div className="border-input bg-background text-muted-foreground flex h-11 items-center gap-2 rounded-md border px-3 text-base">
+					<div className="border-input bg-background text-muted-foreground flex h-11 items-center gap-[9px] rounded-md border pr-3 pl-[11px] text-base">
 						<Icon name="magnifying-glass" size="sm" />
 						Search
 					</div>
@@ -695,22 +696,25 @@ export function ShoppingPhone({
 				</div>
 			</div>
 			<div className={cn('pt-2', page)}>
+				{/* One list: on a phone the checked rows gather under their own
+				    heading inside it. */}
 				<div className="divide-border/40 mt-2 divide-y">
-					{toBuy.map((row) => (
-						<ShoppingRow key={row.name} {...row} />
+					{toBuy.map((row, index) => (
+						<ShoppingRow
+							key={row.name}
+							{...row}
+							lastToBuy={index === toBuy.length - 1}
+						/>
 					))}
-				</div>
-				{/* On a phone the checked rows gather under their own heading. */}
-				<div className="border-border mt-6 flex min-h-11 items-center gap-2 border-b">
-					<span className="text-label font-semibold">Checked</span>
-					<span className="text-muted-foreground text-label tabular-nums">
-						{checkedRows.length} of {toBuy.length + checkedRows.length}
-					</span>
-					<span className="text-primary text-label -mr-3 ml-auto flex min-h-11 items-center px-3 font-semibold">
-						Clear checked
-					</span>
-				</div>
-				<div className="divide-border/40 divide-y">
+					<div className="border-border mt-6 flex min-h-11 items-center gap-2 border-b">
+						<span className="text-[0.84375rem] font-semibold">Checked</span>
+						<span className="text-muted-foreground text-[0.84375rem] tabular-nums">
+							{checkedRows.length} of {toBuy.length + checkedRows.length}
+						</span>
+						<span className="text-primary -mr-3 ml-auto flex min-h-11 items-center px-3 text-[0.84375rem] font-semibold">
+							Clear checked
+						</span>
+					</div>
 					{checkedRows.map((row) => (
 						<ShoppingRow key={row.name} {...row} checked />
 					))}
@@ -746,38 +750,45 @@ function ShoppingRow({
 	name,
 	amount,
 	checked = false,
+	lastToBuy = false,
 }: {
 	name: string
 	amount: string
 	checked?: boolean
+	/** The row over the Checked heading has no hairline under it. */
+	lastToBuy?: boolean
 }) {
 	return (
-		<div className="-mr-3.5 flex items-center gap-3">
-			<div className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-2.5">
-				<CheckCircle checked={checked} />
-				<div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
-					<span
-						className={cn(
-							'text-item-name font-medium',
-							checked &&
-								'text-faint decoration-faint line-through decoration-2',
-						)}
-					>
-						{name}
-					</span>
-					<span
-						className={cn(
-							'text-sm',
-							checked ? 'text-faint' : 'text-muted-foreground',
-						)}
-					>
-						{amount}
-					</span>
+		// The hairline under a row stops on the content edge; the dots reach
+		// past it.
+		<div className={cn(lastToBuy && 'border-b-transparent')}>
+			<div className="-mr-3.5 flex items-center gap-3">
+				<div className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-2.5">
+					<CheckCircle checked={checked} />
+					<div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
+						<span
+							className={cn(
+								'text-item-name font-medium',
+								checked &&
+									'text-faint decoration-faint line-through decoration-2',
+							)}
+						>
+							{name}
+						</span>
+						<span
+							className={cn(
+								'text-sm',
+								checked ? 'text-faint' : 'text-muted-foreground',
+							)}
+						>
+							{amount}
+						</span>
+					</div>
 				</div>
+				<span className="text-muted-foreground/70 flex size-11 shrink-0 items-center justify-center">
+					<Icon name="dots-horizontal" className="size-4" />
+				</span>
 			</div>
-			<span className="text-muted-foreground/70 flex size-11 shrink-0 items-center justify-center">
-				<Icon name="dots-horizontal" className="size-4" />
-			</span>
 		</div>
 	)
 }

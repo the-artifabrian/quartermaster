@@ -35,7 +35,10 @@ export function ErrorList({
 			className="flex flex-col gap-1 outline-none"
 		>
 			{errorsToRender.map((e) => (
-				<li key={e} className="text-foreground-destructive text-sm">
+				<li
+					key={e}
+					className="text-foreground-destructive phone:text-label text-sm"
+				>
 					{e}
 				</li>
 			))}
@@ -287,10 +290,12 @@ export function CheckboxField({
 					}}
 					type="button"
 				/>
+				{/* The words beside a checkbox are read as text, not as a field's
+				    label: on a phone they are 16px in ink. */}
 				<label
 					htmlFor={id}
 					{...labelProps}
-					className="text-muted-foreground self-center text-sm"
+					className="text-muted-foreground phone:text-foreground phone:text-base self-center text-sm"
 				/>
 			</div>
 			<div className="px-4 pt-1 pb-3">

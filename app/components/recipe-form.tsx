@@ -10,11 +10,7 @@ import { isEditScreenDone } from '#app/utils/edit-screen.ts'
 import { IMG_SIZES } from '#app/utils/image-route.ts'
 import { listErrors } from '#app/utils/list-errors.ts'
 import { CREATED_IDS_FIELD, loadedIdsValue } from '#app/utils/loaded-rows.ts'
-import {
-	cn,
-	phoneFieldLabelClass,
-	sectionLabelClass,
-} from '#app/utils/misc.tsx'
+import { cn, sectionLabelClass } from '#app/utils/misc.tsx'
 import { getHistoryLog, resolveAfterSave } from '#app/utils/nav-back.ts'
 import { historyIndex } from '#app/utils/nav-direction.ts'
 import { haptic } from '#app/utils/shell-bridge.ts'
@@ -336,9 +332,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 			encType="multipart/form-data"
 			{...getFormProps(form)}
 			onKeyDown={(event) => keepReturnFromSaving(event, { titleSaves: true })}
-			// An error's line is the shared list's; on a phone it reads at the
-			// small text size wherever it shows in the form.
-			className="phone:[&_li]:text-label space-y-4"
+			className="space-y-4"
 		>
 			<ClientLeavesField />
 			{loadedIds && (
@@ -375,7 +369,7 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 			)}
 
 			<Field
-				labelProps={{ children: 'Title', className: phoneFieldLabelClass }}
+				labelProps={{ children: 'Title' }}
 				inputProps={{
 					...getInputProps(fields.title, { type: 'text' }),
 					placeholder: 'Recipe title',
@@ -578,7 +572,6 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 					<TextareaField
 						labelProps={{
 							children: 'Description',
-							className: phoneFieldLabelClass,
 						}}
 						textareaProps={{
 							...getInputProps(fields.description, { type: 'text' }),
@@ -591,7 +584,6 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 					<Field
 						labelProps={{
 							children: 'Source URL',
-							className: phoneFieldLabelClass,
 						}}
 						inputProps={{
 							...getInputProps(fields.sourceUrl, { type: 'url' }),
@@ -603,7 +595,6 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 					<TextareaField
 						labelProps={{
 							children: 'My notes',
-							className: phoneFieldLabelClass,
 						}}
 						textareaProps={{
 							...getInputProps(fields.notes, { type: 'text' }),
@@ -618,7 +609,6 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 							<Field
 								labelProps={{
 									children: 'Active time (min)',
-									className: phoneFieldLabelClass,
 								}}
 								inputProps={{
 									...getInputProps(fields.activeTime, {
@@ -642,7 +632,6 @@ export function RecipeForm({ recipe, metadataOptions = [] }: RecipeFormProps) {
 							<Field
 								labelProps={{
 									children: 'Total time (min)',
-									className: phoneFieldLabelClass,
 								}}
 								inputProps={{
 									...getInputProps(fields.totalTime, {

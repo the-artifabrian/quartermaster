@@ -560,7 +560,8 @@ function MealDetailsForm({
 				</div>
 			)}
 
-			<div role="alert">
+			{/* The Meal editor keeps its 14px error line on a phone. */}
+			<div role="alert" className="phone:[&_li]:text-sm">
 				<ErrorList
 					errors={Object.values(fetcher.data?.submission?.error ?? {}).flat()}
 				/>

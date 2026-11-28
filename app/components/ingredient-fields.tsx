@@ -679,7 +679,7 @@ function RecipeLinkPicker({
 			) : (
 				<ul className={cn(!inSheet && 'max-h-48 overflow-y-auto')}>
 					{results.map((recipe) => (
-						<li key={recipe.id}>
+						<li key={recipe.id} className="phone:text-label">
 							<button
 								type="button"
 								className={cn(
